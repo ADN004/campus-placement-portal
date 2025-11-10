@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(psql:*)",
+      "Bash(node scripts/seedDatabase.js:*)",
+      "Bash(node scripts/fixPasswords.js:*)",
+      "Bash(node scripts/addStudentColumns.js:*)",
+      "Bash(node scripts/createJobRequestsTable.js:*)",
+      "Bash(node scripts/addJobFields.js:*)",
+      "Bash(node:*)",
+      "Bash(npm start)",
+      "Bash(timeout:*)",
+      "Bash(exit 0)",
+      "Bash(taskkill:*)",
+      "Bash(powershell -Command:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

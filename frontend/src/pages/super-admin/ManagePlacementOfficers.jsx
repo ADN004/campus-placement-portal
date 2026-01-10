@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { superAdminAPI, commonAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import {
@@ -15,6 +15,10 @@ import {
   Plus,
   Trash2,
   AlertTriangle,
+  Key,
+  Camera,
+  Upload,
+  User,
 } from 'lucide-react';
 
 export default function ManagePlacementOfficers() {
@@ -30,6 +34,7 @@ export default function ManagePlacementOfficers() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showRemoveModal, setShowRemoveModal] = useState(false);
   const [showClearHistoryModal, setShowClearHistoryModal] = useState(false);
+  const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
   const [selectedOfficer, setSelectedOfficer] = useState(null);
   const [officerHistory, setOfficerHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -194,6 +199,28 @@ export default function ManagePlacementOfficers() {
     }
   };
 
+  const handleResetPassword = (officer) => {
+    setSelectedOfficer(officer);
+    setShowResetPasswordModal(true);
+  };
+
+  const handleConfirmResetPassword = async () => {
+    if (!selectedOfficer) return;
+
+    setSubmitting(true);
+    try {
+      await superAdminAPI.resetPlacementOfficerPassword(selectedOfficer.id);
+      toast.success('Password reset to default (123) successfully');
+      setShowResetPasswordModal(false);
+      setSelectedOfficer(null);
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to reset password');
+      console.error('Error resetting password:', error);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const getStatusBadge = (status) => {
     if (status === 'active' || status === 1 || status === true) {
       return <span className="badge badge-success">Active</span>;
@@ -210,6 +237,13 @@ export default function ManagePlacementOfficers() {
     });
   };
 
+  // View officer photo in new tab (Super admins cannot upload/delete officer photos)
+  const handleViewPhoto = (photoUrl) => {
+    if (photoUrl) {
+      window.open(photoUrl, '_blank');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -219,64 +253,93 @@ export default function ManagePlacementOfficers() {
   }
 
   return (
-    <div>
-      <div className="mb-8 flex items-start justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Manage Placement Officers</h1>
-          <p className="text-gray-600 mt-2">
-            View and manage placement officers across all 60 colleges
-          </p>
-        </div>
-        <button
-          onClick={handleAddOfficer}
-          className="btn btn-primary flex items-center space-x-2"
-        >
-          <Plus size={20} />
-          <span>Add Officer</span>
-        </button>
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-rose-50 pb-8">
+      {/* Animated Background Elements */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-10 right-10 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"></div>
+        <div className="absolute bottom-10 left-10 w-72 h-72 bg-pink-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse" style={{ animationDelay: '2s' }}></div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-72 h-72 bg-rose-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse" style={{ animationDelay: '4s' }}></div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="card">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-600 text-sm font-medium">Total Officers</p>
-              <p className="text-3xl font-bold text-gray-900 mt-2">{officers.length}</p>
-            </div>
-            <div className="p-4 rounded-full bg-blue-100 text-blue-600">
-              <Building2 size={24} />
-            </div>
+      <div className="relative z-10">
+        {/* Header Section with Gradient */}
+        <div className="relative overflow-hidden bg-gradient-to-br from-purple-600 via-pink-600 to-rose-600 rounded-3xl shadow-2xl mb-8 p-10">
+          <div className="absolute inset-0 bg-black opacity-10"></div>
+          <div className="absolute inset-0">
+            <div className="absolute inset-0 bg-gradient-to-r from-white/5 via-transparent to-white/5 animate-pulse"></div>
           </div>
-        </div>
-        <div className="card">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-600 text-sm font-medium">Active Officers</p>
-              <p className="text-3xl font-bold text-gray-900 mt-2">
-                {officers.filter((o) => o.status === 'active' || o.status === 1).length}
-              </p>
-            </div>
-            <div className="p-4 rounded-full bg-green-100 text-green-600">
-              <CheckCircle size={24} />
-            </div>
-          </div>
-        </div>
-        <div className="card">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-600 text-sm font-medium">Regions Covered</p>
-              <p className="text-3xl font-bold text-gray-900 mt-2">{regions.length}</p>
-            </div>
-            <div className="p-4 rounded-full bg-purple-100 text-purple-600">
-              <MapPin size={24} />
-            </div>
-          </div>
-        </div>
-      </div>
 
-      {/* Filters */}
-      <div className="card mb-6">
+          <div className="relative z-10 flex justify-between items-start">
+            <div className="flex items-center space-x-5">
+              <div className="relative">
+                <div className="absolute inset-0 bg-white/30 rounded-3xl blur-xl animate-pulse"></div>
+                <div className="relative p-5 bg-white/20 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/30">
+                  <User className="text-white" size={40} />
+                </div>
+              </div>
+              <div>
+                <h1 className="text-5xl font-bold text-white mb-3 tracking-tight drop-shadow-lg">
+                  Manage Placement Officers
+                </h1>
+                <p className="text-purple-100 text-lg font-medium">
+                  View and manage placement officers across all 60 colleges
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleAddOfficer}
+              className="px-7 py-4 bg-white/95 backdrop-blur-sm text-purple-700 hover:bg-white hover:shadow-2xl rounded-2xl font-bold shadow-xl transform hover:scale-105 transition-all duration-200 flex items-center space-x-3 border border-white/50"
+            >
+              <Plus size={22} />
+              <span className="text-lg">Add Officer</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="group relative bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl hover:shadow-2xl transition-all duration-500 p-8 border border-white/50 overflow-hidden hover:scale-105 transform">
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-cyan-500/10 to-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+            <div className="relative z-10 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-bold text-gray-600 uppercase tracking-wider mb-3">Total Officers</p>
+                <p className="text-5xl font-black bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">{officers.length}</p>
+              </div>
+              <div className="p-5 bg-gradient-to-br from-blue-400 via-blue-500 to-cyan-600 rounded-2xl shadow-xl group-hover:rotate-12 transition-transform duration-500">
+                <Building2 className="text-white" size={32} />
+              </div>
+            </div>
+          </div>
+          <div className="group relative bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl hover:shadow-2xl transition-all duration-500 p-8 border border-white/50 overflow-hidden hover:scale-105 transform">
+            <div className="absolute inset-0 bg-gradient-to-br from-green-500/10 via-emerald-500/10 to-green-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+            <div className="relative z-10 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-bold text-gray-600 uppercase tracking-wider mb-3">Active Officers</p>
+                <p className="text-5xl font-black bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+                  {officers.filter((o) => o.status === 'active' || o.status === 1).length}
+                </p>
+              </div>
+              <div className="p-5 bg-gradient-to-br from-green-400 via-green-500 to-emerald-600 rounded-2xl shadow-xl group-hover:rotate-12 transition-transform duration-500">
+                <CheckCircle className="text-white" size={32} />
+              </div>
+            </div>
+          </div>
+          <div className="group relative bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl hover:shadow-2xl transition-all duration-500 p-8 border border-white/50 overflow-hidden hover:scale-105 transform">
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-violet-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+            <div className="relative z-10 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-bold text-gray-600 uppercase tracking-wider mb-3">Regions Covered</p>
+                <p className="text-5xl font-black bg-gradient-to-r from-purple-600 to-violet-600 bg-clip-text text-transparent">{regions.length}</p>
+              </div>
+              <div className="p-5 bg-gradient-to-br from-purple-400 via-purple-500 to-violet-600 rounded-2xl shadow-xl group-hover:rotate-12 transition-transform duration-500">
+                <MapPin className="text-white" size={32} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Filters */}
+        <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl hover:shadow-2xl transition-all duration-300 p-8 mb-8 border border-white/50">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Search */}
           <div>
@@ -359,84 +422,94 @@ export default function ManagePlacementOfficers() {
         )}
       </div>
 
-      {/* Officers Table */}
-      <div className="card">
-        <div className="overflow-x-auto">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Officer Name</th>
-                <th>Phone</th>
-                <th>Email</th>
-                <th>College</th>
-                <th>Region</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredOfficers.length === 0 ? (
+        {/* Officers Table */}
+        <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl overflow-hidden border border-white/50">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-100">
+              <thead className="bg-gradient-to-r from-purple-600 via-pink-600 to-rose-600">
                 <tr>
-                  <td colSpan="7" className="text-center text-gray-500 py-8">
-                    {searchQuery || selectedRegion
-                      ? 'No officers found matching your filters'
-                      : 'No placement officers found'}
-                  </td>
+                  <th className="px-6 py-5 text-left text-xs font-black text-white uppercase tracking-wider">Officer Name</th>
+                  <th className="px-6 py-5 text-left text-xs font-black text-white uppercase tracking-wider">Phone</th>
+                  <th className="px-6 py-5 text-left text-xs font-black text-white uppercase tracking-wider">Email</th>
+                  <th className="px-6 py-5 text-left text-xs font-black text-white uppercase tracking-wider">College</th>
+                  <th className="px-6 py-5 text-left text-xs font-black text-white uppercase tracking-wider">Region</th>
+                  <th className="px-6 py-5 text-left text-xs font-black text-white uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-5 text-left text-xs font-black text-white uppercase tracking-wider">Actions</th>
                 </tr>
-              ) : (
-                filteredOfficers.map((officer) => (
-                  <tr key={officer.id}>
-                    <td className="font-semibold">{officer.officer_name || 'N/A'}</td>
-                    <td>
-                      <div className="flex items-center space-x-2">
-                        <Phone size={16} className="text-gray-400" />
-                        <span>{officer.email || 'N/A'}</span>
-                      </div>
+              </thead>
+              <tbody className="bg-white/50 divide-y divide-gray-100">
+                {filteredOfficers.length === 0 ? (
+                  <tr>
+                    <td colSpan="7" className="text-center py-16">
+                      <User className="mx-auto mb-4 text-gray-300" size={64} />
+                      <p className="text-gray-500 text-lg font-semibold">
+                        {searchQuery || selectedRegion
+                          ? 'No officers found matching your filters'
+                          : 'No placement officers found'}
+                      </p>
                     </td>
-                    <td>
-                      <div className="flex items-center space-x-2">
-                        <Mail size={16} className="text-gray-400" />
-                        <span className="text-sm">{officer.officer_phone || 'N/A'}</span>
-                      </div>
-                    </td>
-                    <td className="max-w-xs">
-                      <div className="flex items-center space-x-2">
-                        <Building2 size={16} className="text-gray-400" />
-                        <span className="truncate">{officer.college_name || 'N/A'}</span>
-                      </div>
-                    </td>
-                    <td>
-                      <div className="flex items-center space-x-2">
-                        <MapPin size={16} className="text-gray-400" />
-                        <span>{officer.region_name || 'N/A'}</span>
-                      </div>
-                    </td>
-                    <td>{getStatusBadge(officer.status)}</td>
-                    <td>
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => handleViewDetails(officer)}
-                          className="text-blue-600 hover:text-blue-800"
-                          title="View Details"
-                        >
-                          <Eye size={18} />
-                        </button>
-                        <button
-                          onClick={() => handleViewHistory(officer)}
-                          className="text-purple-600 hover:text-purple-800"
-                          title="View History"
-                        >
-                          <History size={18} />
-                        </button>
-                        <button
-                          onClick={() => handleRemoveOfficer(officer)}
-                          className="text-red-600 hover:text-red-800"
-                          title="Remove Officer"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
-                    </td>
+                  </tr>
+                ) : (
+                  filteredOfficers.map((officer) => (
+                    <tr key={officer.id} className="hover:bg-gradient-to-r hover:from-purple-50/50 hover:to-pink-50/50 transition-all duration-200 group">
+                      <td className="px-6 py-5 font-bold text-gray-900 group-hover:text-purple-700 transition-colors">{officer.officer_name || 'N/A'}</td>
+                      <td className="px-6 py-5">
+                        <div className="flex items-center space-x-2">
+                          <Phone size={16} className="text-purple-400" />
+                          <span className="text-sm">{officer.officer_phone || 'N/A'}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-5">
+                        <div className="flex items-center space-x-2">
+                          <Mail size={16} className="text-pink-400" />
+                          <span className="text-sm">{officer.email || 'N/A'}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-5 max-w-xs">
+                        <div className="flex items-center space-x-2">
+                          <Building2 size={16} className="text-blue-400" />
+                          <span className="truncate text-sm">{officer.college_name || 'N/A'}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-5">
+                        <div className="flex items-center space-x-2">
+                          <MapPin size={16} className="text-rose-400" />
+                          <span className="text-sm">{officer.region_name || 'N/A'}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-5">{getStatusBadge(officer.status)}</td>
+                      <td className="px-6 py-5">
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => handleViewDetails(officer)}
+                            className="p-2 text-blue-600 hover:text-white hover:bg-gradient-to-r hover:from-blue-500 hover:to-cyan-500 rounded-xl transition-all duration-200 hover:shadow-lg transform hover:scale-110"
+                            title="View Details"
+                          >
+                            <Eye size={18} />
+                          </button>
+                          <button
+                            onClick={() => handleViewHistory(officer)}
+                            className="p-2 text-purple-600 hover:text-white hover:bg-gradient-to-r hover:from-purple-500 hover:to-violet-500 rounded-xl transition-all duration-200 hover:shadow-lg transform hover:scale-110"
+                            title="View History"
+                          >
+                            <History size={18} />
+                          </button>
+                          <button
+                            onClick={() => handleResetPassword(officer)}
+                            className="p-2 text-orange-600 hover:text-white hover:bg-gradient-to-r hover:from-orange-500 hover:to-amber-500 rounded-xl transition-all duration-200 hover:shadow-lg transform hover:scale-110"
+                            title="Reset Password to Default"
+                          >
+                            <Key size={18} />
+                          </button>
+                          <button
+                            onClick={() => handleRemoveOfficer(officer)}
+                            className="p-2 text-red-600 hover:text-white hover:bg-gradient-to-r hover:from-red-500 hover:to-rose-500 rounded-xl transition-all duration-200 hover:shadow-lg transform hover:scale-110"
+                            title="Remove Officer"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+                      </td>
                   </tr>
                 ))
               )}
@@ -446,16 +519,17 @@ export default function ManagePlacementOfficers() {
 
         {/* Results Summary */}
         {filteredOfficers.length > 0 && (
-          <div className="mt-4 pt-4 border-t border-gray-200">
-            <p className="text-sm text-gray-600">
-              Showing {filteredOfficers.length} of {officers.length} placement officers
+          <div className="px-8 py-6 bg-gradient-to-r from-purple-50 to-pink-50 border-t-2 border-purple-200 rounded-b-3xl">
+            <p className="text-sm font-bold text-gray-700">
+              Showing <span className="text-purple-600">{filteredOfficers.length}</span> of <span className="text-purple-600">{officers.length}</span> placement officers
             </p>
           </div>
         )}
+        </div>
       </div>
 
-      {/* Officer Details Modal */}
-      {showDetailsModal && selectedOfficer && (
+    {/* Officer Details Modal */}
+    {showDetailsModal && selectedOfficer && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4">
@@ -504,6 +578,66 @@ export default function ManagePlacementOfficers() {
                       <Mail size={16} className="text-gray-400" />
                       <span className="text-sm">{selectedOfficer.officer_phone || 'N/A'}</span>
                     </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Profile Photo */}
+              <div className="border-b pb-4">
+                <h3 className="text-lg font-semibold mb-3 text-gray-700 flex items-center space-x-2">
+                  <Camera size={20} className="text-primary-600" />
+                  <span>Profile Photo</span>
+                </h3>
+
+                <div className="flex items-start space-x-4">
+                  {selectedOfficer.photo_url ? (
+                    <div
+                      className="relative group cursor-pointer"
+                      onClick={() => handleViewPhoto(selectedOfficer.photo_url)}
+                      title="Click to view full size"
+                    >
+                      <img
+                        src={selectedOfficer.photo_url}
+                        alt="Officer Profile"
+                        className="w-32 h-32 object-cover rounded-lg border-2 border-gray-300"
+                      />
+                      <div className="absolute inset-0 bg-black bg-opacity-50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <Eye size={24} className="text-white" />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="w-32 h-32 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center">
+                      <User size={48} className="text-gray-400" />
+                    </div>
+                  )}
+
+                  <div className="flex-1">
+                    {selectedOfficer.photo_url ? (
+                      <div>
+                        <button
+                          onClick={() => handleViewPhoto(selectedOfficer.photo_url)}
+                          className="btn btn-secondary flex items-center space-x-2"
+                        >
+                          <Eye size={18} />
+                          <span>View Photo</span>
+                        </button>
+                        <p className="text-xs text-gray-500 mt-2">
+                          Officers manage their own profile photos
+                        </p>
+                        {selectedOfficer.photo_uploaded_at && (
+                          <p className="text-xs text-gray-600 mt-1">
+                            Uploaded: {formatDate(selectedOfficer.photo_uploaded_at)}
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <div>
+                        <p className="text-sm text-gray-600">No profile photo uploaded</p>
+                        <p className="text-xs text-gray-500 mt-2">
+                          Officers can upload photos from their own dashboard
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -944,6 +1078,68 @@ export default function ManagePlacementOfficers() {
                   onClick={() => {
                     setShowClearHistoryModal(false);
                     setConfirmText('');
+                  }}
+                  disabled={submitting}
+                  className="btn btn-secondary flex-1"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Password Confirmation Modal */}
+      {showResetPasswordModal && selectedOfficer && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-md">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h2 className="text-xl font-bold text-gray-900">Reset Password to Default</h2>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="flex items-start space-x-3">
+                <div className="p-3 bg-orange-100 rounded-full">
+                  <Key className="text-orange-600" size={24} />
+                </div>
+                <div>
+                  <p className="text-gray-900 font-medium mb-2">
+                    Are you sure you want to reset the password for this officer?
+                  </p>
+                  <p className="text-sm text-gray-600 mb-3">
+                    <strong>Officer:</strong> {selectedOfficer.officer_name}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    <strong>College:</strong> {selectedOfficer.college_name}
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-sm text-blue-800">
+                  <strong>This action will:</strong>
+                </p>
+                <ul className="text-sm text-blue-800 mt-2 space-y-1 ml-4">
+                  <li>• Reset the officer's password to <strong>123</strong></li>
+                  <li>• Allow them to login with their phone number and password 123</li>
+                  <li>• Not affect any of their data or college information</li>
+                  <li>• They should change this password after logging in</li>
+                </ul>
+              </div>
+
+              <div className="flex space-x-3 pt-4">
+                <button
+                  onClick={handleConfirmResetPassword}
+                  disabled={submitting}
+                  className="btn bg-orange-600 text-white hover:bg-orange-700 flex-1"
+                >
+                  {submitting ? 'Resetting...' : 'Yes, Reset Password'}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowResetPasswordModal(false);
+                    setSelectedOfficer(null);
                   }}
                   disabled={submitting}
                   className="btn btn-secondary flex-1"

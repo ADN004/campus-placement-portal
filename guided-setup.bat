@@ -2,18 +2,18 @@
 SETLOCAL EnableDelayedExpansion
 COLOR 0A
 
-:: Campus Placement Portal - Interactive Guided Setup
+:: State Placement Cell - Interactive Guided Setup
 :: This batch file will walk you through the entire setup process step-by-step
 
 :WELCOME
 cls
 echo.
 echo ========================================================================
-echo         CAMPUS PLACEMENT PORTAL - INTERACTIVE GUIDED SETUP
+echo         STATE PLACEMENT CELL - INTERACTIVE GUIDED SETUP
 echo ========================================================================
 echo.
-echo This script will guide you through setting up the Campus Placement
-echo Portal step-by-step. You'll learn what each step does and why it's
+echo This script will guide you through setting up the State Placement
+echo Cell step-by-step. You'll learn what each step does and why it's
 echo needed.
 echo.
 echo Press any key to begin the guided setup...
@@ -115,7 +115,7 @@ echo ========================================================================
 echo  STEP 2: UNDERSTANDING PROJECT STRUCTURE
 echo ========================================================================
 echo.
-echo Your Campus Placement Portal has 3 main parts:
+echo Your State Placement Cell has 3 main parts:
 echo.
 echo   1. BACKEND (backend/ folder^)
 echo      - Node.js server that handles all business logic
@@ -155,59 +155,82 @@ echo     - Production: Database password would be a strong random password
 echo.
 echo We store these in .env files (which are NOT pushed to GitHub for security^).
 echo.
+echo NEW REQUIREMENTS FOR THIS PROJECT:
+echo   1. Database credentials (PostgreSQL^)
+echo   2. JWT secret for authentication
+echo   3. Cloudinary account for photo uploads
+echo   4. Gmail App Password for email verification
+echo.
 echo Let's create your environment files...
 echo.
 pause
 
-:: Root .env
-if not exist ".env" (
-    echo [*] Creating root .env file...
-    echo.
-    echo # Campus Placement Portal - Environment Configuration > .env
-    echo # >> .env
-    echo # Database Configuration >> .env
-    echo DB_HOST=localhost >> .env
-    echo DB_PORT=5432 >> .env
-    echo DB_NAME=campus_placement_portal >> .env
-    echo DB_USER=postgres >> .env
-    echo DB_PASSWORD=postgres >> .env
-    echo # >> .env
-    echo # JWT Authentication >> .env
-    echo JWT_SECRET=your_super_secret_jwt_key_change_this_in_production >> .env
-    echo JWT_EXPIRE=7d >> .env
-    echo JWT_COOKIE_EXPIRE=7 >> .env
-    echo # >> .env
-    echo # Server Configuration >> .env
-    echo NODE_ENV=development >> .env
-    echo BACKEND_PORT=5000 >> .env
-    echo FRONTEND_PORT=5173 >> .env
-    echo FRONTEND_URL=http://localhost:5173 >> .env
-    echo # >> .env
-    echo # Docker Configuration >> .env
-    echo POSTGRES_USER=postgres >> .env
-    echo POSTGRES_PASSWORD=postgres >> .env
-    echo POSTGRES_DB=campus_placement_portal >> .env
-    echo. >> .env
-    echo [OK] Root .env created
-    echo.
-    echo EXPLANATION OF KEY VARIABLES:
-    echo   - DB_PASSWORD: Password for PostgreSQL database
-    echo   - JWT_SECRET: Secret key for encrypting authentication tokens
-    echo   - BACKEND_PORT: Port where backend API runs (5000^)
-    echo   - FRONTEND_PORT: Port where frontend runs (5173^)
-    echo.
-) else (
-    echo [SKIP] Root .env already exists
-)
-
-:: Backend .env
+:: Backend .env (most important)
 if not exist "backend\.env" (
     echo [*] Creating backend .env file...
-    copy .env backend\.env >nul
+    echo.
+    echo # Server Configuration > backend\.env
+    echo PORT=5000 >> backend\.env
+    echo NODE_ENV=development >> backend\.env
+    echo. >> backend\.env
+    echo # Database Configuration >> backend\.env
+    echo DB_HOST=localhost >> backend\.env
+    echo DB_PORT=5432 >> backend\.env
+    echo DB_NAME=campus_placement_portal >> backend\.env
+    echo DB_USER=postgres >> backend\.env
+    echo DB_PASSWORD=postgres >> backend\.env
+    echo. >> backend\.env
+    echo # JWT Configuration >> backend\.env
+    echo JWT_SECRET=your_super_secret_jwt_key_change_this_in_production >> backend\.env
+    echo JWT_EXPIRE=7d >> backend\.env
+    echo JWT_COOKIE_EXPIRE=7 >> backend\.env
+    echo. >> backend\.env
+    echo # Frontend URL (for CORS and email verification links^) >> backend\.env
+    echo FRONTEND_URL=http://localhost:5173 >> backend\.env
+    echo. >> backend\.env
+    echo # File Upload >> backend\.env
+    echo MAX_FILE_SIZE=5242880 >> backend\.env
+    echo UPLOAD_PATH=./uploads >> backend\.env
+    echo. >> backend\.env
+    echo # Cloudinary Configuration (Sign up at https://cloudinary.com^) >> backend\.env
+    echo CLOUDINARY_CLOUD_NAME=your_cloud_name_here >> backend\.env
+    echo CLOUDINARY_API_KEY=your_api_key_here >> backend\.env
+    echo CLOUDINARY_API_SECRET=your_api_secret_here >> backend\.env
+    echo. >> backend\.env
+    echo # Email Configuration (for email verification^) >> backend\.env
+    echo EMAIL_SERVICE=gmail >> backend\.env
+    echo EMAIL_USER=your_email@gmail.com >> backend\.env
+    echo EMAIL_PASSWORD=your_app_password_here >> backend\.env
+    echo EMAIL_FROM=State Placement Cell ^<your_email@gmail.com^> >> backend\.env
+    echo. >> backend\.env
     echo [OK] Backend .env created
+    echo.
+    echo EXPLANATION OF KEY VARIABLES:
+    echo.
+    echo REQUIRED (must configure before running^):
+    echo   - DB_PASSWORD: Your PostgreSQL password
+    echo   - JWT_SECRET: Generate a random secret key (32+ characters^)
+    echo.
+    echo OPTIONAL (for full functionality^):
+    echo   - CLOUDINARY_*: For student photo uploads
+    echo     Get free account: https://cloudinary.com
+    echo.
+    echo   - EMAIL_*: For email verification system
+    echo     Gmail App Password guide:
+    echo     https://support.google.com/accounts/answer/185833
     echo.
 ) else (
     echo [SKIP] Backend .env already exists
+    echo.
+    echo IMPORTANT: Make sure your backend\.env has these new variables:
+    echo   - CLOUDINARY_CLOUD_NAME
+    echo   - CLOUDINARY_API_KEY
+    echo   - CLOUDINARY_API_SECRET
+    echo   - EMAIL_SERVICE
+    echo   - EMAIL_USER
+    echo   - EMAIL_PASSWORD
+    echo   - EMAIL_FROM
+    echo.
 )
 
 :: Frontend .env
@@ -225,6 +248,24 @@ if not exist "frontend\.env" (
 echo ========================================================================
 echo  Environment files created successfully!
 echo ========================================================================
+echo.
+echo NEXT ACTIONS REQUIRED:
+echo.
+echo 1. EDIT backend\.env and update these values:
+echo    - DB_PASSWORD (your PostgreSQL password^)
+echo    - JWT_SECRET (generate a random secret^)
+echo.
+echo 2. FOR PHOTO UPLOADS: Sign up at cloudinary.com and add:
+echo    - CLOUDINARY_CLOUD_NAME
+echo    - CLOUDINARY_API_KEY
+echo    - CLOUDINARY_API_SECRET
+echo.
+echo 3. FOR EMAIL VERIFICATION: Set up Gmail App Password and add:
+echo    - EMAIL_USER (your Gmail address^)
+echo    - EMAIL_PASSWORD (Gmail App Password, NOT regular password^)
+echo.
+echo NOTE: The application will work without Cloudinary and Email,
+echo but photo uploads and email verification features will be disabled.
 echo.
 echo Press any key to continue to Step 4...
 pause >nul
@@ -329,12 +370,24 @@ echo Now we'll create your PostgreSQL database and fill it with initial data.
 echo.
 echo WHAT WILL HAPPEN:
 echo   1. Create a database called "campus_placement_portal"
-echo   2. Run schema.sql - Creates 15 tables with relationships
+echo   2. Run schema.sql - Creates 19+ tables with relationships
 echo   3. Run seed-data.sql - Adds initial data:
 echo      - 5 regions (South, Central, North, etc.^)
 echo      - 60 polytechnic colleges
 echo      - 59 placement officers (one per college^)
 echo      - 1 super admin account
+echo      - Default PRN ranges
+echo   4. Apply all migrations - Adds new features:
+echo      - Email verification system
+echo      - Photo upload capabilities (Cloudinary^)
+echo      - Extended student profiles
+echo      - Job requirements configuration
+echo      - Enhanced application system
+echo      - Activity logging
+echo      - PRN range toggle (on/off^)
+echo      - Placement officer photos
+echo      - Job deletion history
+echo      - Auto age updates
 echo.
 echo YOU'LL NEED: Your PostgreSQL password (the one you set during installation^)
 echo.
@@ -352,19 +405,32 @@ echo.
 echo [*] Running schema.sql (creating tables^)...
 echo.
 echo TABLES BEING CREATED:
+echo   Core Tables:
 echo   - users (all user accounts^)
 echo   - regions (5 regions in Kerala^)
 echo   - colleges (60 colleges^)
-echo   - students (student profiles^)
-echo   - placement_officers (one per college^)
-echo   - prn_ranges (valid PRN ranges^)
-echo   - jobs (job postings^)
-echo   - job_eligibility_criteria (job requirements^)
+echo   - students (comprehensive student profiles^)
+echo   - placement_officers (one active per college^)
+echo   - placement_officer_history (complete audit trail^)
+echo   - super_admins (system administrators^)
+echo   - prn_ranges (valid PRN ranges with toggle^)
+echo.
+echo   Job Management:
+echo   - jobs (job postings with soft delete^)
+echo   - job_eligibility_criteria (detailed requirements^)
 echo   - job_applications (application tracking^)
-echo   - notifications (messages^)
+echo   - job_requests (officer requests for jobs^)
+echo   - deleted_jobs_history (audit trail^)
+echo.
+echo   Communication:
+echo   - notifications (system messages^)
+echo   - notification_recipients (user mapping^)
+echo   - notification_targets (region/college targeting^)
+echo.
+echo   Additional:
 echo   - whitelist_requests (blacklist removal requests^)
-echo   - activity_logs (audit trail^)
-echo   - ...and more
+echo   - activity_logs (complete audit trail^)
+echo   - branch_mappings (branch name normalization^)
 echo.
 psql -U postgres -d campus_placement_portal -f database\schema.sql
 if errorlevel 1 (
@@ -392,15 +458,47 @@ if errorlevel 1 (
 echo [OK] Seed data inserted successfully!
 echo.
 
+echo [*] Applying database migrations...
+echo.
+echo This will add all new features and enhancements to the database.
+echo.
+for %%f in (database\migrations\*.sql) do (
+    echo - Applying: %%~nxf
+    psql -U postgres -d campus_placement_portal -f "%%f" 2>nul
+    if not errorlevel 1 (
+        echo   [OK]
+    ) else (
+        echo   [SKIP] Already applied or optional
+    )
+)
+echo.
+echo [OK] All migrations processed!
+echo.
+
 echo ========================================================================
 echo  DATABASE SETUP COMPLETE!
 echo ========================================================================
 echo.
 echo Your database now contains:
-echo   - 5 regions
-echo   - 60 colleges
-echo   - 59 placement officers
+echo   - 5 regions across Kerala
+echo   - 60 polytechnic colleges
+echo   - 59 placement officers (one per college^)
 echo   - 1 super admin account
+echo   - Default PRN ranges for student registration
+echo   - 19+ tables with triggers and functions
+echo   - Materialized views for performance
+echo   - 40+ indexes for fast queries
+echo.
+echo NEW FEATURES ENABLED:
+echo   - Email verification for students
+echo   - Photo uploads via Cloudinary
+echo   - Extended student profiles
+echo   - Job requirements configuration
+echo   - Enhanced job applications
+echo   - Complete activity logging
+echo   - Auto age calculation
+echo   - PRN range on/off toggle
+echo   - Placement officer photo management
 echo.
 echo SUPER ADMIN CREDENTIALS (for testing^):
 echo   Email: adityanche@gmail.com
@@ -409,6 +507,11 @@ echo.
 echo PLACEMENT OFFICER CREDENTIALS (examples^):
 echo   Username: 9497219788 (phone number^)
 echo   Password: 123
+echo.
+echo NOTE: To use email verification and photo uploads, you must
+echo configure the backend\.env file with:
+echo   - Cloudinary credentials
+echo   - Email service credentials (Gmail App Password^)
 echo.
 echo Press any key to continue to Step 6...
 pause >nul
@@ -497,7 +600,7 @@ echo ========================================================================
 echo  CONGRATULATIONS! SETUP COMPLETE!
 echo ========================================================================
 echo.
-echo Your Campus Placement Portal is now ready to run!
+echo Your State Placement Cell is now ready to run!
 echo.
 echo.
 echo ========================================================================
@@ -571,7 +674,7 @@ if /i "%START_NOW%"=="Y" (
     echo.
     echo Starting application...
     echo.
-    start "Campus Placement Portal" cmd /k "cd /d %~dp0 && start.bat"
+    start "State Placement Cell" cmd /k "cd /d %~dp0 && start.bat"
     echo.
     echo Application is starting in a new window!
     echo Wait a few seconds, then open: http://localhost:5173

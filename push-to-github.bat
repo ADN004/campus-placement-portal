@@ -1,10 +1,10 @@
 @echo off
-title GitHub Push Helper - Campus Placement Portal
+title GitHub Push Helper - State Placement Cell
 color 0A
 
 echo =========================================
 echo   GitHub Push Helper
-echo   Campus Placement Portal
+echo   State Placement Cell
 echo =========================================
 echo.
 

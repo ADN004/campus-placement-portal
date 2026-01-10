@@ -10,7 +10,15 @@ import {
   CheckCircle,
   XCircle,
   Briefcase,
+  LayoutDashboard,
+  ArrowRight,
+  Activity,
+  ClipboardList,
 } from 'lucide-react';
+import DashboardHeader from '../../components/DashboardHeader';
+import GlassStatCard from '../../components/GlassStatCard';
+import SectionHeader from '../../components/SectionHeader';
+import GlassCard from '../../components/GlassCard';
 
 export default function PlacementOfficerDashboard() {
   const [stats, setStats] = useState(null);
@@ -34,8 +42,11 @@ export default function PlacementOfficerDashboard() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="spinner mb-4 mx-auto"></div>
+          <p className="text-gray-600 font-medium">Loading dashboard...</p>
+        </div>
       </div>
     );
   }
@@ -45,14 +56,14 @@ export default function PlacementOfficerDashboard() {
       title: 'Total Students',
       value: stats?.total_students || 0,
       icon: Users,
-      color: 'blue',
+      gradient: 'from-blue-500 to-cyan-600',
       description: 'Registered students from your college',
     },
     {
       title: 'Pending Approvals',
       value: stats?.pending_students || 0,
       icon: Clock,
-      color: 'yellow',
+      gradient: 'from-yellow-500 to-orange-600',
       link: '/placement-officer/students?status=pending',
       description: 'Students waiting for approval',
     },
@@ -60,7 +71,7 @@ export default function PlacementOfficerDashboard() {
       title: 'Approved Students',
       value: stats?.approved_students || 0,
       icon: CheckCircle,
-      color: 'green',
+      gradient: 'from-green-500 to-emerald-600',
       link: '/placement-officer/students?status=approved',
       description: 'Active students',
     },
@@ -68,144 +79,138 @@ export default function PlacementOfficerDashboard() {
       title: 'Blacklisted',
       value: stats?.blacklisted_students || 0,
       icon: XCircle,
-      color: 'red',
+      gradient: 'from-red-500 to-rose-600',
       link: '/placement-officer/students?status=blacklisted',
       description: 'Blacklisted students',
     },
   ];
 
+  const quickActions = [
+    {
+      title: 'Manage Students',
+      description: 'Approve registrations, manage student profiles, and handle blacklisting',
+      icon: Users,
+      gradient: 'from-blue-500 to-indigo-600',
+      link: '/placement-officer/students',
+    },
+    {
+      title: 'Job Requests',
+      description: 'Create and manage job posting requests for super admin approval',
+      icon: Briefcase,
+      gradient: 'from-purple-500 to-pink-600',
+      link: '/placement-officer/job-requests',
+    },
+    {
+      title: 'Send Notification',
+      description: 'Send announcements and notifications to your college students',
+      icon: Bell,
+      gradient: 'from-green-500 to-emerald-600',
+      link: '/placement-officer/send-notification',
+    },
+  ];
+
   return (
     <div>
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">
-          Placement Officer Dashboard
-        </h1>
-        <p className="text-gray-600">
-          {stats?.college_name || 'Your College'} - {stats?.region_name || 'Region'}
-        </p>
-      </div>
+      {/* Dashboard Header */}
+      <DashboardHeader
+        icon={LayoutDashboard}
+        title="Placement Officer Dashboard"
+        subtitle={`${stats?.college_name || 'Your College'} - ${stats?.region_name || 'Region'}`}
+      />
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {statCards.map((stat) => {
-          const Icon = stat.icon;
-          const colorClasses = {
-            blue: 'bg-blue-100 text-blue-600',
-            yellow: 'bg-yellow-100 text-yellow-600',
-            green: 'bg-green-100 text-green-600',
-            red: 'bg-red-100 text-red-600',
-          };
-
-          const CardContent = (
-            <div className="card hover:shadow-lg transition-shadow">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-600 mb-1">
-                    {stat.title}
-                  </p>
-                  <p className="text-3xl font-bold text-gray-900 mb-2">
-                    {stat.value}
-                  </p>
-                  <p className="text-xs text-gray-500">{stat.description}</p>
-                </div>
-                <div
-                  className={`p-3 rounded-full ${
-                    colorClasses[stat.color]
-                  }`}
-                >
-                  <Icon size={24} />
-                </div>
-              </div>
-            </div>
-          );
-
-          return stat.link ? (
-            <Link key={stat.title} to={stat.link}>
-              {CardContent}
-            </Link>
-          ) : (
-            <div key={stat.title}>{CardContent}</div>
-          );
-        })}
+        {statCards.map((stat, index) => (
+          <GlassStatCard
+            key={stat.title}
+            title={stat.title}
+            value={stat.value}
+            icon={stat.icon}
+            gradient={stat.gradient}
+            link={stat.link}
+            description={stat.description}
+            index={index}
+          />
+        ))}
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-        {/* Manage Students */}
-        <Link to="/placement-officer/students" className="card hover:shadow-lg transition-shadow">
-          <div className="flex items-center space-x-4">
-            <div className="p-4 bg-primary-100 rounded-full">
-              <Users className="text-primary-600" size={32} />
-            </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                Manage Students
-              </h3>
-              <p className="text-sm text-gray-600">
-                Approve registrations, manage student profiles, and handle blacklisting
-              </p>
-            </div>
-          </div>
-        </Link>
-
-        {/* Job Requests */}
-        <Link to="/placement-officer/job-requests" className="card hover:shadow-lg transition-shadow">
-          <div className="flex items-center space-x-4">
-            <div className="p-4 bg-purple-100 rounded-full">
-              <Briefcase className="text-purple-600" size={32} />
-            </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                Job Requests
-              </h3>
-              <p className="text-sm text-gray-600">
-                Create and manage job posting requests for super admin approval
-              </p>
-            </div>
-          </div>
-        </Link>
-
-        {/* Send Notification */}
-        <Link
-          to="/placement-officer/send-notification"
-          className="card hover:shadow-lg transition-shadow"
-        >
-          <div className="flex items-center space-x-4">
-            <div className="p-4 bg-green-100 rounded-full">
-              <Bell className="text-green-600" size={32} />
-            </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                Send Notification
-              </h3>
-              <p className="text-sm text-gray-600">
-                Send announcements and notifications to your college students
-              </p>
-            </div>
-          </div>
-        </Link>
+      <div className="mb-10">
+        <SectionHeader title="Quick Actions" icon={Activity} />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {quickActions.map((action, index) => {
+            const Icon = action.icon;
+            return (
+              <Link
+                key={action.title}
+                to={action.link}
+                className="stagger-item"
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
+                <GlassCard variant="elevated" hover className="h-full p-6">
+                  <div className="flex items-start space-x-4 mb-4">
+                    <div className={`bg-gradient-to-br ${action.gradient} rounded-xl p-3 shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+                      <Icon className="text-white" size={28} />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-xl font-bold text-gray-800 mb-2">
+                        {action.title}
+                      </h3>
+                      <p className="text-sm text-gray-600 font-medium">
+                        {action.description}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-end text-blue-600 font-bold text-sm mt-4 group">
+                    <span>Open</span>
+                    <ArrowRight size={16} className="ml-1 group-hover:translate-x-1 transition-transform" />
+                  </div>
+                </GlassCard>
+              </Link>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Info Message */}
-      <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <div className="flex items-start">
-          <TrendingUp className="text-blue-600 mt-0.5 mr-3" size={20} />
-          <div>
-            <h4 className="font-semibold text-blue-900 mb-1">
+      {/* Placement Officer Responsibilities */}
+      <GlassCard variant="elevated" className="p-8 bg-gradient-to-r from-blue-50 to-purple-50">
+        <div className="flex items-start gap-4">
+          <div className="p-4 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl shadow-lg">
+            <TrendingUp className="text-white" size={32} />
+          </div>
+          <div className="flex-1">
+            <h4 className="font-bold text-gray-800 text-2xl mb-4">
               Placement Officer Responsibilities
             </h4>
-            <ul className="text-sm text-blue-800 space-y-1">
-              <li>• Review and approve/reject student registration requests</li>
-              <li>• Manage student profiles and academic information</li>
-              <li>• Create job posting requests for super admin approval</li>
-              <li>• Blacklist students who violate placement policies</li>
-              <li>• Send notifications and announcements to students</li>
-              <li>• Request whitelist for previously blacklisted students (requires super admin approval)</li>
+            <ul className="text-gray-700 space-y-3 font-medium">
+              <li className="flex items-start bg-white rounded-xl border border-gray-200 p-3 hover:shadow-md transition-all duration-300">
+                <span className="mr-3 text-blue-600 text-xl">•</span>
+                <span>Review and approve/reject student registration requests</span>
+              </li>
+              <li className="flex items-start bg-white rounded-xl border border-gray-200 p-3 hover:shadow-md transition-all duration-300">
+                <span className="mr-3 text-blue-600 text-xl">•</span>
+                <span>Manage student profiles and academic information</span>
+              </li>
+              <li className="flex items-start bg-white rounded-xl border border-gray-200 p-3 hover:shadow-md transition-all duration-300">
+                <span className="mr-3 text-blue-600 text-xl">•</span>
+                <span>Create job posting requests for super admin approval</span>
+              </li>
+              <li className="flex items-start bg-white rounded-xl border border-gray-200 p-3 hover:shadow-md transition-all duration-300">
+                <span className="mr-3 text-blue-600 text-xl">•</span>
+                <span>Blacklist students who violate placement policies</span>
+              </li>
+              <li className="flex items-start bg-white rounded-xl border border-gray-200 p-3 hover:shadow-md transition-all duration-300">
+                <span className="mr-3 text-blue-600 text-xl">•</span>
+                <span>Send notifications and announcements to students</span>
+              </li>
+              <li className="flex items-start bg-white rounded-xl border border-gray-200 p-3 hover:shadow-md transition-all duration-300">
+                <span className="mr-3 text-blue-600 text-xl">•</span>
+                <span>Request whitelist for previously blacklisted students (requires super admin approval)</span>
+              </li>
             </ul>
           </div>
         </div>
-      </div>
+      </GlassCard>
     </div>
   );
 }

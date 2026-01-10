@@ -157,6 +157,45 @@ const isPRNInRange = (prn, start, end) => {
   return prn >= start && prn <= end;
 };
 
+// @desc    Get branches for a specific college
+// @route   GET /api/common/colleges/:collegeId/branches
+// @access  Public
+export const getCollegeBranches = async (req, res) => {
+  try {
+    const { collegeId } = req.params;
+
+    const collegeResult = await query(
+      'SELECT id, college_name, branches FROM colleges WHERE id = $1 AND is_active = TRUE',
+      [collegeId]
+    );
+
+    if (collegeResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'College not found',
+      });
+    }
+
+    const college = collegeResult.rows[0];
+
+    res.status(200).json({
+      success: true,
+      data: {
+        college_id: college.id,
+        college_name: college.college_name,
+        branches: college.branches || [],
+      },
+    });
+  } catch (error) {
+    console.error('Get college branches error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching college branches',
+      error: error.message,
+    });
+  }
+};
+
 // @desc    Get job details
 // @route   GET /api/common/jobs/:id
 // @access  Public

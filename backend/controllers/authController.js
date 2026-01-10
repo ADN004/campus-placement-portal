@@ -1,16 +1,49 @@
+/**
+ * Authentication Controller
+ * Handles user authentication, registration, and email verification
+ *
+ * @module controllers/authController
+ */
+
 import bcrypt from 'bcrypt';
+import crypto from 'crypto';
 import { query, transaction } from '../config/database.js';
 import { sendTokenResponse } from '../middleware/auth.js';
 import logActivity from '../middleware/activityLogger.js';
+import { uploadImage, deleteImage } from '../config/cloudinary.js';
 
-// @desc    Login user
-// @route   POST /api/auth/login
-// @access  Public
+// ============================================================================
+// Constants
+// ============================================================================
+
+const MIN_PASSWORD_LENGTH = 8;
+const DEFAULT_STUDENT_PASSWORD = '123';
+const BCRYPT_SALT_ROUNDS = 10;
+const MAX_PHOTO_SIZE_MB = 0.5; // 500KB max photo size
+const MAX_PHOTO_SIZE_BYTES = MAX_PHOTO_SIZE_MB * 1024 * 1024; // 524288 bytes (500KB)
+
+// ============================================================================
+// Authentication Endpoints
+// ============================================================================
+
+/**
+ * Login user (Student, Placement Officer, or Super Admin)
+ * Students can login with PRN or email
+ * Officers and Admins login with email
+ *
+ * @route   POST /api/auth/login
+ * @access  Public
+ * @param   {Object} req - Express request object
+ * @param   {string} req.body.email - Email/PRN for login
+ * @param   {string} req.body.password - User password
+ * @param   {Object} res - Express response object
+ * @returns {Object} Success status and JWT token in cookie
+ */
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Validation
+    // Validate input
     if (!email || !password) {
       return res.status(400).json({
         success: false,
@@ -35,7 +68,6 @@ export const login = async (req, res) => {
       );
 
       if (studentResult.rows.length > 0) {
-        // Found a student with this PRN
         isStudent = true;
 
         // Check if student is approved
@@ -86,7 +118,7 @@ export const login = async (req, res) => {
       });
     }
 
-    // Check password
+    // Verify password
     const isMatch = await bcrypt.compare(password, user.password_hash);
 
     if (!isMatch) {
@@ -96,12 +128,13 @@ export const login = async (req, res) => {
       });
     }
 
-    // Update last login
-    await query('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1', [
-      user.id,
-    ]);
+    // Update last login timestamp
+    await query(
+      'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1',
+      [user.id]
+    );
 
-    // Log activity
+    // Log login activity
     await logActivity(
       user.id,
       'LOGIN',
@@ -115,7 +148,6 @@ export const login = async (req, res) => {
     // Send token response
     sendTokenResponse(user, 200, res, 'Login successful');
   } catch (error) {
-    console.error('Login error:', error);
     res.status(500).json({
       success: false,
       message: 'Error logging in',
@@ -124,9 +156,17 @@ export const login = async (req, res) => {
   }
 };
 
-// @desc    Get current logged in user
-// @route   GET /api/auth/me
-// @access  Private
+/**
+ * Get current logged in user details
+ * Includes role-specific profile information
+ *
+ * @route   GET /api/auth/me
+ * @access  Private
+ * @param   {Object} req - Express request object
+ * @param   {Object} req.user - Authenticated user from middleware
+ * @param   {Object} res - Express response object
+ * @returns {Object} User details with profile information
+ */
 export const getMe = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -166,7 +206,6 @@ export const getMe = async (req, res) => {
       data: userDetails,
     });
   } catch (error) {
-    console.error('Get me error:', error);
     res.status(500).json({
       success: false,
       message: 'Error fetching user details',
@@ -175,21 +214,30 @@ export const getMe = async (req, res) => {
   }
 };
 
-// @desc    Logout user / clear cookie
-// @route   GET /api/auth/logout
-// @access  Private
+/**
+ * Logout user and clear authentication cookie
+ *
+ * @route   GET /api/auth/logout
+ * @access  Private
+ * @param   {Object} req - Express request object
+ * @param   {Object} req.user - Authenticated user from middleware
+ * @param   {Object} res - Express response object
+ * @returns {Object} Success status
+ */
 export const logout = async (req, res) => {
   try {
+    // Log logout activity
     await logActivity(
       req.user.id,
       'LOGOUT',
-      `User logged out`,
+      'User logged out',
       'user',
       req.user.id,
       null,
       req
     );
 
+    // Clear authentication cookie
     res.cookie('token', 'none', {
       expires: new Date(Date.now() + 10 * 1000),
       httpOnly: true,
@@ -200,7 +248,6 @@ export const logout = async (req, res) => {
       message: 'Logout successful',
     });
   } catch (error) {
-    console.error('Logout error:', error);
     res.status(500).json({
       success: false,
       message: 'Error logging out',
@@ -209,14 +256,28 @@ export const logout = async (req, res) => {
   }
 };
 
-// @desc    Change password
-// @route   PUT /api/auth/change-password
-// @access  Private
+// ============================================================================
+// Password Management
+// ============================================================================
+
+/**
+ * Change user password
+ * Validates password strength and updates password hash
+ *
+ * @route   PUT /api/auth/change-password
+ * @access  Private
+ * @param   {Object} req - Express request object
+ * @param   {string} req.body.currentPassword - Current password
+ * @param   {string} req.body.newPassword - New password
+ * @param   {Object} res - Express response object
+ * @returns {Object} Success status
+ * @throws  {Error} If password validation fails
+ */
 export const changePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
 
-    // Validation
+    // Validate input
     if (!currentPassword || !newPassword) {
       return res.status(400).json({
         success: false,
@@ -225,31 +286,11 @@ export const changePassword = async (req, res) => {
     }
 
     // Validate new password strength
-    if (newPassword.length < 8) {
+    const passwordValidation = validatePasswordStrength(newPassword);
+    if (!passwordValidation.valid) {
       return res.status(400).json({
         success: false,
-        message: 'Password must be at least 8 characters long',
-      });
-    }
-
-    if (!/[A-Z]/.test(newPassword)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Password must contain at least one uppercase letter',
-      });
-    }
-
-    if (!/[a-z]/.test(newPassword)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Password must contain at least one lowercase letter',
-      });
-    }
-
-    if (!/[0-9]/.test(newPassword)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Password must contain at least one number',
+        message: passwordValidation.message,
       });
     }
 
@@ -265,7 +306,7 @@ export const changePassword = async (req, res) => {
     const result = await query('SELECT * FROM users WHERE id = $1', [req.user.id]);
     const user = result.rows[0];
 
-    // Check current password
+    // Verify current password
     const isMatch = await bcrypt.compare(currentPassword, user.password_hash);
 
     if (!isMatch) {
@@ -276,16 +317,16 @@ export const changePassword = async (req, res) => {
     }
 
     // Hash new password
-    const salt = await bcrypt.genSalt(10);
+    const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
 
     // Update password
-    await query('UPDATE users SET password_hash = $1 WHERE id = $2', [
-      hashedPassword,
-      req.user.id,
-    ]);
+    await query(
+      'UPDATE users SET password_hash = $1 WHERE id = $2',
+      [hashedPassword, req.user.id]
+    );
 
-    // Log activity
+    // Log password change activity
     await logActivity(
       req.user.id,
       'PASSWORD_CHANGE',
@@ -301,7 +342,6 @@ export const changePassword = async (req, res) => {
       message: 'Password changed successfully',
     });
   } catch (error) {
-    console.error('Change password error:', error);
     res.status(500).json({
       success: false,
       message: 'Error changing password',
@@ -310,37 +350,78 @@ export const changePassword = async (req, res) => {
   }
 };
 
-// @desc    Register student
-// @route   POST /api/auth/register-student
-// @access  Public
+// ============================================================================
+// Student Registration
+// ============================================================================
+
+/**
+ * Register a new student
+ * Creates user account and student profile with photo upload to Cloudinary
+ *
+ * @route   POST /api/auth/register-student
+ * @access  Public
+ * @param   {Object} req - Express request object
+ * @param   {Object} req.body - Student registration data
+ * @param   {Object} res - Express response object
+ * @returns {Object} Registration success status
+ * @throws  {Error} If registration fails or PRN validation fails
+ */
 export const registerStudent = async (req, res) => {
   try {
     const {
       prn,
-      name,
+      student_name,
       branch,
       region_id,
       college_id,
       email,
       mobile_number,
-      cgpa,
       date_of_birth,
+      age,
+      gender,
+      height,
+      weight,
+      cgpa_sem1,
+      cgpa_sem2,
+      cgpa_sem3,
+      cgpa_sem4,
+      programme_cgpa,
+      complete_address,
+      has_driving_license,
+      has_pan_card,
+      has_aadhar_card,
+      has_passport,
+      photo_base64,
       backlog_count,
       backlog_details,
     } = req.body;
 
-    // Validation
+    // Validate required fields
     if (
       !prn ||
-      !name ||
+      !student_name ||
       !branch ||
       !region_id ||
       !college_id ||
       !email ||
       !mobile_number ||
-      !cgpa ||
       !date_of_birth ||
-      !backlog_count
+      !age ||
+      !gender ||
+      !height ||
+      !weight ||
+      !cgpa_sem1 ||
+      !cgpa_sem2 ||
+      !cgpa_sem3 ||
+      !cgpa_sem4 ||
+      !programme_cgpa ||
+      !complete_address ||
+      has_driving_license === undefined ||
+      has_pan_card === undefined ||
+      has_aadhar_card === undefined ||
+      has_passport === undefined ||
+      !photo_base64 ||
+      backlog_count === undefined
     ) {
       return res.status(400).json({
         success: false,
@@ -357,68 +438,198 @@ export const registerStudent = async (req, res) => {
       });
     }
 
-    // Check if PRN or email already exists
-    const existingStudent = await query(
-      'SELECT id FROM students WHERE prn = $1 OR email = $2',
-      [prn, email]
+    // Check if PRN already exists
+    const existingPRN = await query(
+      'SELECT id, email, student_name FROM students WHERE prn = $1',
+      [prn]
     );
 
-    if (existingStudent.rows.length > 0) {
+    if (existingPRN.rows.length > 0) {
       return res.status(400).json({
         success: false,
-        message: 'Student with this PRN or email already exists',
+        message: `A student with PRN ${prn} is already registered. If this is you, please contact your placement officer.`,
       });
     }
 
+    // Check if email already exists - emails are permanently bound to PRNs
+    const existingEmail = await query(
+      'SELECT id, prn, student_name, email_verified FROM students WHERE email = $1',
+      [email]
+    );
+
+    if (existingEmail.rows.length > 0) {
+      const existing = existingEmail.rows[0];
+      return res.status(400).json({
+        success: false,
+        message: `This email (${email}) is already registered to PRN ${existing.prn}. Each email can only be used with one PRN. Please use a different email address or contact your placement officer if you believe this is an error.`,
+      });
+    }
+
+    // Also check users table for orphaned email records
+    const existingUser = await query(
+      'SELECT id, email FROM users WHERE email = $1',
+      [email]
+    );
+
+    if (existingUser.rows.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'This email address is already registered in the system but not linked to any student. Please contact support to resolve this issue.',
+      });
+    }
+
+    // Validate photo size (max 1MB)
+    const photoValidation = validateImageSize(photo_base64);
+    if (!photoValidation.valid) {
+      return res.status(400).json({
+        success: false,
+        message: photoValidation.message,
+      });
+    }
+
+    // Upload photo to Cloudinary
+    // Organize photos by PRN: students/{prn}/photo_{timestamp}
+    let photoUrl = null;
+    let photoCloudinaryId = null;
+
+    try {
+      const folderPath = `students/${prn}`;
+      const publicId = `photo_${Date.now()}`;
+
+      console.log('📤 Uploading student photo to folder:', folderPath);
+      console.log('📤 Public ID:', publicId);
+
+      const uploadResult = await uploadImage(
+        photo_base64,
+        folderPath,
+        publicId
+      );
+
+      console.log('✅ Student photo upload successful! Full public ID:', uploadResult.publicId);
+
+      photoUrl = uploadResult.url;
+      photoCloudinaryId = uploadResult.publicId;
+    } catch (uploadError) {
+      console.error('❌ Student photo upload error:', uploadError);
+      return res.status(400).json({
+        success: false,
+        message: 'Failed to upload photo. Please try again.',
+        error: uploadError.message,
+      });
+    }
+
+    // Generate email verification token
+    const emailVerificationToken = crypto.randomBytes(32).toString('hex');
+
     // Create user account and student profile in a transaction
-    const result = await transaction(async (client) => {
-      // Hash default password
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash('123', salt);
+    try {
+      const result = await transaction(async (client) => {
+        // Hash default password
+        const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
+        const hashedPassword = await bcrypt.hash(DEFAULT_STUDENT_PASSWORD, salt);
 
-      // Create user account
-      const userResult = await client.query(
-        `INSERT INTO users (email, password_hash, role)
-         VALUES ($1, $2, 'student')
-         RETURNING id`,
-        [email, hashedPassword]
-      );
+        // Create user account
+        const userResult = await client.query(
+          `INSERT INTO users (email, password_hash, role)
+           VALUES ($1, $2, 'student')
+           RETURNING id`,
+          [email, hashedPassword]
+        );
 
-      const userId = userResult.rows[0].id;
+        const userId = userResult.rows[0].id;
 
-      // Create student profile
-      const studentResult = await client.query(
-        `INSERT INTO students
-         (user_id, prn, name, branch, region_id, college_id, email, mobile_number, cgpa, date_of_birth, backlog_count, backlog_details)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-         RETURNING id`,
-        [
-          userId,
-          prn,
-          name,
-          branch,
-          region_id,
-          college_id,
-          email,
-          mobile_number,
-          cgpa,
-          date_of_birth,
-          backlog_count,
-          backlog_details,
-        ]
-      );
+        // Create student profile with all fields
+        const studentResult = await client.query(
+          `INSERT INTO students
+           (user_id, prn, name, student_name, branch, region_id, college_id, email, mobile_number,
+            date_of_birth, age, gender, height, weight,
+            cgpa_sem1, cgpa_sem2, cgpa_sem3, cgpa_sem4, cgpa_sem5, cgpa_sem6, programme_cgpa,
+            complete_address, has_driving_license, has_pan_card, has_aadhar_card, has_passport,
+            photo_url, photo_cloudinary_id, email_verification_token,
+            backlog_count, backlog_details)
+           VALUES ($1, $2, $3, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 0, 0, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28)
+           RETURNING id`,
+          [
+            userId,
+            prn,
+            student_name,
+            branch,
+            region_id,
+            college_id,
+            email,
+            mobile_number,
+            date_of_birth,
+            age,
+            gender,
+            height,
+            weight,
+            cgpa_sem1,
+            cgpa_sem2,
+            cgpa_sem3,
+            cgpa_sem4,
+            programme_cgpa,
+            complete_address,
+            has_driving_license,
+            has_pan_card,
+            has_aadhar_card,
+            has_passport,
+            photoUrl,
+            photoCloudinaryId,
+            emailVerificationToken,
+            backlog_count,
+            backlog_details || null,
+          ]
+        );
 
-      return { userId, studentId: studentResult.rows[0].id };
-    });
+        const studentId = studentResult.rows[0].id;
 
-    res.status(201).json({
-      success: true,
-      message:
-        'Registration successful! Your account is pending approval from your placement officer.',
-      data: result,
-    });
+        // Auto-save registration data to extended profile
+        // Note: extended profile uses height_cm and weight_kg, not height and weight
+        await client.query(
+          `INSERT INTO student_extended_profiles
+           (student_id, height_cm, weight_kg, has_driving_license, has_pan_card, has_aadhar_card, has_passport,
+            profile_completion_percentage, last_updated)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, 0, CURRENT_TIMESTAMP)
+           ON CONFLICT (student_id) DO UPDATE SET
+           height_cm = EXCLUDED.height_cm,
+           weight_kg = EXCLUDED.weight_kg,
+           has_driving_license = EXCLUDED.has_driving_license,
+           has_pan_card = EXCLUDED.has_pan_card,
+           has_aadhar_card = EXCLUDED.has_aadhar_card,
+           has_passport = EXCLUDED.has_passport,
+           last_updated = CURRENT_TIMESTAMP`,
+          [
+            studentId,
+            height,
+            weight,
+            has_driving_license,
+            has_pan_card,
+            has_aadhar_card,
+            has_passport,
+          ]
+        );
+
+        return { userId, studentId };
+      });
+
+      res.status(201).json({
+        success: true,
+        message:
+          'Registration successful! Your account is pending approval from your placement officer. You will receive an email verification link after approval.',
+        data: result,
+      });
+    } catch (transactionError) {
+      // Clean up uploaded image if database transaction fails
+      if (photoCloudinaryId) {
+        try {
+          await deleteImage(photoCloudinaryId);
+        } catch (deleteError) {
+          // Log error but don't throw
+        }
+      }
+      throw transactionError;
+    }
   } catch (error) {
-    console.error('Student registration error:', error);
     res.status(500).json({
       success: false,
       message: 'Error registering student',
@@ -427,7 +638,296 @@ export const registerStudent = async (req, res) => {
   }
 };
 
-// Helper function to validate PRN
+// ============================================================================
+// Email Verification
+// ============================================================================
+
+/**
+ * Verify student email using verification token
+ *
+ * @route   GET /api/auth/verify-email/:token
+ * @access  Public
+ * @param   {Object} req - Express request object
+ * @param   {string} req.params.token - Email verification token
+ * @param   {Object} res - Express response object
+ * @returns {Object} Verification success status
+ */
+export const verifyEmail = async (req, res) => {
+  try {
+    const { token } = req.params;
+
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        message: 'Verification token is required',
+      });
+    }
+
+    // Find student with this token
+    const studentResult = await query(
+      'SELECT id, email, email_verified, student_name, last_verification_email_sent_at FROM students WHERE email_verification_token = $1',
+      [token]
+    );
+
+    if (studentResult.rows.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired verification token. The link may have been used already or has expired after 24 hours.',
+        code: 'TOKEN_INVALID',
+      });
+    }
+
+    const student = studentResult.rows[0];
+
+    // Check if already verified
+    if (student.email_verified) {
+      return res.status(400).json({
+        success: false,
+        message: 'This email address has already been verified. You can login to your account.',
+        code: 'ALREADY_VERIFIED',
+        data: {
+          email: student.email,
+        },
+      });
+    }
+
+    // Check if token has expired (24 hours)
+    const TOKEN_EXPIRY_HOURS = 24;
+    if (student.last_verification_email_sent_at) {
+      const sentAt = new Date(student.last_verification_email_sent_at);
+      const now = new Date();
+      const hoursSinceSent = (now - sentAt) / (1000 * 60 * 60);
+
+      if (hoursSinceSent > TOKEN_EXPIRY_HOURS) {
+        return res.status(400).json({
+          success: false,
+          message: `Verification link has expired. Links are valid for ${TOKEN_EXPIRY_HOURS} hours. Please request a new verification email.`,
+          code: 'TOKEN_EXPIRED',
+          data: {
+            email: student.email,
+          },
+        });
+      }
+    }
+
+    // Update student as verified
+    await query(
+      `UPDATE students
+       SET email_verified = TRUE,
+           email_verified_at = CURRENT_TIMESTAMP,
+           email_verification_token = NULL
+       WHERE id = $1`,
+      [student.id]
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Email verified successfully! You can now login.',
+      data: {
+        email: student.email,
+        name: student.student_name,
+      },
+    });
+  } catch (error) {
+    console.error('Email verification error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error verifying email',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Resend verification email to student
+ * Only works for approved students who haven't verified yet
+ *
+ * @route   POST /api/auth/resend-verification
+ * @access  Public
+ * @param   {Object} req - Express request object
+ * @param   {string} req.body.email - Student email address
+ * @param   {Object} res - Express response object
+ * @returns {Object} Success status
+ */
+export const resendVerificationEmail = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email is required',
+      });
+    }
+
+    // Find student
+    const studentResult = await query(
+      `SELECT s.id, s.email, s.student_name, s.email_verified, s.registration_status, s.email_verification_token
+       FROM students s
+       WHERE s.email = $1`,
+      [email]
+    );
+
+    if (studentResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No account found with this email',
+      });
+    }
+
+    const student = studentResult.rows[0];
+
+    // Check if already verified
+    if (student.email_verified) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email is already verified',
+      });
+    }
+
+    // Check if approved
+    if (student.registration_status !== 'approved') {
+      return res.status(400).json({
+        success: false,
+        message: 'Your account must be approved by placement officer before email verification',
+      });
+    }
+
+    // Generate new verification token
+    const newVerificationToken = crypto.randomBytes(32).toString('hex');
+
+    // Update student with new token and timestamp
+    await query(
+      `UPDATE students
+       SET email_verification_token = $1,
+           last_verification_email_sent_at = CURRENT_TIMESTAMP,
+           verification_email_sent_count = verification_email_sent_count + 1
+       WHERE id = $2`,
+      [newVerificationToken, student.id]
+    );
+
+    // Send verification email
+    const { sendVerificationEmail } = await import('../config/emailService.js');
+
+    try {
+      await sendVerificationEmail(
+        student.email,
+        newVerificationToken,
+        student.student_name
+      );
+
+      res.status(200).json({
+        success: true,
+        message: 'Verification email sent successfully! Please check your inbox.',
+      });
+    } catch (emailError) {
+      res.status(500).json({
+        success: false,
+        message: 'Failed to send verification email. Please try again later.',
+        error: emailError.message,
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error resending verification email',
+      error: error.message,
+    });
+  }
+};
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+/**
+ * Validate base64 image size
+ * Base64 encoded images are ~33% larger than original binary
+ *
+ * @param   {string} base64String - Base64 encoded image string (with or without data URI prefix)
+ * @returns {Object} Validation result with valid flag, message, and size in bytes
+ */
+const validateImageSize = (base64String) => {
+  try {
+    // Remove data URI prefix if present (data:image/png;base64,)
+    const base64Data = base64String.includes(',')
+      ? base64String.split(',')[1]
+      : base64String;
+
+    // Calculate actual file size from base64
+    // Formula: size = (base64_length * 3) / 4
+    // Subtract padding characters (=) from length
+    const paddingCount = (base64Data.match(/=/g) || []).length;
+    const actualSizeBytes = ((base64Data.length * 3) / 4) - paddingCount;
+
+    const sizeMB = (actualSizeBytes / (1024 * 1024)).toFixed(2);
+
+    if (actualSizeBytes > MAX_PHOTO_SIZE_BYTES) {
+      return {
+        valid: false,
+        message: `Image size (${sizeMB} MB) exceeds maximum allowed size of ${MAX_PHOTO_SIZE_MB} MB`,
+        sizeBytes: actualSizeBytes,
+      };
+    }
+
+    return {
+      valid: true,
+      message: `Image size OK (${sizeMB} MB)`,
+      sizeBytes: actualSizeBytes,
+    };
+  } catch (error) {
+    return {
+      valid: false,
+      message: 'Invalid image format',
+      sizeBytes: 0,
+    };
+  }
+};
+
+/**
+ * Validate password strength requirements
+ *
+ * @param   {string} password - Password to validate
+ * @returns {Object} Validation result with valid flag and message
+ */
+const validatePasswordStrength = (password) => {
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    return {
+      valid: false,
+      message: `Password must be at least ${MIN_PASSWORD_LENGTH} characters long`,
+    };
+  }
+
+  if (!/[A-Z]/.test(password)) {
+    return {
+      valid: false,
+      message: 'Password must contain at least one uppercase letter',
+    };
+  }
+
+  if (!/[a-z]/.test(password)) {
+    return {
+      valid: false,
+      message: 'Password must contain at least one lowercase letter',
+    };
+  }
+
+  if (!/[0-9]/.test(password)) {
+    return {
+      valid: false,
+      message: 'Password must contain at least one number',
+    };
+  }
+
+  return { valid: true };
+};
+
+/**
+ * Validate PRN against active PRN ranges
+ *
+ * @param   {string} prn - PRN to validate
+ * @returns {Object} Validation result with valid flag and optional message
+ */
 const validatePRN = async (prn) => {
   try {
     // Get all active PRN ranges
@@ -457,12 +957,19 @@ const validatePRN = async (prn) => {
 
     return { valid: false, message: 'PRN not in valid range' };
   } catch (error) {
-    console.error('PRN validation error:', error);
     return { valid: false, message: 'Error validating PRN' };
   }
 };
 
-// Helper function to check if PRN is in range
+/**
+ * Check if PRN falls within a given range
+ * Handles both numeric and string comparisons
+ *
+ * @param   {string} prn - PRN to check
+ * @param   {string} start - Range start value
+ * @param   {string} end - Range end value
+ * @returns {boolean} True if PRN is in range
+ */
 const isPRNInRange = (prn, start, end) => {
   // Handle numeric comparison
   if (!isNaN(prn) && !isNaN(start) && !isNaN(end)) {

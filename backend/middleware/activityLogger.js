@@ -7,12 +7,27 @@ export const logActivity = async (
   actionDescription,
   entityType = null,
   entityId = null,
-  metadata = null,
-  req = null
+  req = null,
+  metadata = null
 ) => {
   try {
-    const ipAddress = req ? req.ip || req.connection.remoteAddress : null;
-    const userAgent = req ? req.get('user-agent') : null;
+    // Extract only non-circular data from req object
+    const ipAddress = req ? (req.ip || req.connection?.remoteAddress || null) : null;
+    const userAgent = req ? req.get?.('user-agent') || null : null;
+
+    // Safely stringify metadata, handling circular references
+    let metadataString = null;
+    if (metadata) {
+      try {
+        metadataString = JSON.stringify(metadata);
+      } catch (err) {
+        // If metadata has circular references, create a safe version
+        console.warn('⚠️ Metadata contains circular references, creating safe version');
+        metadataString = JSON.stringify({
+          note: 'Original metadata contained circular references'
+        });
+      }
+    }
 
     await query(
       `INSERT INTO activity_logs
@@ -24,7 +39,7 @@ export const logActivity = async (
         actionDescription,
         entityType,
         entityId,
-        metadata ? JSON.stringify(metadata) : null,
+        metadataString,
         ipAddress,
         userAgent,
       ]

@@ -1,6 +1,6 @@
 @echo off
 echo ========================================
-echo   Starting Campus Placement Portal
+echo   Starting State Placement Cell
 echo ========================================
 echo.
 

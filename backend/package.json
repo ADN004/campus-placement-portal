@@ -1,7 +1,7 @@
 {
-  "name": "campus-placement-portal-backend",
+  "name": "state-placement-cell-backend",
   "version": "1.0.0",
-  "description": "Backend API for Campus Placement Portal - 60 Polytechnic Colleges Kerala",
+  "description": "Backend API for State Placement Cell - 60 Polytechnic Colleges Kerala",
   "main": "server.js",
   "type": "module",
   "scripts": {
@@ -17,21 +17,26 @@
     "kerala",
     "polytechnic"
   ],
-  "author": "Campus Placement Portal Team",
+  "author": "State Placement Cell Team",
   "license": "MIT",
   "dependencies": {
-    "express": "^4.18.2",
-    "pg": "^8.11.3",
     "bcrypt": "^5.1.1",
-    "jsonwebtoken": "^9.0.2",
-    "dotenv": "^16.3.1",
-    "cors": "^2.8.5",
+    "cloudinary": "^2.8.0",
+    "compression": "^1.8.1",
     "cookie-parser": "^1.4.6",
-    "express-validator": "^7.0.1",
-    "multer": "^1.4.5-lts.1",
-    "pdfkit": "^0.14.0",
+    "cors": "^2.8.5",
+    "date-fns": "^3.0.6",
+    "dotenv": "^16.3.1",
     "exceljs": "^4.4.0",
-    "date-fns": "^3.0.6"
+    "express": "^4.18.2",
+    "express-rate-limit": "^8.2.1",
+    "express-validator": "^7.0.1",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^6.9.8",
+    "pdfkit": "^0.14.0",
+    "pg": "^8.11.3"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"

@@ -1,0 +1,39 @@
+# Backend Development Dockerfile
+# For local development with hot-reload using nodemon
+
+FROM node:18-alpine
+
+# Add metadata
+LABEL maintainer="State Placement Cell Team"
+LABEL description="Backend API Development Environment"
+
+# Install dumb-init for proper signal handling
+RUN apk add --no-cache dumb-init
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install ALL dependencies (including devDependencies for nodemon)
+RUN npm install && npm cache clean --force
+
+# Copy application code (will be overridden by volume mount in docker-compose)
+COPY . .
+
+# Create necessary directories
+RUN mkdir -p uploads logs
+
+# Expose port
+EXPOSE 5000
+
+# Environment variables
+ENV NODE_ENV=development
+ENV PORT=5000
+
+# Use dumb-init to handle signals properly
+ENTRYPOINT ["dumb-init", "--"]
+
+# Start with nodemon for hot-reload
+CMD ["npm", "run", "dev"]

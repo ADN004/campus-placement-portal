@@ -1,4 +1,4 @@
--- Campus Placement Portal - Seed Data
+-- State Placement Cell - Seed Data
 -- This file populates initial data: Regions, Colleges, Placement Officers, and Super Admin
 
 -- ============================================
@@ -12,83 +12,85 @@ INSERT INTO regions (region_name, region_code) VALUES
 ('NORTH REGION', 'NORTH');
 
 -- ============================================
--- 2. INSERT COLLEGES (60 colleges)
+-- 2. INSERT COLLEGES (60 colleges) WITH BRANCHES
 -- ============================================
+-- Note: Branches are stored as JSONB arrays for easy querying and updating
+-- All branches are pre-configured based on official college documentation
 
 -- SOUTH REGION (14 colleges) - region_id = 1
-INSERT INTO colleges (college_name, college_code, region_id) VALUES
-('WPC Kaimanom', 'WPC_KAI', 1),
-('CPC Thiruvananthapuram', 'CPC_TVM', 1),
-('GPC Neyyattinkara', 'GPC_NTA', 1),
-('GPC Nedumangad', 'GPC_NDM', 1),
-('GPC Attingal', 'GPC_ATL', 1),
-('GPC Punalur', 'GPC_PNR', 1),
-('GPC Ezhukone', 'GPC_EZH', 1),
-('SNPC KOTTIYAM', 'SNPC_KTM', 1),
-('GPC Vennikulam', 'GPC_VNK', 1),
-('GPC Adoor', 'GPC_ADR', 1),
-('GPC Vechoochira', 'GPC_VCH', 1),
-('WPC Kayamkulam', 'WPC_KYM', 1),
-('NSS Pandalam', 'NSS_PDM', 1),
-('MPC (IHRD) karunagappally', 'MPC_KRG', 1);
+INSERT INTO colleges (college_name, college_code, region_id, branches) VALUES
+('WPC Kaimanom', 'WPC_KAI', 1, '["Electronics Engineering", "Computer Engineering", "Instrumentation Engineering", "Commercial Practice", "Computer Engineering (Hearing Impaired)"]'::jsonb),
+('CPC Thiruvananthapuram', 'CPC_TVM', 1, '["Civil Engineering", "Mechanical Engineering", "Electrical & Electronics Engineering", "Electronics Engineering", "Textile Technology", "Computer Engineering"]'::jsonb),
+('GPC Neyyattinkara', 'GPC_NTA', 1, '["Electronics Engineering", "Instrumentation Engineering", "Electronics & Communication Engineering", "Computer Engineering", "Computer Application & Business Management"]'::jsonb),
+('GPC Nedumangad', 'GPC_NDM', 1, '["Computer Engineering", "Electronics Engineering", "Computer Hardware Engineering"]'::jsonb),
+('GPC Attingal', 'GPC_ATL', 1, '["Mechanical Engineering", "Automobile Engineering", "Computer Hardware Engineering", "Electrical & Electronics Engineering"]'::jsonb),
+('GPC Punalur', 'GPC_PNR', 1, '["Electronics Engineering", "Computer Engineering", "Electrical & Electronics Engineering"]'::jsonb),
+('GPC Ezhukone', 'GPC_EZH', 1, '["Mechanical Engineering", "Electronics & Communication Engineering", "Computer Hardware Engineering"]'::jsonb),
+('SNPC KOTTIYAM', 'SNPC_KTM', 1, '["Civil Engineering", "Mechanical Engineering", "Electrical and Electronics Engineering", "Electronics Engineering"]'::jsonb),
+('GPC Vennikulam', 'GPC_VNK', 1, '["Civil Engineering", "Electronics Engineering", "Automobile Engineering", "Computer Engineering"]'::jsonb),
+('GPC Adoor', 'GPC_ADR', 1, '["Mechanical Engineering", "Architecture", "Polymer Technology"]'::jsonb),
+('GPC Vechoochira', 'GPC_VCH', 1, '["Electronics Engineering", "Computer Engineering", "Biomedical Engineering"]'::jsonb),
+('WPC Kayamkulam', 'WPC_KYM', 1, '["Electronics Engineering", "Computer Engineering", "Commercial Practice"]'::jsonb),
+('NSS Pandalam', 'NSS_PDM', 1, '["Civil Engineering", "Mechanical Engineering", "Computer Engineering", "Electronics & Communication Engineering"]'::jsonb),
+('MPC (IHRD) karunagappally', 'MPC_KRG', 1, '["Electronics Engineering", "Computer Hardware Engineering", "Computer Engineering", "Electrical & Electronics Engineering", "Computer Engineering (Hearing Impaired)"]'::jsonb);
 
 -- SOUTH-CENTRAL REGION (16 colleges) - region_id = 2
-INSERT INTO colleges (college_name, college_code, region_id) VALUES
-('GPC Kalamassery', 'GPC_KLM', 2),
-('GPC Cherthala', 'GPC_CHL', 2),
-('GPC Kottayam', 'GPC_KTM', 2),
-('GPC Pala', 'GPC_PLA', 2),
-('GPC Kaduthuruthy', 'GPC_KDT', 2),
-('GPC Muttom', 'GPC_MTM', 2),
-('GPC Vandiperiyar', 'GPC_VDP', 2),
-('GPC Nedumkandam', 'GPC_NDK', 2),
-('GPC Purapuzha', 'GPC_PRP', 2),
-('WPC Ernakulam', 'WPC_EKM', 2),
-('GPC Kothamangalam', 'GPC_KTG', 2),
-('GPC Perumbavoor', 'GPC_PBV', 2),
-('Carmel Poly Alapuzha', 'CRM_APZ', 2),
-('MPC (IHRD) Painavu, Idukki', 'MPC_PIN', 2),
-('MPC (IHRD) Mattakkara', 'MPC_MTK', 2),
-('CE (IHRD) Poojar, Kottayam', 'CE_PJR', 2);
+INSERT INTO colleges (college_name, college_code, region_id, branches) VALUES
+('GPC Kalamassery', 'GPC_KLM', 2, '["Civil Engineering", "Mechanical Engineering", "Electrical & Electronics Engineering", "Automobile Engineering", "Chemical Engineering", "Computer Engineering", "Electronics & Communication Engineering", "Civil Engineering (Hearing Impaired)"]'::jsonb),
+('GPC Cherthala', 'GPC_CHL', 2, '["Computer Hardware Engineering", "Instrumentation Engineering", "Mechanical Engineering", "Electronics & Communication Engineering", "Computer Engineering"]'::jsonb),
+('GPC Kottayam', 'GPC_KTM', 2, '["Civil Engineering", "Mechanical Engineering", "Electrical & Electronics Engineering", "Electronics Engineering", "Polymer Technology", "Commercial Practice"]'::jsonb),
+('GPC Pala', 'GPC_PLA', 2, '["Electronics Engineering", "Computer Engineering", "Instrumentation Engineering", "Electrical & Electronics Engineering"]'::jsonb),
+('GPC Kaduthuruthy', 'GPC_KDT', 2, '["Electronics Engineering", "Computer Engineering", "Computer Hardware Engineering"]'::jsonb),
+('GPC Muttom', 'GPC_MTM', 2, '["Civil Engineering", "Mechanical Engineering", "Electrical & Electronics Engineering", "Electronics Engineering", "Computer Engineering"]'::jsonb),
+('GPC Vandiperiyar', 'GPC_VDP', 2, '["Electronics Engineering", "Computer Engineering", "Computer Application & Business Management"]'::jsonb),
+('GPC Nedumkandam', 'GPC_NDK', 2, '["Electronics Engineering", "Computer Engineering", "Computer Hardware Engineering"]'::jsonb),
+('GPC Purapuzha', 'GPC_PRP', 2, '["Computer Engineering", "Mechanical Engineering", "Information Technology"]'::jsonb),
+('WPC Ernakulam', 'WPC_EKM', 2, '["Architecture", "Electronics Engineering", "Computer Engineering", "Commercial Practice"]'::jsonb),
+('GPC Kothamangalam', 'GPC_KTG', 2, '["Civil Engineering", "Mechanical Engineering", "Electronics Engineering", "Computer Engineering"]'::jsonb),
+('GPC Perumbavoor', 'GPC_PBV', 2, '["Mechanical Engineering", "Electronics & Communication Engineering", "Computer Engineering"]'::jsonb),
+('Carmel Poly Alapuzha', 'CRM_APZ', 2, '["Civil Engineering", "Mechanical Engineering", "Electronics & Electronics Engineering", "Automobile Engineering", "Computer Engineering", "Electronics Engineering"]'::jsonb),
+('MPC (IHRD) Painavu, Idukki', 'MPC_PIN', 2, '["Biomedical Engineering", "Computer Engineering", "Cyber Forensics and Information Security", "Mechanical Engineering", "Electronics & Communication Engineering"]'::jsonb),
+('MPC (IHRD) Mattakkara', 'MPC_MTK', 2, '["Computer Engineering", "Computer Hardware Engineering", "Electrical & Electronics Engineering", "Electronics Engineering"]'::jsonb),
+('CE (IHRD) Poojar, Kottayam', 'CE_PJR', 2, '["Computer Science and Engineering", "Computer Applications", "Electrical and Electronics Engineering", "Electronics and Communication Engineering", "Automobile Engineering"]'::jsonb);
 
 -- CENTRAL REGION (12 colleges) - region_id = 3
-INSERT INTO colleges (college_name, college_code, region_id) VALUES
-('GPC Palakkad', 'GPC_PKD', 3),
-('MTI Thrissur', 'MTI_TSR', 3),
-('SRGPC Thriprayar', 'SRGPC_TPR', 3),
-('GPC Koratty', 'GPC_KRT', 3),
-('GPC Kunnamkulam', 'GPC_KNK', 3),
-('WPC Thrissur', 'WPC_TSR', 3),
-('GPC Chelakkara', 'GPC_CHK', 3),
-('IPT&GPC Shoranur', 'IPT_SRN', 3),
-('GPC Perinthalmanna', 'GPC_PTM', 3),
-('TPC Alagappanagar', 'TPC_ALP', 3),
-('KMMPC Mala', 'KMMPC_MLA', 3),
-('MPC (IHRD) Kuzhalmannam', 'MPC_KZM', 3);
+INSERT INTO colleges (college_name, college_code, region_id, branches) VALUES
+('GPC Palakkad', 'GPC_PKD', 3, '["Civil Engineering", "Mechanical Engineering", "Electronics Engineering", "Computer Hardware Engineering", "Instrumentation Engineering", "Electrical & Electronics Engineering"]'::jsonb),
+('MTI Thrissur', 'MTI_TSR', 3, '["Civil Engineering", "Mechanical Engineering", "Electrical & Electronics Engineering", "Electronics Engineering", "Computer Engineering"]'::jsonb),
+('SRGPC Thriprayar', 'SRGPC_TPR', 3, '["Civil Engineering", "Mechanical Engineering", "Electrical & Electronics Engineering", "Electronics Engineering", "Computer Engineering"]'::jsonb),
+('GPC Koratty', 'GPC_KRT', 3, '["Instrumentation Engineering", "Textile Technology", "Polymer Technology"]'::jsonb),
+('GPC Kunnamkulam', 'GPC_KNK', 3, '["Tool & Die Engineering", "Electronics & Communication Engineering", "Computer Engineering"]'::jsonb),
+('WPC Thrissur', 'WPC_TSR', 3, '["Electronics Engineering", "Computer Engineering", "Civil Engineering", "Commercial Practice"]'::jsonb),
+('GPC Chelakkara', 'GPC_CHK', 3, '["Electronics Engineering", "Computer Engineering", "Computer Hardware Engineering", "Civil Engineering", "Mechanical Engineering"]'::jsonb),
+('IPT&GPC Shoranur', 'IPT_SRN', 3, '["Electronics Engineering", "Computer Engineering", "Printing Technology"]'::jsonb),
+('GPC Perinthalmanna', 'GPC_PTM', 3, '["Civil Engineering", "Mechanical Engineering", "Electrical & Electronics Engineering", "Electronics Engineering"]'::jsonb),
+('TPC Alagappanagar', 'TPC_ALP', 3, '["Mechanical Engineering", "Electronics & Communication Engineering"]'::jsonb),
+('KMMPC Mala', 'KMMPC_MLA', 3, '["Electronics Engineering", "Computer Hardware Engineering", "Bio-Medical Engineering", "Computer Engineering", "Robotic Process Automation", "Electrical and Electronics Engineering"]'::jsonb),
+('MPC (IHRD) Kuzhalmannam', 'MPC_KZM', 3, '["Civil Engineering"]'::jsonb);
 
 -- NORTH-CENTRAL REGION (9 colleges) - region_id = 4
-INSERT INTO colleges (college_name, college_code, region_id) VALUES
-('KGPT Kozhikkode', 'KGPT_KKD', 4),
-('WPC Kozhikode', 'WPC_KKD', 4),
-('GPC Thirurangadi', 'GPC_TRG', 4),
-('GPC Mananthavady', 'GPC_MNV', 4),
-('GPC Meenangadi', 'GPC_MNG', 4),
-('GPC Meppadi', 'GPC_MPD', 4),
-('WPC Kottakkal', 'WPC_KTK', 4),
-('GPC Manjeri', 'GPC_MJR', 4),
-('SSM Tirur', 'SSM_TRR', 4);
+INSERT INTO colleges (college_name, college_code, region_id, branches) VALUES
+('KGPT Kozhikkode', 'KGPT_KKD', 4, '["Civil Engineering", "Mechanical Engineering", "Electrical & Electronics Engineering", "Chemical Engineering", "Computer Engineering", "Tool & Die Engineering", "Computer Engineering (Hearing Impaired)"]'::jsonb),
+('WPC Kozhikode', 'WPC_KKD', 4, '["Electronics Engineering", "Commercial Practice"]'::jsonb),
+('GPC Thirurangadi', 'GPC_TRG', 4, '["Electronics Engineering", "Electronics & Communication Engineering", "Computer Engineering"]'::jsonb),
+('GPC Mananthavady', 'GPC_MNV', 4, '["Civil Engineering", "Mechanical Engineering", "Computer Engineering"]'::jsonb),
+('GPC Meenangadi', 'GPC_MNG', 4, '["Civil Engineering", "Mechanical Engineering", "Electrical & Electronics Engineering", "Electronics Engineering"]'::jsonb),
+('GPC Meppadi', 'GPC_MPD', 4, '["Electronics Engineering", "Computer Engineering", "Computer Hardware Engineering"]'::jsonb),
+('WPC Kottakkal', 'WPC_KTK', 4, '["Electronics Engineering", "Instrumentation Engineering", "Electronics & Communication Engineering", "Computer Application & Business Management"]'::jsonb),
+('GPC Manjeri', 'GPC_MJR', 4, '["Civil Engineering", "Mechanical Engineering", "Instrumentation Engineering"]'::jsonb),
+('SSM Tirur', 'SSM_TRR', 4, '["Civil Engineering", "Mechanical Engineering", "Electronics & Communication Engineering", "Electronics Engineering", "Automobile Engineering", "Computer Engineering"]'::jsonb);
 
 -- NORTH REGION (9 colleges) - region_id = 5
-INSERT INTO colleges (college_name, college_code, region_id) VALUES
-('GPC Kasargod', 'GPC_KSD', 5),
-('RWPC Payyannur', 'RWPC_PYN', 5),
-('GPC Kannur', 'GPC_KNR', 5),
-('GPC Mattannur', 'GPC_MTR', 5),
-('EKNMGPC Thrikkaripur', 'EKNMGPC_TKR', 5),
-('GPC Naduvil', 'GPC_NDV', 5),
-('SNPC Kanhangad', 'SNPC_KNH', 5),
-('MPC (IHRD) Vadakara', 'MPC_VDK', 5),
-('EKNMMPC Kalyasseri', 'EKNMMPC_KLS', 5);
+INSERT INTO colleges (college_name, college_code, region_id, branches) VALUES
+('GPC Kasargod', 'GPC_KSD', 5, '["Mechanical Engineering", "Electrical & Electronics Engineering", "Electronics Engineering", "Computer Engineering", "Civil Engineering"]'::jsonb),
+('RWPC Payyannur', 'RWPC_PYN', 5, '["Electronics & Communication Engineering", "Instrumentation Engineering", "Computer Engineering", "Computer Application & Business Management"]'::jsonb),
+('GPC Kannur', 'GPC_KNR', 5, '["Civil Engineering", "Mechanical Engineering", "Electrical & Electronics Engineering", "Electronics Engineering", "Textile Technology", "Wood & Paper Technology"]'::jsonb),
+('GPC Mattannur', 'GPC_MTR', 5, '["Mechanical Engineering", "Electronics Engineering", "Civil Engineering", "Electrical & Electronics Engineering", "Instrumentation Engineering"]'::jsonb),
+('EKNMGPC Thrikkaripur', 'EKNMGPC_TKR', 5, '["Electronics Engineering", "Computer Engineering", "Computer Application & Business Management", "Biomedical Engineering"]'::jsonb),
+('GPC Naduvil', 'GPC_NDV', 5, '["Automobile Engineering", "Civil Engineering", "Electrical & Electronics Engineering"]'::jsonb),
+('SNPC Kanhangad', 'SNPC_KNH', 5, '["Civil Engineering", "Mechanical Engineering", "Automobile Engineering"]'::jsonb),
+('MPC (IHRD) Vadakara', 'MPC_VDK', 5, '["Computer Hardware Engineering", "Biomedical Engineering", "Electrical & Electronics Engineering", "Electronics Engineering"]'::jsonb),
+('EKNMMPC Kalyasseri', 'EKNMMPC_KLS', 5, '["Computer Hardware Engineering", "Computer Engineering", "Electronics and Communication Engineering", "Electrical and Electronics Engineering"]'::jsonb);
 
 -- ============================================
 -- 3. CREATE SUPER ADMIN USER
@@ -475,8 +477,14 @@ VALUES (
     'SARATH S', '9496836037', 'Lr in EL', 'placements@grwpcpnr.ac.in', 'rwpcpnr@yahoo.co.in'
 );
 
--- Officer 42: SNPC Kanhangad (No officer data available - placeholder)
--- Will be added manually by super admin later
+-- Officer 42: SNPC Kanhangad
+INSERT INTO users (email, password_hash, role) VALUES ('8281502677', '$2b$10$placeholder', 'placement_officer');
+INSERT INTO placement_officers (user_id, college_id, officer_name, phone_number, designation, officer_email, college_email)
+VALUES (
+    (SELECT id FROM users WHERE email = '8281502677'),
+    (SELECT id FROM colleges WHERE college_name = 'SNPC Kanhangad'),
+    'Gokul', '8281502677', 'Placement Officer', NULL, NULL
+);
 
 -- Officer 43: SNPC KOTTIYAM
 INSERT INTO users (email, password_hash, role) VALUES ('9497579941', '$2b$10$placeholder', 'placement_officer');

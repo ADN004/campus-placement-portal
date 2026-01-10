@@ -30,11 +30,12 @@ export const getDashboard = async (req, res) => {
       [student.id]
     );
 
-    // Get eligible jobs count (all active jobs, regardless of deadline)
+    // Get eligible jobs count (only active jobs with deadline not passed)
     const eligibleJobsResult = await query(
       `SELECT COUNT(DISTINCT j.id) as count
        FROM jobs j
        WHERE j.is_active = TRUE
+       AND (j.application_deadline IS NULL OR j.application_deadline >= CURRENT_DATE)
        AND NOT EXISTS (
          SELECT 1 FROM job_applications ja
          WHERE ja.job_id = j.id AND ja.student_id = $1
@@ -110,7 +111,9 @@ export const getEligibleJobs = async (req, res) => {
     const jobsWithEligibility = [];
 
     for (const job of jobsResult.rows) {
-      const isEligible = await checkJobEligibility(job.id, student);
+      const eligibilityResult = await checkJobEligibility(job.id, student);
+      const isEligible = eligibilityResult.isEligible;
+      const eligibilityReason = eligibilityResult.reason;
 
       // Check if deadline has passed
       const deadlinePassed = job.application_deadline ? new Date(job.application_deadline) < new Date() : false;
@@ -137,7 +140,8 @@ export const getEligibleJobs = async (req, res) => {
         is_eligible: isEligible,
         deadline_passed: deadlinePassed,
         can_apply: canApply,
-        eligibility_message: isEligible ? 'You meet all eligibility criteria' : 'You may not meet all eligibility criteria',
+        eligibility_reason: eligibilityReason,
+        eligibility_message: eligibilityReason,
       };
 
       jobsWithEligibility.push(mappedJob);
@@ -265,7 +269,8 @@ export const getMyApplications = async (req, res) => {
       `SELECT ja.id, ja.job_id, ja.student_id, ja.application_status as status,
               ja.applied_date as applied_at, ja.updated_at,
               j.job_title, j.company_name, j.application_deadline, j.application_form_url,
-              j.description, j.location, j.salary_package, j.min_cgpa, j.max_backlogs, j.notes
+              j.job_description as description, j.job_location as location,
+              j.salary_package, j.min_cgpa, j.max_backlogs
        FROM job_applications ja
        JOIN jobs j ON ja.job_id = j.id
        WHERE ja.student_id = $1
@@ -385,52 +390,271 @@ export const getProfile = async (req, res) => {
 // @access  Private (Student)
 export const updateProfile = async (req, res) => {
   try {
-    const { name, mobile_number, date_of_birth, cgpa, backlog_count, backlog_details } = req.body;
+    const {
+      mobile_number,
+      height,
+      weight,
+      complete_address,
+      has_driving_license,
+      has_pan_card,
+      cgpa_sem1,
+      cgpa_sem2,
+      cgpa_sem3,
+      cgpa_sem4,
+      cgpa_sem5,
+      cgpa_sem6,
+      backlog_count,
+      backlog_details
+    } = req.body;
 
-    // Validation
-    if (!name || !mobile_number || !date_of_birth || !cgpa || backlog_count === undefined) {
-      return res.status(400).json({
-        success: false,
-        message: 'Please provide all required fields',
-      });
-    }
-
-    // Validate mobile number
-    const phoneRegex = /^[0-9]{10}$/;
-    if (!phoneRegex.test(mobile_number)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Phone number must be 10 digits',
-      });
-    }
-
-    // Validate CGPA
-    const cgpaNum = parseFloat(cgpa);
-    if (isNaN(cgpaNum) || cgpaNum < 0 || cgpaNum > 10) {
-      return res.status(400).json({
-        success: false,
-        message: 'CGPA must be between 0 and 10',
-      });
-    }
-
-    // Validate backlog count
-    const backlogNum = parseInt(backlog_count);
-    if (isNaN(backlogNum) || backlogNum < 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Backlog count must be a non-negative number',
-      });
-    }
-
-    // Update profile
-    const result = await query(
-      `UPDATE students
-       SET name = $1, mobile_number = $2, date_of_birth = $3, cgpa = $4,
-           backlog_count = $5, backlog_details = $6
-       WHERE user_id = $7
-       RETURNING *`,
-      [name, mobile_number, date_of_birth, cgpa, backlog_count, backlog_details || null, req.user.id]
+    // Get current student data first
+    const currentStudentResult = await query(
+      'SELECT * FROM students WHERE user_id = $1',
+      [req.user.id]
     );
+
+    if (currentStudentResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student profile not found',
+      });
+    }
+
+    const currentStudent = currentStudentResult.rows[0];
+
+    // Build dynamic update query
+    const updateFields = [];
+    const updateValues = [];
+    let paramCount = 1;
+
+    // Mobile number validation and update
+    if (mobile_number !== undefined) {
+      const phoneRegex = /^[0-9]{10}$/;
+      if (!phoneRegex.test(mobile_number)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Phone number must be 10 digits',
+        });
+      }
+      updateFields.push(`mobile_number = $${paramCount}`);
+      updateValues.push(mobile_number);
+      paramCount++;
+    }
+
+    // Height validation and update
+    if (height !== undefined) {
+      const heightNum = parseInt(height);
+      if (isNaN(heightNum) || heightNum < 140 || heightNum > 220) {
+        return res.status(400).json({
+          success: false,
+          message: 'Height must be between 140 and 220 cm',
+        });
+      }
+      updateFields.push(`height = $${paramCount}`);
+      updateValues.push(heightNum);
+      paramCount++;
+    }
+
+    // Weight validation and update
+    if (weight !== undefined) {
+      const weightNum = parseFloat(weight);
+      if (isNaN(weightNum) || weightNum < 30 || weightNum > 150) {
+        return res.status(400).json({
+          success: false,
+          message: 'Weight must be between 30 and 150 kg',
+        });
+      }
+      updateFields.push(`weight = $${paramCount}`);
+      updateValues.push(weightNum);
+      paramCount++;
+    }
+
+    // Complete address update
+    if (complete_address !== undefined) {
+      updateFields.push(`complete_address = $${paramCount}`);
+      updateValues.push(complete_address);
+      paramCount++;
+    }
+
+    // Has driving license update
+    if (has_driving_license !== undefined) {
+      updateFields.push(`has_driving_license = $${paramCount}`);
+      updateValues.push(has_driving_license);
+      paramCount++;
+    }
+
+    // Has PAN card update
+    if (has_pan_card !== undefined) {
+      updateFields.push(`has_pan_card = $${paramCount}`);
+      updateValues.push(has_pan_card);
+      paramCount++;
+    }
+
+    // Semester CGPA updates with validation
+    const semesterCGPAs = {
+      cgpa_sem1: currentStudent.cgpa_sem1,
+      cgpa_sem2: currentStudent.cgpa_sem2,
+      cgpa_sem3: currentStudent.cgpa_sem3,
+      cgpa_sem4: currentStudent.cgpa_sem4,
+    };
+
+    let needsRecalculation = false;
+
+    // Validate and update sem1 CGPA
+    if (cgpa_sem1 !== undefined) {
+      const cgpaNum = parseFloat(cgpa_sem1);
+      if (isNaN(cgpaNum) || cgpaNum < 0 || cgpaNum > 10) {
+        return res.status(400).json({
+          success: false,
+          message: 'Semester 1 CGPA must be between 0 and 10',
+        });
+      }
+      updateFields.push(`cgpa_sem1 = $${paramCount}`);
+      updateValues.push(cgpaNum);
+      paramCount++;
+      semesterCGPAs.cgpa_sem1 = cgpaNum;
+      needsRecalculation = true;
+    }
+
+    // Validate and update sem2 CGPA
+    if (cgpa_sem2 !== undefined) {
+      const cgpaNum = parseFloat(cgpa_sem2);
+      if (isNaN(cgpaNum) || cgpaNum < 0 || cgpaNum > 10) {
+        return res.status(400).json({
+          success: false,
+          message: 'Semester 2 CGPA must be between 0 and 10',
+        });
+      }
+      updateFields.push(`cgpa_sem2 = $${paramCount}`);
+      updateValues.push(cgpaNum);
+      paramCount++;
+      semesterCGPAs.cgpa_sem2 = cgpaNum;
+      needsRecalculation = true;
+    }
+
+    // Validate and update sem3 CGPA
+    if (cgpa_sem3 !== undefined) {
+      const cgpaNum = parseFloat(cgpa_sem3);
+      if (isNaN(cgpaNum) || cgpaNum < 0 || cgpaNum > 10) {
+        return res.status(400).json({
+          success: false,
+          message: 'Semester 3 CGPA must be between 0 and 10',
+        });
+      }
+      updateFields.push(`cgpa_sem3 = $${paramCount}`);
+      updateValues.push(cgpaNum);
+      paramCount++;
+      semesterCGPAs.cgpa_sem3 = cgpaNum;
+      needsRecalculation = true;
+    }
+
+    // Validate and update sem4 CGPA
+    if (cgpa_sem4 !== undefined) {
+      const cgpaNum = parseFloat(cgpa_sem4);
+      if (isNaN(cgpaNum) || cgpaNum < 0 || cgpaNum > 10) {
+        return res.status(400).json({
+          success: false,
+          message: 'Semester 4 CGPA must be between 0 and 10',
+        });
+      }
+      updateFields.push(`cgpa_sem4 = $${paramCount}`);
+      updateValues.push(cgpaNum);
+      paramCount++;
+      semesterCGPAs.cgpa_sem4 = cgpaNum;
+      needsRecalculation = true;
+    }
+
+    // Validate and update sem5 CGPA
+    if (cgpa_sem5 !== undefined) {
+      const cgpaNum = parseFloat(cgpa_sem5);
+      if (isNaN(cgpaNum) || cgpaNum < 0 || cgpaNum > 10) {
+        return res.status(400).json({
+          success: false,
+          message: 'Semester 5 CGPA must be between 0 and 10',
+        });
+      }
+      updateFields.push(`cgpa_sem5 = $${paramCount}`);
+      updateValues.push(cgpaNum);
+      paramCount++;
+    }
+
+    // Validate and update sem6 CGPA
+    if (cgpa_sem6 !== undefined) {
+      const cgpaNum = parseFloat(cgpa_sem6);
+      if (isNaN(cgpaNum) || cgpaNum < 0 || cgpaNum > 10) {
+        return res.status(400).json({
+          success: false,
+          message: 'Semester 6 CGPA must be between 0 and 10',
+        });
+      }
+      updateFields.push(`cgpa_sem6 = $${paramCount}`);
+      updateValues.push(cgpaNum);
+      paramCount++;
+    }
+
+    // Auto-recalculate programme_cgpa if any of sem1-4 changed
+    if (needsRecalculation) {
+      const validSemesters = [];
+      if (semesterCGPAs.cgpa_sem1 !== null && semesterCGPAs.cgpa_sem1 !== undefined) {
+        validSemesters.push(parseFloat(semesterCGPAs.cgpa_sem1));
+      }
+      if (semesterCGPAs.cgpa_sem2 !== null && semesterCGPAs.cgpa_sem2 !== undefined) {
+        validSemesters.push(parseFloat(semesterCGPAs.cgpa_sem2));
+      }
+      if (semesterCGPAs.cgpa_sem3 !== null && semesterCGPAs.cgpa_sem3 !== undefined) {
+        validSemesters.push(parseFloat(semesterCGPAs.cgpa_sem3));
+      }
+      if (semesterCGPAs.cgpa_sem4 !== null && semesterCGPAs.cgpa_sem4 !== undefined) {
+        validSemesters.push(parseFloat(semesterCGPAs.cgpa_sem4));
+      }
+
+      if (validSemesters.length > 0) {
+        const programmeCGPA = validSemesters.reduce((a, b) => a + b, 0) / validSemesters.length;
+        updateFields.push(`programme_cgpa = $${paramCount}`);
+        updateValues.push(parseFloat(programmeCGPA.toFixed(2)));
+        paramCount++;
+      }
+    }
+
+    // Backlog count validation and update
+    if (backlog_count !== undefined) {
+      const backlogNum = parseInt(backlog_count);
+      if (isNaN(backlogNum) || backlogNum < 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Backlog count must be a non-negative number',
+        });
+      }
+      updateFields.push(`backlog_count = $${paramCount}`);
+      updateValues.push(backlogNum);
+      paramCount++;
+    }
+
+    // Backlog details update
+    if (backlog_details !== undefined) {
+      updateFields.push(`backlog_details = $${paramCount}`);
+      updateValues.push(backlog_details || null);
+      paramCount++;
+    }
+
+    // Check if there are fields to update
+    if (updateFields.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No valid fields provided for update',
+      });
+    }
+
+    // Build and execute update query
+    updateValues.push(req.user.id);
+    const updateQuery = `
+      UPDATE students
+      SET ${updateFields.join(', ')}
+      WHERE user_id = $${paramCount}
+      RETURNING *
+    `;
+
+    const result = await query(updateQuery, updateValues);
 
     if (result.rows.length === 0) {
       return res.status(404).json({
@@ -474,21 +698,63 @@ const checkJobEligibility = async (jobId, student) => {
     );
 
     if (jobResult.rows.length === 0) {
-      return false;
+      return { isEligible: false, reason: 'Job not found' };
     }
 
     const job = jobResult.rows[0];
 
+    // Get student extended profile for advanced validation
+    const extendedProfileResult = await query(
+      `SELECT * FROM student_extended_profiles WHERE student_id = $1`,
+      [student.id]
+    );
+
+    const extendedProfile = extendedProfileResult.rows.length > 0 ? extendedProfileResult.rows[0] : {};
+
+    // Get job requirement templates for specific field requirements
+    const requirementsResult = await query(
+      `SELECT specific_field_requirements FROM job_requirement_templates WHERE job_id = $1`,
+      [jobId]
+    );
+
+    const requirements = requirementsResult.rows.length > 0 ? requirementsResult.rows[0] : null;
+
     // Check CGPA requirement
-    if (job.min_cgpa && parseFloat(student.cgpa) < parseFloat(job.min_cgpa)) {
-      return false;
+    if (job.min_cgpa && student.cgpa && parseFloat(student.cgpa) < parseFloat(job.min_cgpa)) {
+      return { isEligible: false, reason: `Your CGPA (${student.cgpa}) is below the minimum requirement (${job.min_cgpa})` };
     }
 
     // Check backlog requirement
     if (job.max_backlogs !== null && job.max_backlogs !== undefined) {
-      const studentBacklogs = student.backlog_count === 'All cleared' ? 0 : parseInt(student.backlog_count) || 999;
+      const studentBacklogs = student.backlog_count === 'All cleared' ? 0 : parseInt(student.backlog_count) || 0;
       if (studentBacklogs > parseInt(job.max_backlogs)) {
-        return false;
+        return { isEligible: false, reason: `You have ${studentBacklogs} backlogs, maximum allowed is ${job.max_backlogs}` };
+      }
+    }
+
+    // Check height requirement
+    if (job.min_height !== null && job.min_height !== undefined && student.height) {
+      if (parseInt(student.height) < parseInt(job.min_height)) {
+        return { isEligible: false, reason: `Your height (${student.height}cm) is below minimum (${job.min_height}cm)` };
+      }
+    }
+
+    if (job.max_height !== null && job.max_height !== undefined && student.height) {
+      if (parseInt(student.height) > parseInt(job.max_height)) {
+        return { isEligible: false, reason: `Your height (${student.height}cm) exceeds maximum (${job.max_height}cm)` };
+      }
+    }
+
+    // Check weight requirement
+    if (job.min_weight !== null && job.min_weight !== undefined && student.weight) {
+      if (parseFloat(student.weight) < parseFloat(job.min_weight)) {
+        return { isEligible: false, reason: `Your weight (${student.weight}kg) is below minimum (${job.min_weight}kg)` };
+      }
+    }
+
+    if (job.max_weight !== null && job.max_weight !== undefined && student.weight) {
+      if (parseFloat(student.weight) > parseFloat(job.max_weight)) {
+        return { isEligible: false, reason: `Your weight (${student.weight}kg) exceeds maximum (${job.max_weight}kg)` };
       }
     }
 
@@ -498,7 +764,7 @@ const checkJobEligibility = async (jobId, student) => {
         ? JSON.parse(job.allowed_branches)
         : job.allowed_branches;
       if (allowedBranches && allowedBranches.length > 0 && !allowedBranches.includes(student.branch)) {
-        return false;
+        return { isEligible: false, reason: `Your branch (${student.branch}) is not in the allowed list: ${allowedBranches.join(', ')}` };
       }
     }
 
@@ -508,7 +774,7 @@ const checkJobEligibility = async (jobId, student) => {
         ? JSON.parse(job.target_regions)
         : job.target_regions;
       if (targetRegions && targetRegions.length > 0 && !targetRegions.includes(student.region_id)) {
-        return false;
+        return { isEligible: false, reason: 'This job is not available for your region' };
       }
     }
 
@@ -517,13 +783,36 @@ const checkJobEligibility = async (jobId, student) => {
         ? JSON.parse(job.target_colleges)
         : job.target_colleges;
       if (targetColleges && targetColleges.length > 0 && !targetColleges.includes(student.college_id)) {
-        return false;
+        return { isEligible: false, reason: 'This job is not available for your college' };
       }
     }
 
-    return true;
+    // Check specific field requirements from job_requirement_templates (Advanced Configuration)
+    if (requirements && requirements.specific_field_requirements) {
+      const fieldReqs = requirements.specific_field_requirements;
+
+      for (const [fieldName, fieldReq] of Object.entries(fieldReqs)) {
+        // Get student value from either student or extendedProfile
+        const studentValue = extendedProfile[fieldName] || student[fieldName];
+
+        // Only check minimum requirements if student has filled the field
+        // If they haven't filled it yet, they can fill it during application
+        if (fieldReq.min && studentValue !== null && studentValue !== undefined && studentValue !== '') {
+          const numericValue = parseFloat(studentValue);
+          if (!isNaN(numericValue) && numericValue < fieldReq.min) {
+            const fieldLabel = fieldName.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+            return {
+              isEligible: false,
+              reason: `Your ${fieldLabel} (${studentValue}) does not meet the minimum requirement (${fieldReq.min})`
+            };
+          }
+        }
+      }
+    }
+
+    return { isEligible: true, reason: 'You meet all eligibility criteria' };
   } catch (error) {
     console.error('Check eligibility error:', error);
-    return false;
+    return { isEligible: false, reason: 'Error checking eligibility' };
   }
 };

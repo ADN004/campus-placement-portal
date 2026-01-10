@@ -154,104 +154,135 @@ export default function ManageWhitelistRequests() {
   }
 
   return (
-    <div>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Whitelist Requests</h1>
-        <p className="text-gray-600 mt-2">
-          Review and manage whitelist requests from placement officers for blacklisted students
-        </p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-rose-50 to-pink-50 pb-8">
+      {/* Header Section with Gradient */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-rose-600 via-pink-600 to-fuchsia-600 rounded-2xl shadow-2xl mb-8 p-8">
+        <div className="absolute inset-0 bg-black opacity-10"></div>
+        <div className="absolute inset-0 bg-grid-white/[0.05]"></div>
+
+        <div className="relative z-10">
+          <div className="flex items-center space-x-4">
+            <div className="p-4 bg-white/20 backdrop-blur-sm rounded-2xl">
+              <FileText className="text-white" size={36} />
+            </div>
+            <div>
+              <h1 className="text-4xl font-bold text-white mb-2 tracking-tight">
+                Whitelist Requests
+              </h1>
+              <p className="text-rose-100 text-lg">
+                Review and manage whitelist requests from placement officers for blacklisted students
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className="card">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-600 text-sm font-medium">Total Requests</p>
-              <p className="text-3xl font-bold text-gray-900 mt-2">{stats.total}</p>
-            </div>
-            <div className="p-4 rounded-full bg-blue-100 text-blue-600">
-              <FileText size={24} />
-            </div>
-          </div>
-        </div>
-        <div className="card">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-600 text-sm font-medium">Pending</p>
-              <p className="text-3xl font-bold text-orange-600 mt-2">{stats.pending}</p>
-            </div>
-            <div className="p-4 rounded-full bg-orange-100 text-orange-600">
-              <AlertTriangle size={24} />
+        <button onClick={() => setActiveTab('all')} className="text-left transform hover:scale-105 transition-transform duration-200">
+          <div className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-shadow duration-300 p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Requests</p>
+                <p className="text-4xl font-bold text-gray-900 mt-2">{stats.total}</p>
+              </div>
+              <div className="p-4 bg-gradient-to-br from-blue-400 to-blue-600 rounded-2xl shadow-lg">
+                <FileText className="text-white" size={28} />
+              </div>
             </div>
           </div>
-        </div>
-        <div className="card">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-600 text-sm font-medium">Approved</p>
-              <p className="text-3xl font-bold text-green-600 mt-2">{stats.approved}</p>
-            </div>
-            <div className="p-4 rounded-full bg-green-100 text-green-600">
-              <CheckCircle size={24} />
-            </div>
-          </div>
-        </div>
-        <div className="card">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-600 text-sm font-medium">Rejected</p>
-              <p className="text-3xl font-bold text-red-600 mt-2">{stats.rejected}</p>
-            </div>
-            <div className="p-4 rounded-full bg-red-100 text-red-600">
-              <XCircle size={24} />
+        </button>
+        <button onClick={() => setActiveTab('pending')} className="text-left transform hover:scale-105 transition-transform duration-200">
+          <div className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-shadow duration-300 p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Pending</p>
+                <p className="text-4xl font-bold text-orange-600 mt-2">{stats.pending}</p>
+              </div>
+              <div className="p-4 bg-gradient-to-br from-orange-400 to-orange-600 rounded-2xl shadow-lg">
+                <AlertTriangle className="text-white" size={28} />
+              </div>
             </div>
           </div>
-        </div>
+        </button>
+        <button onClick={() => setActiveTab('approved')} className="text-left transform hover:scale-105 transition-transform duration-200">
+          <div className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-shadow duration-300 p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Approved</p>
+                <p className="text-4xl font-bold text-green-600 mt-2">{stats.approved}</p>
+              </div>
+              <div className="p-4 bg-gradient-to-br from-green-400 to-green-600 rounded-2xl shadow-lg">
+                <CheckCircle className="text-white" size={28} />
+              </div>
+            </div>
+          </div>
+        </button>
+        <button onClick={() => setActiveTab('rejected')} className="text-left transform hover:scale-105 transition-transform duration-200">
+          <div className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-shadow duration-300 p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Rejected</p>
+                <p className="text-4xl font-bold text-red-600 mt-2">{stats.rejected}</p>
+              </div>
+              <div className="p-4 bg-gradient-to-br from-red-400 to-red-600 rounded-2xl shadow-lg">
+                <XCircle className="text-white" size={28} />
+              </div>
+            </div>
+          </div>
+        </button>
       </div>
 
       {/* Tabs */}
-      <div className="mb-6">
-        <div className="border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8">
-            <button
-              onClick={() => setActiveTab('pending')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'pending'
-                  ? 'border-primary-600 text-primary-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Pending ({stats.pending})
-            </button>
-            <button
-              onClick={() => setActiveTab('approved')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'approved'
-                  ? 'border-primary-600 text-primary-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Approved ({stats.approved})
-            </button>
-            <button
-              onClick={() => setActiveTab('rejected')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'rejected'
-                  ? 'border-primary-600 text-primary-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Rejected ({stats.rejected})
-            </button>
-          </nav>
-        </div>
+      <div className="mb-6 bg-white rounded-2xl shadow-lg p-2">
+        <nav className="flex space-x-2">
+          <button
+            onClick={() => setActiveTab('all')}
+            className={`flex-1 py-3 px-4 rounded-xl font-semibold text-sm transition-all duration-200 ${
+              activeTab === 'all'
+                ? 'bg-gradient-to-r from-rose-600 to-pink-600 text-white shadow-md'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            All ({stats.total})
+          </button>
+          <button
+            onClick={() => setActiveTab('pending')}
+            className={`flex-1 py-3 px-4 rounded-xl font-semibold text-sm transition-all duration-200 ${
+              activeTab === 'pending'
+                ? 'bg-gradient-to-r from-rose-600 to-pink-600 text-white shadow-md'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            Pending ({stats.pending})
+          </button>
+          <button
+            onClick={() => setActiveTab('approved')}
+            className={`flex-1 py-3 px-4 rounded-xl font-semibold text-sm transition-all duration-200 ${
+              activeTab === 'approved'
+                ? 'bg-gradient-to-r from-rose-600 to-pink-600 text-white shadow-md'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            Approved ({stats.approved})
+          </button>
+          <button
+            onClick={() => setActiveTab('rejected')}
+            className={`flex-1 py-3 px-4 rounded-xl font-semibold text-sm transition-all duration-200 ${
+              activeTab === 'rejected'
+                ? 'bg-gradient-to-r from-rose-600 to-pink-600 text-white shadow-md'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            Rejected ({stats.rejected})
+          </button>
+        </nav>
       </div>
 
       {/* Requests Table */}
-      <div className="card">
+      <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="table">
+          <table className="min-w-full divide-y divide-gray-200">
             <thead>
               <tr>
                 <th>Student Details</th>

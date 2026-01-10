@@ -1,5 +1,8 @@
 version: '3.8'
 
+# State Placement Cell - Docker Compose Configuration
+# Production-ready setup for 60 Polytechnic Colleges in Kerala
+
 services:
   # PostgreSQL Database
   postgres:
@@ -10,23 +13,47 @@ services:
       POSTGRES_DB: ${DB_NAME:-campus_placement_portal}
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=en_US.UTF-8 --lc-ctype=en_US.UTF-8"
+      PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
       - ./database/seed-data.sql:/docker-entrypoint-initdb.d/02-seed.sql
+      - postgres_backups:/backups
     ports:
       - "${DB_PORT:-5432}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-campus_placement_portal}"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
+    networks:
+      - cpp_network
+    # Resource limits for production (20k+ concurrent users)
+    # Adjust based on your server capacity
+    deploy:
+      resources:
+        limits:
+          cpus: '4'           # Increased for high-traffic production
+          memory: 4G          # Increased for large datasets and connection pools
+        reservations:
+          cpus: '1'
+          memory: 1G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # Backend API
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      args:
+        NODE_ENV: production
+    image: cpp-backend:latest
     container_name: cpp_backend
     restart: unless-stopped
     depends_on:
@@ -44,16 +71,39 @@ services:
       JWT_EXPIRE: ${JWT_EXPIRE:-7d}
       JWT_COOKIE_EXPIRE: ${JWT_COOKIE_EXPIRE:-7}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
+      EMAIL_SERVICE: ${EMAIL_SERVICE:-gmail}
+      EMAIL_USER: ${EMAIL_USER}
+      EMAIL_PASSWORD: ${EMAIL_PASSWORD}
+      EMAIL_FROM: ${EMAIL_FROM}
     ports:
       - "${BACKEND_PORT:-5000}:5000"
     volumes:
       - backend_uploads:/app/uploads
+      - backend_logs:/app/logs
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:5000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
+    networks:
+      - cpp_network
+    deploy:
+      resources:
+        limits:
+          cpus: '2'           # Increased for handling 20k concurrent users
+          memory: 2G          # Increased for connection handling and in-memory caching
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # Frontend
   frontend:
@@ -62,10 +112,12 @@ services:
       dockerfile: Dockerfile
       args:
         VITE_API_URL: ${VITE_API_URL:-http://localhost:5000/api}
+    image: cpp-frontend:latest
     container_name: cpp_frontend
     restart: unless-stopped
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     ports:
       - "${FRONTEND_PORT:-80}:80"
     healthcheck:
@@ -74,13 +126,37 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+    networks:
+      - cpp_network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
 
 volumes:
+  # Use Docker named volumes for production (better performance and portability)
+  # For development with bind mounts, use docker-compose.dev.yml override
   postgres_data:
+    driver: local
+  postgres_backups:
     driver: local
   backend_uploads:
     driver: local
+  backend_logs:
+    driver: local
 
 networks:
-  default:
-    name: cpp_network
+  cpp_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

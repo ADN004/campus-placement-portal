@@ -1,19 +1,21 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { LogIn, Eye, EyeOff } from 'lucide-react';
+import { LogIn, Eye, EyeOff, AlertCircle } from 'lucide-react';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setError('');
 
     const result = await login({ email, password });
 
@@ -28,6 +30,8 @@ export default function LoginPage() {
       } else if (role === 'super_admin') {
         navigate('/super-admin/dashboard');
       }
+    } else {
+      setError(result.message || 'Invalid email/phone or password. Please try again.');
     }
   };
 
@@ -50,7 +54,7 @@ export default function LoginPage() {
               Welcome Back
             </h1>
             <p className="text-gray-600 text-sm sm:text-base">
-              Campus Placement Portal
+              State Placement Cell
             </p>
             <p className="text-gray-500 text-xs sm:text-sm font-medium mt-1">
               Kerala Polytechnics
@@ -58,6 +62,16 @@ export default function LoginPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Error Alert */}
+            {error && (
+              <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 flex items-start space-x-3 animate-shake">
+                <AlertCircle className="text-red-600 flex-shrink-0 mt-0.5" size={20} />
+                <div className="flex-1">
+                  <p className="text-red-800 font-semibold text-sm">{error}</p>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2">
               <label htmlFor="email" className="label">
                 Email / Phone Number

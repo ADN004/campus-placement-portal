@@ -1,4 +1,4 @@
--- Campus Placement Portal Database Schema
+-- State Placement Cell Database Schema
 -- PostgreSQL Database Schema for 60 Polytechnic Colleges in Kerala
 
 -- Enable UUID extension

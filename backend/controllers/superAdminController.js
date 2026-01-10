@@ -1,6 +1,9 @@
 import bcrypt from 'bcrypt';
+import ExcelJS from 'exceljs';
 import { query, transaction } from '../config/database.js';
 import logActivity from '../middleware/activityLogger.js';
+import { generateStudentPDF } from '../utils/pdfGenerator.js';
+import { deleteImage, deleteFolderOnly, extractFolderPath } from '../config/cloudinary.js';
 
 // ========================================
 // PRN MANAGEMENT
@@ -12,9 +15,13 @@ import logActivity from '../middleware/activityLogger.js';
 export const getPRNRanges = async (req, res) => {
   try {
     const rangesResult = await query(
-      `SELECT pr.*, u.email as added_by_email
+      `SELECT pr.*,
+              u.email as added_by_email,
+              c.college_name,
+              c.college_code
        FROM prn_ranges pr
        LEFT JOIN users u ON pr.added_by = u.id
+       LEFT JOIN colleges c ON pr.college_id = c.id
        ORDER BY pr.created_at DESC`
     );
 
@@ -56,8 +63,8 @@ export const addPRNRange = async (req, res) => {
     }
 
     const result = await query(
-      `INSERT INTO prn_ranges (range_start, range_end, single_prn, description, added_by)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO prn_ranges (range_start, range_end, single_prn, description, added_by, created_by_role, college_id)
+       VALUES ($1, $2, $3, $4, $5, 'super_admin', NULL)
        RETURNING *`,
       [range_start || null, range_end || null, single_prn || null, description, req.user.id]
     );
@@ -95,16 +102,68 @@ export const addPRNRange = async (req, res) => {
 // @access  Private (Super Admin)
 export const updatePRNRange = async (req, res) => {
   try {
-    const { is_active, description } = req.body;
+    const { is_active, is_enabled, description, disabled_reason } = req.body;
     const rangeId = req.params.id;
+
+    // Build update query dynamically
+    const updates = [];
+    const params = [];
+    let paramCount = 0;
+
+    if (is_active !== undefined) {
+      paramCount++;
+      updates.push(`is_active = $${paramCount}`);
+      params.push(is_active);
+    }
+
+    if (is_enabled !== undefined) {
+      paramCount++;
+      updates.push(`is_enabled = $${paramCount}`);
+      params.push(is_enabled);
+
+      // If disabling, set disabled_date and disabled_by
+      if (is_enabled === false) {
+        paramCount++;
+        updates.push(`disabled_date = $${paramCount}`);
+        params.push(new Date());
+
+        paramCount++;
+        updates.push(`disabled_by = $${paramCount}`);
+        params.push(req.user.id);
+
+        if (disabled_reason) {
+          paramCount++;
+          updates.push(`disabled_reason = $${paramCount}`);
+          params.push(disabled_reason);
+        }
+      } else {
+        // If enabling, clear disabled fields
+        updates.push(`disabled_date = NULL, disabled_by = NULL, disabled_reason = NULL`);
+      }
+    }
+
+    if (description !== undefined) {
+      paramCount++;
+      updates.push(`description = $${paramCount}`);
+      params.push(description);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No fields to update',
+      });
+    }
+
+    paramCount++;
+    params.push(rangeId);
 
     const result = await query(
       `UPDATE prn_ranges
-       SET is_active = COALESCE($1, is_active),
-           description = COALESCE($2, description)
-       WHERE id = $3
+       SET ${updates.join(', ')}
+       WHERE id = $${paramCount}
        RETURNING *`,
-      [is_active, description, rangeId]
+      params
     );
 
     if (result.rows.length === 0) {
@@ -118,10 +177,10 @@ export const updatePRNRange = async (req, res) => {
     await logActivity(
       req.user.id,
       'UPDATE_PRN_RANGE',
-      `Updated PRN range ID: ${rangeId}`,
+      `Updated PRN range ID: ${rangeId}${is_enabled !== undefined ? (is_enabled ? ' (Enabled)' : ' (Disabled)') : ''}`,
       'prn_range',
       rangeId,
-      { is_active, description },
+      { is_active, is_enabled, description, disabled_reason },
       req
     );
 
@@ -194,6 +253,7 @@ export const getPlacementOfficers = async (req, res) => {
   try {
     const officersResult = await query(
       `SELECT po.*, c.college_name, r.id as region_id, r.region_name, u.email,
+              u.is_active as status, u.last_login,
               appointed_by_user.email as appointed_by_email
        FROM placement_officers po
        JOIN colleges c ON po.college_id = c.id
@@ -403,6 +463,63 @@ export const updatePlacementOfficer = async (req, res) => {
   }
 };
 
+// @desc    Reset placement officer password to default (123)
+// @route   PUT /api/super-admin/placement-officers/:id/reset-password
+// @access  Private (Super Admin)
+export const resetPlacementOfficerPassword = async (req, res) => {
+  try {
+    const officerId = req.params.id;
+
+    // Get officer details
+    const officerResult = await query(
+      'SELECT * FROM placement_officers WHERE id = $1',
+      [officerId]
+    );
+
+    if (officerResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Placement officer not found',
+      });
+    }
+
+    const officer = officerResult.rows[0];
+
+    // Hash default password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash('123', salt);
+
+    // Update user password
+    await query(
+      'UPDATE users SET password_hash = $1 WHERE id = $2',
+      [hashedPassword, officer.user_id]
+    );
+
+    // Log activity
+    await logActivity(
+      req.user.id,
+      'RESET_PLACEMENT_OFFICER_PASSWORD',
+      `Reset password for placement officer ${officer.officer_name} (ID: ${officerId})`,
+      'placement_officer',
+      officerId,
+      { officer_name: officer.officer_name, college_id: officer.college_id },
+      req
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Placement officer password reset to default (123) successfully',
+    });
+  } catch (error) {
+    console.error('Reset placement officer password error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error resetting placement officer password',
+      error: error.message,
+    });
+  }
+};
+
 // @desc    Remove/Deactivate placement officer
 // @route   DELETE /api/super-admin/placement-officers/:id
 // @access  Private (Super Admin)
@@ -546,12 +663,11 @@ export const createJob = async (req, res) => {
       !title ||
       !company_name ||
       !description ||
-      !application_form_url ||
       !application_deadline
     ) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide all required fields',
+        message: 'Please provide all required fields (title, company, description, deadline)',
       });
     }
 
@@ -612,7 +728,7 @@ export const createJob = async (req, res) => {
   }
 };
 
-// @desc    Get all jobs
+// @desc    Get all jobs (excluding soft-deleted)
 // @route   GET /api/super-admin/jobs
 // @access  Private (Super Admin)
 export const getJobs = async (req, res) => {
@@ -623,6 +739,7 @@ export const getJobs = async (req, res) => {
        FROM jobs j
        LEFT JOIN users u ON j.created_by = u.id
        LEFT JOIN job_applications ja ON j.id = ja.job_id
+       WHERE j.deleted_at IS NULL
        GROUP BY j.id, u.email
        ORDER BY j.created_at DESC`
     );
@@ -805,7 +922,7 @@ export const updateJob = async (req, res) => {
   }
 };
 
-// @desc    Delete job
+// @desc    Delete job (soft delete)
 // @route   DELETE /api/super-admin/jobs/:id
 // @access  Private (Super Admin)
 export const deleteJob = async (req, res) => {
@@ -813,7 +930,7 @@ export const deleteJob = async (req, res) => {
     const jobId = req.params.id;
 
     // Get job details before deletion for activity log
-    const jobResult = await query('SELECT * FROM jobs WHERE id = $1', [jobId]);
+    const jobResult = await query('SELECT * FROM jobs WHERE id = $1 AND deleted_at IS NULL', [jobId]);
 
     if (jobResult.rows.length === 0) {
       return res.status(404).json({
@@ -824,14 +941,17 @@ export const deleteJob = async (req, res) => {
 
     const job = jobResult.rows[0];
 
-    // Delete the job
-    await query('DELETE FROM jobs WHERE id = $1', [jobId]);
+    // Soft delete the job
+    await query(
+      'UPDATE jobs SET deleted_at = NOW(), deleted_by = $1 WHERE id = $2',
+      [req.user.id, jobId]
+    );
 
     // Log activity
     await logActivity(
       req.user.id,
-      'DELETE_JOB',
-      `Deleted job: ${job.job_title} at ${job.company_name}`,
+      'SOFT_DELETE_JOB',
+      `Soft deleted job: ${job.job_title} at ${job.company_name}`,
       'job',
       jobId,
       null,
@@ -840,13 +960,65 @@ export const deleteJob = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: 'Job deleted successfully',
+      message: 'Job moved to deleted history',
     });
   } catch (error) {
     console.error('Delete job error:', error);
     res.status(500).json({
       success: false,
       message: 'Error deleting job',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Toggle job status (activate/deactivate)
+// @route   PUT /api/super-admin/jobs/:id/toggle-status
+// @access  Private (Super Admin)
+export const toggleJobStatus = async (req, res) => {
+  try {
+    const jobId = req.params.id;
+
+    // Get current job status
+    const jobResult = await query('SELECT * FROM jobs WHERE id = $1', [jobId]);
+
+    if (jobResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Job not found',
+      });
+    }
+
+    const job = jobResult.rows[0];
+    const newStatus = !job.is_active;
+
+    // Toggle the status
+    await query(
+      'UPDATE jobs SET is_active = $1 WHERE id = $2',
+      [newStatus, jobId]
+    );
+
+    // Log activity
+    await logActivity(
+      req.user.id,
+      'TOGGLE_JOB_STATUS',
+      `${newStatus ? 'Activated' : 'Deactivated'} job: ${job.job_title} at ${job.company_name}`,
+      'job',
+      jobId,
+      { old_status: job.is_active, new_status: newStatus },
+      req
+    );
+
+    res.status(200).json({
+      success: true,
+      message: `Job ${newStatus ? 'activated' : 'deactivated'} successfully`,
+      data: { is_active: newStatus },
+    });
+  } catch (error) {
+    console.error('Toggle job status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error toggling job status',
       error: error.message,
     });
   }
@@ -862,12 +1034,29 @@ export const deleteJob = async (req, res) => {
 export const getWhitelistRequests = async (req, res) => {
   try {
     const requestsResult = await query(
-      `SELECT wr.*, s.prn, s.email as student_email, c.college_name,
-              po.officer_name, po.phone_number as officer_phone
+      `SELECT wr.*,
+              wr.request_reason as whitelist_reason,
+              s.prn as student_prn,
+              s.student_name,
+              s.email as student_email,
+              s.branch as student_branch,
+              s.blacklist_reason,
+              s.blacklisted_date as blacklisted_at,
+              c.college_name,
+              r.region_name,
+              po.officer_name,
+              po.officer_email,
+              po.phone_number as officer_phone,
+              blacklister.email as blacklisted_by_name,
+              reviewer.email as reviewed_by_name,
+              wr.reviewed_date as reviewed_at
        FROM whitelist_requests wr
        JOIN students s ON wr.student_id = s.id
        JOIN colleges c ON s.college_id = c.id
+       JOIN regions r ON s.region_id = r.id
        JOIN placement_officers po ON wr.requested_by = po.user_id
+       LEFT JOIN users blacklister ON s.blacklisted_by = blacklister.id
+       LEFT JOIN users reviewer ON wr.reviewed_by = reviewer.id
        ORDER BY wr.created_at DESC`
     );
 
@@ -1052,10 +1241,10 @@ export const getActivityLogs = async (req, res) => {
       params.push(roleMap[user_role] || user_role);
     }
 
-    // Filter by search (email or description)
+    // Filter by search (email or action_type)
     if (search) {
       paramCount++;
-      queryText += ` AND (u.email ILIKE $${paramCount} OR al.description ILIKE $${paramCount})`;
+      queryText += ` AND (u.email ILIKE $${paramCount} OR al.action_type ILIKE $${paramCount})`;
       params.push(`%${search}%`);
     }
 
@@ -1073,32 +1262,38 @@ export const getActivityLogs = async (req, res) => {
       params.push(date_to);
     }
 
-    // If CSV export is requested
-    if (exportCsv === 'csv') {
+    // If CSV or PDF export is requested
+    if (exportCsv === 'csv' || exportCsv === 'pdf') {
       queryText += ` ORDER BY al.created_at DESC`;
       const logsResult = await query(queryText, params);
 
       // Generate CSV
-      const csvRows = [];
-      csvRows.push(['Timestamp', 'User Email', 'User Role', 'Action Type', 'Description', 'Target Type', 'Target ID'].join(','));
+      if (exportCsv === 'csv') {
+        const csvRows = [];
+        csvRows.push(['Timestamp', 'User Info', 'User Role', 'Action Type'].join(','));
 
-      logsResult.rows.forEach(log => {
-        csvRows.push([
-          log.created_at,
-          log.user_email || '',
-          log.user_role || '',
-          log.action_type || '',
-          `"${(log.description || '').replace(/"/g, '""')}"`,
-          log.target_type || '',
-          log.target_id || ''
-        ].join(','));
-      });
+        logsResult.rows.forEach(log => {
+          const userInfo = log.user_email || log.user_phone || '';
+          csvRows.push([
+            log.created_at,
+            userInfo,
+            log.user_role || '',
+            log.action_type || ''
+          ].join(','));
+        });
 
-      const csv = csvRows.join('\n');
+        const csv = csvRows.join('\n');
 
-      res.setHeader('Content-Type', 'text/csv');
-      res.setHeader('Content-Disposition', 'attachment; filename=activity-logs.csv');
-      return res.send(csv);
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', 'attachment; filename=activity-logs.csv');
+        return res.send(csv);
+      }
+
+      // Generate PDF
+      if (exportCsv === 'pdf') {
+        const { generateActivityLogsPDF } = await import('../utils/pdfGenerator.js');
+        return await generateActivityLogsPDF(logsResult.rows, {}, res);
+      }
     }
 
     // Count total for pagination - rebuild query instead of replace
@@ -1127,7 +1322,7 @@ export const getActivityLogs = async (req, res) => {
     }
     if (search) {
       countParamNum++;
-      countQueryText += ` AND (u.email ILIKE $${countParamNum} OR al.description ILIKE $${countParamNum})`;
+      countQueryText += ` AND (u.email ILIKE $${countParamNum} OR al.action_type ILIKE $${countParamNum})`;
     }
     if (date_from) {
       countParamNum++;
@@ -1333,24 +1528,213 @@ export const updateProfile = async (req, res) => {
   }
 };
 
-// @desc    Get all students (for job eligibility checking)
-// @route   GET /api/super-admin/students
+// @desc    Get all students (for job eligibility checking and management)
+// @route   GET /api/super-admin/students?status=approved&search=...&page=1&limit=100
 // @access  Private (Super Admin)
 export const getAllStudents = async (req, res) => {
   try {
-    const studentsResult = await query(
-      `SELECT s.*, c.college_name, r.region_name
-       FROM students s
-       JOIN colleges c ON s.college_id = c.id
-       JOIN regions r ON s.region_id = r.id
-       WHERE s.registration_status = 'approved'
-       AND s.is_blacklisted = FALSE
-       ORDER BY s.created_at DESC`
+    const {
+      status,
+      college_id,
+      region_id,
+      cgpa_min,
+      backlog,
+      search,
+      page = 1,
+      limit = 100,
+      dob_from,
+      dob_to,
+      height_min,
+      height_max,
+      weight_min,
+      weight_max,
+      has_driving_license,
+      has_pan_card,
+      has_aadhar_card,
+      has_passport,
+      districts
+    } = req.query;
+
+    // Parse pagination params
+    const pageNum = parseInt(page) || 1;
+    const limitNum = parseInt(limit) || 100;
+    const offset = (pageNum - 1) * limitNum;
+
+    // Build query with proper blacklist filtering
+    let queryText = `
+      SELECT s.id, s.prn, s.student_name as name, s.email, s.mobile_number,
+             s.date_of_birth, s.age, s.gender, s.branch, s.programme_cgpa,
+             s.backlog_count, s.registration_status, s.is_blacklisted,
+             s.photo_url, s.created_at, s.college_id, s.region_id,
+             c.college_name, r.region_name, u.email as user_email,
+             COALESCE(ep.height_cm, s.height) as height,
+             COALESCE(ep.weight_kg, s.weight) as weight,
+             ep.district
+      FROM students s
+      JOIN colleges c ON s.college_id = c.id
+      JOIN regions r ON s.region_id = r.id
+      JOIN users u ON s.user_id = u.id
+      LEFT JOIN student_extended_profiles ep ON s.id = ep.student_id
+      WHERE 1=1
+    `;
+    const params = [];
+    let paramCount = 0;
+
+    // CRITICAL FIX: Filter based on status and blacklist
+    // - If status is 'blacklisted', show only blacklisted students
+    // - Otherwise, exclude blacklisted students from the list
+    if (status === 'blacklisted') {
+      queryText += ` AND s.is_blacklisted = TRUE`;
+    } else if (status === 'approved') {
+      queryText += ` AND s.registration_status = 'approved' AND s.is_blacklisted = FALSE`;
+    } else if (status === 'pending') {
+      queryText += ` AND s.registration_status = 'pending' AND s.is_blacklisted = FALSE`;
+    } else if (status === 'rejected') {
+      queryText += ` AND s.registration_status = 'rejected' AND s.is_blacklisted = FALSE`;
+    } else {
+      // Default: Show all non-blacklisted students
+      queryText += ` AND s.is_blacklisted = FALSE`;
+    }
+
+    // Additional filters
+    if (college_id) {
+      paramCount++;
+      queryText += ` AND s.college_id = $${paramCount}`;
+      params.push(college_id);
+    }
+
+    if (region_id) {
+      paramCount++;
+      queryText += ` AND s.region_id = $${paramCount}`;
+      params.push(region_id);
+    }
+
+    if (cgpa_min) {
+      paramCount++;
+      queryText += ` AND s.programme_cgpa >= $${paramCount}`;
+      params.push(cgpa_min);
+    }
+
+    if (backlog !== undefined) {
+      if (backlog === '0') {
+        queryText += ` AND s.backlog_count = 'All cleared'`;
+      } else {
+        paramCount++;
+        queryText += ` AND s.backlog_count = $${paramCount}`;
+        params.push(backlog);
+      }
+    }
+
+    // Add branch filter
+    const { branch } = req.query;
+    if (branch) {
+      paramCount++;
+      queryText += ` AND s.branch = $${paramCount}`;
+      params.push(branch);
+    }
+
+    // DOB filters
+    if (dob_from) {
+      paramCount++;
+      queryText += ` AND s.date_of_birth >= $${paramCount}`;
+      params.push(dob_from);
+    }
+    if (dob_to) {
+      paramCount++;
+      queryText += ` AND s.date_of_birth <= $${paramCount}`;
+      params.push(dob_to);
+    }
+
+    // Height filters
+    if (height_min) {
+      paramCount++;
+      queryText += ` AND COALESCE(ep.height_cm, s.height) >= $${paramCount} AND COALESCE(ep.height_cm, s.height) IS NOT NULL`;
+      params.push(parseInt(height_min));
+    }
+    if (height_max) {
+      paramCount++;
+      queryText += ` AND COALESCE(ep.height_cm, s.height) <= $${paramCount} AND COALESCE(ep.height_cm, s.height) IS NOT NULL`;
+      params.push(parseInt(height_max));
+    }
+
+    // Weight filters
+    if (weight_min) {
+      paramCount++;
+      queryText += ` AND COALESCE(ep.weight_kg, s.weight) >= $${paramCount} AND COALESCE(ep.weight_kg, s.weight) IS NOT NULL`;
+      params.push(parseFloat(weight_min));
+    }
+    if (weight_max) {
+      paramCount++;
+      queryText += ` AND COALESCE(ep.weight_kg, s.weight) <= $${paramCount} AND COALESCE(ep.weight_kg, s.weight) IS NOT NULL`;
+      params.push(parseFloat(weight_max));
+    }
+
+    // Document filters
+    if (has_driving_license === 'yes') {
+      queryText += ` AND s.has_driving_license = TRUE`;
+    } else if (has_driving_license === 'no') {
+      queryText += ` AND (s.has_driving_license = FALSE OR s.has_driving_license IS NULL)`;
+    }
+
+    if (has_pan_card === 'yes') {
+      queryText += ` AND s.has_pan_card = TRUE`;
+    } else if (has_pan_card === 'no') {
+      queryText += ` AND (s.has_pan_card = FALSE OR s.has_pan_card IS NULL)`;
+    }
+
+    if (has_aadhar_card === 'yes') {
+      queryText += ` AND COALESCE(ep.has_aadhar_card, FALSE) = TRUE`;
+    } else if (has_aadhar_card === 'no') {
+      queryText += ` AND COALESCE(ep.has_aadhar_card, FALSE) = FALSE`;
+    }
+
+    if (has_passport === 'yes') {
+      queryText += ` AND COALESCE(ep.has_passport, FALSE) = TRUE`;
+    } else if (has_passport === 'no') {
+      queryText += ` AND COALESCE(ep.has_passport, FALSE) = FALSE`;
+    }
+
+    // District filter (multi-select)
+    if (districts) {
+      const districtArray = districts.split(',').map(d => d.trim()).filter(d => d);
+      if (districtArray.length > 0) {
+        paramCount++;
+        queryText += ` AND ep.district = ANY($${paramCount})`;
+        params.push(districtArray);
+      }
+    }
+
+    if (search) {
+      paramCount++;
+      queryText += ` AND (s.prn ILIKE $${paramCount} OR s.student_name ILIKE $${paramCount} OR s.email ILIKE $${paramCount} OR s.mobile_number ILIKE $${paramCount})`;
+      params.push(`%${search}%`);
+    }
+
+    // Get total count for pagination
+    const countQuery = queryText.replace(
+      /SELECT[\s\S]+?FROM/,
+      'SELECT COUNT(*) as total FROM'
     );
+    const countResult = await query(countQuery, params);
+    const total = parseInt(countResult.rows[0].total, 10);
+
+    // Add pagination
+    queryText += ' ORDER BY s.created_at DESC';
+    paramCount++;
+    queryText += ` LIMIT $${paramCount}`;
+    params.push(limitNum);
+    paramCount++;
+    queryText += ` OFFSET $${paramCount}`;
+    params.push(offset);
+
+    const studentsResult = await query(queryText, params);
 
     res.status(200).json({
       success: true,
       count: studentsResult.rows.length,
+      total: total,
+      page: pageNum,
+      totalPages: Math.ceil(total / limitNum),
       data: studentsResult.rows,
     });
   } catch (error) {
@@ -1358,6 +1742,197 @@ export const getAllStudents = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error fetching students',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Search student by PRN
+// @route   GET /api/super-admin/students/search/:prn
+// @access  Private (Super Admin)
+export const searchStudentByPRN = async (req, res) => {
+  try {
+    const { prn } = req.params;
+
+    if (!prn) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide a PRN to search',
+      });
+    }
+
+    const studentResult = await query(
+      `SELECT s.*,
+              c.college_name,
+              c.college_code,
+              r.region_name,
+              u.email as user_email,
+              blacklister.email as blacklisted_by_email
+       FROM students s
+       JOIN colleges c ON s.college_id = c.id
+       JOIN regions r ON s.region_id = r.id
+       JOIN users u ON s.user_id = u.id
+       LEFT JOIN users blacklister ON s.blacklisted_by = blacklister.id
+       WHERE s.prn ILIKE $1`,
+      [prn]
+    );
+
+    if (studentResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student not found with this PRN',
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: studentResult.rows[0],
+    });
+  } catch (error) {
+    console.error('Search student by PRN error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error searching student',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Blacklist student (Super Admin)
+// @route   PUT /api/super-admin/students/:id/blacklist
+// @access  Private (Super Admin)
+export const blacklistStudent = async (req, res) => {
+  try {
+    const studentId = req.params.id;
+    const { reason } = req.body;
+
+    if (!reason || reason.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'Blacklist reason is required',
+      });
+    }
+
+    // Check if student exists
+    const studentCheck = await query(
+      'SELECT * FROM students WHERE id = $1',
+      [studentId]
+    );
+
+    if (studentCheck.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student not found',
+      });
+    }
+
+    // Check if already blacklisted
+    if (studentCheck.rows[0].is_blacklisted) {
+      return res.status(400).json({
+        success: false,
+        message: 'Student is already blacklisted',
+      });
+    }
+
+    // Blacklist the student
+    const result = await query(
+      `UPDATE students
+       SET is_blacklisted = TRUE,
+           blacklist_reason = $1,
+           blacklisted_date = CURRENT_TIMESTAMP,
+           blacklisted_by = $2
+       WHERE id = $3
+       RETURNING *`,
+      [reason, req.user.id, studentId]
+    );
+
+    // Log activity
+    await logActivity(
+      req.user.id,
+      'BLACKLIST_STUDENT',
+      `Blacklisted student PRN: ${result.rows[0].prn}`,
+      'student',
+      studentId,
+      { reason },
+      req
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Student blacklisted successfully',
+      data: result.rows[0],
+    });
+  } catch (error) {
+    console.error('Blacklist student error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error blacklisting student',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Remove student from blacklist (Super Admin)
+// @route   PUT /api/super-admin/students/:id/whitelist
+// @access  Private (Super Admin)
+export const whitelistStudent = async (req, res) => {
+  try {
+    const studentId = req.params.id;
+
+    // Check if student exists
+    const studentCheck = await query(
+      'SELECT * FROM students WHERE id = $1',
+      [studentId]
+    );
+
+    if (studentCheck.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student not found',
+      });
+    }
+
+    // Check if student is blacklisted
+    if (!studentCheck.rows[0].is_blacklisted) {
+      return res.status(400).json({
+        success: false,
+        message: 'Student is not blacklisted',
+      });
+    }
+
+    // Remove from blacklist
+    const result = await query(
+      `UPDATE students
+       SET is_blacklisted = FALSE,
+           blacklist_reason = NULL,
+           blacklisted_date = NULL,
+           blacklisted_by = NULL
+       WHERE id = $1
+       RETURNING *`,
+      [studentId]
+    );
+
+    // Log activity
+    await logActivity(
+      req.user.id,
+      'WHITELIST_STUDENT',
+      `Removed student from blacklist PRN: ${result.rows[0].prn}`,
+      'student',
+      studentId,
+      null,
+      req
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Student removed from blacklist successfully',
+      data: result.rows[0],
+    });
+  } catch (error) {
+    console.error('Whitelist student error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error removing student from blacklist',
       error: error.message,
     });
   }
@@ -1385,6 +1960,25 @@ export const deleteStudent = async (req, res) => {
 
     const student = studentResult.rows[0];
     const userId = student.user_id;
+
+    // Delete photo from Cloudinary if exists
+    if (student.photo_cloudinary_id) {
+      try {
+        // Delete the image file
+        await deleteImage(student.photo_cloudinary_id);
+        console.log(`✅ Deleted photo for student ${student.prn} from Cloudinary`);
+
+        // Extract and delete the folder
+        const folderPath = extractFolderPath(student.photo_cloudinary_id);
+        if (folderPath) {
+          await deleteFolderOnly(folderPath);
+          console.log(`✅ Deleted folder ${folderPath} from Cloudinary`);
+        }
+      } catch (cloudinaryError) {
+        console.error(`⚠️ Error deleting Cloudinary assets for student ${student.prn}:`, cloudinaryError);
+        // Continue with database deletion even if Cloudinary deletion fails
+      }
+    }
 
     // Delete student and related user in transaction
     await transaction(async (client) => {
@@ -1442,7 +2036,8 @@ export const getJobApplicants = async (req, res) => {
     // Get all students who have applied to this job across all colleges
     const applicantsResult = await query(
       `SELECT
-        s.id, s.prn, s.name, s.email, s.mobile_number, s.branch, s.cgpa,
+        s.id, s.prn, s.name, s.email, s.mobile_number, s.branch,
+        s.programme_cgpa as cgpa,
         s.backlog_count, s.date_of_birth, s.college_id, s.registration_status, s.region_id,
         c.college_name,
         r.region_name,
@@ -1498,11 +2093,20 @@ export const getPendingJobRequests = async (req, res) => {
       `SELECT jr.*,
               po.officer_name,
               c.college_name,
-              r.region_name
+              r.region_name,
+              jrrt.requires_academic_extended,
+              jrrt.requires_physical_details,
+              jrrt.requires_family_details,
+              jrrt.requires_personal_details,
+              jrrt.requires_document_verification,
+              jrrt.requires_education_preferences,
+              jrrt.specific_field_requirements,
+              jrrt.custom_fields
        FROM job_requests jr
        JOIN placement_officers po ON jr.placement_officer_id = po.id
        JOIN colleges c ON jr.college_id = c.id
        JOIN regions r ON c.region_id = r.id
+       LEFT JOIN job_request_requirement_templates jrrt ON jr.id = jrrt.job_request_id
        WHERE jr.status = 'pending'
        ORDER BY jr.created_at DESC`
     );
@@ -1523,6 +2127,13 @@ export const getPendingJobRequests = async (req, res) => {
         : [],
       target_colleges: request.target_colleges
         ? (typeof request.target_colleges === 'string' ? JSON.parse(request.target_colleges) : request.target_colleges)
+        : [],
+      // Parse requirements JSONB fields
+      specific_field_requirements: request.specific_field_requirements
+        ? (typeof request.specific_field_requirements === 'string' ? JSON.parse(request.specific_field_requirements) : request.specific_field_requirements)
+        : {},
+      custom_fields: request.custom_fields
+        ? (typeof request.custom_fields === 'string' ? JSON.parse(request.custom_fields) : request.custom_fields)
         : [],
     }));
 
@@ -1601,13 +2212,46 @@ export const approveJobRequest = async (req, res) => {
           jobRequest.application_deadline,
           jobRequest.min_cgpa || null,
           jobRequest.max_backlogs !== null && jobRequest.max_backlogs !== undefined ? jobRequest.max_backlogs : null,
-          JSON.stringify(jobRequest.allowed_branches || null),
+          jobRequest.allowed_branches ? JSON.stringify(jobRequest.allowed_branches) : null,
           targetType,
-          JSON.stringify(targetRegions || null),
-          JSON.stringify(targetColleges || null),
+          targetRegions ? JSON.stringify(targetRegions) : null,
+          targetColleges ? JSON.stringify(targetColleges) : null,
           req.user.id,
         ]
       );
+
+      // Copy job request requirements to job requirements (if they exist)
+      const requirementsResult = await client.query(
+        `SELECT * FROM job_request_requirement_templates WHERE job_request_id = $1`,
+        [id]
+      );
+
+      if (requirementsResult.rows.length > 0) {
+        const requirements = requirementsResult.rows[0];
+        await client.query(
+          `INSERT INTO job_requirement_templates (
+            job_id, min_cgpa, max_backlogs, allowed_branches,
+            requires_academic_extended, requires_physical_details,
+            requires_family_details, requires_personal_details,
+            requires_document_verification, requires_education_preferences,
+            specific_field_requirements, custom_fields
+          ) VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8, $9, $10, $11::jsonb, $12::jsonb)`,
+          [
+            jobResult.rows[0].id,
+            requirements.min_cgpa,
+            requirements.max_backlogs,
+            requirements.allowed_branches ? JSON.stringify(requirements.allowed_branches) : null,
+            requirements.requires_academic_extended,
+            requirements.requires_physical_details,
+            requirements.requires_family_details,
+            requirements.requires_personal_details,
+            requirements.requires_document_verification,
+            requirements.requires_education_preferences,
+            requirements.specific_field_requirements ? JSON.stringify(requirements.specific_field_requirements) : null,
+            requirements.custom_fields ? JSON.stringify(requirements.custom_fields) : null
+          ]
+        );
+      }
 
       // Update job request status
       await client.query(
@@ -1695,6 +2339,892 @@ export const rejectJobRequest = async (req, res) => {
       success: false,
       message: 'Error rejecting job request',
       error: error.message,
+    });
+  }
+};
+
+// ========================================
+// SUPER ADMIN MANAGEMENT
+// ========================================
+
+// @desc    Get all super admins
+// @route   GET /api/super-admin/admins
+// @access  Private (Super Admin)
+export const getSuperAdmins = async (req, res) => {
+  try {
+    const result = await query(
+      `SELECT id, email, is_active, last_login, created_at, updated_at
+       FROM users
+       WHERE role = 'super_admin'
+       ORDER BY created_at DESC`
+    );
+
+    res.status(200).json({
+      success: true,
+      count: result.rows.length,
+      data: result.rows,
+    });
+  } catch (error) {
+    console.error('Get super admins error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching super admins',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Create new super admin
+// @route   POST /api/super-admin/admins
+// @access  Private (Super Admin)
+export const createSuperAdmin = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // Validate input
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide email and password',
+      });
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide a valid email address',
+      });
+    }
+
+    // Validate password strength
+    if (password.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 8 characters long',
+      });
+    }
+
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+
+    if (!hasUpperCase || !hasLowerCase || !hasNumber) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must contain at least one uppercase letter, one lowercase letter, and one number',
+      });
+    }
+
+    // Check if user already exists
+    const existingUser = await query(
+      'SELECT id FROM users WHERE email = $1',
+      [email]
+    );
+
+    if (existingUser.rows.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'User with this email already exists',
+      });
+    }
+
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(password, salt);
+
+    // Create super admin
+    const result = await query(
+      `INSERT INTO users (email, password_hash, role, is_active)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, email, role, is_active, created_at`,
+      [email, passwordHash, 'super_admin', true]
+    );
+
+    // Log activity
+    await logActivity(
+      req.user.id,
+      'CREATE_SUPER_ADMIN',
+      `Created new super admin: ${email}`,
+      'user',
+      result.rows[0].id,
+      { email },
+      req
+    );
+
+    res.status(201).json({
+      success: true,
+      message: 'Super admin created successfully',
+      data: result.rows[0],
+    });
+  } catch (error) {
+    console.error('Create super admin error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error creating super admin',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Deactivate super admin
+// @route   PUT /api/super-admin/admins/:id/deactivate
+// @access  Private (Super Admin)
+export const deactivateSuperAdmin = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Prevent self-deactivation
+    if (parseInt(id) === req.user.id) {
+      return res.status(400).json({
+        success: false,
+        message: 'You cannot deactivate your own account',
+      });
+    }
+
+    // Check if user exists and is a super admin
+    const userCheck = await query(
+      'SELECT id, email, is_active FROM users WHERE id = $1 AND role = $2',
+      [id, 'super_admin']
+    );
+
+    if (userCheck.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Super admin not found',
+      });
+    }
+
+    if (!userCheck.rows[0].is_active) {
+      return res.status(400).json({
+        success: false,
+        message: 'Super admin is already deactivated',
+      });
+    }
+
+    // Deactivate super admin
+    const result = await query(
+      `UPDATE users
+       SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1
+       RETURNING id, email, is_active, updated_at`,
+      [id]
+    );
+
+    // Log activity
+    await logActivity(
+      req.user.id,
+      'DEACTIVATE_SUPER_ADMIN',
+      `Deactivated super admin: ${userCheck.rows[0].email}`,
+      'user',
+      id,
+      { email: userCheck.rows[0].email },
+      req
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Super admin deactivated successfully',
+      data: result.rows[0],
+    });
+  } catch (error) {
+    console.error('Deactivate super admin error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deactivating super admin',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Activate super admin
+// @route   PUT /api/super-admin/admins/:id/activate
+// @access  Private (Super Admin)
+export const activateSuperAdmin = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if user exists and is a super admin
+    const userCheck = await query(
+      'SELECT id, email, is_active FROM users WHERE id = $1 AND role = $2',
+      [id, 'super_admin']
+    );
+
+    if (userCheck.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Super admin not found',
+      });
+    }
+
+    if (userCheck.rows[0].is_active) {
+      return res.status(400).json({
+        success: false,
+        message: 'Super admin is already active',
+      });
+    }
+
+    // Activate super admin
+    const result = await query(
+      `UPDATE users
+       SET is_active = TRUE, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1
+       RETURNING id, email, is_active, updated_at`,
+      [id]
+    );
+
+    // Log activity
+    await logActivity(
+      req.user.id,
+      'ACTIVATE_SUPER_ADMIN',
+      `Activated super admin: ${userCheck.rows[0].email}`,
+      'user',
+      id,
+      { email: userCheck.rows[0].email },
+      req
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Super admin activated successfully',
+      data: result.rows[0],
+    });
+  } catch (error) {
+    console.error('Activate super admin error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error activating super admin',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Delete super admin
+// @route   DELETE /api/super-admin/admins/:id
+// @access  Private (Super Admin)
+export const deleteSuperAdmin = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Prevent self-deletion
+    if (parseInt(id) === req.user.id) {
+      return res.status(400).json({
+        success: false,
+        message: 'You cannot delete your own account',
+      });
+    }
+
+    // Check if user exists and is a super admin
+    const userCheck = await query(
+      'SELECT id, email, is_active FROM users WHERE id = $1 AND role = $2',
+      [id, 'super_admin']
+    );
+
+    if (userCheck.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Super admin not found',
+      });
+    }
+
+    // Only allow deletion of inactive super admins
+    if (userCheck.rows[0].is_active) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot delete an active super admin. Please deactivate first.',
+      });
+    }
+
+    // Delete from super_admins table first (foreign key constraint)
+    await query('DELETE FROM super_admins WHERE user_id = $1', [id]);
+
+    // Delete from users table
+    await query('DELETE FROM users WHERE id = $1', [id]);
+
+    // Log activity
+    await logActivity(
+      req.user.id,
+      'DELETE_SUPER_ADMIN',
+      `Deleted super admin: ${userCheck.rows[0].email}`,
+      'user',
+      id,
+      { email: userCheck.rows[0].email },
+      req
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Super admin deleted successfully',
+    });
+  } catch (error) {
+    console.error('Delete super admin error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting super admin',
+      error: error.message,
+    });
+  }
+};
+
+// ========================================
+// NOTIFICATION MANAGEMENT (Super Admin)
+// ========================================
+
+// @desc    Get all colleges with student counts for notification targeting
+// @route   GET /api/super-admin/colleges-for-notifications
+// @access  Private (Super Admin)
+export const getCollegesForNotifications = async (req, res) => {
+  try {
+    const collegesResult = await query(
+      `SELECT c.id, c.college_name, c.college_code, r.region_name,
+              COUNT(DISTINCT s.id) as total_students,
+              COUNT(DISTINCT s.branch) as branch_count
+       FROM colleges c
+       JOIN regions r ON c.region_id = r.id
+       LEFT JOIN students s ON c.id = s.college_id
+         AND s.registration_status = 'approved'
+         AND s.is_blacklisted = FALSE
+       WHERE c.is_active = TRUE
+       GROUP BY c.id, c.college_name, c.college_code, r.region_name
+       ORDER BY c.college_name ASC`
+    );
+
+    res.status(200).json({
+      success: true,
+      count: collegesResult.rows.length,
+      data: collegesResult.rows,
+    });
+  } catch (error) {
+    console.error('Get colleges for notifications error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching colleges',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Get branches for specific colleges
+// @route   POST /api/super-admin/branches-for-colleges
+// @access  Private (Super Admin)
+export const getBranchesForColleges = async (req, res) => {
+  try {
+    const { college_ids } = req.body;
+
+    if (!college_ids || !Array.isArray(college_ids) || college_ids.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide college IDs',
+      });
+    }
+
+    const branchesResult = await query(
+      `SELECT s.college_id, c.college_name, s.branch, COUNT(s.id) as student_count
+       FROM students s
+       JOIN colleges c ON s.college_id = c.id
+       WHERE s.college_id = ANY($1::int[])
+         AND s.registration_status = 'approved'
+         AND s.is_blacklisted = FALSE
+         AND s.branch IS NOT NULL
+       GROUP BY s.college_id, c.college_name, s.branch
+       ORDER BY c.college_name ASC, s.branch ASC`,
+      [college_ids]
+    );
+
+    res.status(200).json({
+      success: true,
+      count: branchesResult.rows.length,
+      data: branchesResult.rows,
+    });
+  } catch (error) {
+    console.error('Get branches for colleges error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching branches',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Send notification to students (with college and branch filtering)
+// @route   POST /api/super-admin/send-notification
+// @access  Private (Super Admin)
+export const sendNotification = async (req, res) => {
+  try {
+    const {
+      title,
+      message,
+      priority = 'normal',
+      target_colleges = [], // Empty means all colleges
+      target_branches = {} // { college_id: [branches] } - Empty object means all branches
+    } = req.body;
+
+    // Validation
+    if (!title || !message) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide title and message',
+      });
+    }
+
+    if (!title.trim() || !message.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Title and message cannot be empty',
+      });
+    }
+
+    // Build student query with college and branch filtering
+    let studentQuery = `
+      SELECT s.id, s.user_id, s.email, s.student_name, s.branch, s.college_id, c.college_name
+      FROM students s
+      JOIN colleges c ON s.college_id = c.id
+      WHERE s.registration_status = 'approved'
+        AND s.is_blacklisted = FALSE
+    `;
+    const params = [];
+    let paramCount = 0;
+
+    // Add college filtering if specific colleges are selected
+    if (target_colleges && target_colleges.length > 0) {
+      paramCount++;
+      params.push(target_colleges);
+      studentQuery += ` AND s.college_id = ANY($${paramCount}::int[])`;
+    }
+
+    // Add branch filtering if specific branches are selected
+    if (target_branches && Object.keys(target_branches).length > 0) {
+      // Build complex OR condition for branches per college
+      const branchConditions = [];
+      Object.entries(target_branches).forEach(([collegeId, branches]) => {
+        if (branches && branches.length > 0) {
+          paramCount++;
+          params.push(parseInt(collegeId));
+          paramCount++;
+          params.push(branches);
+          branchConditions.push(`(s.college_id = $${paramCount - 1} AND s.branch = ANY($${paramCount}))`);
+        }
+      });
+
+      if (branchConditions.length > 0) {
+        studentQuery += ` AND (${branchConditions.join(' OR ')})`;
+      }
+    }
+
+    // Get all eligible students
+    const studentsResult = await query(studentQuery, params);
+    const students = studentsResult.rows;
+
+    if (students.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No eligible students found for the selected criteria',
+      });
+    }
+
+    // Send notification in transaction
+    let notificationId;
+    await transaction(async (client) => {
+      // Create notification with priority
+      const notificationResult = await client.query(
+        `INSERT INTO notifications (title, message, created_by, target_type, priority)
+         VALUES ($1, $2, $3, 'specific_colleges', $4)
+         RETURNING id`,
+        [title.trim(), message.trim(), req.user.id, priority]
+      );
+
+      notificationId = notificationResult.rows[0].id;
+
+      // Add target colleges
+      const targetCollegeIds = target_colleges.length > 0
+        ? target_colleges
+        : [...new Set(students.map(s => s.college_id))];
+
+      for (const collegeId of targetCollegeIds) {
+        await client.query(
+          `INSERT INTO notification_targets (notification_id, target_entity_type, target_entity_id)
+           VALUES ($1, 'college', $2)`,
+          [notificationId, collegeId]
+        );
+      }
+
+      // Batch insert recipients for performance
+      if (students.length > 0) {
+        const batchSize = 500;
+        for (let i = 0; i < students.length; i += batchSize) {
+          const batch = students.slice(i, i + batchSize);
+          const values = batch.map((_, idx) => `($1, $${idx + 2})`).join(', ');
+          const recipientParams = [notificationId, ...batch.map(s => s.user_id)];
+
+          await client.query(
+            `INSERT INTO notification_recipients (notification_id, user_id)
+             VALUES ${values}`,
+            recipientParams
+          );
+        }
+      }
+    });
+
+    // Async email sending for urgent notifications
+    if (priority === 'urgent') {
+      const { sendNotificationEmail } = await import('../config/emailService.js');
+
+      setImmediate(async () => {
+        try {
+          console.log(`📧 [SUPER ADMIN] Sending urgent notification emails to ${students.length} students...`);
+
+          const emailBatchSize = 50;
+          let successCount = 0;
+          let failCount = 0;
+
+          for (let i = 0; i < students.length; i += emailBatchSize) {
+            const batch = students.slice(i, i + emailBatchSize);
+
+            const emailPromises = batch.map(async (student) => {
+              try {
+                if (student.email) {
+                  const emailSubject = `[URGENT] ${title} - State Placement Cell`;
+                  const emailContent = `
+                    <h2>Hello ${student.student_name},</h2>
+                    <div style="background-color: #fee2e2; border-left: 4px solid #dc2626; padding: 16px; margin: 20px 0; border-radius: 4px;">
+                      <p style="margin: 0; color: #991b1b; font-weight: 600;">
+                        🚨 URGENT NOTIFICATION FROM STATE PLACEMENT CELL
+                      </p>
+                    </div>
+                    <h3 style="color: #1f2937;">${title}</h3>
+                    <p style="color: #4b5563; line-height: 1.6; white-space: pre-wrap;">${message}</p>
+                    <div style="background-color: #f3f4f6; padding: 12px; margin-top: 20px; border-radius: 4px;">
+                      <p style="margin: 0; font-size: 14px; color: #6b7280;">
+                        <strong>From:</strong> State Placement Cell - ${student.college_name}
+                      </p>
+                    </div>
+                    <p style="margin-top: 20px; font-size: 14px; color: #6b7280;">
+                      Please check your student portal for more details.
+                    </p>
+                  `;
+
+                  await sendNotificationEmail(student.email, emailSubject, emailContent);
+                  successCount++;
+                }
+              } catch (emailError) {
+                console.error(`❌ Failed to send email to ${student.email}:`, emailError.message);
+                failCount++;
+              }
+            });
+
+            await Promise.allSettled(emailPromises);
+
+            if (i + emailBatchSize < students.length) {
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+          }
+
+          console.log(`✅ [SUPER ADMIN] Email sending completed: ${successCount} successful, ${failCount} failed`);
+        } catch (error) {
+          console.error('❌ [SUPER ADMIN] Error in async email sending:', error);
+        }
+      });
+    }
+
+    // Log activity
+    const collegeInfo = target_colleges.length > 0
+      ? `${target_colleges.length} college(s)`
+      : 'all colleges';
+    const branchInfo = Object.keys(target_branches).length > 0
+      ? `specific branches`
+      : 'all branches';
+
+    await logActivity(
+      req.user.id,
+      'SEND_NOTIFICATION_SUPER_ADMIN',
+      `Sent ${priority} notification to ${students.length} student(s) (${collegeInfo}, ${branchInfo}): ${title}`,
+      'notification',
+      notificationId,
+      {
+        title,
+        priority,
+        target_colleges,
+        target_branches,
+        recipient_count: students.length,
+        email_sent: priority === 'urgent'
+      },
+      req
+    );
+
+    res.status(201).json({
+      success: true,
+      message: `Notification sent successfully to ${students.length} student(s)${priority === 'urgent' ? '. Urgent emails are being sent in the background.' : ''}`,
+      data: {
+        notification_id: notificationId,
+        recipient_count: students.length,
+        priority,
+        email_notification_sent: priority === 'urgent',
+        target_colleges: target_colleges.length > 0 ? target_colleges : 'All colleges',
+        target_branches: Object.keys(target_branches).length > 0 ? target_branches : 'All branches'
+      }
+    });
+  } catch (error) {
+    console.error('Send notification error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error sending notification',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Custom export students with field selection
+// @route   POST /api/super-admin/students/custom-export
+// @access  Private (Super Admin)
+export const customExportStudents = async (req, res) => {
+  try {
+    const { college_id, departments, fields, format = 'excel',
+            company_name, drive_date, include_signature,
+            cgpa_min, cgpa_max, backlog_count, search, status, region_id } = req.body;
+
+    if (!fields || fields.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please select at least one field to export',
+      });
+    }
+
+    // Define available fields mapping
+    const fieldMapping = {
+      prn: 's.prn',
+      student_name: 's.student_name',
+      email: 's.email',
+      mobile_number: 's.mobile_number',
+      age: 's.age',
+      gender: 's.gender',
+      height: 's.height',
+      weight: 's.weight',
+      date_of_birth: 's.date_of_birth',
+      branch: 's.branch',
+      programme_cgpa: 's.programme_cgpa',
+      cgpa_sem1: 's.cgpa_sem1',
+      cgpa_sem2: 's.cgpa_sem2',
+      cgpa_sem3: 's.cgpa_sem3',
+      cgpa_sem4: 's.cgpa_sem4',
+      cgpa_sem5: 's.cgpa_sem5',
+      cgpa_sem6: 's.cgpa_sem6',
+      backlog_count: 's.backlog_count',
+      backlog_details: 's.backlog_details',
+      complete_address: 's.complete_address',
+      has_driving_license: 's.has_driving_license',
+      has_pan_card: 's.has_pan_card',
+      registration_status: 's.registration_status',
+      is_blacklisted: 's.is_blacklisted',
+      blacklist_reason: 's.blacklist_reason',
+      college_name: 'c.college_name',
+      region_name: 'r.region_name',
+    };
+
+    // Validate and build SELECT clause
+    const selectFields = [];
+    const columnHeaders = {};
+
+    for (const field of fields) {
+      if (fieldMapping[field]) {
+        selectFields.push(`${fieldMapping[field]} AS ${field}`);
+        // Create human-readable headers
+        columnHeaders[field] = field
+          .split('_')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(' ');
+      }
+    }
+
+    if (selectFields.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No valid fields selected',
+      });
+    }
+
+    // Build query with filters
+    let queryText = `
+      SELECT ${selectFields.join(', ')}
+      FROM students s
+      JOIN colleges c ON s.college_id = c.id
+      JOIN regions r ON s.region_id = r.id
+      WHERE 1=1
+    `;
+
+    const params = [];
+    let paramCount = 1;
+
+    // Filter by region if specified
+    if (region_id) {
+      queryText += ` AND s.region_id = $${paramCount}`;
+      params.push(region_id);
+      paramCount++;
+    }
+
+    // Filter by college if specified
+    if (college_id) {
+      queryText += ` AND s.college_id = $${paramCount}`;
+      params.push(college_id);
+      paramCount++;
+    }
+
+    // Filter by departments if specified
+    if (departments && departments.length > 0) {
+      queryText += ` AND s.branch = ANY($${paramCount})`;
+      params.push(departments);
+      paramCount++;
+    }
+
+    // Filter by status
+    if (status === 'blacklisted') {
+      queryText += ` AND s.is_blacklisted = TRUE`;
+    } else if (status === 'approved') {
+      queryText += ` AND s.registration_status = 'approved' AND s.is_blacklisted = FALSE`;
+    } else if (status === 'pending') {
+      queryText += ` AND s.registration_status = 'pending' AND s.is_blacklisted = FALSE`;
+    } else if (status === 'rejected') {
+      queryText += ` AND s.registration_status = 'rejected' AND s.is_blacklisted = FALSE`;
+    } else if (!status || status === 'all') {
+      // Default: Show all non-blacklisted students
+      queryText += ` AND s.is_blacklisted = FALSE`;
+    }
+
+    // Filter by minimum CGPA
+    if (cgpa_min) {
+      queryText += ` AND s.programme_cgpa >= $${paramCount}`;
+      params.push(parseFloat(cgpa_min));
+      paramCount++;
+    }
+
+    // Filter by maximum CGPA
+    if (cgpa_max) {
+      queryText += ` AND s.programme_cgpa <= $${paramCount}`;
+      params.push(parseFloat(cgpa_max));
+      paramCount++;
+    }
+
+    // Filter by backlog count
+    if (backlog_count !== undefined && backlog_count !== '') {
+      queryText += ` AND s.backlog_count = $${paramCount}`;
+      params.push(parseInt(backlog_count));
+      paramCount++;
+    }
+
+    // Filter by search query
+    if (search && search.trim()) {
+      queryText += ` AND (s.prn ILIKE $${paramCount} OR s.student_name ILIKE $${paramCount} OR s.email ILIKE $${paramCount} OR s.mobile_number ILIKE $${paramCount})`;
+      params.push(`%${search.trim()}%`);
+      paramCount++;
+    }
+
+    // Sort by college first, then branch, then PRN for organized export
+    queryText += ' ORDER BY c.college_name, s.branch, s.prn';
+
+    const studentsResult = await query(queryText, params);
+    const students = studentsResult.rows;
+
+    // Branch based on export format
+    if (format === 'pdf') {
+      // Determine college name for header
+      const collegeName = students.length > 0 && students[0].college_name
+        ? students[0].college_name
+        : 'Multiple Colleges';
+
+      return generateStudentPDF(students, {
+        selectedFields: fields,
+        collegeName: collegeName,
+        companyName: company_name || null,
+        driveDate: drive_date || null,
+        includeSignature: include_signature === true,
+      }, res);
+    }
+
+    // Create Excel workbook
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Students Export');
+
+    // Define columns based on selected fields
+    worksheet.columns = fields.map(field => ({
+      header: columnHeaders[field],
+      key: field,
+      width: 15,
+    }));
+
+    // Add rows
+    worksheet.addRows(students);
+
+    // Style header row
+    worksheet.getRow(1).font = { bold: true };
+    worksheet.getRow(1).fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF4472C4' },
+    };
+    worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+
+    // Set response headers
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename=students-custom-export-${Date.now()}.xlsx`
+    );
+
+    // Write to response
+    await workbook.xlsx.write(res);
+    res.end();
+
+    // Log activity
+    await logActivity(
+      req.user.id,
+      'CUSTOM_EXPORT',
+      `Exported ${students.length} students to ${format.toUpperCase()} with custom fields`,
+      'student',
+      null,
+      {
+        college_id,
+        departments,
+        fields,
+        format,
+        count: students.length
+      },
+      req
+    );
+  } catch (error) {
+    console.error('Custom export students error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error exporting students',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Get available districts from extended profiles
+// @route   GET /api/super-admin/districts
+// @access  Private (Super Admin)
+export const getAvailableDistricts = async (req, res) => {
+  try {
+    const result = await query(
+      `SELECT DISTINCT district
+       FROM student_extended_profiles
+       WHERE district IS NOT NULL AND district != ''
+       ORDER BY district`
+    );
+
+    res.json({
+      success: true,
+      districts: result.rows.map(r => r.district)
+    });
+  } catch (error) {
+    console.error('Error fetching districts:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch districts',
+      error: error.message
     });
   }
 };

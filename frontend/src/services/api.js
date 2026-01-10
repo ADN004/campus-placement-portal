@@ -23,10 +23,20 @@ API.interceptors.request.use(
 API.interceptors.response.use(
   (response) => response,
   (error) => {
+    // Only redirect on 401 if user is already logged in (has a token)
+    // This prevents redirecting on failed login attempts with wrong credentials
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+      const token = localStorage.getItem('token');
+      const isLoginRequest = error.config?.url?.includes('/auth/login');
+
+      // Only redirect if:
+      // 1. User has a token (meaning they were logged in) AND
+      // 2. This is NOT a login request (to allow login errors to be displayed)
+      if (token && !isLoginRequest) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }
@@ -39,12 +49,15 @@ export const authAPI = {
   getMe: () => API.get('/auth/me'),
   logout: () => API.get('/auth/logout'),
   changePassword: (data) => API.put('/auth/change-password', data),
+  verifyEmail: (token) => API.get(`/auth/verify-email/${token}`),
+  resendVerification: (email) => API.post('/auth/resend-verification', { email }),
 };
 
 // Common APIs
 export const commonAPI = {
   getRegions: () => API.get('/common/regions'),
   getColleges: (regionId) => API.get(`/common/colleges${regionId ? `?region_id=${regionId}` : ''}`),
+  getCollegeBranches: (collegeId) => API.get(`/common/colleges/${collegeId}/branches`),
   validatePRN: (prn) => API.post('/common/validate-prn', { prn }),
   getJobDetails: (jobId) => API.get(`/common/jobs/${jobId}`),
 };
@@ -59,6 +72,23 @@ export const studentAPI = {
   getMyApplications: () => API.get('/students/my-applications'),
   getNotifications: () => API.get('/students/notifications'),
   markNotificationRead: (notificationId) => API.put(`/students/notifications/${notificationId}/read`),
+  resendVerificationEmail: () => API.post('/students/resend-verification'),
+  getVerificationStatus: () => API.get('/students/verification-status'),
+
+  // Extended Profile APIs
+  getExtendedProfile: () => API.get('/students/extended-profile'),
+  getProfileCompletion: () => API.get('/students/extended-profile/completion'),
+  updateAcademicExtended: (data) => API.put('/students/extended-profile/academic', data),
+  updatePhysicalDetails: (data) => API.put('/students/extended-profile/physical', data),
+  updateFamilyDetails: (data) => API.put('/students/extended-profile/family', data),
+  updatePersonalDetails: (data) => API.put('/students/extended-profile/personal', data),
+  updateDocuments: (data) => API.put('/students/extended-profile/documents', data),
+  updateEducationPreferences: (data) => API.put('/students/extended-profile/education-preferences', data),
+
+  // Enhanced Application APIs
+  checkApplicationReadiness: (jobId) => API.post(`/students/jobs/${jobId}/check-readiness`),
+  getMissingFields: (jobId) => API.get(`/students/jobs/${jobId}/missing-fields`),
+  applyEnhanced: (jobId, data) => API.post(`/students/jobs/${jobId}/apply-enhanced`, data),
 };
 
 // Placement Officer APIs
@@ -72,11 +102,59 @@ export const placementOfficerAPI = {
   blacklistStudent: (studentId, reason) => API.put(`/placement-officer/students/${studentId}/blacklist`, { reason }),
   requestWhitelist: (studentId, reason) => API.post(`/placement-officer/students/${studentId}/whitelist-request`, { reason }),
   sendNotification: (data) => API.post('/placement-officer/send-notification', data),
-  exportStudents: (format) => API.get(`/placement-officer/students/export?format=${format}`, { responseType: 'blob' }),
+  exportStudents: (queryString) => API.get(`/placement-officer/students/export${queryString}`, { responseType: 'blob' }),
   createJobRequest: (data) => API.post('/placement-officer/job-requests', data),
   getMyJobRequests: () => API.get('/placement-officer/job-requests'),
+  createJobRequestRequirements: (jobRequestId, data) => API.post(`/placement-officer/job-requests/${jobRequestId}/requirements`, data),
+  getJobRequestRequirements: (jobRequestId) => API.get(`/placement-officer/job-requests/${jobRequestId}/requirements`),
   getJobs: () => API.get('/placement-officer/jobs'),
   getJobApplicants: (jobId) => API.get(`/placement-officer/jobs/${jobId}/applicants`),
+  exportJobApplicants: (jobId, format = 'excel') => API.get(`/placement-officer/jobs/${jobId}/applicants/export`, {
+    params: { format },
+    responseType: 'blob'
+  }),
+
+  // Enhanced Job Applicants Management (College-Scoped)
+  getDetailedStudentProfile: (studentId) => API.get(`/placement-officer/students/${studentId}/detailed-profile`),
+  updateApplicationStatus: (applicationId, data) => API.put(`/placement-officer/applications/${applicationId}/status`, data),
+  bulkUpdateApplicationStatus: (data) => API.post('/placement-officer/applications/bulk-update-status', data),
+  updatePlacementDetails: (applicationId, data) => API.put(`/placement-officer/applications/${applicationId}/placement`, data),
+  notifyApplicationStatus: (data) => API.post('/placement-officer/applications/notify', data),
+  getJobPlacementStats: (jobId) => API.get(`/placement-officer/jobs/${jobId}/placement-stats`),
+  createOrUpdateJobDrive: (jobId, data) => API.post(`/placement-officer/jobs/${jobId}/drive`, data),
+  getJobDrive: (jobId) => API.get(`/placement-officer/jobs/${jobId}/drive`),
+  enhancedExportJobApplicants: (jobId, data) => API.post(`/placement-officer/jobs/${jobId}/applicants/enhanced-export`, data, { responseType: 'blob' }),
+
+  // PRN Range Management
+  getPRNRanges: () => API.get('/placement-officer/prn-ranges'),
+  addPRNRange: (data) => API.post('/placement-officer/prn-ranges', data),
+  updatePRNRange: (id, data) => API.put(`/placement-officer/prn-ranges/${id}`, data),
+  deletePRNRange: (id) => API.delete(`/placement-officer/prn-ranges/${id}`),
+  // Profile Photo Management
+  uploadOwnPhoto: (data) => API.post('/placement-officer/profile/photo', data),
+  deleteOwnPhoto: () => API.delete('/placement-officer/profile/photo'),
+  // Custom Export
+  customExportStudents: (data) => API.post('/placement-officer/students/custom-export', data, { responseType: 'blob' }),
+
+  // Branches Management
+  getBranches: () => API.get('/placement-officer/branches'), // Get branches for notifications
+  getCollegeBranches: () => API.get('/placement-officer/college/branches'), // Get all college branches
+
+  // College Branch Management
+  getOwnCollegeBranches: () => API.get('/placement-officer/college-branches'),
+  updateOwnCollegeBranches: (branches) => API.put('/placement-officer/college-branches', { branches }),
+  getBranchTemplates: () => API.get('/placement-officer/branch-templates'),
+
+  // District Management
+  getAvailableDistricts: () => API.get('/super-admin/districts'),
+
+  // Placement Poster
+  getPlacementPosterStats: () => API.get('/placement-officer/placement-poster/stats'),
+  generatePlacementPoster: () => API.post('/placement-officer/placement-poster/generate', {}, { responseType: 'blob' }),
+
+  // Manual Student Addition
+  validateStudentForManualAddition: (data) => API.post('/placement-officer/validate-student-for-manual-addition', data),
+  manuallyAddStudentToJob: (data) => API.post('/placement-officer/manually-add-student-to-job', data),
 };
 
 // Super Admin APIs
@@ -96,12 +174,16 @@ export const superAdminAPI = {
   getOfficerHistory: (collegeId) => API.get(`/super-admin/placement-officers/history/${collegeId}`),
   addPlacementOfficer: (data) => API.post('/super-admin/placement-officers', data),
   updatePlacementOfficer: (id, data) => API.put(`/super-admin/placement-officers/${id}`, data),
+  resetPlacementOfficerPassword: (id) => API.put(`/super-admin/placement-officers/${id}/reset-password`),
   deletePlacementOfficer: (id) => API.delete(`/super-admin/placement-officers/${id}`),
   clearOfficerHistory: (collegeId) => API.delete(`/super-admin/placement-officers/history/${collegeId}`),
 
   // Job Management
   getJobs: () => API.get('/super-admin/jobs'),
   getJobApplicants: (jobId) => API.get(`/super-admin/jobs/${jobId}/applicants`),
+  exportJobApplicants: (jobId, data) => API.post(`/super-admin/jobs/${jobId}/applicants/export`, data, {
+    responseType: 'blob'
+  }),
   getPendingJobRequests: () => API.get('/super-admin/jobs/pending-requests'),
   createJob: (data) => API.post('/super-admin/jobs', data),
   updateJob: (id, data) => API.put(`/super-admin/jobs/${id}`, data),
@@ -109,6 +191,10 @@ export const superAdminAPI = {
   toggleJobStatus: (id) => API.put(`/super-admin/jobs/${id}/toggle-status`),
   approveJobRequest: (id) => API.put(`/super-admin/jobs/requests/${id}/approve`),
   rejectJobRequest: (id) => API.put(`/super-admin/jobs/requests/${id}/reject`),
+  createJobRequirements: (jobId, data) => API.post(`/super-admin/jobs/${jobId}/requirements`, data),
+  getJobRequirements: (jobId) => API.get(`/super-admin/jobs/${jobId}/requirements`),
+  updateJobRequirements: (jobId, data) => API.put(`/super-admin/jobs/${jobId}/requirements`, data),
+  getRequirementTemplates: () => API.get('/super-admin/requirement-templates'),
 
   // Whitelist Requests
   getWhitelistRequests: () => API.get('/super-admin/whitelist-requests'),
@@ -117,16 +203,99 @@ export const superAdminAPI = {
 
   // Activity Logs
   getActivityLogs: (filters) => API.get('/super-admin/activity-logs', { params: filters }),
-  exportActivityLogs: (filters) => API.get('/super-admin/activity-logs', {
-    params: { ...filters, export: 'csv' },
+  exportActivityLogs: (filters, format = 'csv') => API.get('/super-admin/activity-logs', {
+    params: { ...filters, export: format },
     responseType: 'blob'
   }),
 
   // Student Management
-  getAllStudents: () => API.get('/super-admin/students'),
+  getAllStudents: (queryString = '') => API.get(`/super-admin/students${queryString ? `?${queryString}` : ''}`),
+  searchStudentByPRN: (prn) => API.get(`/super-admin/students/search/${prn}`),
+  blacklistStudent: (studentId, reason) => API.put(`/super-admin/students/${studentId}/blacklist`, { reason }),
+  whitelistStudent: (studentId) => API.put(`/super-admin/students/${studentId}/whitelist`),
   deleteStudent: (id) => API.delete(`/super-admin/students/${id}`),
+  customExportStudents: (data) => API.post('/super-admin/students/custom-export', data, { responseType: 'blob' }),
+  enhancedCustomExport: (data) => API.post('/super-admin/students/enhanced-export', data, { responseType: 'blob' }),
+  bulkDeleteStudentPhotos: (data) => API.post('/super-admin/students/bulk-delete-photos', data),
 
   togglePRNRange: (id) => API.put(`/super-admin/prn-ranges/${id}/toggle`),
+
+  // Profile Photo Management
+  uploadOfficerPhoto: (officerId, formData) => API.post(`/super-admin/placement-officers/${officerId}/photo`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  deleteOfficerPhoto: (officerId) => API.delete(`/super-admin/placement-officers/${officerId}/photo`),
+
+  // Job Permanent Deletion
+  permanentlyDeleteJob: (jobId, reason) => API.delete(`/super-admin/jobs/${jobId}/permanent`, { data: { reason } }),
+  getDeletedJobsHistory: () => API.get('/super-admin/jobs/deleted-history'),
+  clearDeletedJobsHistory: () => API.delete('/super-admin/jobs/deleted-history'),
+
+  // Branch Management
+  getNormalizedBranches: () => API.get('/super-admin/branches'),
+  getCollegeBranches: (collegeId) => API.get(`/super-admin/colleges/${collegeId}/branches`),
+
+  // District Management
+  getAvailableDistricts: () => API.get('/super-admin/districts'),
+
+  // College Branch Management
+  getAllCollegeBranches: (regionId) => API.get(`/super-admin/college-branches${regionId ? `?region_id=${regionId}` : ''}`),
+  updateCollegeBranches: (collegeId, branches) => API.put(`/super-admin/college-branches/${collegeId}`, { branches }),
+  getBranchTemplates: () => API.get('/super-admin/branch-templates'),
+
+  // PRN Range Students
+  getStudentsByPRNRange: (rangeId) => API.get(`/super-admin/prn-ranges/${rangeId}/students`),
+  exportStudentsByPRNRange: (rangeId, format = 'excel') => API.get(`/super-admin/prn-ranges/${rangeId}/students/export`, {
+    params: { format },
+    responseType: 'blob'
+  }),
+
+  // Super Admin Management
+  getSuperAdmins: () => API.get('/super-admin/admins'),
+  createSuperAdmin: (data) => API.post('/super-admin/admins', data),
+  deactivateSuperAdmin: (id) => API.put(`/super-admin/admins/${id}/deactivate`),
+  activateSuperAdmin: (id) => API.put(`/super-admin/admins/${id}/activate`),
+  deleteSuperAdmin: (id) => API.delete(`/super-admin/admins/${id}`),
+
+  // Requirement Templates APIs
+  getRequirementTemplates: () => API.get('/super-admin/requirement-templates'),
+  createRequirementTemplate: (data) => API.post('/super-admin/requirement-templates', data),
+  updateRequirementTemplate: (id, data) => API.put(`/super-admin/requirement-templates/${id}`, data),
+  deleteRequirementTemplate: (id) => API.delete(`/super-admin/requirement-templates/${id}`),
+
+  // Job Requirements APIs (for jobs created by super admin)
+  createJobRequirements: (jobId, data) => API.post(`/super-admin/jobs/${jobId}/requirements`, data),
+  updateJobRequirements: (jobId, data) => API.put(`/super-admin/jobs/${jobId}/requirements`, data),
+  getJobRequirements: (jobId) => API.get(`/super-admin/jobs/${jobId}/requirements`),
+
+  // Enhanced Job Applicants Management
+  getDetailedStudentProfile: (studentId) => API.get(`/super-admin/students/${studentId}/detailed-profile`),
+  updateApplicationStatus: (applicationId, data) => API.put(`/super-admin/applications/${applicationId}/status`, data),
+  bulkUpdateApplicationStatus: (data) => API.post('/super-admin/applications/bulk-update-status', data),
+  updatePlacementDetails: (applicationId, data) => API.put(`/super-admin/applications/${applicationId}/placement`, data),
+  notifyApplicationStatus: (data) => API.post('/super-admin/applications/notify', data),
+  getJobPlacementStats: (jobId) => API.get(`/super-admin/jobs/${jobId}/placement-stats`),
+
+  // Drive Scheduling
+  createOrUpdateJobDrive: (jobId, data) => API.post(`/super-admin/jobs/${jobId}/drive`, data),
+  getJobDrive: (jobId) => API.get(`/super-admin/jobs/${jobId}/drive`),
+
+  // Enhanced Export
+  enhancedExportJobApplicants: (jobId, data) => API.post(`/super-admin/jobs/${jobId}/applicants/enhanced-export`, data, {
+    responseType: 'blob'
+  }),
+
+  // Notification Management
+  getCollegesForNotifications: () => API.get('/super-admin/colleges-for-notifications'),
+  getBranchesForColleges: (college_ids) => API.post('/super-admin/branches-for-colleges', { college_ids }),
+  sendNotification: (data) => API.post('/super-admin/send-notification', data),
+
+  // Placement Poster
+  getPlacementPosterStatsForCollege: (collegeId) => API.get(`/super-admin/placement-poster/stats/${collegeId}`),
+  generatePlacementPosterForCollege: (collegeId) => API.post(`/super-admin/placement-poster/generate/${collegeId}`, {}, { responseType: 'blob' }),
+  generateMultiCollegePlacementPoster: (collegeIds) => API.post('/super-admin/placement-poster/generate-multi', { collegeIds }, { responseType: 'blob' }),
+
+  // Manual Student Addition
+  validateStudentForManualAddition: (data) => API.post('/super-admin/validate-student-for-manual-addition', data),
+  manuallyAddStudentToJob: (data) => API.post('/super-admin/manually-add-student-to-job', data),
 };
 
 export default API;

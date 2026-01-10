@@ -9,6 +9,10 @@ import {
   getNotifications,
   markNotificationRead,
 } from '../controllers/studentController.js';
+import {
+  resendVerificationEmail,
+  getVerificationStatus,
+} from '../controllers/studentControllerExtensions.js';
 import { protect, authorize, checkStudentApproval } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -23,6 +27,8 @@ router.get('/profile', getProfile);
 router.put('/profile', updateProfile);
 router.get('/notifications', getNotifications);
 router.put('/notifications/:id/read', markNotificationRead);
+router.post('/resend-verification', resendVerificationEmail);
+router.get('/verification-status', getVerificationStatus);
 
 // Routes that require approved status
 router.get('/eligible-jobs', checkStudentApproval, getEligibleJobs);

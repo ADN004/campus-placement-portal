@@ -1,0 +1,90 @@
+version: '3.8'
+
+# State Placement Cell - Development Docker Compose Configuration
+# For local development with hot-reload
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: cpp_postgres_dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: campus_placement_portal_dev
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./database/seed-data.sql:/docker-entrypoint-initdb.d/02-seed.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+    networks:
+      - cpp_network_dev
+
+  # Backend API with hot-reload
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: cpp_backend_dev
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      PORT: 5000
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: campus_placement_portal_dev
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      JWT_SECRET: dev_secret_key
+      JWT_EXPIRE: 7d
+      JWT_COOKIE_EXPIRE: 7
+      FRONTEND_URL: http://localhost:5173
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+      - backend_uploads_dev:/app/uploads
+    networks:
+      - cpp_network_dev
+    command: npm run dev
+
+  # Frontend with Vite hot-reload
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: cpp_frontend_dev
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      VITE_API_URL: http://localhost:5000/api
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - cpp_network_dev
+    command: npm run dev
+
+volumes:
+  postgres_data_dev:
+    driver: local
+  backend_uploads_dev:
+    driver: local
+
+networks:
+  cpp_network_dev:
+    driver: bridge

@@ -1968,8 +1968,6 @@ export const getPRNRanges = async (req, res) => {
       ...range,
       start_prn: range.range_start,
       end_prn: range.range_end,
-      year: '',  // Database doesn't have year field
-      branch: '', // Database doesn't have branch field
     }));
 
     res.status(200).json({
@@ -1993,10 +1991,9 @@ export const getPRNRanges = async (req, res) => {
 export const addPRNRange = async (req, res) => {
   try {
     // Map frontend field names to database field names
-    const { start_prn, end_prn, single_prn, description } = req.body;
+    const { start_prn, end_prn, single_prn, description, year } = req.body;
     const range_start = start_prn;
     const range_end = end_prn;
-    // year and branch are not stored in database
 
     // Get placement officer details
     const officerResult = await query(
@@ -2029,14 +2026,15 @@ export const addPRNRange = async (req, res) => {
     }
 
     const result = await query(
-      `INSERT INTO prn_ranges (range_start, range_end, single_prn, description, added_by, created_by_role, college_id)
-       VALUES ($1, $2, $3, $4, $5, 'placement_officer', $6)
+      `INSERT INTO prn_ranges (range_start, range_end, single_prn, description, year, added_by, created_by_role, college_id)
+       VALUES ($1, $2, $3, $4, $5, $6, 'placement_officer', $7)
        RETURNING *`,
       [
         range_start || null,
         range_end || null,
         single_prn || null,
         description || null,
+        year || null,
         req.user.id,
         officer.college_id,
       ]
@@ -2058,8 +2056,6 @@ export const addPRNRange = async (req, res) => {
       ...result.rows[0],
       start_prn: result.rows[0].range_start,
       end_prn: result.rows[0].range_end,
-      year: '',
-      branch: '',
       created_by: result.rows[0].created_by_role,
     };
 
@@ -2084,10 +2080,9 @@ export const addPRNRange = async (req, res) => {
 export const updatePRNRange = async (req, res) => {
   try {
     // Map frontend field names to database field names
-    const { start_prn, end_prn, is_active, is_enabled, description, disabled_reason } = req.body;
+    const { start_prn, end_prn, is_active, is_enabled, description, disabled_reason, year } = req.body;
     const range_start = start_prn;
     const range_end = end_prn;
-    // year and branch are not stored in database
 
     const rangeId = req.params.id;
 
@@ -2178,6 +2173,12 @@ export const updatePRNRange = async (req, res) => {
       params.push(description);
     }
 
+    if (year !== undefined) {
+      paramCount++;
+      updates.push(`year = $${paramCount}`);
+      params.push(year);
+    }
+
     if (updates.length === 0) {
       return res.status(400).json({
         success: false,
@@ -2223,7 +2224,7 @@ export const updatePRNRange = async (req, res) => {
       `Updated PRN range ID: ${rangeId}${affectedStudentsCount > 0 ? ` - ${affectedStudentsCount} students ${studentAction}` : ''}`,
       'prn_range',
       rangeId,
-      { range_start, range_end, is_active, is_enabled, description, disabled_reason, affectedStudentsCount },
+      { range_start, range_end, is_active, is_enabled, description, disabled_reason, year, affectedStudentsCount },
       req
     );
 
@@ -2232,8 +2233,6 @@ export const updatePRNRange = async (req, res) => {
       ...updatedRange,
       start_prn: updatedRange.range_start,
       end_prn: updatedRange.range_end,
-      year: '',
-      branch: '',
       created_by: updatedRange.created_by_role,
     };
 
@@ -2319,6 +2318,273 @@ export const deletePRNRange = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error deleting PRN range',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Get students by PRN range (college-scoped for placement officer)
+// @route   GET /api/placement-officer/prn-ranges/:id/students
+// @access  Private (Placement Officer)
+export const getStudentsByPRNRange = async (req, res) => {
+  try {
+    const rangeId = req.params.id;
+
+    // Get placement officer details
+    const officerResult = await query(
+      'SELECT id, college_id FROM placement_officers WHERE user_id = $1',
+      [req.user.id]
+    );
+
+    if (officerResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Placement officer profile not found',
+      });
+    }
+
+    const officer = officerResult.rows[0];
+
+    // Get PRN range details
+    const rangeResult = await query(
+      'SELECT * FROM prn_ranges WHERE id = $1',
+      [rangeId]
+    );
+
+    if (rangeResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'PRN range not found',
+      });
+    }
+
+    const range = rangeResult.rows[0];
+
+    // Check if placement officer has access to this range
+    // They can view students from super admin ranges OR their own college ranges
+    if (range.created_by_role === 'placement_officer' && range.college_id !== officer.college_id) {
+      return res.status(403).json({
+        success: false,
+        message: 'You do not have access to this PRN range',
+      });
+    }
+
+    let studentsResult;
+
+    // Query students based on range type, scoped to placement officer's college
+    if (range.single_prn) {
+      // Single PRN
+      studentsResult = await query(
+        `SELECT s.*, c.college_name, r.region_name
+         FROM students s
+         JOIN colleges c ON s.college_id = c.id
+         JOIN regions r ON s.region_id = r.id
+         WHERE s.prn = $1 AND s.college_id = $2
+         ORDER BY s.prn`,
+        [range.single_prn, officer.college_id]
+      );
+    } else {
+      // PRN Range
+      studentsResult = await query(
+        `SELECT s.*, c.college_name, r.region_name
+         FROM students s
+         JOIN colleges c ON s.college_id = c.id
+         JOIN regions r ON s.region_id = r.id
+         WHERE s.prn >= $1 AND s.prn <= $2 AND s.college_id = $3
+         ORDER BY s.prn`,
+        [range.range_start, range.range_end, officer.college_id]
+      );
+    }
+
+    res.status(200).json({
+      success: true,
+      count: studentsResult.rows.length,
+      data: studentsResult.rows,
+      range: {
+        type: range.single_prn ? 'single' : 'range',
+        value: range.single_prn || `${range.range_start} - ${range.range_end}`,
+        is_enabled: range.is_enabled,
+      },
+    });
+  } catch (error) {
+    console.error('Get students by PRN range error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching students',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Export students by PRN range to Excel (college-scoped for placement officer)
+// @route   GET /api/placement-officer/prn-ranges/:id/students/export
+// @access  Private (Placement Officer)
+export const exportStudentsByPRNRange = async (req, res) => {
+  try {
+    const rangeId = req.params.id;
+
+    // Get placement officer details
+    const officerResult = await query(
+      'SELECT id, college_id FROM placement_officers WHERE user_id = $1',
+      [req.user.id]
+    );
+
+    if (officerResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Placement officer profile not found',
+      });
+    }
+
+    const officer = officerResult.rows[0];
+
+    // Get PRN range details
+    const rangeResult = await query(
+      'SELECT * FROM prn_ranges WHERE id = $1',
+      [rangeId]
+    );
+
+    if (rangeResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'PRN range not found',
+      });
+    }
+
+    const range = rangeResult.rows[0];
+
+    // Check if placement officer has access to this range
+    if (range.created_by_role === 'placement_officer' && range.college_id !== officer.college_id) {
+      return res.status(403).json({
+        success: false,
+        message: 'You do not have access to this PRN range',
+      });
+    }
+
+    let studentsResult;
+
+    // Query students based on range type, scoped to placement officer's college
+    if (range.single_prn) {
+      // Single PRN
+      studentsResult = await query(
+        `SELECT s.prn, s.student_name as name, s.email, s.mobile_number,
+                s.date_of_birth, s.age, s.gender, s.branch,
+                s.programme_cgpa, s.backlog_count, s.registration_status,
+                s.is_blacklisted, c.college_name, r.region_name,
+                s.has_driving_license, s.has_pan_card, s.created_at
+         FROM students s
+         JOIN colleges c ON s.college_id = c.id
+         JOIN regions r ON s.region_id = r.id
+         WHERE s.prn = $1 AND s.college_id = $2
+         ORDER BY s.prn`,
+        [range.single_prn, officer.college_id]
+      );
+    } else {
+      // PRN Range
+      studentsResult = await query(
+        `SELECT s.prn, s.student_name as name, s.email, s.mobile_number,
+                s.date_of_birth, s.age, s.gender, s.branch,
+                s.programme_cgpa, s.backlog_count, s.registration_status,
+                s.is_blacklisted, c.college_name, r.region_name,
+                s.has_driving_license, s.has_pan_card, s.created_at
+         FROM students s
+         JOIN colleges c ON s.college_id = c.id
+         JOIN regions r ON s.region_id = r.id
+         WHERE s.prn >= $1 AND s.prn <= $2 AND s.college_id = $3
+         ORDER BY s.prn`,
+        [range.range_start, range.range_end, officer.college_id]
+      );
+    }
+
+    const students = studentsResult.rows;
+
+    if (students.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No students found in this PRN range for your college',
+      });
+    }
+
+    // Create Excel workbook
+    const ExcelJS = (await import('exceljs')).default;
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Students');
+
+    // Add headers
+    worksheet.columns = [
+      { header: 'PRN', key: 'prn', width: 15 },
+      { header: 'Name', key: 'name', width: 25 },
+      { header: 'Email', key: 'email', width: 30 },
+      { header: 'Mobile', key: 'mobile_number', width: 15 },
+      { header: 'DOB', key: 'date_of_birth', width: 12 },
+      { header: 'Age', key: 'age', width: 8 },
+      { header: 'Gender', key: 'gender', width: 10 },
+      { header: 'Branch', key: 'branch', width: 30 },
+      { header: 'College', key: 'college_name', width: 40 },
+      { header: 'Region', key: 'region_name', width: 20 },
+      { header: 'CGPA', key: 'programme_cgpa', width: 10 },
+      { header: 'Backlogs', key: 'backlog_count', width: 10 },
+      { header: 'Status', key: 'registration_status', width: 15 },
+      { header: 'Blacklisted', key: 'is_blacklisted', width: 12 },
+      { header: 'Driving License', key: 'has_driving_license', width: 15 },
+      { header: 'PAN Card', key: 'has_pan_card', width: 12 },
+      { header: 'Registered On', key: 'created_at', width: 18 },
+    ];
+
+    // Style header row
+    worksheet.getRow(1).font = { bold: true };
+    worksheet.getRow(1).fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF4472C4' },
+    };
+    worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+
+    // Add data
+    students.forEach((student) => {
+      worksheet.addRow({
+        ...student,
+        date_of_birth: student.date_of_birth ? new Date(student.date_of_birth).toLocaleDateString() : '',
+        is_blacklisted: student.is_blacklisted ? 'Yes' : 'No',
+        has_driving_license: student.has_driving_license ? 'Yes' : 'No',
+        has_pan_card: student.has_pan_card ? 'Yes' : 'No',
+        created_at: student.created_at ? new Date(student.created_at).toLocaleDateString() : '',
+      });
+    });
+
+    // Generate Excel file
+    const buffer = await workbook.xlsx.writeBuffer();
+
+    // Set response headers
+    const rangeLabel = range.single_prn
+      ? range.single_prn
+      : `${range.range_start}_${range.range_end}`;
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename=students_prn_range_${rangeLabel}_${new Date().toISOString().split('T')[0]}.xlsx`
+    );
+
+    // Log activity
+    await logActivity(
+      req.user.id,
+      'EXPORT_PRN_RANGE_STUDENTS',
+      `Exported ${students.length} students from PRN range: ${range.single_prn || `${range.range_start}-${range.range_end}`}`,
+      'prn_range',
+      rangeId,
+      { format: 'excel', studentCount: students.length },
+      req
+    );
+
+    res.send(buffer);
+  } catch (error) {
+    console.error('Export students by PRN range error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error exporting students',
       error: error.message,
     });
   }

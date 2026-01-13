@@ -246,7 +246,7 @@ export const getPRNRanges = async (req, res) => {
 // @access  Private (Super Admin)
 export const addPRNRange = async (req, res) => {
   try {
-    const { range_start, range_end, single_prn, description } = req.body;
+    const { range_start, range_end, single_prn, description, year } = req.body;
 
     // Validate input
     if ((!range_start || !range_end) && !single_prn) {
@@ -264,10 +264,10 @@ export const addPRNRange = async (req, res) => {
     }
 
     const result = await query(
-      `INSERT INTO prn_ranges (range_start, range_end, single_prn, description, added_by, created_by_role, college_id)
-       VALUES ($1, $2, $3, $4, $5, 'super_admin', NULL)
+      `INSERT INTO prn_ranges (range_start, range_end, single_prn, description, year, added_by, created_by_role, college_id)
+       VALUES ($1, $2, $3, $4, $5, $6, 'super_admin', NULL)
        RETURNING *`,
-      [range_start || null, range_end || null, single_prn || null, description, req.user.id]
+      [range_start || null, range_end || null, single_prn || null, description, year || null, req.user.id]
     );
 
     // Log activity
@@ -279,7 +279,7 @@ export const addPRNRange = async (req, res) => {
         : `Added PRN range: ${range_start}-${range_end}`,
       'prn_range',
       result.rows[0].id,
-      { range_start, range_end, single_prn },
+      { range_start, range_end, single_prn, year },
       req
     );
 
@@ -303,7 +303,7 @@ export const addPRNRange = async (req, res) => {
 // @access  Private (Super Admin)
 export const updatePRNRange = async (req, res) => {
   try {
-    const { is_active, is_enabled, description, disabled_reason } = req.body;
+    const { is_active, is_enabled, description, disabled_reason, year, range_start, range_end, single_prn } = req.body;
     const rangeId = req.params.id;
 
     // Get the current range data before updating
@@ -362,6 +362,30 @@ export const updatePRNRange = async (req, res) => {
       paramCount++;
       updates.push(`description = $${paramCount}`);
       params.push(description);
+    }
+
+    if (year !== undefined) {
+      paramCount++;
+      updates.push(`year = $${paramCount}`);
+      params.push(year || null);
+    }
+
+    if (range_start !== undefined) {
+      paramCount++;
+      updates.push(`range_start = $${paramCount}`);
+      params.push(range_start || null);
+    }
+
+    if (range_end !== undefined) {
+      paramCount++;
+      updates.push(`range_end = $${paramCount}`);
+      params.push(range_end || null);
+    }
+
+    if (single_prn !== undefined) {
+      paramCount++;
+      updates.push(`single_prn = $${paramCount}`);
+      params.push(single_prn || null);
     }
 
     if (updates.length === 0) {

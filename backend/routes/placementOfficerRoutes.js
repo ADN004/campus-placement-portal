@@ -20,6 +20,8 @@ import {
   addPRNRange,
   updatePRNRange,
   deletePRNRange,
+  getStudentsByPRNRange,
+  exportStudentsByPRNRange,
   getCollegeBranches as getBranchesForNotifications,
 } from '../controllers/placementOfficerController.js';
 import {
@@ -104,6 +106,8 @@ router.get('/prn-ranges', getPRNRanges);
 router.post('/prn-ranges', addPRNRange);
 router.put('/prn-ranges/:id', updatePRNRange);
 router.delete('/prn-ranges/:id', deletePRNRange);
+router.get('/prn-ranges/:id/students', getStudentsByPRNRange);
+router.get('/prn-ranges/:id/students/export', exportStudentsByPRNRange);
 
 // Job Request Requirements Routes
 router.post('/job-requests/:jobRequestId/requirements', createOrUpdateJobRequestRequirements);

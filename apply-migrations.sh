@@ -18,6 +18,7 @@ echo "  - PRN range toggle"
 echo "  - Placement officer photos"
 echo "  - Job deletion history"
 echo "  - Auto age updates"
+echo "  - Year field for PRN ranges"
 echo ""
 read -p "Press Enter to continue..."
 

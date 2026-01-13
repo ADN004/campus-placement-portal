@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { placementOfficerAPI } from '../../services/api';
 import toast from 'react-hot-toast';
-import { Plus, Edit2, Trash2, Save, X, Lock, Hash, Calendar, BookOpen, Shield } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, X, Lock, Hash, Calendar, BookOpen, Shield, Eye, Download, ToggleLeft, ToggleRight, AlertCircle } from 'lucide-react';
 import DashboardHeader from '../../components/DashboardHeader';
 import GlassCard from '../../components/GlassCard';
 
@@ -10,11 +10,17 @@ export default function ManagePRNRanges() {
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [showDisableModal, setShowDisableModal] = useState(false);
+  const [selectedRange, setSelectedRange] = useState(null);
+  const [disableReason, setDisableReason] = useState('');
+  const [showViewStudentsModal, setShowViewStudentsModal] = useState(false);
+  const [rangeStudents, setRangeStudents] = useState([]);
+  const [loadingStudents, setLoadingStudents] = useState(false);
+  const [exportingStudents, setExportingStudents] = useState(false);
   const [formData, setFormData] = useState({
     start_prn: '',
     end_prn: '',
     year: '',
-    branch: '',
     description: '',
   });
 
@@ -45,7 +51,6 @@ export default function ManagePRNRanges() {
       start_prn: '',
       end_prn: '',
       year: '',
-      branch: '',
       description: '',
     });
     setEditingId(null);
@@ -75,7 +80,6 @@ export default function ManagePRNRanges() {
       start_prn: range.start_prn,
       end_prn: range.end_prn,
       year: range.year,
-      branch: range.branch || '',
       description: range.description || '',
     });
     setEditingId(range.id);
@@ -116,6 +120,101 @@ export default function ManagePRNRanges() {
       fetchPRNRanges();
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to delete PRN range');
+    }
+  };
+
+  const handleToggleEnable = async (range) => {
+    if (range.created_by === 'super_admin') {
+      toast.error('You cannot modify PRN ranges created by Super Admin');
+      return;
+    }
+
+    if (range.is_enabled) {
+      // If currently enabled, show modal to ask for disable reason
+      setSelectedRange(range);
+      setDisableReason('');
+      setShowDisableModal(true);
+    } else {
+      // If currently disabled, enable it directly
+      await handleEnableRange(range.id);
+    }
+  };
+
+  const handleEnableRange = async (id) => {
+    try {
+      await placementOfficerAPI.updatePRNRange(id, { is_enabled: true });
+      toast.success('PRN range enabled successfully');
+      fetchPRNRanges();
+    } catch (error) {
+      toast.error('Failed to enable PRN range');
+    }
+  };
+
+  const handleConfirmDisable = async () => {
+    if (!disableReason.trim()) {
+      toast.error('Please provide a reason for disabling this PRN range');
+      return;
+    }
+
+    try {
+      await placementOfficerAPI.updatePRNRange(selectedRange.id, {
+        is_enabled: false,
+        disabled_reason: disableReason,
+      });
+      toast.success('PRN range disabled successfully');
+      setShowDisableModal(false);
+      setSelectedRange(null);
+      setDisableReason('');
+      fetchPRNRanges();
+    } catch (error) {
+      toast.error('Failed to disable PRN range');
+    }
+  };
+
+  const handleViewStudents = async (range) => {
+    setSelectedRange(range);
+    setShowViewStudentsModal(true);
+    setLoadingStudents(true);
+    setRangeStudents([]);
+
+    try {
+      const response = await placementOfficerAPI.getStudentsByPRNRange(range.id);
+      setRangeStudents(response.data.data || []);
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to load students');
+      setRangeStudents([]);
+    } finally {
+      setLoadingStudents(false);
+    }
+  };
+
+  const handleExportRangeStudents = async () => {
+    if (!selectedRange) return;
+
+    setExportingStudents(true);
+    try {
+      const response = await placementOfficerAPI.exportStudentsByPRNRange(selectedRange.id);
+
+      const blob = new Blob([response.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const rangeLabel = selectedRange.single_prn
+        ? selectedRange.single_prn
+        : `${selectedRange.start_prn}_${selectedRange.end_prn}`;
+      a.download = `students_prn_range_${rangeLabel}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
+      toast.success('Students exported successfully');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to export students');
+    } finally {
+      setExportingStudents(false);
     }
   };
 
@@ -187,8 +286,9 @@ export default function ManagePRNRanges() {
                 <th className="px-6 py-4 text-left font-bold">Start PRN</th>
                 <th className="px-6 py-4 text-left font-bold">End PRN</th>
                 <th className="px-6 py-4 text-left font-bold">Year</th>
-                <th className="px-6 py-4 text-left font-bold">Branch</th>
+                <th className="px-6 py-4 text-left font-bold">College</th>
                 <th className="px-6 py-4 text-left font-bold">Description</th>
+                <th className="px-6 py-4 text-left font-bold">Status</th>
                 <th className="px-6 py-4 text-left font-bold">Created By</th>
                 <th className="px-6 py-4 text-left font-bold">Actions</th>
               </tr>
@@ -196,7 +296,7 @@ export default function ManagePRNRanges() {
             <tbody className="divide-y divide-gray-100">
               {prnRanges.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="text-center text-gray-500 py-12">
+                  <td colSpan="8" className="text-center text-gray-500 py-12">
                     <Hash className="mx-auto text-gray-400 mb-4" size={64} />
                     <p className="font-bold text-lg">No PRN ranges defined yet</p>
                     <p className="text-sm mt-2">Click "Add PRN Range" to create one</p>
@@ -212,9 +312,36 @@ export default function ManagePRNRanges() {
                   >
                     <td className="px-6 py-4 font-mono font-bold text-gray-900">{range.start_prn}</td>
                     <td className="px-6 py-4 font-mono font-bold text-gray-900">{range.end_prn}</td>
-                    <td className="px-6 py-4 font-bold text-gray-900">{range.year}</td>
-                    <td className="px-6 py-4 text-gray-700 font-medium">{range.branch || 'All Branches'}</td>
+                    <td className="px-6 py-4 font-bold text-gray-900">{range.year || '-'}</td>
+                    <td className="px-6 py-4 text-sm text-gray-700 font-medium">
+                      {range.college_name ? (
+                        <span className="inline-flex items-center space-x-1.5 bg-purple-100 text-purple-800 text-xs font-bold px-3 py-1.5 rounded-lg border border-purple-200">
+                          <span>{range.college_name}</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1.5 rounded-lg border border-blue-200">
+                          All Colleges
+                        </span>
+                      )}
+                    </td>
                     <td className="px-6 py-4 text-sm text-gray-600 font-medium">{range.description || '-'}</td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-col space-y-1">
+                        {range.is_enabled !== undefined ? (
+                          range.is_enabled ? (
+                            <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-xs font-semibold bg-green-100 text-green-800 w-fit">Enabled</span>
+                          ) : (
+                            <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-xs font-semibold bg-yellow-100 text-yellow-800 w-fit">Disabled</span>
+                          )
+                        ) : (
+                          range.is_active ? (
+                            <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-xs font-semibold bg-green-100 text-green-800 w-fit">Active</span>
+                          ) : (
+                            <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-xs font-semibold bg-red-100 text-red-800 w-fit">Inactive</span>
+                          )
+                        )}
+                      </div>
+                    </td>
                     <td className="px-6 py-4">
                       {range.created_by === 'super_admin' ? (
                         <span className="inline-flex items-center space-x-1.5 bg-purple-100 text-purple-800 text-sm font-bold px-4 py-2 rounded-xl border-2 border-purple-200">
@@ -229,6 +356,29 @@ export default function ManagePRNRanges() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex space-x-2">
+                        <button
+                          onClick={() => handleViewStudents(range)}
+                          className="p-2 text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded-xl transition-all transform hover:scale-110"
+                          title="View Students"
+                        >
+                          <Eye size={18} />
+                        </button>
+                        <button
+                          onClick={() => handleToggleEnable(range)}
+                          className={`p-2 rounded-xl transition-all transform hover:scale-110 ${
+                            range.is_enabled
+                              ? 'text-green-600 hover:text-green-800 bg-green-50 hover:bg-green-100'
+                              : 'text-gray-400 hover:text-gray-600 bg-gray-50 hover:bg-gray-100'
+                          } ${range.created_by === 'super_admin' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          title={range.is_enabled ? 'Disable Range' : 'Enable Range'}
+                          disabled={range.created_by === 'super_admin'}
+                        >
+                          {range.is_enabled ? (
+                            <ToggleRight size={20} />
+                          ) : (
+                            <ToggleLeft size={20} />
+                          )}
+                        </button>
                         {range.created_by === 'placement_officer' ? (
                           <>
                             <button
@@ -327,18 +477,6 @@ export default function ManagePRNRanges() {
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Branch (Optional)</label>
-                <input
-                  type="text"
-                  name="branch"
-                  value={formData.branch}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all duration-200 text-gray-900 placeholder-gray-400 font-medium"
-                  placeholder="e.g., Computer Science, leave blank for all branches"
-                />
-              </div>
-
-              <div>
                 <label className="block text-sm font-bold text-gray-700 mb-2">Description (Optional)</label>
                 <textarea
                   name="description"
@@ -368,6 +506,186 @@ export default function ManagePRNRanges() {
                 </button>
               </div>
             </form>
+          </GlassCard>
+        </div>
+      )}
+
+      {/* Disable PRN Range Modal */}
+      {showDisableModal && selectedRange && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <GlassCard variant="elevated" className="p-8 w-full max-w-md">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Disable PRN Range</h2>
+
+            <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <p className="text-sm text-gray-600 mb-1">PRN Range</p>
+              <p className="font-mono font-semibold text-gray-900">
+                {selectedRange.start_prn} - {selectedRange.end_prn}
+              </p>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-bold text-gray-700 mb-2">
+                Reason for Disabling *
+              </label>
+              <textarea
+                className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all duration-200 text-gray-900"
+                rows="4"
+                value={disableReason}
+                onChange={(e) => setDisableReason(e.target.value)}
+                placeholder="Provide a detailed reason for disabling this PRN range..."
+                required
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                This reason will be stored for future reference and audit purposes.
+              </p>
+            </div>
+
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg mb-6">
+              <p className="text-sm font-medium text-red-900">
+                Warning: Students with PRNs in this range will not be able to register while it's disabled.
+              </p>
+            </div>
+
+            <div className="flex space-x-3">
+              <button
+                onClick={() => {
+                  setShowDisableModal(false);
+                  setSelectedRange(null);
+                  setDisableReason('');
+                }}
+                className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 bg-white hover:bg-gray-50 font-bold rounded-xl transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDisable}
+                disabled={!disableReason.trim()}
+                className="flex-1 px-6 py-3 bg-yellow-600 hover:bg-yellow-700 text-white font-bold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Disable Range
+              </button>
+            </div>
+          </GlassCard>
+        </div>
+      )}
+
+      {/* View Students in Range Modal */}
+      {showViewStudentsModal && selectedRange && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <GlassCard variant="elevated" className="p-0 w-full max-w-5xl max-h-[90vh] flex flex-col">
+            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Students in PRN Range</h2>
+                <p className="text-sm text-gray-600 mt-1 font-mono">
+                  {selectedRange.start_prn} - {selectedRange.end_prn}
+                  {selectedRange.is_enabled ? (
+                    <span className="ml-3 inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-green-100 text-green-800">Enabled</span>
+                  ) : (
+                    <span className="ml-3 inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-yellow-100 text-yellow-800">Disabled</span>
+                  )}
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowViewStudentsModal(false);
+                  setSelectedRange(null);
+                  setRangeStudents([]);
+                }}
+                className="text-gray-500 hover:text-gray-700 p-2"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6">
+              {loadingStudents ? (
+                <div className="flex items-center justify-center h-64">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-3"></div>
+                    <p className="text-gray-600">Loading students...</p>
+                  </div>
+                </div>
+              ) : rangeStudents.length === 0 ? (
+                <div className="flex items-center justify-center h-64">
+                  <div className="text-center">
+                    <Eye size={48} className="mx-auto text-gray-400 mb-3" />
+                    <p className="text-gray-600 font-medium">No students found in this PRN range</p>
+                    <p className="text-sm text-gray-500 mt-1">Students who register within this range will appear here</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PRN</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Branch</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {rangeStudents.map((student) => (
+                        <tr key={student.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 whitespace-nowrap text-sm font-mono font-medium text-gray-900">
+                            {student.prn}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                            {student.student_name || student.name}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                            {student.email}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                            {student.branch}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm">
+                            {student.is_blacklisted ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-red-100 text-red-800">Blacklisted</span>
+                            ) : student.registration_status === 'approved' ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-green-100 text-green-800">Approved</span>
+                            ) : student.registration_status === 'pending' ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-yellow-100 text-yellow-800">Pending</span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-red-100 text-red-800">Rejected</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-between items-center">
+              <p className="text-sm text-gray-600">
+                Total: <span className="font-semibold">{rangeStudents.length}</span> student(s)
+              </p>
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => {
+                    setShowViewStudentsModal(false);
+                    setSelectedRange(null);
+                    setRangeStudents([]);
+                  }}
+                  className="px-6 py-3 border-2 border-gray-300 text-gray-700 bg-white hover:bg-gray-50 font-bold rounded-xl transition-all"
+                >
+                  Close
+                </button>
+                {rangeStudents.length > 0 && (
+                  <button
+                    onClick={handleExportRangeStudents}
+                    disabled={exportingStudents}
+                    className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-xl transition-all flex items-center space-x-2 disabled:opacity-50"
+                  >
+                    <Download size={18} />
+                    <span>{exportingStudents ? 'Exporting...' : 'Export to Excel'}</span>
+                  </button>
+                )}
+              </div>
+            </div>
           </GlassCard>
         </div>
       )}

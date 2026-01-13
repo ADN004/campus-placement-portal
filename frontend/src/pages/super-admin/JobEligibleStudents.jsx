@@ -429,7 +429,9 @@ export default function JobEligibleStudents() {
         pdf_fields: selectedFields,
         college_ids: exportFilters.selectedColleges.length > 0 ? exportFilters.selectedColleges : undefined,
         branches: exportFilters.selectedBranches.length > 0 ? exportFilters.selectedBranches : undefined,
-        application_statuses: enhancedFilters.applicationStatuses.length > 0 ? enhancedFilters.applicationStatuses : undefined,
+        application_statuses: pdfExportType === 'selected_only'
+          ? ['selected']
+          : (enhancedFilters.applicationStatuses.length > 0 ? enhancedFilters.applicationStatuses : undefined),
         sslc_min: enhancedFilters.sslcMin || undefined,
         twelfth_min: enhancedFilters.twelfthMin || undefined,
         district: enhancedFilters.district || undefined,
@@ -647,7 +649,7 @@ export default function JobEligibleStudents() {
                             className="fixed inset-0 bg-black/20 z-[100]"
                             onClick={() => setShowExportDropdown(false)}
                           ></div>
-                          <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-[110]">
+                          <div className="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-lg border border-gray-200 z-[110]">
                             <button
                               onClick={handleExport}
                               className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center space-x-3 transition-colors rounded-lg"
@@ -1210,46 +1212,59 @@ export default function JobEligibleStudents() {
                       </div>
                       Selected Students ({filteredStudents.filter(s => s.application_status === 'selected').length})
                     </h2>
-                    <button
-                      onClick={async () => {
-                        try {
-                          setExporting(true);
-                          const loadingToast = toast.loading('Exporting selected students...');
+                    <div className="flex gap-3">
+                      <button
+                        onClick={async () => {
+                          try {
+                            setExporting(true);
+                            const loadingToast = toast.loading('Exporting selected students...');
 
-                          // Create export data with only selected students
-                          const exportData = {
-                            format: 'excel',
-                            application_statuses: ['selected'],
-                          };
+                            // Create export data with only selected students
+                            const exportData = {
+                              format: 'excel',
+                              application_statuses: ['selected'],
+                            };
 
-                          const response = await superAdminAPI.enhancedExportJobApplicants(selectedJob.id, exportData);
+                            const response = await superAdminAPI.enhancedExportJobApplicants(selectedJob.id, exportData);
 
-                          const blob = new Blob([response.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-                          const url = window.URL.createObjectURL(blob);
-                          const link = document.createElement('a');
-                          link.href = url;
-                          const fileName = `selected_students_${selectedJob.job_title.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
-                          link.setAttribute('download', fileName);
-                          document.body.appendChild(link);
-                          link.click();
-                          link.remove();
-                          window.URL.revokeObjectURL(url);
+                            const blob = new Blob([response.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                            const url = window.URL.createObjectURL(blob);
+                            const link = document.createElement('a');
+                            link.href = url;
+                            const fileName = `selected_students_${selectedJob.job_title.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
+                            link.setAttribute('download', fileName);
+                            document.body.appendChild(link);
+                            link.click();
+                            link.remove();
+                            window.URL.revokeObjectURL(url);
 
-                          toast.dismiss(loadingToast);
-                          toast.success('Exported selected students successfully');
-                        } catch (error) {
-                          console.error('Export error:', error);
-                          toast.error('Failed to export selected students');
-                        } finally {
-                          setExporting(false);
-                        }
-                      }}
-                      className="btn btn-primary flex items-center gap-2"
-                      disabled={exporting}
-                    >
-                      <Download size={18} />
-                      <span>Export Selected</span>
-                    </button>
+                            toast.dismiss(loadingToast);
+                            toast.success('Exported selected students as Excel');
+                          } catch (error) {
+                            console.error('Export error:', error);
+                            toast.error('Failed to export selected students');
+                          } finally {
+                            setExporting(false);
+                          }
+                        }}
+                        className="btn btn-primary flex items-center gap-2"
+                        disabled={exporting}
+                      >
+                        <FileSpreadsheet size={18} />
+                        <span>Export Excel</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setPdfExportType('selected_only');
+                          setShowPDFFieldSelector(true);
+                        }}
+                        className="btn btn-error flex items-center gap-2"
+                        disabled={exporting}
+                      >
+                        <FileText size={18} />
+                        <span>Export PDF</span>
+                      </button>
+                    </div>
                   </div>
 
                   <div className="overflow-x-auto">
@@ -1335,7 +1350,12 @@ export default function JobEligibleStudents() {
         <PDFFieldSelector
           onExport={handlePDFExportWithFields}
           onClose={() => setShowPDFFieldSelector(false)}
-          applicantCount={filteredStudents.length}
+          applicantCount={
+            pdfExportType === 'selected_only'
+              ? filteredStudents.filter(s => s.application_status === 'selected').length
+              : filteredStudents.length
+          }
+          exportType={pdfExportType}
         />
       )}
 

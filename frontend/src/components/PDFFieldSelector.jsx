@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { FileText, X, Check } from 'lucide-react';
 
-const PDFFieldSelector = ({ onExport, onClose, applicantCount }) => {
+const PDFFieldSelector = ({ onExport, onClose, applicantCount, exportType = 'enhanced' }) => {
   const [selectedFields, setSelectedFields] = useState([
     'prn',
     'student_name',
@@ -60,12 +60,18 @@ const PDFFieldSelector = ({ onExport, onClose, applicantCount }) => {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-6 flex items-center justify-between">
+        <div className={`${exportType === 'selected_only' ? 'bg-gradient-to-r from-green-600 to-emerald-600' : 'bg-gradient-to-r from-purple-600 to-indigo-600'} text-white p-6 flex items-center justify-between`}>
           <div className="flex items-center space-x-3">
-            <FileText size={24} />
+            {exportType === 'selected_only' ? <Check size={24} /> : <FileText size={24} />}
             <div>
-              <h2 className="text-xl font-bold">Customize PDF Export</h2>
-              <p className="text-sm opacity-90">Select fields to include ({applicantCount} applicants)</p>
+              <h2 className="text-xl font-bold">
+                {exportType === 'selected_only' ? 'Export Selected Students Only' : 'Customize PDF Export'}
+              </h2>
+              <p className="text-sm opacity-90">
+                {exportType === 'selected_only'
+                  ? `Select fields to include (${applicantCount} selected student${applicantCount !== 1 ? 's' : ''})`
+                  : `Select fields to include (${applicantCount} applicants)`}
+              </p>
             </div>
           </div>
           <button

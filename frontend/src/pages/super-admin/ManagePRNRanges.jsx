@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { superAdminAPI } from '../../services/api';
 import toast from 'react-hot-toast';
-import { Plus, Trash2, ToggleLeft, ToggleRight, AlertCircle, Eye, Download, ExternalLink } from 'lucide-react';
+import { Plus, Trash2, ToggleLeft, ToggleRight, AlertCircle, Eye, Download, ExternalLink, Edit2 } from 'lucide-react';
 
 export default function ManagePRNRanges() {
   const [ranges, setRanges] = useState([]);
@@ -16,11 +16,13 @@ export default function ManagePRNRanges() {
   const [rangeStudents, setRangeStudents] = useState([]);
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [exportingStudents, setExportingStudents] = useState(false);
+  const [editingRange, setEditingRange] = useState(null);
   const [formData, setFormData] = useState({
     range_start: '',
     range_end: '',
     single_prn: '',
     description: '',
+    year: '',
   });
 
   useEffect(() => {
@@ -41,33 +43,60 @@ export default function ManagePRNRanges() {
   const handleAddRange = async (e) => {
     e.preventDefault();
     try {
-      await superAdminAPI.addPRNRange({
-        range_start: formData.range_start,
-        range_end: formData.range_end,
-        description: formData.description,
-      });
-      toast.success('PRN range added successfully');
+      if (editingRange) {
+        // Update existing range
+        await superAdminAPI.updatePRNRange(editingRange.id, {
+          range_start: formData.range_start,
+          range_end: formData.range_end,
+          description: formData.description,
+          year: formData.year,
+        });
+        toast.success('PRN range updated successfully');
+      } else {
+        // Add new range
+        await superAdminAPI.addPRNRange({
+          range_start: formData.range_start,
+          range_end: formData.range_end,
+          description: formData.description,
+          year: formData.year,
+        });
+        toast.success('PRN range added successfully');
+      }
       setShowAddRange(false);
-      setFormData({ range_start: '', range_end: '', single_prn: '', description: '' });
+      setEditingRange(null);
+      setFormData({ range_start: '', range_end: '', single_prn: '', description: '', year: '' });
       fetchRanges();
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to add PRN range');
+      toast.error(error.response?.data?.message || `Failed to ${editingRange ? 'update' : 'add'} PRN range`);
     }
   };
 
   const handleAddSingle = async (e) => {
     e.preventDefault();
     try {
-      await superAdminAPI.addPRNRange({
-        single_prn: formData.single_prn,
-        description: formData.description,
-      });
-      toast.success('Single PRN added successfully');
+      if (editingRange) {
+        // Update existing single PRN
+        await superAdminAPI.updatePRNRange(editingRange.id, {
+          single_prn: formData.single_prn,
+          description: formData.description,
+          year: formData.year,
+        });
+        toast.success('Single PRN updated successfully');
+      } else {
+        // Add new single PRN
+        await superAdminAPI.addPRNRange({
+          single_prn: formData.single_prn,
+          description: formData.description,
+          year: formData.year,
+        });
+        toast.success('Single PRN added successfully');
+      }
       setShowAddSingle(false);
-      setFormData({ range_start: '', range_end: '', single_prn: '', description: '' });
+      setEditingRange(null);
+      setFormData({ range_start: '', range_end: '', single_prn: '', description: '', year: '' });
       fetchRanges();
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to add single PRN');
+      toast.error(error.response?.data?.message || `Failed to ${editingRange ? 'update' : 'add'} single PRN`);
     }
   };
 
@@ -122,6 +151,23 @@ export default function ManagePRNRanges() {
       fetchRanges();
     } catch (error) {
       toast.error('Failed to delete PRN range');
+    }
+  };
+
+  const handleEdit = (range) => {
+    setEditingRange(range);
+    setFormData({
+      range_start: range.range_start || '',
+      range_end: range.range_end || '',
+      single_prn: range.single_prn || '',
+      description: range.description || '',
+      year: range.year || '',
+    });
+
+    if (range.single_prn) {
+      setShowAddSingle(true);
+    } else {
+      setShowAddRange(true);
     }
   };
 
@@ -253,7 +299,7 @@ export default function ManagePRNRanges() {
       {showAddRange && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">Add PRN Range</h2>
+            <h2 className="text-xl font-bold mb-4">{editingRange ? 'Update PRN Range' : 'Add PRN Range'}</h2>
             <form onSubmit={handleAddRange} className="space-y-4">
               <div>
                 <label className="label">Range Start</label>
@@ -278,6 +324,21 @@ export default function ManagePRNRanges() {
                 />
               </div>
               <div>
+                <label className="label">Year (Optional)</label>
+                <select
+                  className="input"
+                  value={formData.year}
+                  onChange={(e) => setFormData({ ...formData, year: e.target.value })}
+                >
+                  <option value="">Select Year</option>
+                  {Array.from({ length: 10 }, (_, i) => 2020 + i).map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
                 <label className="label">Description (Optional)</label>
                 <input
                   type="text"
@@ -289,13 +350,14 @@ export default function ManagePRNRanges() {
               </div>
               <div className="flex space-x-3">
                 <button type="submit" className="btn btn-primary flex-1">
-                  Add Range
+                  {editingRange ? 'Update Range' : 'Add Range'}
                 </button>
                 <button
                   type="button"
                   onClick={() => {
                     setShowAddRange(false);
-                    setFormData({ range_start: '', range_end: '', single_prn: '', description: '' });
+                    setEditingRange(null);
+                    setFormData({ range_start: '', range_end: '', single_prn: '', description: '', year: '' });
                   }}
                   className="btn btn-secondary flex-1"
                 >
@@ -311,7 +373,7 @@ export default function ManagePRNRanges() {
       {showAddSingle && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">Add Single PRN</h2>
+            <h2 className="text-xl font-bold mb-4">{editingRange ? 'Update Single PRN' : 'Add Single PRN'}</h2>
             <form onSubmit={handleAddSingle} className="space-y-4">
               <div>
                 <label className="label">PRN</label>
@@ -325,6 +387,21 @@ export default function ManagePRNRanges() {
                 />
               </div>
               <div>
+                <label className="label">Year (Optional)</label>
+                <select
+                  className="input"
+                  value={formData.year}
+                  onChange={(e) => setFormData({ ...formData, year: e.target.value })}
+                >
+                  <option value="">Select Year</option>
+                  {Array.from({ length: 10 }, (_, i) => 2020 + i).map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
                 <label className="label">Description (Optional)</label>
                 <input
                   type="text"
@@ -336,13 +413,14 @@ export default function ManagePRNRanges() {
               </div>
               <div className="flex space-x-3">
                 <button type="submit" className="btn btn-primary flex-1">
-                  Add PRN
+                  {editingRange ? 'Update PRN' : 'Add PRN'}
                 </button>
                 <button
                   type="button"
                   onClick={() => {
                     setShowAddSingle(false);
-                    setFormData({ range_start: '', range_end: '', single_prn: '', description: '' });
+                    setEditingRange(null);
+                    setFormData({ range_start: '', range_end: '', single_prn: '', description: '', year: '' });
                   }}
                   className="btn btn-secondary flex-1"
                 >
@@ -362,6 +440,8 @@ export default function ManagePRNRanges() {
                 <tr>
                   <th className="px-6 py-5 text-left text-xs font-black text-white uppercase tracking-wider">Type</th>
                   <th className="px-6 py-5 text-left text-xs font-black text-white uppercase tracking-wider">Range / PRN</th>
+                  <th className="px-6 py-5 text-left text-xs font-black text-white uppercase tracking-wider">Year</th>
+                  <th className="px-6 py-5 text-left text-xs font-black text-white uppercase tracking-wider">College</th>
                   <th className="px-6 py-5 text-left text-xs font-black text-white uppercase tracking-wider">Description</th>
                   <th className="px-6 py-5 text-left text-xs font-black text-white uppercase tracking-wider">Status</th>
                   <th className="px-6 py-5 text-left text-xs font-black text-white uppercase tracking-wider">Added</th>
@@ -371,7 +451,7 @@ export default function ManagePRNRanges() {
               <tbody className="bg-white/50 divide-y divide-gray-100">
                 {ranges.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="text-center py-16">
+                    <td colSpan="8" className="text-center py-16">
                       <AlertCircle className="mx-auto mb-4 text-gray-300" size={64} />
                       <p className="text-gray-500 text-lg font-semibold">No PRN ranges added yet. Add ranges to allow student registration.</p>
                     </td>
@@ -388,6 +468,20 @@ export default function ManagePRNRanges() {
                         {range.single_prn
                           ? range.single_prn
                           : `${range.range_start} - ${range.range_end}`}
+                      </td>
+                      <td className="px-6 py-5 text-sm text-gray-700 font-medium">
+                        {range.year || '-'}
+                      </td>
+                      <td className="px-6 py-5 text-sm text-gray-700 font-medium">
+                        {range.college_name ? (
+                          <span className="inline-flex items-center space-x-1.5 bg-purple-100 text-purple-800 text-xs font-bold px-3 py-1.5 rounded-lg border border-purple-200">
+                            <span>{range.college_name}</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1.5 rounded-lg border border-blue-200">
+                            All Colleges
+                          </span>
+                        )}
                       </td>
                       <td className="px-6 py-5 text-sm text-gray-600">
                         {range.description || '-'}
@@ -427,6 +521,13 @@ export default function ManagePRNRanges() {
                             <Eye size={18} />
                             <ExternalLink size={12} />
                           </Link>
+                          <button
+                            onClick={() => handleEdit(range)}
+                            className="p-2 text-amber-600 hover:text-white hover:bg-gradient-to-r hover:from-amber-500 hover:to-orange-500 rounded-xl transition-all duration-200 hover:shadow-lg transform hover:scale-110"
+                            title="Edit"
+                          >
+                            <Edit2 size={18} />
+                          </button>
                           <button
                             onClick={() => handleToggleEnable(range)}
                             className={`p-2 rounded-xl transition-all duration-200 hover:shadow-lg transform hover:scale-110 ${

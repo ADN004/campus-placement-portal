@@ -130,6 +130,8 @@ export const placementOfficerAPI = {
   addPRNRange: (data) => API.post('/placement-officer/prn-ranges', data),
   updatePRNRange: (id, data) => API.put(`/placement-officer/prn-ranges/${id}`, data),
   deletePRNRange: (id) => API.delete(`/placement-officer/prn-ranges/${id}`),
+  getStudentsByPRNRange: (rangeId) => API.get(`/placement-officer/prn-ranges/${rangeId}/students`),
+  exportStudentsByPRNRange: (rangeId) => API.get(`/placement-officer/prn-ranges/${rangeId}/students/export`, { responseType: 'blob' }),
   // Profile Photo Management
   uploadOwnPhoto: (data) => API.post('/placement-officer/profile/photo', data),
   deleteOwnPhoto: () => API.delete('/placement-officer/profile/photo'),

@@ -450,9 +450,14 @@ export default function JobEligibleStudents() {
           weight_min: enhancedFilters.weightMin || undefined,
           physically_handicapped: enhancedFilters.physicallyHandicapped,
         });
+      } else if (pdfExportType === 'selected_only') {
+        // Export only students with 'selected' status
+        Object.assign(exportData, {
+          application_statuses: ['selected'],
+        });
       }
 
-      const response = pdfExportType === 'enhanced'
+      const response = (pdfExportType === 'enhanced' || pdfExportType === 'selected_only')
         ? await placementOfficerAPI.enhancedExportJobApplicants(selectedJob.id, exportData)
         : await placementOfficerAPI.exportJobApplicants(selectedJob.id, 'pdf', selectedFields);
 
@@ -1089,46 +1094,59 @@ export default function JobEligibleStudents() {
                   </div>
                   Selected Students ({filteredStudents.filter(s => s.application_status === 'selected').length})
                 </h2>
-                <button
-                  onClick={async () => {
-                    try {
-                      setExporting(true);
-                      const loadingToast = toast.loading('Exporting selected students...');
+                <div className="flex gap-3">
+                  <button
+                    onClick={async () => {
+                      try {
+                        setExporting(true);
+                        const loadingToast = toast.loading('Exporting selected students...');
 
-                      // Create export data with only selected students
-                      const exportData = {
-                        format: 'excel',
-                        application_statuses: ['selected'],
-                      };
+                        // Create export data with only selected students
+                        const exportData = {
+                          format: 'excel',
+                          application_statuses: ['selected'],
+                        };
 
-                      const response = await placementOfficerAPI.enhancedExportJobApplicants(selectedJob.id, exportData);
+                        const response = await placementOfficerAPI.enhancedExportJobApplicants(selectedJob.id, exportData);
 
-                      const blob = new Blob([response.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-                      const url = window.URL.createObjectURL(blob);
-                      const link = document.createElement('a');
-                      link.href = url;
-                      const fileName = `selected_students_${selectedJob.job_title.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
-                      link.setAttribute('download', fileName);
-                      document.body.appendChild(link);
-                      link.click();
-                      link.remove();
-                      window.URL.revokeObjectURL(url);
+                        const blob = new Blob([response.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.href = url;
+                        const fileName = `selected_students_${selectedJob.job_title.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
+                        link.setAttribute('download', fileName);
+                        document.body.appendChild(link);
+                        link.click();
+                        link.remove();
+                        window.URL.revokeObjectURL(url);
 
-                      toast.dismiss(loadingToast);
-                      toast.success('Exported selected students successfully');
-                    } catch (error) {
-                      console.error('Export error:', error);
-                      toast.error('Failed to export selected students');
-                    } finally {
-                      setExporting(false);
-                    }
-                  }}
-                  className="bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-200 transform hover:scale-105 active:scale-95 flex items-center space-x-2"
-                  disabled={exporting}
-                >
-                  <Download size={18} />
-                  <span>Export Selected</span>
-                </button>
+                        toast.dismiss(loadingToast);
+                        toast.success('Exported selected students as Excel');
+                      } catch (error) {
+                        console.error('Export error:', error);
+                        toast.error('Failed to export selected students');
+                      } finally {
+                        setExporting(false);
+                      }
+                    }}
+                    className="bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-200 transform hover:scale-105 active:scale-95 flex items-center space-x-2"
+                    disabled={exporting}
+                  >
+                    <FileSpreadsheet size={18} />
+                    <span>Export Excel</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setPdfExportType('selected_only');
+                      setShowPDFFieldSelector(true);
+                    }}
+                    className="bg-gradient-to-r from-red-600 to-rose-600 text-white font-bold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl hover:from-red-700 hover:to-rose-700 transition-all duration-200 transform hover:scale-105 active:scale-95 flex items-center space-x-2"
+                    disabled={exporting}
+                  >
+                    <FileText size={18} />
+                    <span>Export PDF</span>
+                  </button>
+                </div>
               </div>
 
               <div className="overflow-x-auto">
@@ -1235,7 +1253,12 @@ export default function JobEligibleStudents() {
         <PDFFieldSelector
           onExport={handlePDFExportWithFields}
           onClose={() => setShowPDFFieldSelector(false)}
-          applicantCount={filteredStudents.length}
+          applicantCount={
+            pdfExportType === 'selected_only'
+              ? filteredStudents.filter(s => s.application_status === 'selected').length
+              : filteredStudents.length
+          }
+          exportType={pdfExportType}
         />
       )}
 

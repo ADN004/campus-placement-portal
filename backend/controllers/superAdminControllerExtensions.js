@@ -2948,21 +2948,20 @@ export const manuallyAddStudentToJob = async (req, res) => {
       });
     }
 
-    if (!notes || notes.trim().length === 0) {
+    // Notes are optional but validated if provided
+    if (notes && notes.trim().length === 0) {
       await client.query('ROLLBACK');
       return res.status(400).json({
         success: false,
-        message: 'Notes are required to explain why student is being manually added',
+        message: 'Notes cannot be empty if provided',
       });
     }
 
     // Verify job exists
     const jobCheck = await client.query(
-      `SELECT j.id, j.company_name, j.job_title, j.salary_package, j.college_id,
-              c.college_name
-       FROM jobs j
-       JOIN colleges c ON j.college_id = c.id
-       WHERE j.id = $1`,
+      `SELECT id, company_name, job_title, salary_package
+       FROM jobs
+       WHERE id = $1`,
       [job_id]
     );
 
@@ -3017,15 +3016,6 @@ export const manuallyAddStudentToJob = async (req, res) => {
 
     const student = studentResult.rows[0];
 
-    // Check if job and student are from the same college
-    if (job.college_id !== student.college_id) {
-      await client.query('ROLLBACK');
-      return res.status(400).json({
-        success: false,
-        message: `Job is from ${job.college_name} but student is from ${student.college_name}. They must be from the same college.`,
-      });
-    }
-
     // Check if student is blacklisted
     if (student.is_blacklisted) {
       await client.query('ROLLBACK');
@@ -3043,69 +3033,92 @@ export const manuallyAddStudentToJob = async (req, res) => {
       [job_id, student.id]
     );
 
-    if (existingAppResult.rows.length > 0) {
-      const existingApp = existingAppResult.rows[0];
-      await client.query('ROLLBACK');
-
-      // Special message if already selected
-      if (existingApp.application_status === 'selected') {
-        return res.status(409).json({
-          success: false,
-          message: 'Student is already selected for this job',
-          existing_application: existingApp,
-        });
-      }
-
-      return res.status(409).json({
-        success: false,
-        message: `Student already has an application for this job (Status: ${existingApp.application_status})`,
-        existing_application: existingApp,
-      });
-    }
-
-    // Check for existing placements in other jobs (warning, not blocking)
+    // Check for existing placements in other jobs (informational only)
     const existingPlacements = await checkExistingPlacements(student.id, job_id);
 
-    // Create manual application entry with status 'selected'
+    // Prepare application data
     const packageToUse = placement_package || job.salary_package;
-    const reviewNotes = `[MANUAL ADDITION by Super Admin on ${new Date().toISOString()}]\n${notes}`;
+    const reviewNotes = notes
+      ? `[MANUAL ADDITION by Super Admin on ${new Date().toISOString()}]\n${notes}`
+      : `[MANUAL ADDITION by Super Admin on ${new Date().toISOString()}]`;
 
-    const insertResult = await client.query(
-      `INSERT INTO job_applications (
-        job_id,
-        student_id,
-        application_status,
-        reviewed_by,
-        reviewed_at,
-        review_notes,
-        placement_package,
-        joining_date,
-        placement_location,
-        is_manual_addition,
-        applied_date,
-        created_at,
-        updated_at
-      ) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, $5, $6, $7, $8, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-      RETURNING id, job_id, student_id, application_status, placement_package, joining_date, placement_location`,
-      [
-        job_id,
-        student.id,
-        'selected',
-        req.user.id,
-        reviewNotes,
-        packageToUse,
-        joining_date || null,
-        placement_location || null,
-      ]
-    );
+    let application;
+    let isUpdate = false;
 
-    const newApplication = insertResult.rows[0];
+    // If existing application, update it; otherwise create new one
+    if (existingAppResult.rows.length > 0) {
+      const existingApp = existingAppResult.rows[0];
+      isUpdate = true;
+
+      // Update existing application to 'selected' status
+      const updateResult = await client.query(
+        `UPDATE job_applications
+         SET application_status = $1,
+             reviewed_by = $2,
+             reviewed_at = CURRENT_TIMESTAMP,
+             review_notes = $3,
+             placement_package = $4,
+             joining_date = $5,
+             placement_location = $6,
+             is_manual_addition = TRUE,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $7
+         RETURNING id, job_id, student_id, application_status, placement_package, joining_date, placement_location`,
+        [
+          'selected',
+          req.user.id,
+          reviewNotes,
+          packageToUse,
+          joining_date || null,
+          placement_location || null,
+          existingApp.id,
+        ]
+      );
+
+      application = updateResult.rows[0];
+    } else {
+      // Create new manual application entry with status 'selected'
+      const insertResult = await client.query(
+        `INSERT INTO job_applications (
+          job_id,
+          student_id,
+          application_status,
+          reviewed_by,
+          reviewed_at,
+          review_notes,
+          placement_package,
+          joining_date,
+          placement_location,
+          is_manual_addition,
+          applied_date,
+          created_at,
+          updated_at
+        ) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, $5, $6, $7, $8, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        RETURNING id, job_id, student_id, application_status, placement_package, joining_date, placement_location`,
+        [
+          job_id,
+          student.id,
+          'selected',
+          req.user.id,
+          reviewNotes,
+          packageToUse,
+          joining_date || null,
+          placement_location || null,
+        ]
+      );
+
+      application = insertResult.rows[0];
+    }
+
+    const newApplication = application;
 
     // Log activity
     await logActivity(
       req.user.id,
-      'MANUAL_STUDENT_ADDITION',
-      `Super admin manually added student ${student.student_name} (PRN: ${student_prn}) from ${student.college_name} to job ${job.company_name} - ${job.job_title}`,
+      isUpdate ? 'MANUAL_STUDENT_UPDATE' : 'MANUAL_STUDENT_ADDITION',
+      isUpdate
+        ? `Super admin updated student ${student.student_name} (PRN: ${student_prn}) from ${student.college_name} application to selected for job ${job.company_name} - ${job.job_title}`
+        : `Super admin manually added student ${student.student_name} (PRN: ${student_prn}) from ${student.college_name} to job ${job.company_name} - ${job.job_title}`,
       'job_application',
       newApplication.id,
       {
@@ -3115,15 +3128,18 @@ export const manuallyAddStudentToJob = async (req, res) => {
         college_id: student.college_id,
         placement_package: packageToUse,
         notes,
+        is_update: isUpdate,
       },
       req
     );
 
     await client.query('COMMIT');
 
-    res.status(201).json({
+    res.status(isUpdate ? 200 : 201).json({
       success: true,
-      message: 'Student manually added to job successfully',
+      message: isUpdate
+        ? 'Student application updated to selected successfully'
+        : 'Student manually added to job successfully',
       data: {
         application: newApplication,
         student: {
@@ -3132,14 +3148,13 @@ export const manuallyAddStudentToJob = async (req, res) => {
           prn: student.prn,
           branch: student.branch,
           college_name: student.college_name,
-          programme_cgpa: student.programme_cgpa,
+          cgpa: student.programme_cgpa,
           backlog_count: student.backlog_count,
         },
         job: {
           id: job.id,
           company_name: job.company_name,
           job_title: job.job_title,
-          college_name: job.college_name,
           salary_package: job.salary_package,
         },
         existing_placements: existingPlacements.length > 0 ? existingPlacements : null,
@@ -3269,7 +3284,7 @@ export const validateStudentForManualAddition = async (req, res) => {
           prn: student.prn,
           branch: student.branch,
           email: student.email,
-          programme_cgpa: student.programme_cgpa,
+          cgpa: student.programme_cgpa,
           backlog_count: student.backlog_count,
           photo_url: student.photo_url,
           gender: student.gender,
@@ -3279,18 +3294,18 @@ export const validateStudentForManualAddition = async (req, res) => {
         },
         existing_application: existingApplication,
         existing_placements: existingPlacements,
-        can_add: !existingApplication && !student.is_blacklisted,
+        can_add: !student.is_blacklisted,
         warnings: [
           ...(existingApplication
             ? [
                 existingApplication.application_status === 'selected'
-                  ? 'Student is already selected for this job'
-                  : `Student already has an application for this job (Status: ${existingApplication.application_status})`,
+                  ? 'Student is already selected for this job. Adding again will update the existing record.'
+                  : `Student already has an application for this job (Status: ${existingApplication.application_status}). Adding will update it to selected.`,
               ]
             : []),
           ...(existingPlacements.length > 0
             ? [
-                `Student already has ${existingPlacements.length} existing placement(s)`,
+                `Student already has ${existingPlacements.length} existing placement(s). Students can have multiple offers.`,
               ]
             : []),
         ],

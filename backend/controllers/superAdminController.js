@@ -6,6 +6,207 @@ import { generateStudentPDF } from '../utils/pdfGenerator.js';
 import { deleteImage, deleteFolderOnly, extractFolderPath } from '../config/cloudinary.js';
 
 // ========================================
+// HELPER FUNCTIONS
+// ========================================
+
+/**
+ * Check if PRN falls within a given range
+ * Handles both numeric and string comparisons
+ */
+const isPRNInRange = (prn, start, end) => {
+  // Handle numeric comparison
+  if (!isNaN(prn) && !isNaN(start) && !isNaN(end)) {
+    const prnNum = parseInt(prn);
+    const startNum = parseInt(start);
+    const endNum = parseInt(end);
+    return prnNum >= startNum && prnNum <= endNum;
+  }
+
+  // Handle string comparison
+  return prn >= start && prn <= end;
+};
+
+/**
+ * Deactivate students whose PRN matches the given range
+ * Sets is_active to FALSE in users table
+ *
+ * @param {Object} range - PRN range object with single_prn or range_start/range_end
+ * @param {number} adminId - ID of the admin performing the action
+ * @returns {number} Count of deactivated students
+ */
+const deactivateStudentsInRange = async (range, adminId) => {
+  try {
+    let studentsToDeactivate = [];
+
+    if (range.single_prn) {
+      // Handle single PRN
+      const studentsResult = await query(
+        `SELECT s.id, s.prn, s.user_id FROM students s WHERE s.prn = $1`,
+        [range.single_prn]
+      );
+      studentsToDeactivate = studentsResult.rows;
+    } else if (range.range_start && range.range_end) {
+      // Handle range - get all students and filter
+      const studentsResult = await query(
+        `SELECT s.id, s.prn, s.user_id FROM students s`
+      );
+
+      studentsToDeactivate = studentsResult.rows.filter(student =>
+        isPRNInRange(student.prn, range.range_start, range.range_end)
+      );
+    }
+
+    if (studentsToDeactivate.length === 0) {
+      return 0;
+    }
+
+    // Deactivate users for these students
+    const userIds = studentsToDeactivate.map(s => s.user_id);
+    await query(
+      `UPDATE users SET is_active = FALSE WHERE id = ANY($1::int[])`,
+      [userIds]
+    );
+
+    // Log activity for each deactivated student
+    for (const student of studentsToDeactivate) {
+      await logActivity(
+        adminId,
+        'DEACTIVATE_STUDENT_VIA_PRN_RANGE',
+        `Deactivated student PRN: ${student.prn} due to PRN range disable`,
+        'student',
+        student.id,
+        { prn: student.prn, range_id: range.id }
+      );
+    }
+
+    return studentsToDeactivate.length;
+  } catch (error) {
+    console.error('Error deactivating students in range:', error);
+    throw error;
+  }
+};
+
+/**
+ * Delete students and their associated data whose PRN matches the given range
+ * This is a hard delete - removes all records from database
+ *
+ * @param {Object} range - PRN range object with single_prn or range_start/range_end
+ * @param {number} adminId - ID of the admin performing the action
+ * @returns {number} Count of deleted students
+ */
+const deleteStudentsInRange = async (range, adminId) => {
+  try {
+    let studentsToDelete = [];
+
+    if (range.single_prn) {
+      // Handle single PRN
+      const studentsResult = await query(
+        `SELECT s.id, s.prn, s.user_id FROM students s WHERE s.prn = $1`,
+        [range.single_prn]
+      );
+      studentsToDelete = studentsResult.rows;
+    } else if (range.range_start && range.range_end) {
+      // Handle range - get all students and filter
+      const studentsResult = await query(
+        `SELECT s.id, s.prn, s.user_id FROM students s`
+      );
+
+      studentsToDelete = studentsResult.rows.filter(student =>
+        isPRNInRange(student.prn, range.range_start, range.range_end)
+      );
+    }
+
+    if (studentsToDelete.length === 0) {
+      return 0;
+    }
+
+    // Log activity for each student before deletion
+    for (const student of studentsToDelete) {
+      await logActivity(
+        adminId,
+        'DELETE_STUDENT_VIA_PRN_RANGE',
+        `Deleted student PRN: ${student.prn} due to PRN range deletion`,
+        'student',
+        student.id,
+        { prn: student.prn, range_id: range.id }
+      );
+    }
+
+    // Delete users (CASCADE will handle students, job_applications, etc.)
+    const userIds = studentsToDelete.map(s => s.user_id);
+    await query(
+      `DELETE FROM users WHERE id = ANY($1::int[])`,
+      [userIds]
+    );
+
+    return studentsToDelete.length;
+  } catch (error) {
+    console.error('Error deleting students in range:', error);
+    throw error;
+  }
+};
+
+/**
+ * Reactivate students whose PRN matches active ranges
+ * Called when a PRN range is enabled
+ *
+ * @param {Object} range - PRN range object with single_prn or range_start/range_end
+ * @param {number} adminId - ID of the admin performing the action
+ * @returns {number} Count of reactivated students
+ */
+const reactivateStudentsInRange = async (range, adminId) => {
+  try {
+    let studentsToReactivate = [];
+
+    if (range.single_prn) {
+      // Handle single PRN
+      const studentsResult = await query(
+        `SELECT s.id, s.prn, s.user_id FROM students s WHERE s.prn = $1`,
+        [range.single_prn]
+      );
+      studentsToReactivate = studentsResult.rows;
+    } else if (range.range_start && range.range_end) {
+      // Handle range - get all students and filter
+      const studentsResult = await query(
+        `SELECT s.id, s.prn, s.user_id FROM students s`
+      );
+
+      studentsToReactivate = studentsResult.rows.filter(student =>
+        isPRNInRange(student.prn, range.range_start, range.range_end)
+      );
+    }
+
+    if (studentsToReactivate.length === 0) {
+      return 0;
+    }
+
+    // Reactivate users for these students
+    const userIds = studentsToReactivate.map(s => s.user_id);
+    await query(
+      `UPDATE users SET is_active = TRUE WHERE id = ANY($1::int[])`,
+      [userIds]
+    );
+
+    // Log activity for each reactivated student
+    for (const student of studentsToReactivate) {
+      await logActivity(
+        adminId,
+        'REACTIVATE_STUDENT_VIA_PRN_RANGE',
+        `Reactivated student PRN: ${student.prn} due to PRN range enable`,
+        'student',
+        student.id,
+        { prn: student.prn, range_id: range.id }
+      );
+    }
+
+    return studentsToReactivate.length;
+  } catch (error) {
+    console.error('Error reactivating students in range:', error);
+    throw error;
+  }
+};
+
+// ========================================
 // PRN MANAGEMENT
 // ========================================
 
@@ -105,6 +306,21 @@ export const updatePRNRange = async (req, res) => {
     const { is_active, is_enabled, description, disabled_reason } = req.body;
     const rangeId = req.params.id;
 
+    // Get the current range data before updating
+    const currentRangeResult = await query(
+      'SELECT * FROM prn_ranges WHERE id = $1',
+      [rangeId]
+    );
+
+    if (currentRangeResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'PRN range not found',
+      });
+    }
+
+    const currentRange = currentRangeResult.rows[0];
+
     // Build update query dynamically
     const updates = [];
     const params = [];
@@ -166,28 +382,42 @@ export const updatePRNRange = async (req, res) => {
       params
     );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'PRN range not found',
-      });
+    const updatedRange = result.rows[0];
+
+    // Handle student activation/deactivation based on range status
+    let affectedStudentsCount = 0;
+    let studentAction = '';
+
+    // Determine if we need to deactivate or reactivate students
+    const wasActive = currentRange.is_active && currentRange.is_enabled;
+    const isNowActive = updatedRange.is_active && updatedRange.is_enabled;
+
+    if (wasActive && !isNowActive) {
+      // Range was disabled - deactivate students
+      affectedStudentsCount = await deactivateStudentsInRange(updatedRange, req.user.id);
+      studentAction = 'deactivated';
+    } else if (!wasActive && isNowActive) {
+      // Range was enabled - reactivate students
+      affectedStudentsCount = await reactivateStudentsInRange(updatedRange, req.user.id);
+      studentAction = 'reactivated';
     }
 
     // Log activity
     await logActivity(
       req.user.id,
       'UPDATE_PRN_RANGE',
-      `Updated PRN range ID: ${rangeId}${is_enabled !== undefined ? (is_enabled ? ' (Enabled)' : ' (Disabled)') : ''}`,
+      `Updated PRN range ID: ${rangeId}${is_enabled !== undefined ? (is_enabled ? ' (Enabled)' : ' (Disabled)') : ''}${affectedStudentsCount > 0 ? ` - ${affectedStudentsCount} students ${studentAction}` : ''}`,
       'prn_range',
       rangeId,
-      { is_active, is_enabled, description, disabled_reason },
+      { is_active, is_enabled, description, disabled_reason, affectedStudentsCount },
       req
     );
 
     res.status(200).json({
       success: true,
-      message: 'PRN range updated successfully',
-      data: result.rows[0],
+      message: `PRN range updated successfully${affectedStudentsCount > 0 ? `. ${affectedStudentsCount} students ${studentAction}` : ''}`,
+      data: updatedRange,
+      affectedStudents: affectedStudentsCount,
     });
   } catch (error) {
     console.error('Update PRN range error:', error);
@@ -206,31 +436,39 @@ export const deletePRNRange = async (req, res) => {
   try {
     const rangeId = req.params.id;
 
-    const result = await query('DELETE FROM prn_ranges WHERE id = $1 RETURNING *', [
-      rangeId,
-    ]);
+    // Get the range data before deletion
+    const rangeResult = await query('SELECT * FROM prn_ranges WHERE id = $1', [rangeId]);
 
-    if (result.rows.length === 0) {
+    if (rangeResult.rows.length === 0) {
       return res.status(404).json({
         success: false,
         message: 'PRN range not found',
       });
     }
 
+    const rangeToDelete = rangeResult.rows[0];
+
+    // Delete all students in this range
+    const deletedStudentsCount = await deleteStudentsInRange(rangeToDelete, req.user.id);
+
+    // Delete the PRN range
+    await query('DELETE FROM prn_ranges WHERE id = $1', [rangeId]);
+
     // Log activity
     await logActivity(
       req.user.id,
       'DELETE_PRN_RANGE',
-      `Deleted PRN range ID: ${rangeId}`,
+      `Deleted PRN range ID: ${rangeId}${deletedStudentsCount > 0 ? ` - ${deletedStudentsCount} students deleted` : ''}`,
       'prn_range',
       rangeId,
-      result.rows[0],
+      { ...rangeToDelete, deletedStudentsCount },
       req
     );
 
     res.status(200).json({
       success: true,
-      message: 'PRN range deleted successfully',
+      message: `PRN range deleted successfully${deletedStudentsCount > 0 ? `. ${deletedStudentsCount} students and their records permanently deleted` : ''}`,
+      deletedStudents: deletedStudentsCount,
     });
   } catch (error) {
     console.error('Delete PRN range error:', error);
@@ -1371,15 +1609,17 @@ export const getActivityLogs = async (req, res) => {
 // @access  Private (Super Admin)
 export const getDashboard = async (req, res) => {
   try {
-    const totalStudents = await query('SELECT COUNT(*) as count FROM students');
+    const totalStudents = await query(
+      'SELECT COUNT(*) as count FROM students s JOIN users u ON s.user_id = u.id WHERE u.is_active = TRUE'
+    );
     const approvedStudents = await query(
-      "SELECT COUNT(*) as count FROM students WHERE registration_status = 'approved'"
+      "SELECT COUNT(*) as count FROM students s JOIN users u ON s.user_id = u.id WHERE u.is_active = TRUE AND s.registration_status = 'approved'"
     );
     const pendingStudents = await query(
-      "SELECT COUNT(*) as count FROM students WHERE registration_status = 'pending'"
+      "SELECT COUNT(*) as count FROM students s JOIN users u ON s.user_id = u.id WHERE u.is_active = TRUE AND s.registration_status = 'pending'"
     );
     const blacklistedStudents = await query(
-      'SELECT COUNT(*) as count FROM students WHERE is_blacklisted = TRUE'
+      'SELECT COUNT(*) as count FROM students s JOIN users u ON s.user_id = u.id WHERE u.is_active = TRUE AND s.is_blacklisted = TRUE'
     );
     const totalJobs = await query('SELECT COUNT(*) as count FROM jobs');
     const activeJobs = await query(
@@ -1566,7 +1806,7 @@ export const getAllStudents = async (req, res) => {
              s.date_of_birth, s.age, s.gender, s.branch, s.programme_cgpa,
              s.backlog_count, s.registration_status, s.is_blacklisted,
              s.photo_url, s.created_at, s.college_id, s.region_id,
-             c.college_name, r.region_name, u.email as user_email,
+             c.college_name, r.region_name, u.email as user_email, u.is_active as user_is_active,
              COALESCE(ep.height_cm, s.height) as height,
              COALESCE(ep.weight_kg, s.weight) as weight,
              ep.district
@@ -1575,7 +1815,7 @@ export const getAllStudents = async (req, res) => {
       JOIN regions r ON s.region_id = r.id
       JOIN users u ON s.user_id = u.id
       LEFT JOIN student_extended_profiles ep ON s.id = ep.student_id
-      WHERE 1=1
+      WHERE u.is_active = TRUE
     `;
     const params = [];
     let paramCount = 0;
@@ -1583,6 +1823,7 @@ export const getAllStudents = async (req, res) => {
     // CRITICAL FIX: Filter based on status and blacklist
     // - If status is 'blacklisted', show only blacklisted students
     // - Otherwise, exclude blacklisted students from the list
+    // - Only show students whose user account is active (not deactivated by PRN range disable)
     if (status === 'blacklisted') {
       queryText += ` AND s.is_blacklisted = TRUE`;
     } else if (status === 'approved') {

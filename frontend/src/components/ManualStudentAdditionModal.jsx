@@ -101,12 +101,6 @@ const ManualStudentAdditionModal = ({
   };
 
   const handleSubmit = async () => {
-    // Validate form
-    if (!formData.notes.trim()) {
-      toast.error('Please provide notes explaining why this student is being manually added');
-      return;
-    }
-
     try {
       setSubmitting(true);
       const payload = {
@@ -238,12 +232,20 @@ const ManualStudentAdditionModal = ({
                   <div className="flex items-start gap-3">
                     <AlertTriangle className="text-red-600 mt-1" size={20} />
                     <div className="flex-1">
-                      <h4 className="font-semibold text-gray-900 mb-2">Cannot Add Student</h4>
-                      {validationResult.warnings.map((warning, idx) => (
-                        <p key={idx} className="text-sm text-gray-700">
-                          {warning}
-                        </p>
-                      ))}
+                      <h4 className="font-semibold text-gray-900 mb-2">Cannot Add Student - Blacklisted</h4>
+                      <p className="text-sm text-gray-700">
+                        This student is blacklisted and cannot be added to any jobs.
+                        Please contact the administration to remove the blacklist status before proceeding.
+                      </p>
+                      {validationResult.warnings.length > 0 && (
+                        <div className="mt-2">
+                          {validationResult.warnings.map((warning, idx) => (
+                            <p key={idx} className="text-sm text-gray-600">
+                              • {warning}
+                            </p>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -255,10 +257,11 @@ const ManualStudentAdditionModal = ({
                   <div className="flex items-start gap-3">
                     <AlertTriangle className="text-yellow-600 mt-1" size={20} />
                     <div className="flex-1">
-                      <h4 className="font-semibold text-gray-900 mb-2">Warnings</h4>
+                      <h4 className="font-semibold text-gray-900 mb-2">⚠️ Informational Warnings - You Can Still Proceed</h4>
+                      <p className="text-xs text-gray-600 mb-2">The following information is for your awareness. You can still add this student.</p>
                       {validationResult.warnings.map((warning, idx) => (
                         <p key={idx} className="text-sm text-gray-700">
-                          {warning}
+                          • {warning}
                         </p>
                       ))}
                     </div>
@@ -372,22 +375,21 @@ const ManualStudentAdditionModal = ({
                   />
                 </div>
 
-                {/* Notes (Required) */}
+                {/* Notes (Optional) */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     <FileText className="inline mr-1" size={16} />
-                    Notes <span className="text-red-500">*</span>
+                    Notes
                   </label>
                   <textarea
                     value={formData.notes}
                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                    placeholder="Explain why this student is being manually added (e.g., 'Company allowed students with 1 backlog during on-campus drive')"
+                    placeholder="Optional: Explain why this student is being manually added (e.g., 'Company allowed students with 1 backlog during on-campus drive')"
                     rows={3}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    required
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Required: Explain the reason for manual addition
+                    Optional: Add notes to explain the reason for manual addition
                   </p>
                 </div>
               </div>
@@ -426,7 +428,7 @@ const ManualStudentAdditionModal = ({
               </button>
               <button
                 onClick={handleSubmit}
-                disabled={submitting || !formData.notes.trim()}
+                disabled={submitting}
                 className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
               >
                 {submitting ? 'Adding...' : 'Add Student'}

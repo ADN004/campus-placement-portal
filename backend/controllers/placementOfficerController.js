@@ -5,6 +5,198 @@ import { sendVerificationEmail } from '../config/emailService.js';
 import { generateStudentPDF } from '../utils/pdfGenerator.js';
 import { BRANCH_SHORT_NAMES } from '../constants/branches.js';
 
+// ========================================
+// HELPER FUNCTIONS
+// ========================================
+
+/**
+ * Check if PRN falls within a given range
+ * Handles both numeric and string comparisons
+ */
+const isPRNInRange = (prn, start, end) => {
+  // Handle numeric comparison
+  if (!isNaN(prn) && !isNaN(start) && !isNaN(end)) {
+    const prnNum = parseInt(prn);
+    const startNum = parseInt(start);
+    const endNum = parseInt(end);
+    return prnNum >= startNum && prnNum <= endNum;
+  }
+
+  // Handle string comparison
+  return prn >= start && prn <= end;
+};
+
+/**
+ * Deactivate students whose PRN matches the given range (college-scoped)
+ * Sets is_active to FALSE in users table
+ */
+const deactivateStudentsInRange = async (range, officerId, collegeId) => {
+  try {
+    let studentsToDeactivate = [];
+
+    if (range.single_prn) {
+      // Handle single PRN - only from this college
+      const studentsResult = await query(
+        `SELECT s.id, s.prn, s.user_id FROM students s WHERE s.prn = $1 AND s.college_id = $2`,
+        [range.single_prn, collegeId]
+      );
+      studentsToDeactivate = studentsResult.rows;
+    } else if (range.range_start && range.range_end) {
+      // Handle range - get all students from this college and filter
+      const studentsResult = await query(
+        `SELECT s.id, s.prn, s.user_id FROM students s WHERE s.college_id = $1`,
+        [collegeId]
+      );
+
+      studentsToDeactivate = studentsResult.rows.filter(student =>
+        isPRNInRange(student.prn, range.range_start, range.range_end)
+      );
+    }
+
+    if (studentsToDeactivate.length === 0) {
+      return 0;
+    }
+
+    // Deactivate users for these students
+    const userIds = studentsToDeactivate.map(s => s.user_id);
+    await query(
+      `UPDATE users SET is_active = FALSE WHERE id = ANY($1::int[])`,
+      [userIds]
+    );
+
+    // Log activity for each deactivated student
+    for (const student of studentsToDeactivate) {
+      await logActivity(
+        officerId,
+        'DEACTIVATE_STUDENT_VIA_PRN_RANGE',
+        `Deactivated student PRN: ${student.prn} due to PRN range disable`,
+        'student',
+        student.id,
+        { prn: student.prn, range_id: range.id }
+      );
+    }
+
+    return studentsToDeactivate.length;
+  } catch (error) {
+    console.error('Error deactivating students in range:', error);
+    throw error;
+  }
+};
+
+/**
+ * Delete students whose PRN matches the given range (college-scoped)
+ * This is a hard delete - removes all records from database
+ */
+const deleteStudentsInRange = async (range, officerId, collegeId) => {
+  try {
+    let studentsToDelete = [];
+
+    if (range.single_prn) {
+      // Handle single PRN - only from this college
+      const studentsResult = await query(
+        `SELECT s.id, s.prn, s.user_id FROM students s WHERE s.prn = $1 AND s.college_id = $2`,
+        [range.single_prn, collegeId]
+      );
+      studentsToDelete = studentsResult.rows;
+    } else if (range.range_start && range.range_end) {
+      // Handle range - get all students from this college and filter
+      const studentsResult = await query(
+        `SELECT s.id, s.prn, s.user_id FROM students s WHERE s.college_id = $1`,
+        [collegeId]
+      );
+
+      studentsToDelete = studentsResult.rows.filter(student =>
+        isPRNInRange(student.prn, range.range_start, range.range_end)
+      );
+    }
+
+    if (studentsToDelete.length === 0) {
+      return 0;
+    }
+
+    // Log activity for each student before deletion
+    for (const student of studentsToDelete) {
+      await logActivity(
+        officerId,
+        'DELETE_STUDENT_VIA_PRN_RANGE',
+        `Deleted student PRN: ${student.prn} due to PRN range deletion`,
+        'student',
+        student.id,
+        { prn: student.prn, range_id: range.id }
+      );
+    }
+
+    // Delete users (CASCADE will handle students, job_applications, etc.)
+    const userIds = studentsToDelete.map(s => s.user_id);
+    await query(
+      `DELETE FROM users WHERE id = ANY($1::int[])`,
+      [userIds]
+    );
+
+    return studentsToDelete.length;
+  } catch (error) {
+    console.error('Error deleting students in range:', error);
+    throw error;
+  }
+};
+
+/**
+ * Reactivate students whose PRN matches active ranges (college-scoped)
+ * Called when a PRN range is enabled
+ */
+const reactivateStudentsInRange = async (range, officerId, collegeId) => {
+  try {
+    let studentsToReactivate = [];
+
+    if (range.single_prn) {
+      // Handle single PRN - only from this college
+      const studentsResult = await query(
+        `SELECT s.id, s.prn, s.user_id FROM students s WHERE s.prn = $1 AND s.college_id = $2`,
+        [range.single_prn, collegeId]
+      );
+      studentsToReactivate = studentsResult.rows;
+    } else if (range.range_start && range.range_end) {
+      // Handle range - get all students from this college and filter
+      const studentsResult = await query(
+        `SELECT s.id, s.prn, s.user_id FROM students s WHERE s.college_id = $1`,
+        [collegeId]
+      );
+
+      studentsToReactivate = studentsResult.rows.filter(student =>
+        isPRNInRange(student.prn, range.range_start, range.range_end)
+      );
+    }
+
+    if (studentsToReactivate.length === 0) {
+      return 0;
+    }
+
+    // Reactivate users for these students
+    const userIds = studentsToReactivate.map(s => s.user_id);
+    await query(
+      `UPDATE users SET is_active = TRUE WHERE id = ANY($1::int[])`,
+      [userIds]
+    );
+
+    // Log activity for each reactivated student
+    for (const student of studentsToReactivate) {
+      await logActivity(
+        officerId,
+        'REACTIVATE_STUDENT_VIA_PRN_RANGE',
+        `Reactivated student PRN: ${student.prn} due to PRN range enable`,
+        'student',
+        student.id,
+        { prn: student.prn, range_id: range.id }
+      );
+    }
+
+    return studentsToReactivate.length;
+  } catch (error) {
+    console.error('Error reactivating students in range:', error);
+    throw error;
+  }
+};
+
 // @desc    Get branches available in officer's college
 // @route   GET /api/placement-officer/branches
 // @access  Private (Placement Officer)
@@ -94,27 +286,31 @@ export const getDashboard = async (req, res) => {
 
     // Get total students count
     const totalCount = await query(
-      `SELECT COUNT(*) as count FROM students
-       WHERE college_id = $1`,
+      `SELECT COUNT(*) as count FROM students s
+       JOIN users u ON s.user_id = u.id
+       WHERE s.college_id = $1 AND u.is_active = TRUE`,
       [officer.college_id]
     );
 
     // Get students count by status
     const pendingCount = await query(
-      `SELECT COUNT(*) as count FROM students
-       WHERE college_id = $1 AND registration_status = 'pending'`,
+      `SELECT COUNT(*) as count FROM students s
+       JOIN users u ON s.user_id = u.id
+       WHERE s.college_id = $1 AND u.is_active = TRUE AND s.registration_status = 'pending'`,
       [officer.college_id]
     );
 
     const approvedCount = await query(
-      `SELECT COUNT(*) as count FROM students
-       WHERE college_id = $1 AND registration_status = 'approved'`,
+      `SELECT COUNT(*) as count FROM students s
+       JOIN users u ON s.user_id = u.id
+       WHERE s.college_id = $1 AND u.is_active = TRUE AND s.registration_status = 'approved'`,
       [officer.college_id]
     );
 
     const blacklistedCount = await query(
-      `SELECT COUNT(*) as count FROM students
-       WHERE college_id = $1 AND is_blacklisted = TRUE`,
+      `SELECT COUNT(*) as count FROM students s
+       JOIN users u ON s.user_id = u.id
+       WHERE s.college_id = $1 AND u.is_active = TRUE AND s.is_blacklisted = TRUE`,
       [officer.college_id]
     );
 
@@ -186,7 +382,7 @@ export const getStudents = async (req, res) => {
       JOIN colleges c ON s.college_id = c.id
       JOIN regions r ON s.region_id = r.id
       LEFT JOIN student_extended_profiles ep ON s.id = ep.student_id
-      WHERE s.college_id = $1
+      WHERE s.college_id = $1 AND u.is_active = TRUE
     `;
     const params = [collegeId];
     let paramCount = 1;
@@ -194,6 +390,7 @@ export const getStudents = async (req, res) => {
     // CRITICAL FIX: Filter based on status and blacklist
     // - If no status or status is not 'blacklisted', exclude blacklisted students
     // - If status is 'blacklisted', show only blacklisted students
+    // - Only show students whose user account is active (not deactivated by PRN range disable)
     if (status === 'blacklisted') {
       queryText += ` AND s.is_blacklisted = TRUE`;
     } else if (status === 'approved') {
@@ -1887,7 +2084,7 @@ export const addPRNRange = async (req, res) => {
 export const updatePRNRange = async (req, res) => {
   try {
     // Map frontend field names to database field names
-    const { start_prn, end_prn, is_active, description } = req.body;
+    const { start_prn, end_prn, is_active, is_enabled, description, disabled_reason } = req.body;
     const range_start = start_prn;
     const range_end = end_prn;
     // year and branch are not stored in database
@@ -1924,42 +2121,127 @@ export const updatePRNRange = async (req, res) => {
       });
     }
 
+    const currentRange = rangeCheck.rows[0];
+
+    // Build update query dynamically
+    const updates = [];
+    const params = [];
+    let paramCount = 0;
+
+    if (range_start !== undefined) {
+      paramCount++;
+      updates.push(`range_start = $${paramCount}`);
+      params.push(range_start);
+    }
+
+    if (range_end !== undefined) {
+      paramCount++;
+      updates.push(`range_end = $${paramCount}`);
+      params.push(range_end);
+    }
+
+    if (is_active !== undefined) {
+      paramCount++;
+      updates.push(`is_active = $${paramCount}`);
+      params.push(is_active);
+    }
+
+    if (is_enabled !== undefined) {
+      paramCount++;
+      updates.push(`is_enabled = $${paramCount}`);
+      params.push(is_enabled);
+
+      // If disabling, set disabled_date and disabled_by
+      if (is_enabled === false) {
+        paramCount++;
+        updates.push(`disabled_date = $${paramCount}`);
+        params.push(new Date());
+
+        paramCount++;
+        updates.push(`disabled_by = $${paramCount}`);
+        params.push(req.user.id);
+
+        if (disabled_reason) {
+          paramCount++;
+          updates.push(`disabled_reason = $${paramCount}`);
+          params.push(disabled_reason);
+        }
+      } else {
+        // If enabling, clear disabled fields
+        updates.push(`disabled_date = NULL, disabled_by = NULL, disabled_reason = NULL`);
+      }
+    }
+
+    if (description !== undefined) {
+      paramCount++;
+      updates.push(`description = $${paramCount}`);
+      params.push(description);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No fields to update',
+      });
+    }
+
+    paramCount++;
+    params.push(rangeId);
+
     const result = await query(
       `UPDATE prn_ranges
-       SET range_start = COALESCE($1, range_start),
-           range_end = COALESCE($2, range_end),
-           is_active = COALESCE($3, is_active),
-           description = COALESCE($4, description)
-       WHERE id = $5
+       SET ${updates.join(', ')}
+       WHERE id = $${paramCount}
        RETURNING *`,
-      [range_start, range_end, is_active, description, rangeId]
+      params
     );
+
+    const updatedRange = result.rows[0];
+
+    // Handle student activation/deactivation based on range status
+    let affectedStudentsCount = 0;
+    let studentAction = '';
+
+    // Determine if we need to deactivate or reactivate students
+    const wasActive = currentRange.is_active && (currentRange.is_enabled !== false);
+    const isNowActive = updatedRange.is_active && (updatedRange.is_enabled !== false);
+
+    if (wasActive && !isNowActive) {
+      // Range was disabled - deactivate students (only from this college)
+      affectedStudentsCount = await deactivateStudentsInRange(updatedRange, req.user.id, officer.college_id);
+      studentAction = 'deactivated';
+    } else if (!wasActive && isNowActive) {
+      // Range was enabled - reactivate students (only from this college)
+      affectedStudentsCount = await reactivateStudentsInRange(updatedRange, req.user.id, officer.college_id);
+      studentAction = 'reactivated';
+    }
 
     // Log activity
     await logActivity(
       req.user.id,
       'UPDATE_PRN_RANGE',
-      `Updated PRN range ID: ${rangeId}`,
+      `Updated PRN range ID: ${rangeId}${affectedStudentsCount > 0 ? ` - ${affectedStudentsCount} students ${studentAction}` : ''}`,
       'prn_range',
       rangeId,
-      { range_start, range_end, is_active, description },
+      { range_start, range_end, is_active, is_enabled, description, disabled_reason, affectedStudentsCount },
       req
     );
 
     // Map response data to frontend expected format
     const responseData = {
-      ...result.rows[0],
-      start_prn: result.rows[0].range_start,
-      end_prn: result.rows[0].range_end,
+      ...updatedRange,
+      start_prn: updatedRange.range_start,
+      end_prn: updatedRange.range_end,
       year: '',
       branch: '',
-      created_by: result.rows[0].created_by_role,
+      created_by: updatedRange.created_by_role,
     };
 
     res.status(200).json({
       success: true,
-      message: 'PRN range updated successfully',
+      message: `PRN range updated successfully${affectedStudentsCount > 0 ? `. ${affectedStudentsCount} students ${studentAction}` : ''}`,
       data: responseData,
+      affectedStudents: affectedStudentsCount,
     });
   } catch (error) {
     console.error('Update PRN range error:', error);
@@ -2008,25 +2290,29 @@ export const deletePRNRange = async (req, res) => {
       });
     }
 
-    const result = await query('DELETE FROM prn_ranges WHERE id = $1 RETURNING *', [
-      rangeId,
-    ]);
+    const rangeToDelete = rangeCheck.rows[0];
+
+    // Delete all students in this range (only from this college)
+    const deletedStudentsCount = await deleteStudentsInRange(rangeToDelete, req.user.id, officer.college_id);
+
+    // Delete the PRN range
+    await query('DELETE FROM prn_ranges WHERE id = $1', [rangeId]);
 
     // Log activity
     await logActivity(
       req.user.id,
       'DELETE_PRN_RANGE',
-      `Deleted PRN range ID: ${rangeId}`,
+      `Deleted PRN range ID: ${rangeId}${deletedStudentsCount > 0 ? ` - ${deletedStudentsCount} students deleted` : ''}`,
       'prn_range',
       rangeId,
-      result.rows[0],
+      { ...rangeToDelete, deletedStudentsCount },
       req
     );
 
     res.status(200).json({
       success: true,
-      message: 'PRN range deleted successfully',
-      data: result.rows[0],
+      message: `PRN range deleted successfully${deletedStudentsCount > 0 ? `. ${deletedStudentsCount} students and their records permanently deleted` : ''}`,
+      deletedStudents: deletedStudentsCount,
     });
   } catch (error) {
     console.error('Delete PRN range error:', error);

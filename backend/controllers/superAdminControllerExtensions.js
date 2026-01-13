@@ -3091,9 +3091,8 @@ export const manuallyAddStudentToJob = async (req, res) => {
           placement_location,
           is_manual_addition,
           applied_date,
-          created_at,
           updated_at
-        ) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, $5, $6, $7, $8, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        ) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, $5, $6, $7, $8, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         RETURNING id, job_id, student_id, application_status, placement_package, joining_date, placement_location`,
         [
           job_id,

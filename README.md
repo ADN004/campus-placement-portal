@@ -249,6 +249,15 @@ The **State Placement Cell** is a production-ready, enterprise-grade placement m
 #### Job Management
 - **View Jobs:** All jobs accessible to their college/region
 - **Job Applicants:** View students from their college who applied to each job
+- **Manually Add Student to Job:**
+  - Add students who didn't apply but got selected (e.g., walk-in placements, off-campus selections)
+  - Validate student PRN before adding to verify student details
+  - Only students from their own college can be added
+  - Set placement details: package, joining date, location, and notes
+  - Automatically creates application with 'selected' status
+  - If student already applied, updates existing application to selected
+  - Marks application with `manually_added` flag for tracking
+  - Complete audit trail logged for manual additions
 - **Create Job Request:**
   - Request super admin to post a job
   - Provide company details, job description
@@ -427,6 +436,16 @@ The **State Placement Cell** is a production-ready, enterprise-grade placement m
   - Add review notes
   - Record placement details (package, location, joining date)
   - Export applicant list to Excel
+- **Manually Add Student to Job:**
+  - Add students who didn't apply but got selected (e.g., walk-in placements, off-campus selections)
+  - Validate student PRN before adding to verify student details
+  - Can add students from ANY college (system-wide access)
+  - Optionally specify college_id or let system detect from PRN
+  - Set placement details: package, joining date, location, and notes
+  - Automatically creates application with 'selected' status
+  - If student already applied, updates existing application to selected
+  - Marks application with `manually_added` flag for tracking
+  - Complete audit trail logged for manual additions
 - **Placement Poster Generation:**
   - Generate PDF placement posters with job details
   - Include eligible students list across all colleges

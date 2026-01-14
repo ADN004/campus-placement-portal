@@ -368,11 +368,11 @@ step5_database() {
     echo "WHAT WILL HAPPEN:"
     echo "  1. Create a database called \"campus_placement_portal\""
     echo "  2. Run schema.sql - Creates 19+ tables with relationships"
-    echo "  3. Run seed-data.sql - Adds initial data:"
+    echo "  3. Run seeding script - Adds initial data:"
     echo "     - 5 regions (South, Central, North, etc.)"
     echo "     - 60 polytechnic colleges"
-    echo "     - 59 placement officers (one per college)"
-    echo "     - 1 super admin account"
+    echo "     - 60 placement officers (one per college)"
+    echo "     - Super admin account (optional, interactive)"
     echo "     - Default PRN ranges"
     echo "  4. Apply all migrations - Adds new features"
     echo ""
@@ -406,14 +406,18 @@ step5_database() {
     echo "[OK] Schema created successfully!"
     echo ""
 
-    echo "[*] Running seed-data.sql (inserting initial data)..."
+    echo "[*] Running seed data via Node.js..."
+    echo "You will be prompted to optionally create a super admin."
     echo ""
-    psql -U postgres -d campus_placement_portal -f database/seed-data.sql
+    cd backend
+    node scripts/seedDatabase.js
     if [ $? -ne 0 ]; then
         echo "[X] Seed data insertion failed!"
+        cd ..
         read -p "Press Enter to exit..."
         exit 1
     fi
+    cd ..
     echo "[OK] Seed data inserted successfully!"
     echo ""
 
@@ -443,14 +447,13 @@ step5_database() {
     echo "Your database now contains:"
     echo "  - 5 regions across Kerala"
     echo "  - 60 polytechnic colleges"
-    echo "  - 59 placement officers (one per college)"
-    echo "  - 1 super admin account"
+    echo "  - 60 placement officers (one per college)"
+    echo "  - Super admin account (if created during setup)"
     echo "  - Default PRN ranges for student registration"
     echo "  - 19+ tables with triggers and functions"
     echo ""
-    echo "SUPER ADMIN CREDENTIALS (for testing):"
-    echo "  Email: adityanche@gmail.com"
-    echo "  Password: y9eshszbrr"
+    echo "CREDENTIALS:"
+    echo "  Super Admin: (created during seeding if you chose yes)"
     echo ""
     echo "PLACEMENT OFFICER CREDENTIALS (examples):"
     echo "  Username: 9497219788 (phone number)"
@@ -566,8 +569,7 @@ step7_next_steps() {
     echo "   Navigate to: http://localhost:5173"
     echo ""
     echo "3. LOGIN AS SUPER ADMIN"
-    echo "   Email: adityanche@gmail.com"
-    echo "   Password: y9eshszbrr"
+    echo "   (Use the credentials you created during seeding)"
     echo ""
     echo "4. OR LOGIN AS PLACEMENT OFFICER"
     echo "   Username: 9497219788"

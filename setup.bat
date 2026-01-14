@@ -32,8 +32,8 @@ echo   [*] PostgreSQL Database with:
 echo       - 19+ tables with relationships
 echo       - 5 regions across Kerala
 echo       - 60 polytechnic colleges
-echo       - 59 placement officers (one per college)
-echo       - 1 super admin account
+echo       - 60 placement officers (one per college)
+echo       - Super admin account (optional, created interactively)
 echo       - All database migrations for latest features
 echo.
 pause
@@ -276,38 +276,19 @@ if errorlevel 1 (
 echo [OK] Schema created successfully!
 echo.
 
-echo Running seed data...
-psql -U postgres -d campus_placement_portal -f database\seed-data.sql
+echo Running seed data via Node.js script...
+echo This will prompt you to optionally create a super admin account.
+echo.
+cd backend
+call node scripts/seedDatabase.js
 if errorlevel 1 (
     echo [ERROR] Failed to seed initial data!
+    cd ..
     pause
     exit /b 1
 )
+cd ..
 echo [OK] Seed data inserted successfully!
-echo.
-
-echo Applying database migrations...
-echo This adds all new features and enhancements...
-echo.
-
-REM Define the correct migration order
-REM Migrations are applied in a specific order to handle dependencies
-set "migrations=001_add_new_student_fields.sql 001_add_performance_indexes.sql 001_create_extended_profiles.sql 002_update_prn_ranges_for_placement_officers.sql 002_add_college_branches.sql 002_add_driving_license_to_extended_profiles.sql 003_add_missing_placement_officer.sql 003_auto_create_extended_profiles.sql 004_add_height_weight_criteria.sql 004_fix_document_defaults.sql 005_state_placement_cell_features.sql 005_recalculate_section_completion.sql 006_create_branches_reference_table.sql 006_create_job_request_requirements.sql 006_add_job_drives_and_placement_tracking.sql 007_fix_profile_completion_bug.sql 008_add_priority_to_notifications.sql 009_add_college_logo_fields.sql 010_add_missing_document_columns.sql 011_fix_profile_completion_logic.sql 011_add_manual_addition_flag.sql 012_update_completion_logic_at_least_one.sql 013_add_not_interested_education_option.sql"
-
-for %%m in (%migrations%) do (
-    if exist "database\migrations\%%m" (
-        echo - Applying: %%m
-        psql -U postgres -d campus_placement_portal -f "database\migrations\%%m" 2>nul
-        if errorlevel 1 (
-            echo   [SKIP] Already applied or optional
-        ) else (
-            echo   [OK] Applied successfully
-        )
-    )
-)
-
-echo.
-echo [OK] All migrations applied!
 echo.
 
 REM ========================================
@@ -360,8 +341,8 @@ echo Database includes:
 echo   [*] 19+ tables with complete relationships
 echo   [*] 5 regions across Kerala
 echo   [*] 60 polytechnic colleges
-echo   [*] 59 placement officers (one per college)
-echo   [*] 1 super admin account
+echo   [*] 60 placement officers (one per college)
+echo   [*] Super admin account (if created during setup)
 echo   [*] All latest features and migrations
 echo.
 echo ========================================
@@ -383,7 +364,7 @@ echo    Frontend: http://localhost:5173
 echo    Backend:  http://localhost:5000
 echo.
 echo 4. LOGIN CREDENTIALS:
-echo    Super Admin: adityanche@gmail.com / y9eshszbrr
+echo    Super Admin: (created during seeding if you chose yes)
 echo    Officers:    phone_number / 123
 echo.
 echo ========================================

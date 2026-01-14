@@ -1297,8 +1297,10 @@ npm run dev
 ### Default Credentials
 
 **Super Admin:**
-- Email: `adityanche@gmail.com`
-- Password: `y9eshszbrr`
+- Created interactively during database seeding
+- You choose the email and password when running the seeding script
+- In development mode: No secret key required
+- In production mode: Requires `SETUP_SECRET_KEY` verification
 
 **Placement Officers:**
 - Username: `<phone_number>` (e.g., `9497219788`)

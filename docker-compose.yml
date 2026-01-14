@@ -2,6 +2,15 @@ version: '3.8'
 
 # State Placement Cell - Docker Compose Configuration
 # Production-ready setup for 60 Polytechnic Colleges in Kerala
+#
+# IMPORTANT: After starting containers, run the seeding script:
+#   docker-compose exec backend node scripts/seedDatabase.js
+#
+# For automated seeding (CI/CD), set these environment variables:
+#   CREATE_SUPER_ADMIN=true
+#   SETUP_SECRET_KEY=your-secret-key
+#   SUPER_ADMIN_EMAIL=admin@example.com
+#   SUPER_ADMIN_PASSWORD=SecurePassword123
 
 services:
   # PostgreSQL Database
@@ -18,7 +27,8 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
-      - ./database/seed-data.sql:/docker-entrypoint-initdb.d/02-seed.sql
+      # NOTE: seed-data.sql requires Node.js for password hashing
+      # Run seeding manually: docker-compose exec backend node scripts/seedDatabase.js
       - postgres_backups:/backups
     ports:
       - "${DB_PORT:-5432}:5432"
@@ -78,6 +88,11 @@ services:
       EMAIL_USER: ${EMAIL_USER}
       EMAIL_PASSWORD: ${EMAIL_PASSWORD}
       EMAIL_FROM: ${EMAIL_FROM}
+      # Super Admin Setup (for seeding script)
+      SETUP_SECRET_KEY: ${SETUP_SECRET_KEY:-}
+      CREATE_SUPER_ADMIN: ${CREATE_SUPER_ADMIN:-false}
+      SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:-}
+      SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD:-}
     ports:
       - "${BACKEND_PORT:-5000}:5000"
     volumes:

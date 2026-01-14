@@ -39,7 +39,7 @@ echo ""
 # Set PostgreSQL password (change this to your password or use .pgpass file)
 export PGPASSWORD=y9eshszbrr
 
-echo "[1/5] Dropping existing database..."
+echo "[1/4] Dropping existing database..."
 psql -U postgres -c "DROP DATABASE IF EXISTS campus_placement_portal;" 2>/dev/null
 if [ $? -ne 0 ]; then
     echo -e "${RED}[ERROR] Failed to drop database!"
@@ -49,7 +49,7 @@ fi
 echo "[OK] Database dropped!"
 echo ""
 
-echo "[2/5] Creating fresh database..."
+echo "[2/4] Creating fresh database..."
 psql -U postgres -c "CREATE DATABASE campus_placement_portal;"
 if [ $? -ne 0 ]; then
     echo -e "${RED}[ERROR] Failed to create database!${NC}"
@@ -58,7 +58,7 @@ fi
 echo "[OK] Database created!"
 echo ""
 
-echo "[3/5] Running schema.sql..."
+echo "[3/4] Running schema.sql..."
 psql -U postgres -d campus_placement_portal -f database/schema.sql
 if [ $? -ne 0 ]; then
     echo -e "${RED}[ERROR] Failed to create schema!${NC}"
@@ -67,23 +67,18 @@ fi
 echo "[OK] Schema created!"
 echo ""
 
-echo "[4/5] Running seed-data.sql..."
-psql -U postgres -d campus_placement_portal -f database/seed-data.sql
+echo "[4/4] Running seed data via Node.js..."
+echo "You will be prompted to optionally create a super admin."
+echo ""
+cd backend
+node scripts/seedDatabase.js
 if [ $? -ne 0 ]; then
     echo -e "${RED}[ERROR] Failed to seed data!${NC}"
+    cd ..
     exit 1
 fi
+cd ..
 echo "[OK] Seed data inserted!"
-echo ""
-
-echo "[5/5] Applying migrations..."
-for migration in database/migrations/*.sql; do
-    if [ -f "$migration" ]; then
-        echo "- Applying: $(basename "$migration")"
-        psql -U postgres -d campus_placement_portal -f "$migration" 2>/dev/null
-    fi
-done
-echo "[OK] All migrations applied!"
 echo ""
 
 echo "========================================================================"
@@ -91,16 +86,16 @@ echo "   DATABASE RESET COMPLETE!"
 echo "========================================================================"
 echo ""
 echo "Your database has been reset to initial state with:"
-echo "  - 19+ tables with all triggers and functions"
+echo "  - 27 tables with all triggers and functions"
 echo "  - 5 regions across Kerala"
 echo "  - 60 polytechnic colleges"
-echo "  - 59 placement officers"
-echo "  - 1 super admin account"
+echo "  - 60 placement officers"
+echo "  - Super admin account (if created during setup)"
 echo "  - Default PRN ranges"
 echo "  - All migrations applied"
 echo ""
 echo "Login credentials:"
-echo "  Super Admin: adityanche@gmail.com / y9eshszbrr"
+echo "  Super Admin: (created during seeding if you chose yes)"
 echo "  Officers: phone_number / 123"
 echo ""
 echo "You can now start the application with: ./start.sh"

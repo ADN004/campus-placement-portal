@@ -236,12 +236,6 @@ Slide 18: Conclusion
 
 DESIGN SPECIFICATIONS:
 
-Colors:
-- Primary: Deep Blue (#1e3a5f)
-- Secondary: Teal (#0d9488)
-- Background: Light (#f8fafc)
-- Text: Dark Gray (#1f2937)
-
 Fonts:
 - Titles: Clean sans-serif, bold (Montserrat or Poppins)
 - Body: Readable sans-serif (Open Sans or Roboto)

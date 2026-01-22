@@ -1,0 +1,370 @@
+================================================================================
+        STATE PLACEMENT CELL - DOCKER SETUP GUIDE
+================================================================================
+
+This guide explains how to set up the State Placement Cell application on a
+fresh Windows PC using Docker. Follow these steps in order.
+
+================================================================================
+                        PREREQUISITES
+================================================================================
+
+Before starting, you need:
+1. A Windows 10/11 PC (64-bit)
+2. At least 8GB RAM (recommended)
+3. At least 10GB free disk space
+4. Internet connection
+5. Admin rights on your PC
+
+================================================================================
+                STEP 1: INSTALL DOCKER DESKTOP
+================================================================================
+
+1. Go to: https://www.docker.com/products/docker-desktop
+
+2. Click "Download for Windows"
+
+3. Run the installer (Docker Desktop Installer.exe)
+
+4. During installation:
+   - Check "Use WSL 2 instead of Hyper-V" (recommended)
+   - Check "Add shortcut to desktop"
+
+5. Click "Ok" and wait for installation to complete
+
+6. Click "Close and restart" when prompted
+
+7. After restart, Docker Desktop should start automatically
+   - Look for the whale icon in your system tray (bottom-right)
+   - Wait until it shows "Docker Desktop is running"
+
+8. If you see a WSL 2 installation prompt:
+   - Follow the link to install WSL 2
+   - Restart your computer
+   - Start Docker Desktop again
+
+================================================================================
+                STEP 2: VERIFY DOCKER INSTALLATION
+================================================================================
+
+1. Open Command Prompt or PowerShell
+
+2. Run these commands to verify installation:
+
+   docker --version
+
+   Expected output: Docker version XX.X.X, build XXXXXXX
+
+
+   docker compose version
+
+   Expected output: Docker Compose version vX.X.X
+
+
+3. Test Docker is working:
+
+   docker run hello-world
+
+   You should see a "Hello from Docker!" message
+
+================================================================================
+                STEP 3: CLONE THE REPOSITORY
+================================================================================
+
+If you haven't already cloned the repository:
+
+1. Open Command Prompt or PowerShell
+
+2. Navigate to where you want the project:
+
+   cd C:\Users\YourUsername\Projects
+
+3. Clone the repository:
+
+   git clone https://github.com/YourUsername/campus-placement-portal.git
+
+4. Enter the project directory:
+
+   cd campus-placement-portal
+
+================================================================================
+                STEP 4: RUN THE SETUP SCRIPT (EASIEST METHOD)
+================================================================================
+
+We've created an automated setup script that handles everything:
+
+1. Make sure you're in the project directory
+
+2. Double-click: docker-setup.bat
+
+   OR run in Command Prompt:
+   docker-setup.bat
+
+3. The script will:
+   - Check Docker installation
+   - Create the .env configuration file
+   - Let you configure essential values (database, email, etc.)
+   - Build the Docker images
+   - Start all containers
+   - Seed the database with initial data
+
+4. Follow the prompts on screen
+
+5. When complete, open: http://localhost
+
+================================================================================
+                STEP 4 (ALTERNATIVE): MANUAL SETUP
+================================================================================
+
+If you prefer to set up manually, follow these steps:
+
+A. CREATE ENVIRONMENT FILE
+--------------------------
+
+1. Copy the example environment file:
+
+   copy .env.docker.example .env
+
+2. Open .env in a text editor (Notepad, VS Code, etc.)
+
+3. Update these REQUIRED values:
+
+   JWT_SECRET=<any-random-string-at-least-64-characters>
+
+4. Update these OPTIONAL values (for full functionality):
+
+   # For photo uploads (sign up at https://cloudinary.com):
+   CLOUDINARY_CLOUD_NAME=your_cloud_name
+   CLOUDINARY_API_KEY=your_api_key
+   CLOUDINARY_API_SECRET=your_api_secret
+
+   # For email notifications (Gmail with App Password):
+   EMAIL_USER=your_email@gmail.com
+   EMAIL_PASSWORD=your_gmail_app_password
+   EMAIL_FROM=State Placement Cell <your_email@gmail.com>
+
+5. Save the file
+
+
+B. BUILD AND START CONTAINERS
+-----------------------------
+
+1. Open Command Prompt in the project directory
+
+2. Build the images (first time takes 10-20 minutes):
+
+   docker compose up -d --build
+
+3. Wait for the build to complete
+
+4. Check that all containers are running:
+
+   docker compose ps
+
+   You should see:
+   - cpp_postgres  (healthy)
+   - cpp_backend   (healthy)
+   - cpp_frontend  (healthy)
+
+
+C. SEED THE DATABASE
+--------------------
+
+1. Wait for all containers to show "healthy" status
+
+2. Run the seeding script:
+
+   docker compose exec backend node scripts/seedDatabase.js
+
+3. Follow the prompts to create a super admin account
+
+================================================================================
+                STEP 5: ACCESS THE APPLICATION
+================================================================================
+
+After setup is complete:
+
+Frontend (Website):     http://localhost
+Backend API:            http://localhost:5000
+Database:               localhost:5432 (if you need direct access)
+
+================================================================================
+                LOGIN CREDENTIALS
+================================================================================
+
+PLACEMENT OFFICER (for testing):
+  Username: 9497219788
+  Password: 123
+
+SUPER ADMIN:
+  Use the credentials you created during database seeding
+
+STUDENT:
+  Register a new account using a valid PRN
+  (Super admin can configure valid PRN ranges)
+
+================================================================================
+                USEFUL DOCKER COMMANDS
+================================================================================
+
+VIEW RUNNING CONTAINERS:
+  docker compose ps
+
+VIEW LOGS (all services):
+  docker compose logs -f
+
+VIEW LOGS (specific service):
+  docker compose logs -f backend
+  docker compose logs -f frontend
+  docker compose logs -f postgres
+
+STOP ALL CONTAINERS:
+  docker compose down
+
+START CONTAINERS (after stopping):
+  docker compose up -d
+
+RESTART ALL CONTAINERS:
+  docker compose restart
+
+REBUILD AFTER CODE CHANGES:
+  docker compose up -d --build
+
+FULL RESET (removes all data):
+  docker compose down -v
+  docker compose up -d --build
+
+ENTER BACKEND CONTAINER (for debugging):
+  docker compose exec backend sh
+
+RUN DATABASE SEED AGAIN:
+  docker compose exec backend node scripts/seedDatabase.js
+
+================================================================================
+                TROUBLESHOOTING
+================================================================================
+
+PROBLEM: "Docker daemon is not running"
+SOLUTION: Open Docker Desktop and wait for it to fully start
+
+PROBLEM: Port 80 already in use
+SOLUTION:
+  1. Edit .env file
+  2. Change FRONTEND_PORT=80 to FRONTEND_PORT=3000
+  3. Run: docker compose up -d
+  4. Access at http://localhost:3000
+
+PROBLEM: Port 5432 already in use
+SOLUTION:
+  You have PostgreSQL installed locally. Either:
+  - Stop local PostgreSQL service
+  - Or change DB_PORT in .env to 5433
+
+PROBLEM: Build fails with "npm ci" error
+SOLUTION:
+  The Dockerfiles have been updated to handle this. If you still see this:
+  1. Pull the latest code: git pull
+  2. Rebuild: docker compose build --no-cache
+
+PROBLEM: Backend container keeps restarting
+SOLUTION:
+  1. Check logs: docker compose logs backend
+  2. Common issues:
+     - Database not ready: Wait for postgres to be healthy first
+     - Missing environment variables: Check .env file
+     - Invalid JWT_SECRET: Make sure it's set
+
+PROBLEM: Cannot connect to the website
+SOLUTION:
+  1. Check all containers are running: docker compose ps
+  2. Check frontend logs: docker compose logs frontend
+  3. Make sure no firewall is blocking port 80
+
+PROBLEM: "Permission denied" errors
+SOLUTION:
+  Run Command Prompt or PowerShell as Administrator
+
+PROBLEM: Images won't build / very slow
+SOLUTION:
+  1. Check internet connection
+  2. Check available disk space (need at least 5GB)
+  3. Try: docker system prune (clears unused data)
+
+================================================================================
+                PRODUCTION DEPLOYMENT NOTES
+================================================================================
+
+For production deployment, make sure to:
+
+1. Change all default passwords:
+   - DB_PASSWORD (use a strong password)
+   - JWT_SECRET (generate with: openssl rand -hex 64)
+   - SETUP_SECRET_KEY (generate with: openssl rand -hex 32)
+
+2. Configure SSL/HTTPS:
+   - Use a reverse proxy (Nginx, Traefik, Caddy)
+   - Obtain SSL certificates (Let's Encrypt)
+
+3. Update URLs:
+   - FRONTEND_URL=https://your-domain.com
+   - VITE_API_URL=https://your-domain.com/api
+
+4. Set up backups:
+   - Regular database backups
+   - Volume backups for uploads
+
+5. Configure email properly:
+   - Use a proper SMTP service for production
+   - Don't use personal Gmail for production
+
+================================================================================
+                FILE STRUCTURE
+================================================================================
+
+Project files related to Docker:
+
+campus-placement-portal/
+├── docker-compose.yml      # Main Docker configuration
+├── docker-compose.dev.yml  # Development overrides (optional)
+├── .env.docker.example     # Environment template
+├── .env                    # Your configuration (create from template)
+├── docker-setup.bat        # Automated setup script
+├── start-docker.bat        # Start containers
+├── backend/
+│   ├── Dockerfile          # Backend image definition
+│   └── .dockerignore       # Files to exclude from backend image
+└── frontend/
+    ├── Dockerfile          # Frontend image definition
+    ├── nginx.conf          # Nginx configuration
+    └── .dockerignore       # Files to exclude from frontend image
+
+================================================================================
+                QUICK REFERENCE
+================================================================================
+
+FIRST TIME SETUP:
+  1. Install Docker Desktop
+  2. Clone repository
+  3. Run docker-setup.bat
+
+DAILY USE:
+  1. Start Docker Desktop
+  2. Run start-docker.bat
+  3. Open http://localhost
+
+AFTER CODE CHANGES:
+  docker compose up -d --build
+
+VIEW WHAT'S HAPPENING:
+  docker compose logs -f
+
+STOP EVERYTHING:
+  docker compose down
+
+================================================================================
+
+For more help, check:
+- Docker Documentation: https://docs.docker.com
+- Project Issues: [Your GitHub Issues URL]
+
+================================================================================

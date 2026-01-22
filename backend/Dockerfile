@@ -15,11 +15,16 @@ RUN apk add --no-cache dumb-init
 # Set working directory
 WORKDIR /app
 
-# Copy package files
+# Copy package files (package-lock.json is required for reproducible builds)
 COPY package*.json ./
 
-# Install production dependencies only
-RUN npm ci --only=production --prefer-offline --no-audit --progress=false \
+# Install production dependencies
+# Uses npm ci if package-lock.json exists, falls back to npm install otherwise
+RUN if [ -f package-lock.json ]; then \
+        npm ci --omit=dev --no-audit --progress=false; \
+    else \
+        npm install --omit=dev --no-audit --progress=false; \
+    fi \
     && npm cache clean --force
 
 # Stage 2: Production Image

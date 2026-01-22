@@ -10,11 +10,16 @@ LABEL version="1.0.0"
 
 WORKDIR /app
 
-# Copy package files
+# Copy package files (package-lock.json is required for reproducible builds)
 COPY package*.json ./
 
-# Install dependencies with optimizations
-RUN npm ci --prefer-offline --no-audit --progress=false \
+# Install dependencies
+# Uses npm ci if package-lock.json exists, falls back to npm install otherwise
+RUN if [ -f package-lock.json ]; then \
+        npm ci --no-audit --progress=false; \
+    else \
+        npm install --no-audit --progress=false; \
+    fi \
     && npm cache clean --force
 
 # Stage 2: Build Application

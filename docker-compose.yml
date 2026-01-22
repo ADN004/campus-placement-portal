@@ -1,5 +1,3 @@
-version: '3.8'
-
 # State Placement Cell - Docker Compose Configuration
 # Production-ready setup for 60 Polytechnic Colleges in Kerala
 #
@@ -81,6 +79,8 @@ services:
       JWT_EXPIRE: ${JWT_EXPIRE:-7d}
       JWT_COOKIE_EXPIRE: ${JWT_COOKIE_EXPIRE:-7}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+      MAX_FILE_SIZE: ${MAX_FILE_SIZE:-5242880}
+      UPLOAD_PATH: ${UPLOAD_PATH:-./uploads}
       CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
       CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
       CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}

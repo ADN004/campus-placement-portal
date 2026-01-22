@@ -29,7 +29,7 @@ echo What will be set up:
 echo   [*] Backend API (Node.js/Express)
 echo   [*] Frontend UI (React/Vite)
 echo   [*] PostgreSQL Database with:
-echo       - 19+ tables with relationships
+echo       - 23+ tables with relationships
 echo       - 5 regions across Kerala
 echo       - 60 polytechnic colleges
 echo       - 60 placement officers (one per college)
@@ -338,7 +338,7 @@ echo.
 echo Your State Placement Cell application is ready!
 echo.
 echo Database includes:
-echo   [*] 19+ tables with complete relationships
+echo   [*] 23+ tables with complete relationships
 echo   [*] 5 regions across Kerala
 echo   [*] 60 polytechnic colleges
 echo   [*] 60 placement officers (one per college)

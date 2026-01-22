@@ -131,7 +131,7 @@ echo      - Handles user interactions
 echo.
 echo   3. DATABASE (PostgreSQL^)
 echo      - Stores all persistent data
-echo      - 15 tables with relationships
+echo      - 23+ tables with relationships
 echo      - Handles data integrity
 echo.
 echo FLOW OF DATA:
@@ -370,7 +370,7 @@ echo Now we'll create your PostgreSQL database and fill it with initial data.
 echo.
 echo WHAT WILL HAPPEN:
 echo   1. Create a database called "campus_placement_portal"
-echo   2. Run schema.sql - Creates 19+ tables with relationships
+echo   2. Run schema.sql - Creates 23+ tables with relationships
 echo   3. Run seeding script - Adds initial data:
 echo      - 5 regions (South, Central, North, etc.^)
 echo      - 60 polytechnic colleges
@@ -489,7 +489,7 @@ echo   - 60 polytechnic colleges
 echo   - 60 placement officers (one per college^)
 echo   - Super admin account (if created during setup^)
 echo   - Default PRN ranges for student registration
-echo   - 19+ tables with triggers and functions
+echo   - 23+ tables with triggers and functions
 echo   - Materialized views for performance
 echo   - 40+ indexes for fast queries
 echo.

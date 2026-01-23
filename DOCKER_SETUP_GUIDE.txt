@@ -204,6 +204,53 @@ STUDENT:
   (Super admin can configure valid PRN ranges)
 
 ================================================================================
+                CREATING SUPER ADMIN
+================================================================================
+
+During database seeding, you'll be asked if you want to create a super admin.
+If you're in PRODUCTION mode, you'll need to enter the SETUP_SECRET_KEY.
+
+SETUP_SECRET_KEY:
+  This is a security measure to prevent unauthorized admin creation.
+  The key is set in your .env file:
+
+    SETUP_SECRET_KEY=your-secret-setup-key-change-in-production
+
+  Change it to something you'll remember, e.g.:
+
+    SETUP_SECRET_KEY=MySecretKey123
+
+CREATE SUPER ADMIN DURING SEEDING:
+  1. Run: docker compose exec backend node scripts/seedDatabase.js
+  2. When asked "Do you want to create a super admin?", type: yes
+  3. Enter your SETUP_SECRET_KEY (from .env file)
+  4. Enter email and password for the super admin
+
+CREATE SUPER ADMIN AFTER INITIAL SETUP:
+  If you skipped super admin creation or need another one:
+
+  1. Make sure SETUP_SECRET_KEY is set in .env:
+     notepad .env
+
+  2. Restart backend to pick up any .env changes:
+     docker compose restart backend
+
+  3. Run the seeding script again (it will skip existing data):
+     docker compose exec backend node scripts/seedDatabase.js
+
+  4. Follow the prompts to create super admin
+
+AUTOMATED SUPER ADMIN (for CI/CD):
+  Set these in .env before starting containers:
+
+    CREATE_SUPER_ADMIN=true
+    SETUP_SECRET_KEY=your-secret-key
+    SUPER_ADMIN_EMAIL=admin@example.com
+    SUPER_ADMIN_PASSWORD=SecurePassword123
+
+  Then run seeding - it will create the admin automatically without prompts.
+
+================================================================================
                 USEFUL DOCKER COMMANDS
 ================================================================================
 
@@ -289,6 +336,21 @@ SOLUTION:
   1. Check internet connection
   2. Check available disk space (need at least 5GB)
   3. Try: docker system prune (clears unused data)
+
+PROBLEM: Seeding fails with "ENOENT: no such file or directory, open '/database/seed-data.sql'"
+SOLUTION:
+  The database folder isn't mounted. Pull latest code and recreate:
+  1. git pull
+  2. docker compose down
+  3. docker compose up -d
+
+PROBLEM: "Invalid setup key" when creating super admin
+SOLUTION:
+  The key you entered doesn't match SETUP_SECRET_KEY in .env
+  1. Open .env file: notepad .env
+  2. Find SETUP_SECRET_KEY and note its value (or change it)
+  3. Restart backend: docker compose restart backend
+  4. Run seeding again and enter the correct key
 
 ================================================================================
                 PRODUCTION DEPLOYMENT NOTES

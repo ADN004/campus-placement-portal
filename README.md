@@ -42,7 +42,7 @@ The **State Placement Cell** is a production-ready, enterprise-grade placement m
 - **26 Branches:** Support for all Kerala polytechnic diploma engineering programs
 - **3-Tier Student Data:** Basic profile (Tier 1) + Extended profile (Tier 2) + Custom job fields (Tier 3)
 - **80+ API Endpoints:** Complete REST API with role-based access control
-- **23+ Database Tables:** Normalized schema with triggers, functions, and materialized views
+- **28 Database Tables:** Normalized schema with triggers, functions, and materialized views
 - **40+ Indexes:** Query optimization for 20,000+ concurrent users
 
 ### Advanced Features
@@ -55,6 +55,7 @@ The **State Placement Cell** is a production-ready, enterprise-grade placement m
 - **Photo Management:** Cloudinary integration with bulk operations
 - **Activity Logging:** Complete audit trail with IP, user agent, metadata
 - **Export Features:** PDF and Excel exports with custom field selection
+- **Resume Generation:** Professional PDF resumes with standard and custom versions
 - **Placement Posters:** Generate PDF placement posters with eligible students
 - **Rate Limiting:** Configured for 20k+ users with tiered limits
 - **Background Jobs:** Daily age updates, materialized view refresh, cleanup tasks
@@ -104,6 +105,32 @@ The **State Placement Cell** is a production-ready, enterprise-grade placement m
   - Overall profile completion percentage
   - Trigger-based auto-calculation
 - **Optional/Job-Specific:** Extended profile requested when applying to jobs that require it
+
+#### Resume Builder & Download
+
+- **My Resume Page:** Dedicated resume management interface for students
+- **Custom Resume Content:**
+  - Career objective statement
+  - Technical skills (add/remove individual skills)
+  - Soft skills with tag-based management
+  - Languages known
+  - Projects with title, technologies, and description
+  - Work experience / internships with company, role, duration, description
+  - Certifications with name, issuer, and year
+  - Achievements and awards
+  - Extracurricular activities
+  - Custom sections for additional information
+  - Declaration text (customizable)
+- **Two Resume Versions:**
+  1. **Standard Resume:** Clean professional layout using system profile data
+  2. **Custom Resume:** Includes all student's custom additions (skills, projects, etc.)
+- **Professional PDF Generation:**
+  - Clean, modern layout suitable for job applications
+  - Auto-generated from profile and extended profile data
+  - Includes education details (Diploma, 12th, 10th)
+  - Personal details, documents available
+  - Proper formatting with sections and headers
+- **Download Options:** Download either version as PDF anytime
 
 #### Dashboard & Profile Management
 - **Dashboard Statistics:**
@@ -219,6 +246,11 @@ The **State Placement Cell** is a production-ready, enterprise-grade placement m
   - Academic performance
   - Application history
   - Notification history
+  - **Resume Download:**
+    - Download student resume as PDF directly from student details modal
+    - Choose between Standard (system-generated) or Custom (student-modified) version
+    - Visual indicator shows if student has added custom content
+    - Professional PDF layout with education, skills, projects, and achievements
 
 #### Export Features
 - **Export Student Data:**
@@ -486,6 +518,13 @@ The **State Placement Cell** is a production-ready, enterprise-grade placement m
   - Quick search with complete details
   - Shows college, region, approval status
   - Application history
+- **View Student Details & Resume:**
+  - Complete student profile (Tier 1 and Tier 2)
+  - **Resume Download:**
+    - Download student resume as PDF directly from student details modal
+    - Choose between Standard (system-generated) or Custom (student-modified) version
+    - Visual indicator shows if student has added custom content
+    - Professional PDF layout with education, skills, projects, and achievements
 - **Blacklist Student:**
   - System-wide blacklist with reason
   - Instant access removal across all roles
@@ -1697,6 +1736,25 @@ Branch normalization mapping.
 - created_at
 ```
 
+#### 24. **student_resumes**
+Student resume data for PDF generation.
+```sql
+- id (PK)
+- student_id (FK → students, UNIQUE)
+- custom_skills (JSONB: {technical, soft, languages})
+- custom_projects (JSONB array: [{title, description, technologies, duration}])
+- custom_work_experience (JSONB array: [{company, role, duration, description}])
+- custom_certifications (JSONB array: [{name, issuer, date, url}])
+- custom_achievements (JSONB array: [{title, description, date}])
+- custom_objective (TEXT)
+- custom_declaration (TEXT)
+- custom_sections (JSONB array: [{title, content}])
+- has_custom_content (BOOLEAN, default false)
+- created_at, updated_at
+```
+
+Auto-created for each student via database trigger.
+
 ### Database Features
 
 #### Materialized View
@@ -1719,6 +1777,9 @@ CREATE TRIGGER calculate_age_trigger ...
 
 -- Auto-create extended profile on student creation
 CREATE TRIGGER auto_create_extended_profile ...
+
+-- Auto-create resume record on student creation
+CREATE TRIGGER auto_create_student_resume ...
 
 -- Auto-recalculate profile completion percentage
 CREATE TRIGGER recalculate_profile_completion ...
@@ -2229,7 +2290,7 @@ node database/db-commands.js recent
 
 ### Technical Metrics
 - **API Endpoints:** 80+ RESTful endpoints
-- **Database Tables:** 23 core tables
+- **Database Tables:** 28 core tables
 - **Database Indexes:** 40+ optimized indexes
 - **Database Triggers:** 4 automated triggers
 - **Database Functions:** 4 custom functions

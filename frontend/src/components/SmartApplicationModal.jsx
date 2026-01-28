@@ -4,7 +4,6 @@ import {
   X,
   AlertCircle,
   CheckCircle,
-  ChevronRight,
   Loader,
   AlertTriangle,
   User,
@@ -37,7 +36,7 @@ export default function SmartApplicationModal({ job, onClose, onSuccess }) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [readinessData, setReadinessData] = useState(null);
-  const [currentStep, setCurrentStep] = useState('check'); // check, collect, submit
+  const [currentStep, setCurrentStep] = useState('check'); // check, collect, external_form, submit
   const [formData, setFormData] = useState({});
   const [customFieldResponses, setCustomFieldResponses] = useState({});
   const [submitting, setSubmitting] = useState(false);
@@ -51,6 +50,10 @@ export default function SmartApplicationModal({ job, onClose, onSuccess }) {
     education_preferences: {}
   });
   const [sectionsToShow, setSectionsToShow] = useState([]);
+
+  // External form tracking states
+  const [externalFormOpened, setExternalFormOpened] = useState(false);
+  const [formCompletionAcknowledged, setFormCompletionAcknowledged] = useState(false);
 
   useEffect(() => {
     checkReadiness();
@@ -145,12 +148,16 @@ export default function SmartApplicationModal({ job, onClose, onSuccess }) {
       }
 
       // Determine next step
-      if (data.ready_to_apply && (!data.custom_fields || data.custom_fields.length === 0)) {
-        setCurrentStep('submit');
-      } else if (data.has_blocking_issues) {
+      if (data.has_blocking_issues) {
         setCurrentStep('blocked');
-      } else {
+      } else if (sectionsWithMissingFields.length > 0 || (data.custom_fields && data.custom_fields.length > 0)) {
+        // Need to collect Tier 2 or Tier 3 data first
         setCurrentStep('collect');
+      } else if (job.application_form_url) {
+        // Has external form - must complete it before submitting
+        setCurrentStep('external_form');
+      } else {
+        setCurrentStep('submit');
       }
     } catch (error) {
       toast.error('Failed to check application readiness');
@@ -177,6 +184,14 @@ export default function SmartApplicationModal({ job, onClose, onSuccess }) {
   const handleGoToExtendedProfile = () => {
     navigate('/student/extended-profile');
     onClose();
+  };
+
+  // Function to open external form in new tab
+  const handleOpenExternalForm = () => {
+    if (job.application_form_url) {
+      window.open(job.application_form_url, '_blank');
+      setExternalFormOpened(true);
+    }
   };
 
   const getSectionComponent = (sectionId) => {
@@ -239,10 +254,8 @@ export default function SmartApplicationModal({ job, onClose, onSuccess }) {
         ? 'Application submitted and profile updated successfully!'
         : 'Application submitted successfully!');
 
-      // Redirect to Google Form if available
-      if (job.application_form_url) {
-        window.open(job.application_form_url, '_blank');
-      }
+      // Note: External form is now handled in the external_form step before submission
+      // No need to open it again here
 
       onSuccess();
       onClose();
@@ -619,10 +632,117 @@ export default function SmartApplicationModal({ job, onClose, onSuccess }) {
                 >
                   Cancel
                 </button>
+                {job.application_form_url ? (
+                  <button
+                    onClick={() => setCurrentStep('external_form')}
+                    className="btn btn-primary flex-1"
+                  >
+                    Continue to External Form
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleSubmitApplication}
+                    className="btn btn-primary flex-1"
+                    disabled={submitting}
+                  >
+                    {submitting ? 'Submitting...' : 'Submit Application'}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* External Form Step - Must complete external form before submitting */}
+          {currentStep === 'external_form' && (
+            <div className="space-y-6">
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start space-x-3">
+                <AlertTriangle className="text-amber-600 flex-shrink-0 mt-0.5" size={20} />
+                <div>
+                  <h3 className="font-semibold text-amber-900">External Application Form Required</h3>
+                  <p className="text-sm text-amber-800 mt-1">
+                    This job requires you to fill out an external application form. Please complete the form before submitting your application.
+                  </p>
+                </div>
+              </div>
+
+              {/* Instructions */}
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <h4 className="font-medium text-gray-900 mb-3">Steps to complete:</h4>
+                <ol className="list-decimal list-inside space-y-2 text-sm text-gray-700">
+                  <li>Click the button below to open the external form</li>
+                  <li>Fill out all required fields in the external form</li>
+                  <li>Submit the external form</li>
+                  <li>Return here and confirm that you've completed the form</li>
+                </ol>
+              </div>
+
+              {/* Open Form Button */}
+              <div className="flex flex-col items-center space-y-3">
+                <button
+                  onClick={handleOpenExternalForm}
+                  className="btn btn-primary flex items-center space-x-2 px-6 py-3"
+                >
+                  <ExternalLink size={20} />
+                  <span>{externalFormOpened ? 'Reopen External Form' : 'Open External Form'}</span>
+                </button>
+                {externalFormOpened && (
+                  <p className="text-sm text-green-600 flex items-center space-x-1">
+                    <CheckCircle size={16} />
+                    <span>Form opened in new tab</span>
+                  </p>
+                )}
+              </div>
+
+              {/* Acknowledgment Checkbox */}
+              <div className={`border-2 rounded-lg p-4 transition-colors ${
+                formCompletionAcknowledged
+                  ? 'border-green-300 bg-green-50'
+                  : 'border-gray-200 bg-white'
+              }`}>
+                <label className="flex items-start space-x-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formCompletionAcknowledged}
+                    onChange={(e) => setFormCompletionAcknowledged(e.target.checked)}
+                    className="mt-1 h-5 w-5 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                  />
+                  <div>
+                    <span className="font-medium text-gray-900">
+                      I confirm that I have completed and submitted the external application form
+                    </span>
+                    <p className="text-sm text-gray-600 mt-1">
+                      By checking this box, you acknowledge that you have filled out all required information in the external form.
+                      Providing false information may result in your application being rejected.
+                    </p>
+                  </div>
+                </label>
+              </div>
+
+              {/* Warning if trying to proceed without acknowledgment */}
+              {!formCompletionAcknowledged && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <p className="text-sm text-blue-800">
+                    You must complete the external form and check the confirmation box above to proceed with your application.
+                  </p>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex space-x-3 pt-4 border-t">
+                <button
+                  onClick={onClose}
+                  className="btn btn-secondary flex-1"
+                >
+                  Cancel
+                </button>
                 <button
                   onClick={handleSubmitApplication}
-                  className="btn btn-primary flex-1"
-                  disabled={submitting}
+                  className={`btn flex-1 ${
+                    formCompletionAcknowledged
+                      ? 'btn-primary'
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  }`}
+                  disabled={!formCompletionAcknowledged || submitting}
                 >
                   {submitting ? 'Submitting...' : 'Submit Application'}
                 </button>
@@ -630,7 +750,7 @@ export default function SmartApplicationModal({ job, onClose, onSuccess }) {
             </div>
           )}
 
-          {/* Ready to Submit */}
+          {/* Ready to Submit (for jobs without external form) */}
           {currentStep === 'submit' && (
             <div className="space-y-4">
               <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start space-x-3">
@@ -642,14 +762,6 @@ export default function SmartApplicationModal({ job, onClose, onSuccess }) {
                   </p>
                 </div>
               </div>
-
-              {job.application_form_url && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <p className="text-sm text-blue-800">
-                    After submitting, you'll be redirected to the company's Google Form to complete additional details.
-                  </p>
-                </div>
-              )}
 
               <p className="text-sm text-gray-600">
                 This action will mark you as applied and cannot be undone.

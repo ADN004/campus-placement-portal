@@ -1,7 +1,7 @@
 /**
- * Resume PDF Generator
+ * Resume PDF Generator - Professional Edition
  *
- * Generates professional resume PDFs for students
+ * Generates polished, professional resume PDFs for students
  * Two versions:
  * 1. Standard (System) - Clean professional layout using system data
  * 2. Custom (Student-Modified) - Includes student's custom additions
@@ -9,24 +9,36 @@
 
 import PDFDocument from 'pdfkit';
 
-// Color palette for professional look
+// Professional color palette - Black & Navy theme
 const COLORS = {
-  primary: '#1a365d',      // Dark blue for headers
-  secondary: '#2b6cb0',    // Medium blue for subheadings
-  accent: '#3182ce',       // Light blue for accents
-  text: '#2d3748',         // Dark gray for body text
-  lightText: '#718096',    // Light gray for secondary text
-  border: '#e2e8f0',       // Light border color
-  background: '#f7fafc',   // Light background
-  white: '#ffffff'
+  black: '#000000',
+  darkNavy: '#0a1628',
+  navy: '#1a365d',
+  darkGray: '#1f2937',
+  mediumGray: '#4b5563',
+  lightGray: '#6b7280',
+  borderGray: '#d1d5db',
+  lightBorder: '#e5e7eb',
+  accent: '#2563eb',
+  white: '#ffffff',
+  headerBg: '#111827'
 };
 
-// Standard margin settings
+// Professional margin settings
 const MARGIN = {
-  top: 50,
-  bottom: 50,
-  left: 50,
-  right: 50
+  top: 40,
+  bottom: 40,
+  left: 55,
+  right: 55
+};
+
+// Line heights and spacing
+const SPACING = {
+  sectionGap: 18,
+  lineHeight: 14,
+  paragraphGap: 8,
+  bulletIndent: 15,
+  tableRowHeight: 20
 };
 
 /**
@@ -39,54 +51,96 @@ function formatDate(date) {
 }
 
 /**
- * Draw a horizontal line
+ * Draw a thick professional section divider
  */
-function drawLine(doc, y, color = COLORS.border) {
-  doc.strokeColor(color)
-     .lineWidth(1)
+function drawThickLine(doc, y, width = null) {
+  const lineWidth = width || (doc.page.width - MARGIN.left - MARGIN.right);
+  doc.strokeColor(COLORS.black)
+     .lineWidth(1.5)
      .moveTo(MARGIN.left, y)
-     .lineTo(doc.page.width - MARGIN.right, y)
+     .lineTo(MARGIN.left + lineWidth, y)
      .stroke();
-  return y + 5;
+  return y + 8;
 }
 
 /**
- * Draw section header with underline
+ * Draw a thin separator line
+ */
+function drawThinLine(doc, y, startX = MARGIN.left, length = null) {
+  const lineLength = length || (doc.page.width - MARGIN.left - MARGIN.right);
+  doc.strokeColor(COLORS.borderGray)
+     .lineWidth(0.5)
+     .moveTo(startX, y)
+     .lineTo(startX + lineLength, y)
+     .stroke();
+  return y + 6;
+}
+
+/**
+ * Draw professional section header with underline
  */
 function drawSectionHeader(doc, title, y) {
-  doc.fontSize(12)
+  // Section title - Bold uppercase
+  doc.fontSize(11)
      .font('Helvetica-Bold')
-     .fillColor(COLORS.primary)
-     .text(title.toUpperCase(), MARGIN.left, y);
+     .fillColor(COLORS.black)
+     .text(title.toUpperCase(), MARGIN.left, y, { characterSpacing: 1.5 });
 
-  y += 18;
-  doc.strokeColor(COLORS.secondary)
+  const titleWidth = doc.widthOfString(title.toUpperCase(), { characterSpacing: 1.5 });
+  y = doc.y + 3;
+
+  // Draw underline beneath the title
+  doc.strokeColor(COLORS.black)
      .lineWidth(2)
      .moveTo(MARGIN.left, y)
-     .lineTo(MARGIN.left + 60, y)
+     .lineTo(MARGIN.left + Math.max(titleWidth + 10, 80), y)
      .stroke();
 
-  return y + 10;
+  return y + 12;
 }
 
 /**
- * Draw bullet point item
+ * Draw a bullet point with proper formatting
  */
-function drawBulletPoint(doc, text, x, y, maxWidth) {
+function drawBulletPoint(doc, text, x, y, maxWidth, isSubBullet = false) {
+  const bulletX = x + (isSubBullet ? 10 : 0);
+  const textX = bulletX + 12;
+
   doc.fontSize(10)
      .font('Helvetica')
-     .fillColor(COLORS.text);
+     .fillColor(COLORS.darkGray);
 
-  // Draw bullet
-  doc.circle(x + 3, y + 4, 2).fill(COLORS.secondary);
+  // Draw bullet (filled circle)
+  doc.circle(bulletX + 3, y + 4, isSubBullet ? 1.5 : 2)
+     .fill(COLORS.darkGray);
 
   // Draw text
-  doc.text(text, x + 12, y, {
-    width: maxWidth - 12,
-    align: 'left'
+  doc.text(text, textX, y, {
+    width: maxWidth - (textX - x),
+    align: 'left',
+    lineGap: 2
   });
 
-  return doc.y + 3;
+  return doc.y + 4;
+}
+
+/**
+ * Draw a label-value pair in a clean format
+ */
+function drawLabelValue(doc, label, value, x, y, labelWidth = 120) {
+  if (!value) return y;
+
+  doc.fontSize(10)
+     .font('Helvetica-Bold')
+     .fillColor(COLORS.mediumGray)
+     .text(label, x, y, { width: labelWidth, continued: false });
+
+  doc.fontSize(10)
+     .font('Helvetica')
+     .fillColor(COLORS.darkGray)
+     .text(`: ${value}`, x + labelWidth - 5, y);
+
+  return Math.max(doc.y + 3, y + SPACING.lineHeight);
 }
 
 /**
@@ -101,9 +155,38 @@ function checkNewPage(doc, requiredHeight = 100) {
 }
 
 /**
+ * Draw education entry with professional formatting
+ */
+function drawEducationEntry(doc, degree, institution, details, y, pageWidth) {
+  // Degree name - Bold
+  doc.fontSize(11)
+     .font('Helvetica-Bold')
+     .fillColor(COLORS.darkNavy)
+     .text(degree, MARGIN.left, y);
+  y = doc.y + 2;
+
+  // Institution name
+  doc.fontSize(10)
+     .font('Helvetica')
+     .fillColor(COLORS.mediumGray)
+     .text(institution, MARGIN.left, y);
+  y = doc.y + 2;
+
+  // Details (CGPA, Year, etc.)
+  if (details) {
+    doc.fontSize(9)
+       .font('Helvetica')
+       .fillColor(COLORS.lightGray)
+       .text(details, MARGIN.left, y);
+    y = doc.y;
+  }
+
+  return y + 10;
+}
+
+/**
  * Generate Standard Resume PDF (System Version)
- *
- * Uses data from students and student_extended_profiles tables
+ * Professional black-bordered clean design
  */
 export async function generateStandardResume(studentData, extendedProfile = {}) {
   return new Promise((resolve, reject) => {
@@ -122,40 +205,50 @@ export async function generateStandardResume(studentData, extendedProfile = {}) 
       let y = MARGIN.top;
       const pageWidth = doc.page.width - MARGIN.left - MARGIN.right;
 
-      // ==================== HEADER SECTION ====================
-      // Student Name
-      doc.fontSize(24)
+      // ==================== PROFESSIONAL HEADER ====================
+
+      // Name - Large, bold, centered
+      doc.fontSize(26)
          .font('Helvetica-Bold')
-         .fillColor(COLORS.primary)
-         .text(studentData.student_name || 'Student Name', MARGIN.left, y, {
+         .fillColor(COLORS.black)
+         .text((studentData.student_name || 'STUDENT NAME').toUpperCase(), MARGIN.left, y, {
            width: pageWidth,
-           align: 'center'
+           align: 'center',
+           characterSpacing: 2
          });
-      y = doc.y + 5;
+      y = doc.y + 8;
 
-      // Contact Information Line
-      const contactParts = [];
-      if (studentData.email) contactParts.push(studentData.email);
-      if (studentData.mobile_number) contactParts.push(studentData.mobile_number);
+      // Thick line under name
+      doc.strokeColor(COLORS.black)
+         .lineWidth(2)
+         .moveTo(MARGIN.left + pageWidth * 0.25, y)
+         .lineTo(MARGIN.left + pageWidth * 0.75, y)
+         .stroke();
+      y += 12;
 
-      if (contactParts.length > 0) {
+      // Contact Information - Professional format
+      const contactItems = [];
+      if (studentData.mobile_number) contactItems.push(`📞 ${studentData.mobile_number}`);
+      if (studentData.email) contactItems.push(`✉ ${studentData.email}`);
+
+      if (contactItems.length > 0) {
         doc.fontSize(10)
            .font('Helvetica')
-           .fillColor(COLORS.lightText)
-           .text(contactParts.join('  |  '), MARGIN.left, y, {
+           .fillColor(COLORS.mediumGray)
+           .text(contactItems.join('     |     '), MARGIN.left, y, {
              width: pageWidth,
              align: 'center'
            });
-        y = doc.y + 3;
+        y = doc.y + 4;
       }
 
-      // Address line
+      // Address
       const address = extendedProfile.permanent_address || studentData.complete_address;
       if (address) {
         doc.fontSize(9)
            .font('Helvetica')
-           .fillColor(COLORS.lightText)
-           .text(address, MARGIN.left, y, {
+           .fillColor(COLORS.lightGray)
+           .text(`📍 ${address}`, MARGIN.left, y, {
              width: pageWidth,
              align: 'center'
            });
@@ -163,157 +256,163 @@ export async function generateStandardResume(studentData, extendedProfile = {}) 
       }
 
       y += 15;
-      y = drawLine(doc, y, COLORS.primary);
-      y += 10;
+      y = drawThickLine(doc, y);
+      y += 8;
 
-      // ==================== OBJECTIVE SECTION ====================
-      // Standard objective based on branch
+      // ==================== CAREER OBJECTIVE ====================
       const branch = studentData.branch || 'Engineering';
-      const objective = `Seeking challenging opportunities in the field of ${branch} where I can utilize my technical skills and academic knowledge to contribute to organizational growth while enhancing my professional development.`;
+      const objective = `A dedicated and motivated ${branch} student seeking challenging opportunities to apply technical knowledge and skills in a professional environment. Committed to continuous learning and contributing effectively to organizational success while pursuing career growth.`;
 
       y = drawSectionHeader(doc, 'Career Objective', y);
+
       doc.fontSize(10)
          .font('Helvetica')
-         .fillColor(COLORS.text)
+         .fillColor(COLORS.darkGray)
          .text(objective, MARGIN.left, y, {
            width: pageWidth,
-           align: 'justify'
+           align: 'justify',
+           lineGap: 3
          });
-      y = doc.y + 15;
+      y = doc.y + SPACING.sectionGap;
 
-      // ==================== EDUCATION SECTION ====================
-      y = checkNewPage(doc, 120);
+      // ==================== EDUCATION ====================
+      y = checkNewPage(doc, 140);
       y = drawSectionHeader(doc, 'Education', y);
 
-      // Diploma details
-      doc.fontSize(11)
-         .font('Helvetica-Bold')
-         .fillColor(COLORS.text)
-         .text(`Diploma in ${studentData.branch || 'Engineering'}`, MARGIN.left, y);
-      y = doc.y + 2;
+      // Diploma
+      y = drawEducationEntry(
+        doc,
+        `Diploma in ${studentData.branch || 'Engineering'}`,
+        studentData.college_name || 'Polytechnic College',
+        `CGPA: ${studentData.programme_cgpa || 'N/A'}${studentData.backlog_count !== null ? `  |  Backlogs: ${studentData.backlog_count}` : ''}`,
+        y,
+        pageWidth
+      );
 
-      doc.fontSize(10)
-         .font('Helvetica')
-         .fillColor(COLORS.lightText)
-         .text(studentData.college_name || 'College Name', MARGIN.left, y);
-      y = doc.y + 2;
-
-      // CGPA info
-      const cgpaInfo = [];
-      if (studentData.programme_cgpa) cgpaInfo.push(`CGPA: ${studentData.programme_cgpa}`);
-      if (studentData.backlog_count !== null && studentData.backlog_count !== undefined) {
-        cgpaInfo.push(`Backlogs: ${studentData.backlog_count}`);
-      }
-
-      if (cgpaInfo.length > 0) {
-        doc.fontSize(10)
-           .font('Helvetica')
-           .fillColor(COLORS.secondary)
-           .text(cgpaInfo.join('  |  '), MARGIN.left, y);
-        y = doc.y;
-      }
-
-      y += 10;
-
-      // 12th / HSC details
+      // 12th / HSC
       if (extendedProfile.twelfth_marks) {
-        doc.fontSize(11)
-           .font('Helvetica-Bold')
-           .fillColor(COLORS.text)
-           .text('Higher Secondary (12th)', MARGIN.left, y);
-        y = doc.y + 2;
-
-        const twelfthInfo = [];
-        if (extendedProfile.twelfth_board) twelfthInfo.push(extendedProfile.twelfth_board);
-        if (extendedProfile.twelfth_year) twelfthInfo.push(extendedProfile.twelfth_year);
-        twelfthInfo.push(`${extendedProfile.twelfth_marks}%`);
-
-        doc.fontSize(10)
-           .font('Helvetica')
-           .fillColor(COLORS.lightText)
-           .text(twelfthInfo.join('  |  '), MARGIN.left, y);
-        y = doc.y + 10;
+        y = drawEducationEntry(
+          doc,
+          'Higher Secondary Education (12th / Plus Two)',
+          extendedProfile.twelfth_board || 'State Board',
+          `Year: ${extendedProfile.twelfth_year || 'N/A'}  |  Percentage: ${extendedProfile.twelfth_marks}%`,
+          y,
+          pageWidth
+        );
       }
 
-      // SSLC / 10th details
+      // 10th / SSLC
       if (extendedProfile.sslc_marks) {
-        doc.fontSize(11)
-           .font('Helvetica-Bold')
-           .fillColor(COLORS.text)
-           .text('Secondary (10th / SSLC)', MARGIN.left, y);
-        y = doc.y + 2;
-
-        const sslcInfo = [];
-        if (extendedProfile.sslc_board) sslcInfo.push(extendedProfile.sslc_board);
-        if (extendedProfile.sslc_year) sslcInfo.push(extendedProfile.sslc_year);
-        sslcInfo.push(`${extendedProfile.sslc_marks}%`);
-
-        doc.fontSize(10)
-           .font('Helvetica')
-           .fillColor(COLORS.lightText)
-           .text(sslcInfo.join('  |  '), MARGIN.left, y);
-        y = doc.y;
+        y = drawEducationEntry(
+          doc,
+          'Secondary Education (10th / SSLC)',
+          extendedProfile.sslc_board || 'State Board',
+          `Year: ${extendedProfile.sslc_year || 'N/A'}  |  Percentage: ${extendedProfile.sslc_marks}%`,
+          y,
+          pageWidth
+        );
       }
 
-      y += 15;
+      y += 5;
 
-      // ==================== PERSONAL DETAILS SECTION ====================
-      y = checkNewPage(doc, 150);
-      y = drawSectionHeader(doc, 'Personal Details', y);
+      // ==================== SEMESTER-WISE CGPA ====================
+      const semCGPAs = [];
+      for (let i = 1; i <= 6; i++) {
+        const cgpa = studentData[`cgpa_sem${i}`];
+        if (cgpa !== null && cgpa !== undefined) {
+          semCGPAs.push({ sem: i, cgpa });
+        }
+      }
+
+      if (semCGPAs.length > 0) {
+        y = checkNewPage(doc, 80);
+        y = drawSectionHeader(doc, 'Academic Performance', y);
+
+        // Draw semester CGPA table
+        const colWidth = pageWidth / 6;
+
+        // Headers
+        doc.fontSize(9)
+           .font('Helvetica-Bold')
+           .fillColor(COLORS.mediumGray);
+
+        semCGPAs.forEach((item, index) => {
+          doc.text(`Sem ${item.sem}`, MARGIN.left + (index * colWidth), y, { width: colWidth, align: 'center' });
+        });
+        y = doc.y + 4;
+
+        // Draw line
+        doc.strokeColor(COLORS.borderGray)
+           .lineWidth(0.5)
+           .moveTo(MARGIN.left, y)
+           .lineTo(MARGIN.left + (semCGPAs.length * colWidth), y)
+           .stroke();
+        y += 6;
+
+        // Values
+        doc.fontSize(10)
+           .font('Helvetica')
+           .fillColor(COLORS.darkGray);
+
+        semCGPAs.forEach((item, index) => {
+          doc.text(item.cgpa.toString(), MARGIN.left + (index * colWidth), y, { width: colWidth, align: 'center' });
+        });
+        y = doc.y + SPACING.sectionGap;
+      }
+
+      // ==================== PERSONAL DETAILS ====================
+      y = checkNewPage(doc, 160);
+      y = drawSectionHeader(doc, 'Personal Information', y);
 
       const personalDetails = [
         { label: 'Date of Birth', value: formatDate(studentData.date_of_birth) },
         { label: 'Gender', value: studentData.gender },
         { label: 'PRN', value: studentData.prn },
         { label: 'Region', value: studentData.region_name },
+        { label: "Father's Name", value: extendedProfile.father_name },
+        { label: 'District', value: extendedProfile.district },
       ];
 
-      // Add father's name if available
-      if (extendedProfile.father_name) {
-        personalDetails.push({ label: "Father's Name", value: extendedProfile.father_name });
-      }
-
-      // Add district if available
-      if (extendedProfile.district) {
-        personalDetails.push({ label: 'District', value: extendedProfile.district });
-      }
-
-      // Add physical details if available
+      // Add physical details
       const height = extendedProfile.height_cm || studentData.height;
       const weight = extendedProfile.weight_kg || studentData.weight;
       if (height) personalDetails.push({ label: 'Height', value: `${height} cm` });
       if (weight) personalDetails.push({ label: 'Weight', value: `${weight} kg` });
 
-      // Draw personal details in two columns
+      // Draw in two columns
       const colWidth = pageWidth / 2;
-      let leftCol = y;
-      let rightCol = y;
+      const validDetails = personalDetails.filter(d => d.value);
+      const leftDetails = validDetails.filter((_, i) => i % 2 === 0);
+      const rightDetails = validDetails.filter((_, i) => i % 2 === 1);
 
-      personalDetails.forEach((item, index) => {
-        if (!item.value) return;
+      let leftY = y;
+      let rightY = y;
 
-        const isLeft = index % 2 === 0;
-        const x = isLeft ? MARGIN.left : MARGIN.left + colWidth;
-        const currentY = isLeft ? leftCol : rightCol;
-
+      leftDetails.forEach(item => {
         doc.fontSize(10)
            .font('Helvetica-Bold')
-           .fillColor(COLORS.lightText)
-           .text(`${item.label}: `, x, currentY, { continued: true })
+           .fillColor(COLORS.mediumGray)
+           .text(`${item.label}`, MARGIN.left, leftY, { continued: true })
            .font('Helvetica')
-           .fillColor(COLORS.text)
-           .text(item.value);
-
-        if (isLeft) {
-          leftCol = doc.y + 5;
-        } else {
-          rightCol = doc.y + 5;
-        }
+           .fillColor(COLORS.darkGray)
+           .text(` : ${item.value}`, { lineBreak: true });
+        leftY = doc.y + 4;
       });
 
-      y = Math.max(leftCol, rightCol) + 10;
+      rightDetails.forEach(item => {
+        doc.fontSize(10)
+           .font('Helvetica-Bold')
+           .fillColor(COLORS.mediumGray)
+           .text(`${item.label}`, MARGIN.left + colWidth, rightY, { continued: true })
+           .font('Helvetica')
+           .fillColor(COLORS.darkGray)
+           .text(` : ${item.value}`, { lineBreak: true });
+        rightY = doc.y + 4;
+      });
 
-      // ==================== DOCUMENTS SECTION ====================
+      y = Math.max(leftY, rightY) + 10;
+
+      // ==================== DOCUMENTS AVAILABLE ====================
       const documents = [];
       if (studentData.has_passport || extendedProfile.has_passport) documents.push('Passport');
       if (studentData.has_aadhar_card || extendedProfile.has_aadhar_card) documents.push('Aadhar Card');
@@ -321,29 +420,32 @@ export async function generateStandardResume(studentData, extendedProfile = {}) 
       if (studentData.has_driving_license || extendedProfile.has_driving_license) documents.push('Driving License');
 
       if (documents.length > 0) {
-        y = checkNewPage(doc, 60);
+        y = checkNewPage(doc, 70);
         y = drawSectionHeader(doc, 'Documents Available', y);
+
         doc.fontSize(10)
            .font('Helvetica')
-           .fillColor(COLORS.text)
-           .text(documents.join('  |  '), MARGIN.left, y);
-        y = doc.y + 15;
+           .fillColor(COLORS.darkGray)
+           .text(documents.join('   •   '), MARGIN.left, y);
+        y = doc.y + SPACING.sectionGap;
       }
 
       // ==================== INTERESTS & HOBBIES ====================
       if (extendedProfile.interests_hobbies) {
-        y = checkNewPage(doc, 60);
+        y = checkNewPage(doc, 70);
         y = drawSectionHeader(doc, 'Interests & Hobbies', y);
+
         doc.fontSize(10)
            .font('Helvetica')
-           .fillColor(COLORS.text)
+           .fillColor(COLORS.darkGray)
            .text(extendedProfile.interests_hobbies, MARGIN.left, y, {
-             width: pageWidth
+             width: pageWidth,
+             lineGap: 2
            });
-        y = doc.y + 15;
+        y = doc.y + SPACING.sectionGap;
       }
 
-      // ==================== ADDITIONAL CERTIFICATIONS ====================
+      // ==================== CERTIFICATIONS ====================
       const certs = extendedProfile.additional_certifications;
       if (certs && Array.isArray(certs) && certs.length > 0) {
         y = checkNewPage(doc, 80);
@@ -353,7 +455,7 @@ export async function generateStandardResume(studentData, extendedProfile = {}) 
           const certText = typeof cert === 'string' ? cert : (cert.name || cert.title || JSON.stringify(cert));
           y = drawBulletPoint(doc, certText, MARGIN.left, y, pageWidth);
         });
-        y += 10;
+        y += 8;
       }
 
       // ==================== ACHIEVEMENTS ====================
@@ -366,38 +468,50 @@ export async function generateStandardResume(studentData, extendedProfile = {}) 
           const achText = typeof ach === 'string' ? ach : (ach.title || ach.name || JSON.stringify(ach));
           y = drawBulletPoint(doc, achText, MARGIN.left, y, pageWidth);
         });
-        y += 10;
+        y += 8;
       }
 
       // ==================== DECLARATION ====================
-      y = checkNewPage(doc, 80);
+      y = checkNewPage(doc, 100);
       y = drawSectionHeader(doc, 'Declaration', y);
+
       doc.fontSize(10)
          .font('Helvetica')
-         .fillColor(COLORS.text)
-         .text('I hereby declare that the above-mentioned information is true to the best of my knowledge and belief.', MARGIN.left, y, {
+         .fillColor(COLORS.darkGray)
+         .text('I hereby declare that all the information furnished above is true to the best of my knowledge and belief. I shall be responsible for any discrepancy.', MARGIN.left, y, {
            width: pageWidth,
-           align: 'justify'
+           align: 'justify',
+           lineGap: 2
          });
-
-      y = doc.y + 20;
-
-      // Signature area
-      doc.fontSize(10)
-         .font('Helvetica')
-         .fillColor(COLORS.lightText)
-         .text(`Place: ${extendedProfile.district || '_____________'}`, MARGIN.left, y);
-
-      doc.text(`Date: ${formatDate(new Date())}`, MARGIN.left + 200, y);
 
       y = doc.y + 25;
 
+      // Place and Date
+      doc.fontSize(10)
+         .font('Helvetica')
+         .fillColor(COLORS.mediumGray)
+         .text(`Place: ${extendedProfile.district || '____________'}`, MARGIN.left, y);
+
+      doc.text(`Date: ${formatDate(new Date())}`, MARGIN.left + 180, y);
+
+      y = doc.y + 30;
+
+      // Signature line
+      const signX = doc.page.width - MARGIN.right - 150;
+      doc.strokeColor(COLORS.black)
+         .lineWidth(0.8)
+         .moveTo(signX, y)
+         .lineTo(signX + 140, y)
+         .stroke();
+
+      y += 5;
+
       doc.fontSize(10)
          .font('Helvetica-Bold')
-         .fillColor(COLORS.text)
-         .text(`(${studentData.student_name || 'Signature'})`, doc.page.width - MARGIN.right - 150, y, {
-           width: 150,
-           align: 'right'
+         .fillColor(COLORS.black)
+         .text(`(${studentData.student_name || 'Signature'})`, signX, y, {
+           width: 140,
+           align: 'center'
          });
 
       // Finalize PDF
@@ -411,8 +525,7 @@ export async function generateStandardResume(studentData, extendedProfile = {}) 
 
 /**
  * Generate Custom Resume PDF (Student-Modified Version)
- *
- * Includes student's custom additions from student_resumes table
+ * Professional design with student's custom additions
  */
 export async function generateCustomResume(studentData, extendedProfile = {}, resumeData = {}) {
   return new Promise((resolve, reject) => {
@@ -431,38 +544,49 @@ export async function generateCustomResume(studentData, extendedProfile = {}, re
       let y = MARGIN.top;
       const pageWidth = doc.page.width - MARGIN.left - MARGIN.right;
 
-      // ==================== HEADER SECTION ====================
-      doc.fontSize(24)
+      // ==================== PROFESSIONAL HEADER ====================
+
+      // Name
+      doc.fontSize(26)
          .font('Helvetica-Bold')
-         .fillColor(COLORS.primary)
-         .text(studentData.student_name || 'Student Name', MARGIN.left, y, {
+         .fillColor(COLORS.black)
+         .text((studentData.student_name || 'STUDENT NAME').toUpperCase(), MARGIN.left, y, {
            width: pageWidth,
-           align: 'center'
+           align: 'center',
+           characterSpacing: 2
          });
-      y = doc.y + 5;
+      y = doc.y + 8;
 
-      // Contact Information
-      const contactParts = [];
-      if (studentData.email) contactParts.push(studentData.email);
-      if (studentData.mobile_number) contactParts.push(studentData.mobile_number);
+      // Decorative line
+      doc.strokeColor(COLORS.black)
+         .lineWidth(2)
+         .moveTo(MARGIN.left + pageWidth * 0.25, y)
+         .lineTo(MARGIN.left + pageWidth * 0.75, y)
+         .stroke();
+      y += 12;
 
-      if (contactParts.length > 0) {
+      // Contact Info
+      const contactItems = [];
+      if (studentData.mobile_number) contactItems.push(`📞 ${studentData.mobile_number}`);
+      if (studentData.email) contactItems.push(`✉ ${studentData.email}`);
+
+      if (contactItems.length > 0) {
         doc.fontSize(10)
            .font('Helvetica')
-           .fillColor(COLORS.lightText)
-           .text(contactParts.join('  |  '), MARGIN.left, y, {
+           .fillColor(COLORS.mediumGray)
+           .text(contactItems.join('     |     '), MARGIN.left, y, {
              width: pageWidth,
              align: 'center'
            });
-        y = doc.y + 3;
+        y = doc.y + 4;
       }
 
       const address = extendedProfile.permanent_address || studentData.complete_address;
       if (address) {
         doc.fontSize(9)
            .font('Helvetica')
-           .fillColor(COLORS.lightText)
-           .text(address, MARGIN.left, y, {
+           .fillColor(COLORS.lightGray)
+           .text(`📍 ${address}`, MARGIN.left, y, {
              width: pageWidth,
              align: 'center'
            });
@@ -470,99 +594,64 @@ export async function generateCustomResume(studentData, extendedProfile = {}, re
       }
 
       y += 15;
-      y = drawLine(doc, y, COLORS.primary);
-      y += 10;
+      y = drawThickLine(doc, y);
+      y += 8;
 
       // ==================== CAREER OBJECTIVE ====================
-      const objective = resumeData.career_objective ||
-        `Seeking challenging opportunities in the field of ${studentData.branch || 'Engineering'} where I can utilize my technical skills and academic knowledge to contribute to organizational growth while enhancing my professional development.`;
+      const branch = studentData.branch || 'Engineering';
+      const defaultObjective = `A dedicated and motivated ${branch} student seeking challenging opportunities to apply technical knowledge and skills in a professional environment. Committed to continuous learning and contributing effectively to organizational success while pursuing career growth.`;
+      const objective = resumeData.career_objective || defaultObjective;
 
       y = drawSectionHeader(doc, 'Career Objective', y);
+
       doc.fontSize(10)
          .font('Helvetica')
-         .fillColor(COLORS.text)
+         .fillColor(COLORS.darkGray)
          .text(objective, MARGIN.left, y, {
            width: pageWidth,
-           align: 'justify'
+           align: 'justify',
+           lineGap: 3
          });
-      y = doc.y + 15;
+      y = doc.y + SPACING.sectionGap;
 
       // ==================== EDUCATION ====================
-      y = checkNewPage(doc, 120);
+      y = checkNewPage(doc, 140);
       y = drawSectionHeader(doc, 'Education', y);
 
-      // Diploma
-      doc.fontSize(11)
-         .font('Helvetica-Bold')
-         .fillColor(COLORS.text)
-         .text(`Diploma in ${studentData.branch || 'Engineering'}`, MARGIN.left, y);
-      y = doc.y + 2;
+      y = drawEducationEntry(
+        doc,
+        `Diploma in ${studentData.branch || 'Engineering'}`,
+        studentData.college_name || 'Polytechnic College',
+        `CGPA: ${studentData.programme_cgpa || 'N/A'}${studentData.backlog_count !== null ? `  |  Backlogs: ${studentData.backlog_count}` : ''}`,
+        y,
+        pageWidth
+      );
 
-      doc.fontSize(10)
-         .font('Helvetica')
-         .fillColor(COLORS.lightText)
-         .text(studentData.college_name || 'College Name', MARGIN.left, y);
-      y = doc.y + 2;
-
-      const cgpaInfo = [];
-      if (studentData.programme_cgpa) cgpaInfo.push(`CGPA: ${studentData.programme_cgpa}`);
-      if (studentData.backlog_count !== null && studentData.backlog_count !== undefined) {
-        cgpaInfo.push(`Backlogs: ${studentData.backlog_count}`);
-      }
-
-      if (cgpaInfo.length > 0) {
-        doc.fontSize(10)
-           .font('Helvetica')
-           .fillColor(COLORS.secondary)
-           .text(cgpaInfo.join('  |  '), MARGIN.left, y);
-        y = doc.y;
-      }
-
-      y += 10;
-
-      // 12th details
       if (extendedProfile.twelfth_marks) {
-        doc.fontSize(11)
-           .font('Helvetica-Bold')
-           .fillColor(COLORS.text)
-           .text('Higher Secondary (12th)', MARGIN.left, y);
-        y = doc.y + 2;
-
-        const twelfthInfo = [];
-        if (extendedProfile.twelfth_board) twelfthInfo.push(extendedProfile.twelfth_board);
-        if (extendedProfile.twelfth_year) twelfthInfo.push(extendedProfile.twelfth_year);
-        twelfthInfo.push(`${extendedProfile.twelfth_marks}%`);
-
-        doc.fontSize(10)
-           .font('Helvetica')
-           .fillColor(COLORS.lightText)
-           .text(twelfthInfo.join('  |  '), MARGIN.left, y);
-        y = doc.y + 10;
+        y = drawEducationEntry(
+          doc,
+          'Higher Secondary Education (12th / Plus Two)',
+          extendedProfile.twelfth_board || 'State Board',
+          `Year: ${extendedProfile.twelfth_year || 'N/A'}  |  Percentage: ${extendedProfile.twelfth_marks}%`,
+          y,
+          pageWidth
+        );
       }
 
-      // 10th details
       if (extendedProfile.sslc_marks) {
-        doc.fontSize(11)
-           .font('Helvetica-Bold')
-           .fillColor(COLORS.text)
-           .text('Secondary (10th / SSLC)', MARGIN.left, y);
-        y = doc.y + 2;
-
-        const sslcInfo = [];
-        if (extendedProfile.sslc_board) sslcInfo.push(extendedProfile.sslc_board);
-        if (extendedProfile.sslc_year) sslcInfo.push(extendedProfile.sslc_year);
-        sslcInfo.push(`${extendedProfile.sslc_marks}%`);
-
-        doc.fontSize(10)
-           .font('Helvetica')
-           .fillColor(COLORS.lightText)
-           .text(sslcInfo.join('  |  '), MARGIN.left, y);
-        y = doc.y;
+        y = drawEducationEntry(
+          doc,
+          'Secondary Education (10th / SSLC)',
+          extendedProfile.sslc_board || 'State Board',
+          `Year: ${extendedProfile.sslc_year || 'N/A'}  |  Percentage: ${extendedProfile.sslc_marks}%`,
+          y,
+          pageWidth
+        );
       }
 
-      y += 15;
+      y += 5;
 
-      // ==================== SKILLS (Custom) ====================
+      // ==================== TECHNICAL SKILLS ====================
       const technicalSkills = resumeData.technical_skills || [];
       const softSkills = resumeData.soft_skills || [];
       const languages = resumeData.languages_known || [];
@@ -574,65 +663,84 @@ export async function generateCustomResume(studentData, extendedProfile = {}, re
         if (technicalSkills.length > 0) {
           doc.fontSize(10)
              .font('Helvetica-Bold')
-             .fillColor(COLORS.text)
-             .text('Technical Skills: ', MARGIN.left, y, { continued: true })
+             .fillColor(COLORS.mediumGray)
+             .text('Technical Skills', MARGIN.left, y, { continued: true })
              .font('Helvetica')
-             .text(technicalSkills.join(', '));
-          y = doc.y + 5;
+             .fillColor(COLORS.darkGray)
+             .text(` : ${technicalSkills.join('  •  ')}`);
+          y = doc.y + 6;
         }
 
         if (softSkills.length > 0) {
           doc.fontSize(10)
              .font('Helvetica-Bold')
-             .fillColor(COLORS.text)
-             .text('Soft Skills: ', MARGIN.left, y, { continued: true })
+             .fillColor(COLORS.mediumGray)
+             .text('Soft Skills', MARGIN.left, y, { continued: true })
              .font('Helvetica')
-             .text(softSkills.join(', '));
-          y = doc.y + 5;
+             .fillColor(COLORS.darkGray)
+             .text(` : ${softSkills.join('  •  ')}`);
+          y = doc.y + 6;
         }
 
         if (languages.length > 0) {
           doc.fontSize(10)
              .font('Helvetica-Bold')
-             .fillColor(COLORS.text)
-             .text('Languages: ', MARGIN.left, y, { continued: true })
+             .fillColor(COLORS.mediumGray)
+             .text('Languages', MARGIN.left, y, { continued: true })
              .font('Helvetica')
-             .text(languages.join(', '));
+             .fillColor(COLORS.darkGray)
+             .text(` : ${languages.join('  •  ')}`);
           y = doc.y;
         }
 
-        y += 15;
+        y += SPACING.sectionGap;
       }
 
-      // ==================== PROJECTS (Custom) ====================
+      // ==================== PROJECTS ====================
       const projects = resumeData.projects || [];
       if (projects.length > 0) {
         y = checkNewPage(doc, 100);
         y = drawSectionHeader(doc, 'Projects', y);
 
         projects.forEach((project, index) => {
-          y = checkNewPage(doc, 60);
+          y = checkNewPage(doc, 70);
 
           const title = typeof project === 'string' ? project : (project.title || `Project ${index + 1}`);
+
+          // Project title
           doc.fontSize(11)
              .font('Helvetica-Bold')
-             .fillColor(COLORS.text)
-             .text(title, MARGIN.left, y);
+             .fillColor(COLORS.darkNavy)
+             .text(`▸ ${title}`, MARGIN.left, y);
           y = doc.y + 2;
 
+          // Technologies
           if (project.technologies) {
             doc.fontSize(9)
-               .font('Helvetica')
-               .fillColor(COLORS.secondary)
-               .text(`Technologies: ${project.technologies}`, MARGIN.left, y);
+               .font('Helvetica-Oblique')
+               .fillColor(COLORS.accent)
+               .text(`Technologies: ${project.technologies}`, MARGIN.left + 15, y);
             y = doc.y + 2;
           }
 
+          // Duration
+          if (project.duration) {
+            doc.fontSize(9)
+               .font('Helvetica')
+               .fillColor(COLORS.lightGray)
+               .text(`Duration: ${project.duration}`, MARGIN.left + 15, y);
+            y = doc.y + 2;
+          }
+
+          // Description
           if (project.description) {
             doc.fontSize(10)
                .font('Helvetica')
-               .fillColor(COLORS.text)
-               .text(project.description, MARGIN.left, y, { width: pageWidth });
+               .fillColor(COLORS.darkGray)
+               .text(project.description, MARGIN.left + 15, y, {
+                 width: pageWidth - 15,
+                 lineGap: 2
+               });
             y = doc.y;
           }
 
@@ -649,30 +757,37 @@ export async function generateCustomResume(studentData, extendedProfile = {}, re
         y = drawSectionHeader(doc, 'Work Experience / Internships', y);
 
         workExp.forEach((exp, index) => {
-          y = checkNewPage(doc, 60);
+          y = checkNewPage(doc, 70);
 
           const role = typeof exp === 'string' ? exp : (exp.role || exp.title || `Experience ${index + 1}`);
           const company = exp.company || '';
 
+          // Role
           doc.fontSize(11)
              .font('Helvetica-Bold')
-             .fillColor(COLORS.text)
-             .text(role, MARGIN.left, y);
+             .fillColor(COLORS.darkNavy)
+             .text(`▸ ${role}`, MARGIN.left, y);
           y = doc.y + 2;
 
-          if (company) {
+          // Company and duration
+          if (company || exp.duration) {
+            const companyLine = [company, exp.duration].filter(Boolean).join('  |  ');
             doc.fontSize(10)
                .font('Helvetica')
-               .fillColor(COLORS.lightText)
-               .text(company + (exp.duration ? ` | ${exp.duration}` : ''), MARGIN.left, y);
+               .fillColor(COLORS.lightGray)
+               .text(companyLine, MARGIN.left + 15, y);
             y = doc.y + 2;
           }
 
+          // Description
           if (exp.description) {
             doc.fontSize(10)
                .font('Helvetica')
-               .fillColor(COLORS.text)
-               .text(exp.description, MARGIN.left, y, { width: pageWidth });
+               .fillColor(COLORS.darkGray)
+               .text(exp.description, MARGIN.left + 15, y, {
+                 width: pageWidth - 15,
+                 lineGap: 2
+               });
             y = doc.y;
           }
 
@@ -694,12 +809,12 @@ export async function generateCustomResume(studentData, extendedProfile = {}, re
             certText = cert;
           } else {
             certText = cert.name || cert.title || '';
-            if (cert.issuer) certText += ` - ${cert.issuer}`;
+            if (cert.issuer) certText += ` — ${cert.issuer}`;
             if (cert.year) certText += ` (${cert.year})`;
           }
           y = drawBulletPoint(doc, certText, MARGIN.left, y, pageWidth);
         });
-        y += 10;
+        y += 8;
       }
 
       // ==================== ACHIEVEMENTS ====================
@@ -714,14 +829,15 @@ export async function generateCustomResume(studentData, extendedProfile = {}, re
             achText = ach;
           } else {
             achText = ach.title || ach.name || '';
+            if (ach.description) achText += ` — ${ach.description}`;
             if (ach.year) achText += ` (${ach.year})`;
           }
           y = drawBulletPoint(doc, achText, MARGIN.left, y, pageWidth);
         });
-        y += 10;
+        y += 8;
       }
 
-      // ==================== EXTRACURRICULAR ====================
+      // ==================== EXTRACURRICULAR ACTIVITIES ====================
       const extracurricular = resumeData.extracurricular_activities || extendedProfile.extracurricular || [];
       if (extracurricular.length > 0) {
         y = checkNewPage(doc, 80);
@@ -731,26 +847,20 @@ export async function generateCustomResume(studentData, extendedProfile = {}, re
           const actText = typeof act === 'string' ? act : (act.title || act.name || JSON.stringify(act));
           y = drawBulletPoint(doc, actText, MARGIN.left, y, pageWidth);
         });
-        y += 10;
+        y += 8;
       }
 
       // ==================== PERSONAL DETAILS ====================
-      y = checkNewPage(doc, 100);
-      y = drawSectionHeader(doc, 'Personal Details', y);
+      y = checkNewPage(doc, 120);
+      y = drawSectionHeader(doc, 'Personal Information', y);
 
       const personalDetails = [
         { label: 'Date of Birth', value: formatDate(studentData.date_of_birth) },
         { label: 'Gender', value: studentData.gender },
         { label: 'PRN', value: studentData.prn },
+        { label: "Father's Name", value: extendedProfile.father_name },
+        { label: 'District', value: extendedProfile.district },
       ];
-
-      if (extendedProfile.father_name) {
-        personalDetails.push({ label: "Father's Name", value: extendedProfile.father_name });
-      }
-
-      if (extendedProfile.district) {
-        personalDetails.push({ label: 'District', value: extendedProfile.district });
-      }
 
       const height = extendedProfile.height_cm || studentData.height;
       const weight = extendedProfile.weight_kg || studentData.weight;
@@ -758,32 +868,36 @@ export async function generateCustomResume(studentData, extendedProfile = {}, re
       if (weight) personalDetails.push({ label: 'Weight', value: `${weight} kg` });
 
       const colWidth = pageWidth / 2;
-      let leftCol = y;
-      let rightCol = y;
+      const validDetails = personalDetails.filter(d => d.value);
+      const leftDetails = validDetails.filter((_, i) => i % 2 === 0);
+      const rightDetails = validDetails.filter((_, i) => i % 2 === 1);
 
-      personalDetails.forEach((item, index) => {
-        if (!item.value) return;
+      let leftY = y;
+      let rightY = y;
 
-        const isLeft = index % 2 === 0;
-        const x = isLeft ? MARGIN.left : MARGIN.left + colWidth;
-        const currentY = isLeft ? leftCol : rightCol;
-
+      leftDetails.forEach(item => {
         doc.fontSize(10)
            .font('Helvetica-Bold')
-           .fillColor(COLORS.lightText)
-           .text(`${item.label}: `, x, currentY, { continued: true })
+           .fillColor(COLORS.mediumGray)
+           .text(`${item.label}`, MARGIN.left, leftY, { continued: true })
            .font('Helvetica')
-           .fillColor(COLORS.text)
-           .text(item.value);
-
-        if (isLeft) {
-          leftCol = doc.y + 5;
-        } else {
-          rightCol = doc.y + 5;
-        }
+           .fillColor(COLORS.darkGray)
+           .text(` : ${item.value}`, { lineBreak: true });
+        leftY = doc.y + 4;
       });
 
-      y = Math.max(leftCol, rightCol) + 10;
+      rightDetails.forEach(item => {
+        doc.fontSize(10)
+           .font('Helvetica-Bold')
+           .fillColor(COLORS.mediumGray)
+           .text(`${item.label}`, MARGIN.left + colWidth, rightY, { continued: true })
+           .font('Helvetica')
+           .fillColor(COLORS.darkGray)
+           .text(` : ${item.value}`, { lineBreak: true });
+        rightY = doc.y + 4;
+      });
+
+      y = Math.max(leftY, rightY) + 10;
 
       // ==================== DOCUMENTS ====================
       const documents = [];
@@ -793,61 +907,79 @@ export async function generateCustomResume(studentData, extendedProfile = {}, re
       if (studentData.has_driving_license || extendedProfile.has_driving_license) documents.push('Driving License');
 
       if (documents.length > 0) {
-        y = checkNewPage(doc, 60);
+        y = checkNewPage(doc, 70);
         y = drawSectionHeader(doc, 'Documents Available', y);
+
         doc.fontSize(10)
            .font('Helvetica')
-           .fillColor(COLORS.text)
-           .text(documents.join('  |  '), MARGIN.left, y);
-        y = doc.y + 15;
+           .fillColor(COLORS.darkGray)
+           .text(documents.join('   •   '), MARGIN.left, y);
+        y = doc.y + SPACING.sectionGap;
       }
 
       // ==================== CUSTOM SECTIONS ====================
       const customSections = resumeData.custom_sections || [];
       if (customSections.length > 0) {
         customSections.forEach(section => {
+          if (!section.title || !section.content) return;
           y = checkNewPage(doc, 80);
-          y = drawSectionHeader(doc, section.title || 'Additional Information', y);
+          y = drawSectionHeader(doc, section.title, y);
+
           doc.fontSize(10)
              .font('Helvetica')
-             .fillColor(COLORS.text)
-             .text(section.content || '', MARGIN.left, y, { width: pageWidth });
-          y = doc.y + 15;
+             .fillColor(COLORS.darkGray)
+             .text(section.content, MARGIN.left, y, {
+               width: pageWidth,
+               lineGap: 2
+             });
+          y = doc.y + SPACING.sectionGap;
         });
       }
 
       // ==================== DECLARATION ====================
-      y = checkNewPage(doc, 80);
+      y = checkNewPage(doc, 100);
       y = drawSectionHeader(doc, 'Declaration', y);
 
       const declaration = resumeData.declaration_text ||
-        'I hereby declare that the above-mentioned information is true to the best of my knowledge and belief.';
+        'I hereby declare that all the information furnished above is true to the best of my knowledge and belief. I shall be responsible for any discrepancy.';
 
       doc.fontSize(10)
          .font('Helvetica')
-         .fillColor(COLORS.text)
+         .fillColor(COLORS.darkGray)
          .text(declaration, MARGIN.left, y, {
            width: pageWidth,
-           align: 'justify'
+           align: 'justify',
+           lineGap: 2
          });
-
-      y = doc.y + 20;
-
-      doc.fontSize(10)
-         .font('Helvetica')
-         .fillColor(COLORS.lightText)
-         .text(`Place: ${extendedProfile.district || '_____________'}`, MARGIN.left, y);
-
-      doc.text(`Date: ${formatDate(new Date())}`, MARGIN.left + 200, y);
 
       y = doc.y + 25;
 
+      // Place and Date
+      doc.fontSize(10)
+         .font('Helvetica')
+         .fillColor(COLORS.mediumGray)
+         .text(`Place: ${extendedProfile.district || '____________'}`, MARGIN.left, y);
+
+      doc.text(`Date: ${formatDate(new Date())}`, MARGIN.left + 180, y);
+
+      y = doc.y + 30;
+
+      // Signature line
+      const signX = doc.page.width - MARGIN.right - 150;
+      doc.strokeColor(COLORS.black)
+         .lineWidth(0.8)
+         .moveTo(signX, y)
+         .lineTo(signX + 140, y)
+         .stroke();
+
+      y += 5;
+
       doc.fontSize(10)
          .font('Helvetica-Bold')
-         .fillColor(COLORS.text)
-         .text(`(${studentData.student_name || 'Signature'})`, doc.page.width - MARGIN.right - 150, y, {
-           width: 150,
-           align: 'right'
+         .fillColor(COLORS.black)
+         .text(`(${studentData.student_name || 'Signature'})`, signX, y, {
+           width: 140,
+           align: 'center'
          });
 
       doc.end();

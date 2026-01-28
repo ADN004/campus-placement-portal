@@ -16,6 +16,7 @@ import StudentApplications from './pages/student/StudentApplications';
 import StudentNotifications from './pages/student/StudentNotifications';
 import StudentProfile from './pages/student/Profile';
 import ExtendedProfile from './pages/student/ExtendedProfile';
+import StudentResume from './pages/student/Resume';
 import WaitingPage from './pages/student/WaitingPage';
 
 // Placement Officer Pages
@@ -83,6 +84,7 @@ function App() {
                 <Route path="/student/notifications" element={<StudentNotifications />} />
                 <Route path="/student/profile" element={<StudentProfile />} />
                 <Route path="/student/extended-profile" element={<ExtendedProfile />} />
+                <Route path="/student/resume" element={<StudentResume />} />
               </>
             )}
 

@@ -770,6 +770,55 @@ CREATE INDEX idx_archived_students_range ON archived_students(prn_range_id);
 CREATE INDEX idx_archived_students_archived_at ON archived_students(archived_at DESC);
 
 -- ============================================
+-- 28. STUDENT RESUMES TABLE
+-- ============================================
+-- Stores custom resume content that students can modify
+-- Officers can choose to download either system-generated or custom version
+
+CREATE TABLE student_resumes (
+    id SERIAL PRIMARY KEY,
+    student_id INTEGER NOT NULL UNIQUE REFERENCES students(id) ON DELETE CASCADE,
+
+    -- Career Objective
+    career_objective TEXT,
+
+    -- Skills (stored as JSON array for flexibility)
+    technical_skills JSONB DEFAULT '[]'::jsonb,
+    soft_skills JSONB DEFAULT '[]'::jsonb,
+    languages_known JSONB DEFAULT '[]'::jsonb,
+
+    -- Projects (JSON array with project details)
+    projects JSONB DEFAULT '[]'::jsonb,
+
+    -- Work Experience / Internships
+    work_experience JSONB DEFAULT '[]'::jsonb,
+
+    -- Extra Certifications
+    certifications JSONB DEFAULT '[]'::jsonb,
+
+    -- Achievements & Awards
+    achievements JSONB DEFAULT '[]'::jsonb,
+
+    -- Extracurricular Activities
+    extracurricular_activities JSONB DEFAULT '[]'::jsonb,
+
+    -- Declaration text
+    declaration_text TEXT DEFAULT 'I hereby declare that the above-mentioned information is true to the best of my knowledge.',
+
+    -- Custom sections
+    custom_sections JSONB DEFAULT '[]'::jsonb,
+
+    -- Tracking
+    has_custom_content BOOLEAN DEFAULT FALSE,
+    last_modified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_student_resumes_student_id ON student_resumes(student_id);
+CREATE INDEX idx_student_resumes_has_custom ON student_resumes(has_custom_content);
+
+-- ============================================
 -- TRIGGERS FOR UPDATED_AT TIMESTAMPS
 -- ============================================
 
@@ -835,6 +884,21 @@ CREATE TRIGGER job_drives_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_job_drives_updated_at();
 
+-- Student resumes timestamp trigger
+CREATE OR REPLACE FUNCTION update_student_resumes_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    NEW.last_modified_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_update_student_resumes_timestamp
+    BEFORE UPDATE ON student_resumes
+    FOR EACH ROW
+    EXECUTE FUNCTION update_student_resumes_timestamp();
+
 -- ============================================
 -- STUDENT AGE AUTO-UPDATE TRIGGER
 -- ============================================
@@ -885,6 +949,11 @@ BEGIN
         (NEW.id, 'document_verification', false, 0),
         (NEW.id, 'education_preferences', false, 0)
     ON CONFLICT (student_id, section_name) DO NOTHING;
+
+    -- Also create resume record for the student
+    INSERT INTO student_resumes (student_id)
+    VALUES (NEW.id)
+    ON CONFLICT (student_id) DO NOTHING;
 
     RETURN NEW;
 END;
@@ -1135,6 +1204,7 @@ COMMENT ON TABLE activity_logs IS 'Audit trail of all important actions';
 COMMENT ON TABLE branches IS 'Reference table for all engineering branches with standardized short names';
 COMMENT ON TABLE branch_mappings IS 'Normalized branch names for handling variations across colleges';
 COMMENT ON TABLE archived_students IS 'Archived student data from disabled PRN ranges';
+COMMENT ON TABLE student_resumes IS 'Stores custom resume content for students. Officers can download either system-standard or student-modified version.';
 COMMENT ON MATERIALIZED VIEW active_students_view IS 'Optimized view for active, approved, non-blacklisted students';
 COMMENT ON FUNCTION update_student_age() IS 'Automatically calculates and updates student age based on date_of_birth';
 COMMENT ON FUNCTION create_student_extended_profile() IS 'Automatically creates extended profile and section tracking when a new student is registered';

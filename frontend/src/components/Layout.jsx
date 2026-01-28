@@ -42,6 +42,7 @@ export default function Layout() {
           { name: 'Notifications', path: '/student/notifications', icon: Bell },
           { name: 'Profile', path: '/student/profile', icon: User },
           { name: 'Extended Profile', path: '/student/extended-profile', icon: ClipboardList },
+          { name: 'My Resume', path: '/student/resume', icon: FileText },
         ];
       case 'placement_officer':
         return [

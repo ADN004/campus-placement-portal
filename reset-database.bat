@@ -87,7 +87,7 @@ echo   DATABASE RESET COMPLETE!
 echo ========================================================================
 echo.
 echo Your database has been reset to initial state with:
-echo   - 27 tables with all triggers and functions
+echo   - 28 tables with all triggers and functions
 echo   - 5 regions across Kerala
 echo   - 60 polytechnic colleges
 echo   - 60 placement officers

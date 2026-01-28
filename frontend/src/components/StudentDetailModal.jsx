@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, User, GraduationCap, Users, FileText, CheckCircle, XCircle } from 'lucide-react';
 import { superAdminAPI, placementOfficerAPI } from '../services/api';
+import ResumeDownloadButton from './ResumeDownloadButton';
 
 const StudentDetailModal = ({ isOpen, onClose, studentId, applicationId, userRole = 'super-admin' }) => {
   const [student, setStudent] = useState(null);
@@ -49,12 +50,21 @@ const StudentDetailModal = ({ isOpen, onClose, studentId, applicationId, userRol
               </p>
             )}
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <X size={24} />
-          </button>
+          <div className="flex items-center gap-3">
+            {student && (
+              <ResumeDownloadButton
+                studentId={studentId}
+                studentName={student.name || student.prn}
+                api={userRole === 'placement-officer' ? placementOfficerAPI : superAdminAPI}
+              />
+            )}
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <X size={24} />
+            </button>
+          </div>
         </div>
 
         {loading ? (

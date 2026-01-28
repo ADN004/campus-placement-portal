@@ -89,6 +89,12 @@ export const studentAPI = {
   checkApplicationReadiness: (jobId) => API.post(`/students/jobs/${jobId}/check-readiness`),
   getMissingFields: (jobId) => API.get(`/students/jobs/${jobId}/missing-fields`),
   applyEnhanced: (jobId, data) => API.post(`/students/jobs/${jobId}/apply-enhanced`, data),
+
+  // Resume APIs
+  getResume: () => API.get('/students/resume'),
+  updateResume: (data) => API.put('/students/resume', data),
+  downloadStandardResume: () => API.get('/students/resume/download/standard', { responseType: 'blob' }),
+  downloadCustomResume: () => API.get('/students/resume/download/custom', { responseType: 'blob' }),
 };
 
 // Placement Officer APIs
@@ -157,6 +163,11 @@ export const placementOfficerAPI = {
   // Manual Student Addition
   validateStudentForManualAddition: (data) => API.post('/placement-officer/validate-student-for-manual-addition', data),
   manuallyAddStudentToJob: (data) => API.post('/placement-officer/manually-add-student-to-job', data),
+
+  // Student Resume Download
+  getStudentResumeStatus: (studentId) => API.get(`/placement-officer/students/${studentId}/resume/status`),
+  downloadStudentStandardResume: (studentId) => API.get(`/placement-officer/students/${studentId}/resume/standard`, { responseType: 'blob' }),
+  downloadStudentCustomResume: (studentId) => API.get(`/placement-officer/students/${studentId}/resume/custom`, { responseType: 'blob' }),
 };
 
 // Super Admin APIs
@@ -304,6 +315,11 @@ export const superAdminAPI = {
   getAdminNotificationUnreadCount: () => API.get('/super-admin/admin-notifications/unread-count'),
   markAdminNotificationRead: (id) => API.put(`/super-admin/admin-notifications/${id}/read`),
   markAllAdminNotificationsRead: () => API.put('/super-admin/admin-notifications/mark-all-read'),
+
+  // Student Resume Download
+  getStudentResumeStatus: (studentId) => API.get(`/super-admin/students/${studentId}/resume/status`),
+  downloadStudentStandardResume: (studentId) => API.get(`/super-admin/students/${studentId}/resume/standard`, { responseType: 'blob' }),
+  downloadStudentCustomResume: (studentId) => API.get(`/super-admin/students/${studentId}/resume/custom`, { responseType: 'blob' }),
 };
 
 export default API;

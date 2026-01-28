@@ -135,7 +135,7 @@ echo   DATABASE INITIALIZATION COMPLETE!
 echo ========================================
 echo.
 echo Your database is now ready with:
-echo   [*] 27 tables with complete relationships
+echo   [*] 28 tables with complete relationships
 echo   [*] 5 regions across Kerala
 echo   [*] 60 polytechnic colleges
 echo   [*] 60 placement officers (one per college)

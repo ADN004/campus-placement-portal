@@ -49,6 +49,11 @@ import {
   validateStudentForManualAddition,
 } from '../controllers/placementOfficerControllerExtensions.js';
 import {
+  downloadStudentStandardResumePO,
+  downloadStudentCustomResumePO,
+  getStudentResumeStatusPO,
+} from '../controllers/resumeController.js';
+import {
   getOwnCollegeBranches,
   updateOwnCollegeBranches,
   getBranchTemplates,
@@ -87,6 +92,12 @@ router.get('/college/branches', getCollegeBranches);
 
 // Enhanced Job Applicants Management Routes (College-Scoped)
 router.get('/students/:studentId/detailed-profile', getDetailedStudentProfile);
+
+// Student Resume Download Routes
+router.get('/students/:studentId/resume/status', getStudentResumeStatusPO);
+router.get('/students/:studentId/resume/standard', downloadStudentStandardResumePO);
+router.get('/students/:studentId/resume/custom', downloadStudentCustomResumePO);
+
 router.put('/applications/:applicationId/status', updateApplicationStatus);
 router.post('/applications/bulk-update-status', bulkUpdateApplicationStatus);
 router.put('/applications/:applicationId/placement', updatePlacementDetails);

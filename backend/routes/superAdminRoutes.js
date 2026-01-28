@@ -42,6 +42,10 @@ import {
   getCollegesForNotifications,
   getBranchesForColleges,
   sendNotification,
+  getAdminNotifications,
+  markAdminNotificationRead,
+  markAllAdminNotificationsRead,
+  getAdminNotificationUnreadCount,
 } from '../controllers/superAdminController.js';
 import {
   bulkDeleteStudentPhotos,
@@ -200,5 +204,11 @@ router.post('/placement-poster/generate-multi', exportLimiter, generateMultiColl
 // Manual Student Addition Routes
 router.post('/manually-add-student-to-job', manuallyAddStudentToJob);
 router.post('/validate-student-for-manual-addition', validateStudentForManualAddition);
+
+// Admin Notifications (Auto-approved jobs, system alerts)
+router.get('/admin-notifications', getAdminNotifications);
+router.get('/admin-notifications/unread-count', getAdminNotificationUnreadCount);
+router.put('/admin-notifications/mark-all-read', markAllAdminNotificationsRead);
+router.put('/admin-notifications/:id/read', markAdminNotificationRead);
 
 export default router;

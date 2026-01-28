@@ -150,6 +150,11 @@
     @apply animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600;
   }
 
+  /* Small Loading Spinner */
+  .spinner-small {
+    @apply animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600;
+  }
+
   /* Notification Badge */
   .notification-badge {
     @apply absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center;

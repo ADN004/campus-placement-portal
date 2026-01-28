@@ -1677,11 +1677,23 @@ export const createJobRequest = async (req, res) => {
       target_type,
       target_regions,
       target_colleges,
+      // Extended requirements (for auto-approval)
+      requires_academic_extended,
+      requires_physical_details,
+      requires_family_details,
+      requires_personal_details,
+      requires_document_verification,
+      requires_education_preferences,
+      specific_field_requirements,
+      custom_fields,
     } = req.body;
 
-    // Get placement officer details
+    // Get placement officer details with college info
     const officerResult = await query(
-      'SELECT id, college_id FROM placement_officers WHERE user_id = $1',
+      `SELECT po.id, po.college_id, c.college_name, c.region_id
+       FROM placement_officers po
+       JOIN colleges c ON po.college_id = c.id
+       WHERE po.user_id = $1`,
       [req.user.id]
     );
 
@@ -1711,7 +1723,174 @@ export const createJobRequest = async (req, res) => {
       return isNaN(num) ? null : num;
     };
 
-    // Create job request
+    // Check if this is an "own college only" job (auto-approval eligible)
+    const isOwnCollegeOnly = target_type === 'college' &&
+      (!target_regions || target_regions.length === 0) &&
+      (!target_colleges || target_colleges.length === 0);
+
+    if (isOwnCollegeOnly) {
+      // AUTO-APPROVAL: Create job directly for own college
+      const result = await transaction(async (client) => {
+        // Create job request with auto_approved status
+        const jobRequestResult = await client.query(
+          `INSERT INTO job_requests (
+            placement_officer_id, college_id, job_title, company_name, job_description,
+            job_type, location, salary_range, application_deadline, application_form_url,
+            min_cgpa, max_backlogs, allowed_branches, target_type, target_regions, target_colleges,
+            status, reviewed_date
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, CURRENT_TIMESTAMP)
+          RETURNING *`,
+          [
+            officer.id,
+            officer.college_id,
+            job_title.trim(),
+            company_name.trim(),
+            job_description.trim(),
+            job_type || 'Full-time',
+            toNullIfEmpty(location),
+            toNullIfEmpty(salary_range),
+            application_deadline,
+            application_form_url.trim(),
+            toNumberOrNull(min_cgpa),
+            toNumberOrNull(max_backlogs),
+            allowed_branches && allowed_branches.length > 0 ? JSON.stringify(allowed_branches) : null,
+            'specific',
+            null, // No target regions for own college
+            JSON.stringify([officer.college_id]), // Target only own college
+            'auto_approved',
+          ]
+        );
+
+        const jobRequest = jobRequestResult.rows[0];
+
+        // Create the job directly
+        const jobResult = await client.query(
+          `INSERT INTO jobs
+           (job_title, company_name, job_description, job_location, job_type, salary_package,
+            application_form_url, application_start_date, application_deadline, min_cgpa, max_backlogs,
+            allowed_branches, target_type, target_regions, target_colleges, created_by, is_active,
+            placement_officer_id, is_auto_approved, source_job_request_id)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, $8, $9, $10, $11::jsonb, $12, $13::jsonb, $14::jsonb, $15, TRUE, $16, TRUE, $17)
+           RETURNING *`,
+          [
+            job_title.trim(),
+            company_name.trim(),
+            job_description.trim(),
+            toNullIfEmpty(location),
+            job_type || 'Full-time',
+            toNullIfEmpty(salary_range),
+            application_form_url.trim(),
+            application_deadline,
+            toNumberOrNull(min_cgpa),
+            toNumberOrNull(max_backlogs),
+            allowed_branches && allowed_branches.length > 0 ? JSON.stringify(allowed_branches) : null,
+            'college', // Target type is college
+            null, // No target regions
+            JSON.stringify([officer.college_id]), // Target only own college
+            req.user.id,
+            officer.id,
+            jobRequest.id,
+          ]
+        );
+
+        const job = jobResult.rows[0];
+
+        // Create job requirement template if extended requirements provided
+        if (requires_academic_extended || requires_physical_details || requires_family_details ||
+            requires_personal_details || requires_document_verification || requires_education_preferences ||
+            specific_field_requirements || custom_fields) {
+          // Save to job_request_requirement_templates
+          await client.query(
+            `INSERT INTO job_request_requirement_templates (
+              job_request_id, min_cgpa, max_backlogs, allowed_branches,
+              requires_academic_extended, requires_physical_details,
+              requires_family_details, requires_personal_details,
+              requires_document_verification, requires_education_preferences,
+              specific_field_requirements, custom_fields
+            ) VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8, $9, $10, $11::jsonb, $12::jsonb)`,
+            [
+              jobRequest.id,
+              toNumberOrNull(min_cgpa),
+              toNumberOrNull(max_backlogs),
+              allowed_branches && allowed_branches.length > 0 ? JSON.stringify(allowed_branches) : null,
+              requires_academic_extended || false,
+              requires_physical_details || false,
+              requires_family_details || false,
+              requires_personal_details || false,
+              requires_document_verification || false,
+              requires_education_preferences || false,
+              specific_field_requirements ? JSON.stringify(specific_field_requirements) : null,
+              custom_fields && custom_fields.length > 0 ? JSON.stringify(custom_fields) : null,
+            ]
+          );
+
+          // Copy to job_requirement_templates
+          await client.query(
+            `INSERT INTO job_requirement_templates (
+              job_id, min_cgpa, max_backlogs, allowed_branches,
+              requires_academic_extended, requires_physical_details,
+              requires_family_details, requires_personal_details,
+              requires_document_verification, requires_education_preferences,
+              specific_field_requirements, custom_fields
+            ) VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8, $9, $10, $11::jsonb, $12::jsonb)`,
+            [
+              job.id,
+              toNumberOrNull(min_cgpa),
+              toNumberOrNull(max_backlogs),
+              allowed_branches && allowed_branches.length > 0 ? JSON.stringify(allowed_branches) : null,
+              requires_academic_extended || false,
+              requires_physical_details || false,
+              requires_family_details || false,
+              requires_personal_details || false,
+              requires_document_verification || false,
+              requires_education_preferences || false,
+              specific_field_requirements ? JSON.stringify(specific_field_requirements) : null,
+              custom_fields && custom_fields.length > 0 ? JSON.stringify(custom_fields) : null,
+            ]
+          );
+        }
+
+        // Create notification for super admin
+        await client.query(
+          `INSERT INTO admin_notifications (
+            notification_type, title, message, related_entity_type, related_entity_id,
+            created_by_user_id, created_by_college_id
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [
+            'job_auto_approved',
+            `New Job Posted: ${company_name} - ${job_title}`,
+            `${officer.college_name} has posted a new job for their college students. Company: ${company_name}, Position: ${job_title}`,
+            'job',
+            job.id,
+            req.user.id,
+            officer.college_id,
+          ]
+        );
+
+        return { jobRequest, job };
+      });
+
+      // Log activity
+      await logActivity(
+        req.user.id,
+        'JOB_AUTO_APPROVED',
+        `Auto-approved and created job for own college: ${company_name} - ${job_title}`,
+        'job',
+        result.job.id,
+        { job_request_id: result.jobRequest.id },
+        req
+      );
+
+      return res.status(201).json({
+        success: true,
+        message: 'Job created successfully for your college (auto-approved)',
+        data: result.jobRequest,
+        job: result.job,
+        auto_approved: true,
+      });
+    }
+
+    // STANDARD FLOW: Create job request pending super admin approval
     const jobRequestResult = await query(
       `INSERT INTO job_requests (
         placement_officer_id, college_id, job_title, company_name, job_description,
@@ -1734,7 +1913,7 @@ export const createJobRequest = async (req, res) => {
         toNumberOrNull(min_cgpa),
         toNumberOrNull(max_backlogs),
         allowed_branches && allowed_branches.length > 0 ? JSON.stringify(allowed_branches) : null,
-        'specific', // Only 'all' or 'specific' allowed by check constraint
+        'specific',
         target_regions && target_regions.length > 0 ? JSON.stringify(target_regions) : null,
         target_colleges && target_colleges.length > 0 ? JSON.stringify(target_colleges) : null,
         'pending',
@@ -1754,8 +1933,9 @@ export const createJobRequest = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: 'Job request submitted successfully',
+      message: 'Job request submitted successfully. Awaiting super admin approval.',
       data: jobRequestResult.rows[0],
+      auto_approved: false,
     });
   } catch (error) {
     console.error('Create job request error:', error);

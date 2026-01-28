@@ -15,6 +15,10 @@ import {
   Ban,
   LayoutDashboard,
   ArrowRight,
+  Bell,
+  Zap,
+  CheckCircle,
+  Eye,
 } from 'lucide-react';
 import DashboardHeader from '../../components/DashboardHeader';
 import GlassStatCard from '../../components/GlassStatCard';
@@ -24,9 +28,12 @@ import GlassCard from '../../components/GlassCard';
 export default function SuperAdminDashboard() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [adminNotifications, setAdminNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     fetchDashboardData();
+    fetchAdminNotifications();
   }, []);
 
   const fetchDashboardData = async () => {
@@ -39,6 +46,57 @@ export default function SuperAdminDashboard() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchAdminNotifications = async () => {
+    try {
+      const [notificationsRes, countRes] = await Promise.all([
+        superAdminAPI.getAdminNotifications({ limit: 5, unread_only: false }),
+        superAdminAPI.getAdminNotificationUnreadCount()
+      ]);
+      setAdminNotifications(notificationsRes.data.data || []);
+      setUnreadCount(countRes.data.unread_count || 0);
+    } catch (error) {
+      console.error('Failed to fetch admin notifications:', error);
+    }
+  };
+
+  const handleMarkAsRead = async (id) => {
+    try {
+      await superAdminAPI.markAdminNotificationRead(id);
+      setAdminNotifications(prev =>
+        prev.map(n => n.id === id ? { ...n, is_read: true } : n)
+      );
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    } catch (error) {
+      console.error('Failed to mark notification as read:', error);
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      await superAdminAPI.markAllAdminNotificationsRead();
+      setAdminNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+      setUnreadCount(0);
+      toast.success('All notifications marked as read');
+    } catch (error) {
+      toast.error('Failed to mark notifications as read');
+    }
+  };
+
+  const formatTimeAgo = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
   };
 
   if (loading) {
@@ -187,6 +245,111 @@ export default function SuperAdminDashboard() {
             index={index}
           />
         ))}
+      </div>
+
+      {/* Admin Notifications Section */}
+      <div className="mb-10">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl p-2.5 shadow-lg">
+              <Bell className="text-white" size={24} />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-gray-800">Recent Notifications</h2>
+              <p className="text-sm text-gray-500">Auto-approved jobs and system alerts</p>
+            </div>
+            {unreadCount > 0 && (
+              <span className="bg-red-500 text-white text-xs font-bold px-2.5 py-1 rounded-full">
+                {unreadCount} new
+              </span>
+            )}
+          </div>
+          {unreadCount > 0 && (
+            <button
+              onClick={handleMarkAllAsRead}
+              className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
+            >
+              <CheckCircle size={16} />
+              Mark all as read
+            </button>
+          )}
+        </div>
+        <GlassCard variant="elevated" className="p-0 overflow-hidden">
+          {adminNotifications.length === 0 ? (
+            <div className="p-8 text-center">
+              <div className="bg-gray-100 rounded-full p-4 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                <Bell className="text-gray-400" size={28} />
+              </div>
+              <p className="text-gray-500 font-medium">No notifications yet</p>
+              <p className="text-sm text-gray-400 mt-1">
+                You'll be notified when placement officers post jobs for their own college
+              </p>
+            </div>
+          ) : (
+          <div className="divide-y divide-gray-100">
+            {adminNotifications.map((notification) => (
+                <div
+                  key={notification.id}
+                  className={`p-4 flex items-start gap-4 hover:bg-gray-50 transition-colors ${
+                    !notification.is_read ? 'bg-blue-50/50' : ''
+                  }`}
+                >
+                  <div className={`rounded-full p-2 ${
+                    notification.notification_type === 'job_auto_approved'
+                      ? 'bg-green-100 text-green-600'
+                      : 'bg-blue-100 text-blue-600'
+                  }`}>
+                    {notification.notification_type === 'job_auto_approved' ? (
+                      <Zap size={20} />
+                    ) : (
+                      <Bell size={20} />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className={`font-semibold text-gray-900 ${!notification.is_read ? 'font-bold' : ''}`}>
+                          {notification.title}
+                        </p>
+                        <p className="text-sm text-gray-600 mt-1">{notification.message}</p>
+                        <div className="flex items-center gap-3 mt-2">
+                          {notification.college_name && (
+                            <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
+                              {notification.college_name}
+                            </span>
+                          )}
+                          <span className="text-xs text-gray-400">
+                            {formatTimeAgo(notification.created_at)}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {notification.related_entity_type === 'job' && notification.related_entity_id && (
+                          <Link
+                            to={`/super-admin/jobs/${notification.related_entity_id}/applicants`}
+                            className="text-blue-600 hover:text-blue-800 p-1.5 rounded-lg hover:bg-blue-50"
+                            title="View Job"
+                          >
+                            <Eye size={18} />
+                          </Link>
+                        )}
+                        {!notification.is_read && (
+                          <button
+                            onClick={() => handleMarkAsRead(notification.id)}
+                            className="text-gray-400 hover:text-green-600 p-1.5 rounded-lg hover:bg-green-50"
+                            title="Mark as read"
+                          >
+                            <CheckCircle size={18} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </GlassCard>
       </div>
 
       {/* Quick Actions */}

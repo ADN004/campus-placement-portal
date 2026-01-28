@@ -3493,3 +3493,158 @@ export const getAvailableDistricts = async (req, res) => {
     });
   }
 };
+
+// ========================================
+// ADMIN NOTIFICATIONS (Auto-approved jobs, etc.)
+// ========================================
+
+// @desc    Get admin notifications (job auto-approvals, system alerts, etc.)
+// @route   GET /api/super-admin/admin-notifications
+// @access  Private (Super Admin)
+export const getAdminNotifications = async (req, res) => {
+  try {
+    const { limit = 50, offset = 0, unread_only = false, type } = req.query;
+
+    let whereClause = 'WHERE 1=1';
+    const params = [];
+    let paramIndex = 1;
+
+    if (unread_only === 'true') {
+      whereClause += ` AND an.is_read = FALSE`;
+    }
+
+    if (type) {
+      whereClause += ` AND an.notification_type = $${paramIndex}`;
+      params.push(type);
+      paramIndex++;
+    }
+
+    const notificationsResult = await query(
+      `SELECT an.*,
+              c.college_name,
+              c.college_code,
+              u.email as created_by_email,
+              j.job_title,
+              j.company_name as job_company
+       FROM admin_notifications an
+       LEFT JOIN colleges c ON an.created_by_college_id = c.id
+       LEFT JOIN users u ON an.created_by_user_id = u.id
+       LEFT JOIN jobs j ON an.related_entity_type = 'job' AND an.related_entity_id = j.id
+       ${whereClause}
+       ORDER BY an.created_at DESC
+       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
+      [...params, parseInt(limit), parseInt(offset)]
+    );
+
+    // Get unread count
+    const unreadResult = await query(
+      `SELECT COUNT(*) as unread_count FROM admin_notifications WHERE is_read = FALSE`
+    );
+
+    res.json({
+      success: true,
+      data: notificationsResult.rows,
+      unread_count: parseInt(unreadResult.rows[0].unread_count),
+      pagination: {
+        limit: parseInt(limit),
+        offset: parseInt(offset),
+        total: notificationsResult.rows.length
+      }
+    });
+  } catch (error) {
+    console.error('Get admin notifications error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching admin notifications',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Mark admin notification as read
+// @route   PUT /api/super-admin/admin-notifications/:id/read
+// @access  Private (Super Admin)
+export const markAdminNotificationRead = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await query(
+      `UPDATE admin_notifications
+       SET is_read = TRUE, read_by = $1, read_at = CURRENT_TIMESTAMP
+       WHERE id = $2
+       RETURNING *`,
+      [req.user.id, id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Notification not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Notification marked as read',
+      data: result.rows[0]
+    });
+  } catch (error) {
+    console.error('Mark notification read error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error marking notification as read',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Mark all admin notifications as read
+// @route   PUT /api/super-admin/admin-notifications/mark-all-read
+// @access  Private (Super Admin)
+export const markAllAdminNotificationsRead = async (req, res) => {
+  try {
+    const result = await query(
+      `UPDATE admin_notifications
+       SET is_read = TRUE, read_by = $1, read_at = CURRENT_TIMESTAMP
+       WHERE is_read = FALSE
+       RETURNING id`,
+      [req.user.id]
+    );
+
+    res.json({
+      success: true,
+      message: `${result.rows.length} notification(s) marked as read`,
+      count: result.rows.length
+    });
+  } catch (error) {
+    console.error('Mark all notifications read error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error marking notifications as read',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get unread admin notification count
+// @route   GET /api/super-admin/admin-notifications/unread-count
+// @access  Private (Super Admin)
+export const getAdminNotificationUnreadCount = async (req, res) => {
+  try {
+    const result = await query(
+      `SELECT COUNT(*) as count FROM admin_notifications WHERE is_read = FALSE`
+    );
+
+    res.json({
+      success: true,
+      unread_count: parseInt(result.rows[0].count)
+    });
+  } catch (error) {
+    console.error('Get unread count error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching unread count',
+      error: error.message
+    });
+  }
+};

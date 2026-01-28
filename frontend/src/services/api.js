@@ -298,6 +298,12 @@ export const superAdminAPI = {
   // Manual Student Addition
   validateStudentForManualAddition: (data) => API.post('/super-admin/validate-student-for-manual-addition', data),
   manuallyAddStudentToJob: (data) => API.post('/super-admin/manually-add-student-to-job', data),
+
+  // Admin Notifications (auto-approved jobs, system alerts)
+  getAdminNotifications: (params) => API.get('/super-admin/admin-notifications', { params }),
+  getAdminNotificationUnreadCount: () => API.get('/super-admin/admin-notifications/unread-count'),
+  markAdminNotificationRead: (id) => API.put(`/super-admin/admin-notifications/${id}/read`),
+  markAllAdminNotificationsRead: () => API.put('/super-admin/admin-notifications/mark-all-read'),
 };
 
 export default API;

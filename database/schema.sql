@@ -387,6 +387,11 @@ CREATE TABLE jobs (
     deleted_by INTEGER REFERENCES users(id),
     deletion_reason TEXT,
 
+    -- Placement officer tracking (for officer-created jobs)
+    placement_officer_id INTEGER REFERENCES placement_officers(id) ON DELETE SET NULL,
+    is_auto_approved BOOLEAN DEFAULT FALSE,
+    source_job_request_id INTEGER, -- Will be FK after job_requests table is created
+
     created_by INTEGER NOT NULL REFERENCES users(id),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -399,6 +404,8 @@ CREATE INDEX idx_jobs_active ON jobs(is_active);
 CREATE INDEX idx_jobs_company ON jobs(company_name);
 CREATE INDEX idx_jobs_deadline ON jobs(application_deadline);
 CREATE INDEX idx_jobs_deleted ON jobs(is_deleted);
+CREATE INDEX idx_jobs_placement_officer ON jobs(placement_officer_id);
+CREATE INDEX idx_jobs_auto_approved ON jobs(is_auto_approved);
 
 -- ============================================
 -- 12. JOB DRIVES TABLE
@@ -578,7 +585,7 @@ CREATE TABLE job_requests (
     target_type VARCHAR(50) DEFAULT 'specific' CHECK (target_type IN ('all', 'specific')),
     target_regions JSONB,
     target_colleges JSONB,
-    status VARCHAR(50) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+    status VARCHAR(50) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'auto_approved')),
     reviewed_by INTEGER REFERENCES users(id),
     review_comment TEXT,
     reviewed_date TIMESTAMP,
@@ -666,6 +673,30 @@ CREATE TABLE notification_targets (
 
 CREATE INDEX idx_notif_targets_notification ON notification_targets(notification_id);
 CREATE INDEX idx_notif_targets_entity ON notification_targets(target_entity_type, target_entity_id);
+
+-- ============================================
+-- 23.5 ADMIN NOTIFICATIONS TABLE
+-- ============================================
+-- Table to store notifications specifically for super admins (job auto-approvals, system alerts, etc.)
+CREATE TABLE admin_notifications (
+    id SERIAL PRIMARY KEY,
+    notification_type VARCHAR(50) NOT NULL CHECK (notification_type IN ('job_auto_approved', 'job_request', 'system', 'alert')),
+    title VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    related_entity_type VARCHAR(50), -- 'job', 'job_request', 'student', etc.
+    related_entity_id INTEGER,
+    created_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_by_college_id INTEGER REFERENCES colleges(id) ON DELETE SET NULL,
+    is_read BOOLEAN DEFAULT FALSE,
+    read_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    read_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_admin_notifications_type ON admin_notifications(notification_type);
+CREATE INDEX idx_admin_notifications_read ON admin_notifications(is_read);
+CREATE INDEX idx_admin_notifications_created ON admin_notifications(created_at DESC);
+CREATE INDEX idx_admin_notifications_entity ON admin_notifications(related_entity_type, related_entity_id);
 
 -- ============================================
 -- 24. ACTIVITY LOGS TABLE

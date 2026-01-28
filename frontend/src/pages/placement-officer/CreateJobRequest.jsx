@@ -18,6 +18,8 @@ import {
   ChevronDown,
   ChevronRight,
   Trash2,
+  Zap,
+  MapPin,
 } from 'lucide-react';
 import { KERALA_POLYTECHNIC_BRANCHES } from '../../constants/branches';
 import DashboardHeader from '../../components/DashboardHeader';
@@ -33,6 +35,10 @@ export default function CreateJobRequest() {
   const [templates, setTemplates] = useState([]);
   const [selectedTemplate, setSelectedTemplate] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
+  // New state for college selection
+  const [collegesByRegion, setCollegesByRegion] = useState({}); // { regionId: [colleges] }
+  const [loadingColleges, setLoadingColleges] = useState({});
+  const [expandedRegions, setExpandedRegions] = useState({});
 
   const [formData, setFormData] = useState({
     title: '',
@@ -45,8 +51,9 @@ export default function CreateJobRequest() {
     min_cgpa: '',
     max_backlogs: '',
     allowed_branches: [],
-    target_type: 'college', // Defaults to own college
+    target_type: 'college', // Defaults to own college (auto-approved)
     target_regions: [],
+    target_colleges: [], // New: specific colleges within regions
     application_form_url: '',
     // Extended requirements
     requires_academic_extended: false,
@@ -117,6 +124,7 @@ export default function CreateJobRequest() {
       allowed_branches: [],
       target_type: 'college',
       target_regions: [],
+      target_colleges: [],
       application_form_url: '',
       requires_academic_extended: false,
       requires_physical_details: false,
@@ -127,7 +135,81 @@ export default function CreateJobRequest() {
       specific_field_requirements: {},
       custom_fields: [],
     });
+    setExpandedRegions({});
     setShowCreateModal(true);
+  };
+
+  // Fetch colleges for a specific region
+  const fetchCollegesForRegion = async (regionId) => {
+    if (collegesByRegion[regionId]) return; // Already loaded
+
+    setLoadingColleges(prev => ({ ...prev, [regionId]: true }));
+    try {
+      const response = await commonAPI.getColleges(regionId);
+      setCollegesByRegion(prev => ({
+        ...prev,
+        [regionId]: response.data.data || []
+      }));
+    } catch (error) {
+      console.error(`Failed to load colleges for region ${regionId}:`, error);
+      toast.error('Failed to load colleges');
+    } finally {
+      setLoadingColleges(prev => ({ ...prev, [regionId]: false }));
+    }
+  };
+
+  // Toggle region expansion and load colleges
+  const handleRegionExpand = async (regionId) => {
+    const isExpanding = !expandedRegions[regionId];
+    setExpandedRegions(prev => ({
+      ...prev,
+      [regionId]: isExpanding
+    }));
+
+    if (isExpanding && !collegesByRegion[regionId]) {
+      await fetchCollegesForRegion(regionId);
+    }
+  };
+
+  // Handle college selection toggle
+  const handleCollegeToggle = (collegeId, regionId) => {
+    const newColleges = formData.target_colleges.includes(collegeId)
+      ? formData.target_colleges.filter((c) => c !== collegeId)
+      : [...formData.target_colleges, collegeId];
+
+    // Also ensure region is selected if any college from it is selected
+    const regionColleges = collegesByRegion[regionId] || [];
+    const hasCollegesFromRegion = newColleges.some(cId =>
+      regionColleges.some(c => c.id === cId)
+    );
+
+    let newRegions = [...formData.target_regions];
+    if (hasCollegesFromRegion && !newRegions.includes(regionId)) {
+      newRegions.push(regionId);
+    } else if (!hasCollegesFromRegion && newRegions.includes(regionId)) {
+      // Check if we should keep region for "all colleges in region" scenario
+      // Only remove if no colleges are selected from this region
+      // Actually, let's keep regions separate - user explicitly selects regions
+    }
+
+    setFormData({ ...formData, target_colleges: newColleges });
+  };
+
+  // Select/deselect all colleges in a region
+  const handleSelectAllCollegesInRegion = (regionId, selectAll) => {
+    const regionColleges = collegesByRegion[regionId] || [];
+    const regionCollegeIds = regionColleges.map(c => c.id);
+
+    let newColleges;
+    if (selectAll) {
+      // Add all colleges from this region
+      newColleges = [...new Set([...formData.target_colleges, ...regionCollegeIds])];
+    } else {
+      // Remove all colleges from this region
+      newColleges = formData.target_colleges.filter(cId => !regionCollegeIds.includes(cId));
+    }
+
+    setFormData({ ...formData, target_colleges: newColleges });
   };
 
   const handleApplyTemplate = (templateId) => {
@@ -184,12 +266,18 @@ export default function CreateJobRequest() {
       return;
     }
 
-    if (formData.target_type === 'region' && formData.target_regions.length === 0) {
-      toast.error('Please select at least one region');
-      return;
+    // Validate region/college selection for multi-college jobs
+    if (formData.target_type === 'region' || formData.target_type === 'specific_colleges') {
+      if (formData.target_colleges.length === 0 && formData.target_regions.length === 0) {
+        toast.error('Please select at least one region or specific colleges');
+        return;
+      }
     }
 
     try {
+      // Determine if this is own college only (auto-approved)
+      const isOwnCollegeOnly = formData.target_type === 'college';
+
       // Map frontend field names to backend expected names
       const submitData = {
         job_title: formData.title,
@@ -202,50 +290,73 @@ export default function CreateJobRequest() {
         application_form_url: formData.application_form_url,
         min_cgpa: formData.min_cgpa || null,
         max_backlogs: formData.max_backlogs || null,
-        allowed_branches: formData.allowed_branches, // Send as array, backend will stringify
+        allowed_branches: formData.allowed_branches,
         target_type: formData.target_type,
-        target_regions: formData.target_type === 'region' ? formData.target_regions : null, // Send as array
-        target_colleges: formData.target_type === 'college' ? [] : null,
+        // For region/specific_colleges, send both regions and specific colleges
+        target_regions: (formData.target_type === 'region' || formData.target_type === 'specific_colleges')
+          ? formData.target_regions
+          : null,
+        target_colleges: (formData.target_type === 'region' || formData.target_type === 'specific_colleges')
+          ? formData.target_colleges
+          : null,
+        // Include extended requirements for auto-approval
+        requires_academic_extended: formData.requires_academic_extended,
+        requires_physical_details: formData.requires_physical_details,
+        requires_family_details: formData.requires_family_details,
+        requires_personal_details: formData.requires_personal_details,
+        requires_document_verification: formData.requires_document_verification,
+        requires_education_preferences: formData.requires_education_preferences,
+        specific_field_requirements: formData.specific_field_requirements,
+        custom_fields: formData.custom_fields,
       };
 
       const response = await placementOfficerAPI.createJobRequest(submitData);
       const jobRequestId = response.data.data.id;
+      const isAutoApproved = response.data.auto_approved;
 
-      // Save requirements if any are specified
-      const hasRequirements =
-        formData.requires_academic_extended ||
-        formData.requires_physical_details ||
-        formData.requires_family_details ||
-        formData.requires_personal_details ||
-        formData.requires_document_verification ||
-        formData.requires_education_preferences ||
-        Object.keys(formData.specific_field_requirements).length > 0 ||
-        formData.custom_fields.length > 0;
-
-      if (hasRequirements) {
-        try {
-          const requirementsData = {
-            min_cgpa: formData.min_cgpa ? parseFloat(formData.min_cgpa) : null,
-            max_backlogs: formData.max_backlogs !== '' ? parseInt(formData.max_backlogs) : null,
-            allowed_branches: formData.allowed_branches,
-            requires_academic_extended: formData.requires_academic_extended,
-            requires_physical_details: formData.requires_physical_details,
-            requires_family_details: formData.requires_family_details,
-            requires_personal_details: formData.requires_personal_details,
-            requires_document_verification: formData.requires_document_verification,
-            requires_education_preferences: formData.requires_education_preferences,
-            specific_field_requirements: formData.specific_field_requirements,
-            custom_fields: formData.custom_fields,
-          };
-
-          await placementOfficerAPI.createJobRequestRequirements(jobRequestId, requirementsData);
-          toast.success('Job request and requirements submitted successfully! Waiting for Super Admin approval.');
-        } catch (error) {
-          console.error('Failed to save requirements:', error);
-          toast.error('Job created but failed to save requirements');
-        }
+      if (isAutoApproved) {
+        // Job was auto-approved (own college only)
+        toast.success(
+          <div className="flex items-center gap-2">
+            <Zap className="text-yellow-500" size={20} />
+            <span>Job created and published instantly for your college students!</span>
+          </div>,
+          { duration: 5000 }
+        );
       } else {
-        toast.success('Job request submitted successfully! Waiting for Super Admin approval.');
+        // Standard flow - requires approval
+        const hasRequirements =
+          formData.requires_academic_extended ||
+          formData.requires_physical_details ||
+          formData.requires_family_details ||
+          formData.requires_personal_details ||
+          formData.requires_document_verification ||
+          formData.requires_education_preferences ||
+          Object.keys(formData.specific_field_requirements).length > 0 ||
+          formData.custom_fields.length > 0;
+
+        if (hasRequirements) {
+          try {
+            const requirementsData = {
+              min_cgpa: formData.min_cgpa ? parseFloat(formData.min_cgpa) : null,
+              max_backlogs: formData.max_backlogs !== '' ? parseInt(formData.max_backlogs) : null,
+              allowed_branches: formData.allowed_branches,
+              requires_academic_extended: formData.requires_academic_extended,
+              requires_physical_details: formData.requires_physical_details,
+              requires_family_details: formData.requires_family_details,
+              requires_personal_details: formData.requires_personal_details,
+              requires_document_verification: formData.requires_document_verification,
+              requires_education_preferences: formData.requires_education_preferences,
+              specific_field_requirements: formData.specific_field_requirements,
+              custom_fields: formData.custom_fields,
+            };
+
+            await placementOfficerAPI.createJobRequestRequirements(jobRequestId, requirementsData);
+          } catch (error) {
+            console.error('Failed to save requirements:', error);
+          }
+        }
+        toast.success('Job request submitted! Awaiting Super Admin approval for multi-college visibility.');
       }
 
       setShowCreateModal(false);
@@ -316,10 +427,10 @@ export default function CreateJobRequest() {
   };
 
   const getStatusBadge = (status, jobDeleted = false) => {
-    if (status === 'approved' && jobDeleted) {
+    if ((status === 'approved' || status === 'auto_approved') && jobDeleted) {
       return (
         <span className="w-fit bg-gray-100 text-gray-800 font-bold px-4 py-2 rounded-xl border-2 border-gray-200 flex items-center justify-center space-x-1">
-          <span>Approved - Job Deleted</span>
+          <span>Job Deleted</span>
         </span>
       );
     }
@@ -327,6 +438,7 @@ export default function CreateJobRequest() {
     const badges = {
       pending: <span className="w-fit bg-yellow-100 text-yellow-800 font-bold px-4 py-2 rounded-xl border-2 border-yellow-200 flex items-center justify-center space-x-1"><Clock size={16} /><span>Pending Approval</span></span>,
       approved: <span className="w-fit bg-green-100 text-green-800 font-bold px-4 py-2 rounded-xl border-2 border-green-200 flex items-center justify-center space-x-1"><CheckCircle size={16} /><span>Approved</span></span>,
+      auto_approved: <span className="w-fit bg-emerald-100 text-emerald-800 font-bold px-4 py-2 rounded-xl border-2 border-emerald-200 flex items-center justify-center space-x-1"><Zap size={16} /><span>Auto-Approved</span></span>,
       rejected: <span className="w-fit bg-red-100 text-red-800 font-bold px-4 py-2 rounded-xl border-2 border-red-200 flex items-center justify-center space-x-1"><XCircle size={16} /><span>Rejected</span></span>,
     };
     return badges[status] || <span className="w-fit bg-gray-100 text-gray-800 font-bold px-4 py-2 rounded-xl border-2 border-gray-200 flex items-center justify-center">{status}</span>;
@@ -369,11 +481,16 @@ export default function CreateJobRequest() {
           </div>
           <div className="flex-1">
             <h3 className="font-bold text-gray-900 text-xl mb-2">How it works</h3>
-            <p className="text-gray-700 font-medium">
-              Job requests you create here will be sent to the Super Admin for review and approval.
-              Once approved, the job posting will be visible to eligible students. You will be notified
-              when your request is approved or rejected.
-            </p>
+            <div className="space-y-2">
+              <p className="text-gray-700 font-medium flex items-center gap-2">
+                <Zap className="text-green-500" size={16} />
+                <strong>My College Only:</strong> Jobs are instantly published without approval (Super Admin is notified)
+              </p>
+              <p className="text-gray-700 font-medium flex items-center gap-2">
+                <Clock className="text-yellow-500" size={16} />
+                <strong>Multiple Colleges:</strong> Jobs require Super Admin approval before becoming visible
+              </p>
+            </div>
           </div>
         </div>
       </GlassCard>
@@ -407,9 +524,9 @@ export default function CreateJobRequest() {
         <GlassCard variant="elevated" className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-600 text-sm font-bold mb-2">Approved</p>
+              <p className="text-gray-600 text-sm font-bold mb-2">Approved / Published</p>
               <p className="text-4xl font-bold text-green-600">
-                {requests.filter((r) => r.status === 'approved').length}
+                {requests.filter((r) => r.status === 'approved' || r.status === 'auto_approved').length}
               </p>
             </div>
             <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl p-4 shadow-lg">
@@ -692,73 +809,194 @@ export default function CreateJobRequest() {
                 </h3>
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-3">Target Type</label>
-                  <div className="flex space-x-5">
-                    <label className="flex items-center space-x-3 cursor-pointer p-4 border-2 border-gray-300 rounded-xl hover:border-blue-500 transition-colors">
+                  <div className="flex flex-wrap gap-3">
+                    <label className={`flex items-center space-x-3 cursor-pointer p-4 border-2 rounded-xl transition-all ${
+                      formData.target_type === 'college'
+                        ? 'border-green-500 bg-green-50 ring-2 ring-green-200'
+                        : 'border-gray-300 hover:border-blue-500'
+                    }`}>
                       <input
                         type="radio"
                         name="target_type"
                         value="college"
                         checked={formData.target_type === 'college'}
                         onChange={(e) =>
-                          setFormData({ ...formData, target_type: e.target.value })
+                          setFormData({ ...formData, target_type: e.target.value, target_regions: [], target_colleges: [] })
                         }
-                        className="w-5 h-5 text-blue-600 focus:ring-blue-500"
+                        className="w-5 h-5 text-green-600 focus:ring-green-500"
                       />
-                      <span className="font-medium text-gray-900">My College Only</span>
+                      <div>
+                        <span className="font-medium text-gray-900 flex items-center gap-2">
+                          My College Only
+                          <span className="bg-green-500 text-white text-xs px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <Zap size={12} /> Instant
+                          </span>
+                        </span>
+                        <p className="text-xs text-gray-500 mt-1">Auto-approved, no wait time</p>
+                      </div>
                     </label>
-                    <label className="flex items-center space-x-3 cursor-pointer p-4 border-2 border-gray-300 rounded-xl hover:border-blue-500 transition-colors">
+                    <label className={`flex items-center space-x-3 cursor-pointer p-4 border-2 rounded-xl transition-all ${
+                      formData.target_type === 'region' || formData.target_type === 'specific_colleges'
+                        ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200'
+                        : 'border-gray-300 hover:border-blue-500'
+                    }`}>
                       <input
                         type="radio"
                         name="target_type"
                         value="region"
-                        checked={formData.target_type === 'region'}
+                        checked={formData.target_type === 'region' || formData.target_type === 'specific_colleges'}
                         onChange={(e) =>
-                          setFormData({ ...formData, target_type: e.target.value })
+                          setFormData({ ...formData, target_type: e.target.value, target_colleges: [] })
                         }
                         className="w-5 h-5 text-blue-600 focus:ring-blue-500"
                       />
-                      <span className="font-medium text-gray-900">Specific Regions</span>
+                      <div>
+                        <span className="font-medium text-gray-900 flex items-center gap-2">
+                          Multiple Colleges
+                          <span className="bg-blue-500 text-white text-xs px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <Clock size={12} /> Approval Required
+                          </span>
+                        </span>
+                        <p className="text-xs text-gray-500 mt-1">Select specific colleges from any region</p>
+                      </div>
                     </label>
                   </div>
                 </div>
 
-                {formData.target_type === 'region' && (
+                {(formData.target_type === 'region' || formData.target_type === 'specific_colleges') && (
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-3">
-                      Select Regions <span className="text-red-600">*</span>
+                      Select Regions & Colleges <span className="text-red-600">*</span>
                     </label>
-                    <div className="border-2 border-gray-300 rounded-xl p-5 max-h-48 overflow-y-auto bg-gray-50">
+                    <p className="text-sm text-gray-500 mb-3">
+                      Expand a region to select specific colleges, or leave all colleges unselected to target the entire region.
+                    </p>
+                    <div className="border-2 border-gray-300 rounded-xl p-4 max-h-96 overflow-y-auto bg-gray-50">
                       {regions.length === 0 ? (
                         <div className="text-center text-gray-500 py-4">
                           <p className="font-medium">Loading regions...</p>
                         </div>
                       ) : (
                         <div className="space-y-2">
-                          {regions.map((region) => (
-                            <label
-                              key={region.id}
-                              className="flex items-center space-x-3 cursor-pointer p-2 hover:bg-blue-50 rounded-lg transition-colors"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={formData.target_regions.includes(region.id)}
-                                onChange={() => handleRegionToggle(region.id)}
-                                className="w-5 h-5 rounded-lg text-blue-600 focus:ring-blue-500"
-                              />
-                              <span className="text-sm font-medium text-gray-700">{region.region_name || region.name}</span>
-                            </label>
-                          ))}
+                          {regions.map((region) => {
+                            const regionColleges = collegesByRegion[region.id] || [];
+                            const selectedCollegesInRegion = formData.target_colleges.filter(cId =>
+                              regionColleges.some(c => c.id === cId)
+                            );
+                            const allCollegesSelected = regionColleges.length > 0 &&
+                              selectedCollegesInRegion.length === regionColleges.length;
+                            const someCollegesSelected = selectedCollegesInRegion.length > 0;
+
+                            return (
+                              <div key={region.id} className="border border-gray-200 rounded-lg bg-white overflow-hidden">
+                                {/* Region Header */}
+                                <div
+                                  className={`flex items-center justify-between p-3 cursor-pointer transition-colors ${
+                                    someCollegesSelected ? 'bg-blue-50' : 'hover:bg-gray-50'
+                                  }`}
+                                  onClick={() => handleRegionExpand(region.id)}
+                                >
+                                  <div className="flex items-center gap-3">
+                                    {expandedRegions[region.id] ? (
+                                      <ChevronDown size={20} className="text-gray-500" />
+                                    ) : (
+                                      <ChevronRight size={20} className="text-gray-500" />
+                                    )}
+                                    <MapPin size={16} className="text-blue-600" />
+                                    <span className="font-medium text-gray-900">
+                                      {region.region_name || region.name}
+                                    </span>
+                                    {someCollegesSelected && (
+                                      <span className="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full">
+                                        {selectedCollegesInRegion.length} college{selectedCollegesInRegion.length !== 1 ? 's' : ''} selected
+                                      </span>
+                                    )}
+                                  </div>
+                                  {expandedRegions[region.id] && regionColleges.length > 0 && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleSelectAllCollegesInRegion(region.id, !allCollegesSelected);
+                                      }}
+                                      className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                                    >
+                                      {allCollegesSelected ? 'Deselect All' : 'Select All'}
+                                    </button>
+                                  )}
+                                </div>
+
+                                {/* Colleges List (Expanded) */}
+                                {expandedRegions[region.id] && (
+                                  <div className="border-t border-gray-200 p-3 bg-gray-50">
+                                    {loadingColleges[region.id] ? (
+                                      <div className="text-center py-3 text-gray-500">
+                                        <div className="spinner-small mx-auto mb-2"></div>
+                                        Loading colleges...
+                                      </div>
+                                    ) : regionColleges.length === 0 ? (
+                                      <p className="text-gray-500 text-sm py-2">No colleges found in this region</p>
+                                    ) : (
+                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+                                        {regionColleges.map((college) => (
+                                          <label
+                                            key={college.id}
+                                            className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${
+                                              formData.target_colleges.includes(college.id)
+                                                ? 'bg-blue-100 border border-blue-300'
+                                                : 'hover:bg-white border border-transparent'
+                                            }`}
+                                          >
+                                            <input
+                                              type="checkbox"
+                                              checked={formData.target_colleges.includes(college.id)}
+                                              onChange={() => handleCollegeToggle(college.id, region.id)}
+                                              className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                                            />
+                                            <div className="flex-1 min-w-0">
+                                              <p className="text-sm font-medium text-gray-900 truncate">
+                                                {college.college_name}
+                                              </p>
+                                              {college.college_code && (
+                                                <p className="text-xs text-gray-500">{college.college_code}</p>
+                                              )}
+                                            </div>
+                                          </label>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
+                    {formData.target_colleges.length > 0 && (
+                      <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                        <p className="text-sm font-medium text-blue-800">
+                          Selected: {formData.target_colleges.length} college{formData.target_colleges.length !== 1 ? 's' : ''}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
 
                 {formData.target_type === 'college' && (
-                  <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-5">
-                    <p className="text-sm text-blue-800 font-medium">
-                      This job will only be visible to students from your college.
-                    </p>
+                  <div className="bg-green-50 border-2 border-green-200 rounded-xl p-5">
+                    <div className="flex items-start gap-3">
+                      <Zap className="text-green-600 mt-0.5" size={20} />
+                      <div>
+                        <p className="text-sm text-green-800 font-bold mb-1">
+                          Instant Publishing
+                        </p>
+                        <p className="text-sm text-green-700">
+                          This job will be immediately visible to students from your college.
+                          No approval needed! Super Admin will be notified of the posting.
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>

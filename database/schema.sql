@@ -774,8 +774,8 @@ CREATE INDEX idx_archived_students_archived_at ON archived_students(archived_at 
 -- ============================================
 -- 28. STUDENT RESUMES TABLE
 -- ============================================
--- Stores custom resume content that students can modify
--- Officers can choose to download either system-generated or custom version
+-- Stores resume content that students can customize (skills, projects, experience, etc.)
+-- Officers and admins can download the student's resume as PDF
 
 CREATE TABLE student_resumes (
     id SERIAL PRIMARY KEY,
@@ -1206,7 +1206,7 @@ COMMENT ON TABLE activity_logs IS 'Audit trail of all important actions';
 COMMENT ON TABLE branches IS 'Reference table for all engineering branches with standardized short names';
 COMMENT ON TABLE branch_mappings IS 'Normalized branch names for handling variations across colleges';
 COMMENT ON TABLE archived_students IS 'Archived student data from disabled PRN ranges';
-COMMENT ON TABLE student_resumes IS 'Stores custom resume content for students. Officers can download either system-standard or student-modified version.';
+COMMENT ON TABLE student_resumes IS 'Stores resume content for students. Officers and admins can download the student resume as PDF.';
 COMMENT ON MATERIALIZED VIEW active_students_view IS 'Optimized view for active, approved, non-blacklisted students';
 COMMENT ON FUNCTION update_student_age() IS 'Automatically calculates and updates student age based on date_of_birth';
 COMMENT ON FUNCTION create_student_extended_profile() IS 'Automatically creates extended profile and section tracking when a new student is registered';

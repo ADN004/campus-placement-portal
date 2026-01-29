@@ -86,8 +86,7 @@ import {
   getAllCompanyTemplates,
 } from '../controllers/jobRequirementsController.js';
 import {
-  downloadStudentStandardResumeSA,
-  downloadStudentCustomResumeSA,
+  downloadStudentResumeSA,
   getStudentResumeStatusSA,
 } from '../controllers/resumeController.js';
 import { protect, authorize } from '../middleware/auth.js';
@@ -161,8 +160,7 @@ router.get('/students/search/:prn', searchStudentByPRN);
 router.get('/students/:studentId/detailed-profile', getDetailedStudentProfile);
 // Student Resume Download Routes
 router.get('/students/:studentId/resume/status', getStudentResumeStatusSA);
-router.get('/students/:studentId/resume/standard', downloadStudentStandardResumeSA);
-router.get('/students/:studentId/resume/custom', downloadStudentCustomResumeSA);
+router.get('/students/:studentId/resume/download', downloadStudentResumeSA);
 router.post('/students/custom-export', customExportStudents);
 router.post('/students/enhanced-export', enhancedCustomExport);
 router.post('/students/bulk-delete-photos', bulkDeleteStudentPhotos);

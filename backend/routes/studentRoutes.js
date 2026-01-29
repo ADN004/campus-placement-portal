@@ -16,8 +16,7 @@ import {
 import {
   getStudentResume,
   updateStudentResume,
-  downloadOwnStandardResume,
-  downloadOwnCustomResume,
+  downloadOwnResume,
 } from '../controllers/resumeController.js';
 import { protect, authorize, checkStudentApproval } from '../middleware/auth.js';
 
@@ -39,8 +38,7 @@ router.get('/verification-status', getVerificationStatus);
 // Resume Routes (accessible to all students)
 router.get('/resume', getStudentResume);
 router.put('/resume', updateStudentResume);
-router.get('/resume/download/standard', downloadOwnStandardResume);
-router.get('/resume/download/custom', downloadOwnCustomResume);
+router.get('/resume/download', downloadOwnResume);
 
 // Routes that require approved status
 router.get('/eligible-jobs', checkStudentApproval, getEligibleJobs);

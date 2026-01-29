@@ -5,7 +5,7 @@
  */
 
 import { query } from '../config/database.js';
-import { generateStandardResume, generateCustomResume } from '../utils/resumeGenerator.js';
+import { generateResume } from '../utils/resumeGenerator.js';
 
 /**
  * Helper function to get student ID from user ID
@@ -26,6 +26,7 @@ async function getStudentDataForResume(studentId) {
     SELECT
       s.id, s.prn, s.student_name, s.email, s.mobile_number, s.date_of_birth,
       s.age, s.gender, s.branch, s.programme_cgpa, s.backlog_count, s.backlog_details,
+      s.cgpa_sem1, s.cgpa_sem2, s.cgpa_sem3, s.cgpa_sem4, s.cgpa_sem5, s.cgpa_sem6,
       s.height, s.weight, s.complete_address,
       s.has_driving_license, s.has_pan_card, s.has_aadhar_card, s.has_passport,
       c.college_name, r.region_name
@@ -73,7 +74,7 @@ async function getExtendedProfileForResume(studentId) {
 }
 
 /**
- * Get custom resume data
+ * Get resume data for a student
  */
 async function getResumeData(studentId) {
   const result = await query(
@@ -229,60 +230,12 @@ export const updateStudentResume = async (req, res) => {
 };
 
 /**
- * Download Student's Own Resume (Standard Version)
+ * Download Student's Own Resume
  *
- * @route GET /api/students/resume/download/standard
+ * @route GET /api/students/resume/download
  * @access Student
  */
-export const downloadOwnStandardResume = async (req, res) => {
-  try {
-    const studentId = await getStudentIdFromUserId(req.user.id);
-
-    if (!studentId) {
-      return res.status(404).json({
-        success: false,
-        message: 'Student record not found'
-      });
-    }
-
-    const studentData = await getStudentDataForResume(studentId);
-    const extendedProfile = await getExtendedProfileForResume(studentId);
-
-    if (!studentData) {
-      return res.status(404).json({
-        success: false,
-        message: 'Student data not found'
-      });
-    }
-
-    const pdfBuffer = await generateStandardResume(studentData, extendedProfile);
-
-    const filename = `Resume_${studentData.student_name?.replace(/\s+/g, '_') || studentData.prn}_Standard.pdf`;
-
-    res.set({
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="${filename}"`,
-      'Content-Length': pdfBuffer.length
-    });
-
-    res.send(pdfBuffer);
-  } catch (error) {
-    console.error('Error generating resume:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to generate resume',
-      error: error.message
-    });
-  }
-};
-
-/**
- * Download Student's Own Resume (Custom Version)
- *
- * @route GET /api/students/resume/download/custom
- * @access Student
- */
-export const downloadOwnCustomResume = async (req, res) => {
+export const downloadOwnResume = async (req, res) => {
   try {
     const studentId = await getStudentIdFromUserId(req.user.id);
 
@@ -304,9 +257,9 @@ export const downloadOwnCustomResume = async (req, res) => {
       });
     }
 
-    const pdfBuffer = await generateCustomResume(studentData, extendedProfile, resumeData || {});
+    const pdfBuffer = await generateResume(studentData, extendedProfile, resumeData || {});
 
-    const filename = `Resume_${studentData.student_name?.replace(/\s+/g, '_') || studentData.prn}_Custom.pdf`;
+    const filename = `Resume_${studentData.student_name?.replace(/\s+/g, '_') || studentData.prn}.pdf`;
 
     res.set({
       'Content-Type': 'application/pdf',
@@ -328,81 +281,12 @@ export const downloadOwnCustomResume = async (req, res) => {
 // ==================== PLACEMENT OFFICER ENDPOINTS ====================
 
 /**
- * Download Student Resume (Standard Version) - For Placement Officer
+ * Download Student Resume - For Placement Officer
  *
- * @route GET /api/placement-officer/students/:studentId/resume/standard
+ * @route GET /api/placement-officer/students/:studentId/resume/download
  * @access Placement Officer
  */
-export const downloadStudentStandardResumePO = async (req, res) => {
-  try {
-    const { studentId } = req.params;
-
-    // Get placement officer's college_id
-    const poResult = await query(
-      'SELECT college_id FROM placement_officers WHERE user_id = $1',
-      [req.user.id]
-    );
-
-    if (poResult.rows.length === 0) {
-      return res.status(403).json({
-        success: false,
-        message: 'Placement officer record not found'
-      });
-    }
-
-    const collegeId = poResult.rows[0].college_id;
-
-    // Verify student belongs to officer's college
-    const studentCheck = await query(
-      'SELECT id FROM students WHERE id = $1 AND college_id = $2',
-      [studentId, collegeId]
-    );
-
-    if (studentCheck.rows.length === 0) {
-      return res.status(403).json({
-        success: false,
-        message: 'Student not found or does not belong to your college'
-      });
-    }
-
-    const studentData = await getStudentDataForResume(studentId);
-    const extendedProfile = await getExtendedProfileForResume(studentId);
-
-    if (!studentData) {
-      return res.status(404).json({
-        success: false,
-        message: 'Student data not found'
-      });
-    }
-
-    const pdfBuffer = await generateStandardResume(studentData, extendedProfile);
-
-    const filename = `Resume_${studentData.student_name?.replace(/\s+/g, '_') || studentData.prn}_Standard.pdf`;
-
-    res.set({
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="${filename}"`,
-      'Content-Length': pdfBuffer.length
-    });
-
-    res.send(pdfBuffer);
-  } catch (error) {
-    console.error('Error generating resume:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to generate resume',
-      error: error.message
-    });
-  }
-};
-
-/**
- * Download Student Resume (Custom Version) - For Placement Officer
- *
- * @route GET /api/placement-officer/students/:studentId/resume/custom
- * @access Placement Officer
- */
-export const downloadStudentCustomResumePO = async (req, res) => {
+export const downloadStudentResumePO = async (req, res) => {
   try {
     const { studentId } = req.params;
 
@@ -445,9 +329,9 @@ export const downloadStudentCustomResumePO = async (req, res) => {
       });
     }
 
-    const pdfBuffer = await generateCustomResume(studentData, extendedProfile, resumeData || {});
+    const pdfBuffer = await generateResume(studentData, extendedProfile, resumeData || {});
 
-    const filename = `Resume_${studentData.student_name?.replace(/\s+/g, '_') || studentData.prn}_Custom.pdf`;
+    const filename = `Resume_${studentData.student_name?.replace(/\s+/g, '_') || studentData.prn}.pdf`;
 
     res.set({
       'Content-Type': 'application/pdf',
@@ -467,7 +351,7 @@ export const downloadStudentCustomResumePO = async (req, res) => {
 };
 
 /**
- * Check if student has custom resume content - For Placement Officer
+ * Check student resume status - For Placement Officer
  *
  * @route GET /api/placement-officer/students/:studentId/resume/status
  * @access Placement Officer
@@ -529,53 +413,12 @@ export const getStudentResumeStatusPO = async (req, res) => {
 // ==================== SUPER ADMIN ENDPOINTS ====================
 
 /**
- * Download Student Resume (Standard Version) - For Super Admin
+ * Download Student Resume - For Super Admin
  *
- * @route GET /api/super-admin/students/:studentId/resume/standard
+ * @route GET /api/super-admin/students/:studentId/resume/download
  * @access Super Admin
  */
-export const downloadStudentStandardResumeSA = async (req, res) => {
-  try {
-    const { studentId } = req.params;
-
-    const studentData = await getStudentDataForResume(studentId);
-    const extendedProfile = await getExtendedProfileForResume(studentId);
-
-    if (!studentData) {
-      return res.status(404).json({
-        success: false,
-        message: 'Student data not found'
-      });
-    }
-
-    const pdfBuffer = await generateStandardResume(studentData, extendedProfile);
-
-    const filename = `Resume_${studentData.student_name?.replace(/\s+/g, '_') || studentData.prn}_Standard.pdf`;
-
-    res.set({
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="${filename}"`,
-      'Content-Length': pdfBuffer.length
-    });
-
-    res.send(pdfBuffer);
-  } catch (error) {
-    console.error('Error generating resume:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to generate resume',
-      error: error.message
-    });
-  }
-};
-
-/**
- * Download Student Resume (Custom Version) - For Super Admin
- *
- * @route GET /api/super-admin/students/:studentId/resume/custom
- * @access Super Admin
- */
-export const downloadStudentCustomResumeSA = async (req, res) => {
+export const downloadStudentResumeSA = async (req, res) => {
   try {
     const { studentId } = req.params;
 
@@ -590,9 +433,9 @@ export const downloadStudentCustomResumeSA = async (req, res) => {
       });
     }
 
-    const pdfBuffer = await generateCustomResume(studentData, extendedProfile, resumeData || {});
+    const pdfBuffer = await generateResume(studentData, extendedProfile, resumeData || {});
 
-    const filename = `Resume_${studentData.student_name?.replace(/\s+/g, '_') || studentData.prn}_Custom.pdf`;
+    const filename = `Resume_${studentData.student_name?.replace(/\s+/g, '_') || studentData.prn}.pdf`;
 
     res.set({
       'Content-Type': 'application/pdf',
@@ -612,7 +455,7 @@ export const downloadStudentCustomResumeSA = async (req, res) => {
 };
 
 /**
- * Check if student has custom resume content - For Super Admin
+ * Check student resume status - For Super Admin
  *
  * @route GET /api/super-admin/students/:studentId/resume/status
  * @access Super Admin
@@ -660,16 +503,13 @@ export default {
   // Student endpoints
   getStudentResume,
   updateStudentResume,
-  downloadOwnStandardResume,
-  downloadOwnCustomResume,
+  downloadOwnResume,
 
   // Placement Officer endpoints
-  downloadStudentStandardResumePO,
-  downloadStudentCustomResumePO,
+  downloadStudentResumePO,
   getStudentResumeStatusPO,
 
   // Super Admin endpoints
-  downloadStudentStandardResumeSA,
-  downloadStudentCustomResumeSA,
+  downloadStudentResumeSA,
   getStudentResumeStatusSA
 };

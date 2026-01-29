@@ -94,18 +94,16 @@ export default function StudentResume() {
     }
   };
 
-  const handleDownload = async (type) => {
+  const handleDownload = async () => {
     setDownloading(true);
     try {
-      const response = type === 'standard'
-        ? await studentAPI.downloadStandardResume()
-        : await studentAPI.downloadCustomResume();
+      const response = await studentAPI.downloadResume();
 
       const blob = new Blob([response.data], { type: 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `My_Resume_${type === 'standard' ? 'Standard' : 'Custom'}.pdf`;
+      link.download = 'My_Resume.pdf';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -311,20 +309,12 @@ export default function StudentResume() {
         <div className="flex flex-wrap gap-4 justify-between items-center">
           <div className="flex flex-wrap gap-3">
             <button
-              onClick={() => handleDownload('standard')}
+              onClick={handleDownload}
               disabled={downloading}
               className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2 disabled:opacity-50"
             >
               <Download size={18} />
-              <span>Download Standard Resume</span>
-            </button>
-            <button
-              onClick={() => handleDownload('custom')}
-              disabled={downloading}
-              className="bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2 disabled:opacity-50"
-            >
-              <Download size={18} />
-              <span>Download Custom Resume</span>
+              <span>{downloading ? 'Downloading...' : 'Download Resume'}</span>
             </button>
           </div>
           <div className="flex gap-3">
@@ -361,9 +351,7 @@ export default function StudentResume() {
           </div>
         </div>
         <p className="text-gray-600 mt-4 text-sm">
-          <strong>Standard Resume:</strong> System-generated professional layout using your profile data.
-          <br />
-          <strong>Custom Resume:</strong> Includes all your custom additions below.
+          Your resume includes your profile data along with all the sections you've added below.
         </p>
       </GlassCard>
 

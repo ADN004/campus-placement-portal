@@ -25,6 +25,7 @@ import GlassStatCard from '../../components/GlassStatCard';
 import SectionHeader from '../../components/SectionHeader';
 import GlassCard from '../../components/GlassCard';
 import ExtendedProfilePromptModal from '../../components/ExtendedProfilePromptModal';
+import ResumePromptModal from '../../components/ResumePromptModal';
 import api from '../../services/api';
 
 export default function StudentDashboard() {
@@ -34,11 +35,13 @@ export default function StudentDashboard() {
   const [verificationStatus, setVerificationStatus] = useState(null);
   const [showExtendedProfilePrompt, setShowExtendedProfilePrompt] = useState(false);
   const [extendedProfileCompletion, setExtendedProfileCompletion] = useState(100);
+  const [showResumePrompt, setShowResumePrompt] = useState(false);
 
   useEffect(() => {
     fetchDashboard();
     fetchVerificationStatus();
     checkExtendedProfileCompletion();
+    checkResumeCompletion();
   }, []);
 
   const checkExtendedProfileCompletion = async () => {
@@ -53,6 +56,18 @@ export default function StudentDashboard() {
       }
     } catch (error) {
       console.error('Failed to check extended profile completion:', error);
+    }
+  };
+
+  const checkResumeCompletion = async () => {
+    try {
+      const response = await studentAPI.getResume();
+      const resumeData = response.data.data;
+      if (resumeData && !resumeData.has_custom_content) {
+        setShowResumePrompt(true);
+      }
+    } catch (error) {
+      console.error('Failed to check resume completion:', error);
     }
   };
 
@@ -185,6 +200,13 @@ export default function StudentDashboard() {
         <ExtendedProfilePromptModal
           onClose={() => setShowExtendedProfilePrompt(false)}
           profileCompletion={extendedProfileCompletion}
+        />
+      )}
+
+      {/* Resume Prompt Modal (only shows if extended profile prompt is not showing) */}
+      {showResumePrompt && !showExtendedProfilePrompt && (
+        <ResumePromptModal
+          onClose={() => setShowResumePrompt(false)}
         />
       )}
 

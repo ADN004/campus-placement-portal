@@ -55,7 +55,7 @@ The **State Placement Cell** is a production-ready, enterprise-grade placement m
 - **Photo Management:** Cloudinary integration with bulk operations
 - **Activity Logging:** Complete audit trail with IP, user agent, metadata
 - **Export Features:** PDF and Excel exports with custom field selection
-- **Resume Generation:** Professional PDF resumes with standard and custom versions
+- **Resume Generation:** Professional PDF resumes with student-customizable content
 - **Placement Posters:** Generate PDF placement posters with eligible students
 - **Rate Limiting:** Configured for 20k+ users with tiered limits
 - **Background Jobs:** Daily age updates, materialized view refresh, cleanup tasks
@@ -109,7 +109,7 @@ The **State Placement Cell** is a production-ready, enterprise-grade placement m
 #### Resume Builder & Download
 
 - **My Resume Page:** Dedicated resume management interface for students
-- **Custom Resume Content:**
+- **Resume Content:**
   - Career objective statement
   - Technical skills (add/remove individual skills)
   - Soft skills with tag-based management
@@ -121,16 +121,13 @@ The **State Placement Cell** is a production-ready, enterprise-grade placement m
   - Extracurricular activities
   - Custom sections for additional information
   - Declaration text (customizable)
-- **Two Resume Versions:**
-  1. **Standard Resume:** Clean professional layout using system profile data
-  2. **Custom Resume:** Includes all student's custom additions (skills, projects, etc.)
 - **Professional PDF Generation:**
   - Clean, modern layout suitable for job applications
   - Auto-generated from profile and extended profile data
   - Includes education details (Diploma, 12th, 10th)
   - Personal details, documents available
   - Proper formatting with sections and headers
-- **Download Options:** Download either version as PDF anytime
+- **Download:** Download resume as PDF anytime
 
 #### Dashboard & Profile Management
 - **Dashboard Statistics:**
@@ -1947,9 +1944,8 @@ Error:
 - **PUT `/notifications/:id/read`** - Mark notification as read
 - **PUT `/notifications/:id/unread`** - Mark notification as unread
 - **GET `/resume`** - Get student resume data
-- **PUT `/resume`** - Update custom resume content
-- **GET `/resume/download/standard`** - Download standard resume as PDF
-- **GET `/resume/download/custom`** - Download custom resume as PDF
+- **PUT `/resume`** - Update resume content
+- **GET `/resume/download`** - Download resume as PDF
 - **GET `/extended-profile`** - Get extended profile data
 - **GET `/extended-profile/completion`** - Get profile completion percentage
 
@@ -2004,8 +2000,7 @@ Error:
 - **POST `/students/custom-export`** - Custom export with field selection
 - **GET `/students/:studentId/detailed-profile`** - Get detailed student profile
 - **GET `/students/:studentId/resume/status`** - Check student resume status
-- **GET `/students/:studentId/resume/standard`** - Download student's standard resume
-- **GET `/students/:studentId/resume/custom`** - Download student's custom resume
+- **GET `/students/:studentId/resume/download`** - Download student's resume
 - **GET `/jobs`** - Get all jobs accessible to officer's college
 - **GET `/jobs/:id/applicants`** - View job applicants from college
 - **GET `/jobs/:id/applicants/export`** - Export job applicants to Excel
@@ -2078,8 +2073,7 @@ Error:
 - **GET `/students/search/:prn`** - Search student by PRN
 - **GET `/students/:studentId/detailed-profile`** - Get detailed student profile
 - **GET `/students/:studentId/resume/status`** - Check student resume status
-- **GET `/students/:studentId/resume/standard`** - Download student's standard resume
-- **GET `/students/:studentId/resume/custom`** - Download student's custom resume
+- **GET `/students/:studentId/resume/download`** - Download student's resume
 - **POST `/students/custom-export`** - Custom student export with field selection
 - **POST `/students/enhanced-export`** - Enhanced export with detailed student info
 - **PUT `/students/:id/blacklist`** - System-wide blacklist
@@ -2490,7 +2484,7 @@ node database/db-commands.js recent
 ✅ Generate placement posters
 ✅ Upload/delete college logo
 ✅ Upload/delete officer photo
-✅ Download student resumes (standard and custom)
+✅ Download student resumes
 ✅ Manage college branches with templates
 ✅ Manually add students to jobs
 
@@ -2512,7 +2506,7 @@ node database/db-commands.js recent
 ✅ View deleted jobs history
 ✅ Approve/reject job requests
 ✅ System-wide student management
-✅ Download student resumes (standard and custom)
+✅ Download student resumes
 ✅ Approve/reject whitelist requests
 ✅ Custom student export with dynamic branch filtering
 ✅ Enhanced student export with detailed info
@@ -2558,7 +2552,7 @@ node database/db-commands.js recent
 - [x] Background jobs (age update, view refresh, cleanup)
 - [x] Docker deployment configuration
 - [x] Makefile for Docker management commands
-- [x] Resume builder and PDF download (standard and custom)
+- [x] Resume builder and PDF download
 - [x] College logo management
 - [x] Admin notifications system
 - [x] Multi-college placement poster generation

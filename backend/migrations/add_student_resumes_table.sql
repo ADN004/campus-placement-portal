@@ -1,12 +1,12 @@
 -- Migration: Add Student Resumes Table
--- Purpose: Store custom resume content for students
+-- Purpose: Store resume content for students
 -- Date: 2026-01-28
 
 -- ============================================
 -- STUDENT RESUMES TABLE
 -- ============================================
--- Stores custom resume content that students can modify
--- Officers can choose to download either system-generated or custom version
+-- Stores resume content that students can customize (skills, projects, experience, etc.)
+-- Officers and admins can download the student's resume as PDF
 
 CREATE TABLE IF NOT EXISTS student_resumes (
     id SERIAL PRIMARY KEY,
@@ -91,4 +91,4 @@ CREATE TRIGGER trigger_create_student_resume
     EXECUTE FUNCTION create_student_resume_record();
 
 -- Comment on table
-COMMENT ON TABLE student_resumes IS 'Stores custom resume content for students. Officers can download either system-standard or student-modified version.';
+COMMENT ON TABLE student_resumes IS 'Stores resume content for students. Officers and admins can download the student resume as PDF.';

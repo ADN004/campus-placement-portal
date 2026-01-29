@@ -93,8 +93,7 @@ export const studentAPI = {
   // Resume APIs
   getResume: () => API.get('/students/resume'),
   updateResume: (data) => API.put('/students/resume', data),
-  downloadStandardResume: () => API.get('/students/resume/download/standard', { responseType: 'blob' }),
-  downloadCustomResume: () => API.get('/students/resume/download/custom', { responseType: 'blob' }),
+  downloadResume: () => API.get('/students/resume/download', { responseType: 'blob' }),
 };
 
 // Placement Officer APIs
@@ -166,8 +165,7 @@ export const placementOfficerAPI = {
 
   // Student Resume Download
   getStudentResumeStatus: (studentId) => API.get(`/placement-officer/students/${studentId}/resume/status`),
-  downloadStudentStandardResume: (studentId) => API.get(`/placement-officer/students/${studentId}/resume/standard`, { responseType: 'blob' }),
-  downloadStudentCustomResume: (studentId) => API.get(`/placement-officer/students/${studentId}/resume/custom`, { responseType: 'blob' }),
+  downloadStudentResume: (studentId) => API.get(`/placement-officer/students/${studentId}/resume/download`, { responseType: 'blob' }),
 };
 
 // Super Admin APIs
@@ -318,8 +316,7 @@ export const superAdminAPI = {
 
   // Student Resume Download
   getStudentResumeStatus: (studentId) => API.get(`/super-admin/students/${studentId}/resume/status`),
-  downloadStudentStandardResume: (studentId) => API.get(`/super-admin/students/${studentId}/resume/standard`, { responseType: 'blob' }),
-  downloadStudentCustomResume: (studentId) => API.get(`/super-admin/students/${studentId}/resume/custom`, { responseType: 'blob' }),
+  downloadStudentResume: (studentId) => API.get(`/super-admin/students/${studentId}/resume/download`, { responseType: 'blob' }),
 };
 
 export default API;

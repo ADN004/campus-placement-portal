@@ -889,7 +889,7 @@ export const generateStudentPDF = async (students, options, res) => {
       doc.restore();
 
       // Add page number
-      const pageText = `Page ${i + 1} of ${totalPages}`;
+      const pageText = String(i + 1);
 
       // Calculate text position
       doc.fontSize(8).font('Helvetica');
@@ -1153,7 +1153,7 @@ export const generateActivityLogsPDF = async (logs, options, res) => {
 
     for (let i = 0; i < totalPages; i++) {
       doc.switchToPage(i);
-      const pageText = `Page ${i + 1} of ${totalPages}`;
+      const pageText = String(i + 1);
       doc.fontSize(8).font('Helvetica');
       const textWidth = doc.widthOfString(pageText);
       const xPosition = (doc.page.width - textWidth) / 2;
@@ -1430,7 +1430,7 @@ export const generatePRNRangeStudentsPDF = async (students, options, res) => {
 
     for (let i = 0; i < totalPages; i++) {
       doc.switchToPage(i);
-      const pageText = `Page ${i + 1} of ${totalPages}`;
+      const pageText = String(i + 1);
       doc.fontSize(8).font('Helvetica');
       const textWidth = doc.widthOfString(pageText);
       const xPosition = (doc.page.width - textWidth) / 2;
@@ -1792,7 +1792,7 @@ export const generateJobApplicantsPDF = async (applicants, options, res) => {
       doc.restore();
 
       // Add page number
-      const pageText = `Page ${i + 1} of ${totalPages}`;
+      const pageText = String(i + 1);
       doc.fontSize(8).font('Helvetica');
       const textWidth = doc.widthOfString(pageText);
       const xPosition = (fullPageWidth - textWidth) / 2;
@@ -2053,14 +2053,14 @@ const drawExcelTypeMappingTable = (doc, placements, collegeName, currentYear) =>
   const pageWidth = 595;
   const pageHeight = 842;
 
-  // Manual margins for Excel table pages
-  const leftMargin = 30;
-  const rightMargin = 30;
+  // Manual margins for Excel table pages (matching poster left/right margins)
+  const leftMargin = 40;
+  const rightMargin = 12;
   const topMargin = 30;
   const bottomMargin = 30;
 
   // Available width for the table
-  const availableWidth = pageWidth - leftMargin - rightMargin; // 535px
+  const availableWidth = pageWidth - leftMargin - rightMargin; // 543px
 
   // Add padding inside the border so content doesn't touch it
   const innerPadding = 15;
@@ -2078,7 +2078,7 @@ const drawExcelTypeMappingTable = (doc, placements, collegeName, currentYear) =>
   console.log(`📊 [EXCEL TABLE] Drew black margin border`);
 
   // Column definitions for Excel-type table - optimized to fit within margins
-  // Total available: 535px, using ~481px
+  // Total available: 543px, using ~481px
   const columns = [
     { key: 'sl', label: 'No.', width: 25 },
     { key: 'name', label: 'NAME', width: 85 },
@@ -2092,9 +2092,8 @@ const drawExcelTypeMappingTable = (doc, placements, collegeName, currentYear) =>
 
   const tableWidth = columns.reduce((sum, col) => sum + col.width, 0); // Should be 481px
 
-  // Center the table horizontally between margins
-  // Available: 535px, Table: 481px, Buffer: 54px (27px each side)
-  const startX = (pageWidth - tableWidth) / 2; // Centers the table on page
+  // Center the table horizontally within the margin frame
+  const startX = leftMargin + (availableWidth - tableWidth) / 2;
 
   console.log(`📊 [EXCEL TABLE] Table width: ${tableWidth}px, Starting X position: ${startX}px (centered)`);
 
@@ -2325,9 +2324,237 @@ const getCompanyColors = (index) => {
 };
 
 /**
+ * Draw the index page for multi-college placement poster PDF
+ * Shows a table of contents with college names, poster page numbers, and details page numbers
+ * Handles pagination if more colleges than can fit on a single page
+ *
+ * @param {Object} doc - PDFKit document instance
+ * @param {Array} collegePageInfo - Array of { collegeName, posterStartPage, mappingStartPage }
+ */
+const drawIndexPage = (doc, collegePageInfo) => {
+  const pageWidth = 595;
+  const pageHeight = 842;
+  const leftMargin = 40;
+  const rightMargin = 12;
+  const bottomMargin = 12;
+  const contentWidth = pageWidth - leftMargin - rightMargin;
+
+  let currentPageIdx = 0;
+  doc.switchToPage(currentPageIdx);
+
+  doc.save();
+  doc.lineWidth(1);
+  doc.fillColor('#000000');
+  doc.strokeColor('#000000');
+
+  // Golden header bar
+  const headerBarHeight = 60;
+  const headerBarY = 30;
+  doc.rect(leftMargin, headerBarY, contentWidth, headerBarHeight)
+     .fill('#D4A015');
+
+  doc.fillColor('#FFFFFF')
+     .font('Helvetica-Bold')
+     .fontSize(18)
+     .text('STATE PLACEMENT CELL', leftMargin, headerBarY + 12, {
+       width: contentWidth,
+       align: 'center'
+     });
+
+  doc.font('Helvetica')
+     .fontSize(10)
+     .text('Government and Government Aided Polytechnic Colleges, Kerala', leftMargin, headerBarY + 35, {
+       width: contentWidth,
+       align: 'center'
+     });
+
+  let currentY = headerBarY + headerBarHeight + 25;
+
+  // INDEX title
+  doc.fillColor('#333333')
+     .font('Helvetica-Bold')
+     .fontSize(22)
+     .text('INDEX', leftMargin, currentY, {
+       width: contentWidth,
+       align: 'center'
+     });
+
+  currentY += 35;
+
+  // Decorative line
+  doc.strokeColor('#D4A015')
+     .lineWidth(2)
+     .moveTo(leftMargin + 100, currentY)
+     .lineTo(pageWidth - rightMargin - 100, currentY)
+     .stroke();
+
+  currentY += 25;
+
+  // Table column definitions
+  const columns = [
+    { label: 'SL No', width: 55 },
+    { label: 'College Name', width: 265 },
+    { label: 'Flex Page No', width: 90 },
+    { label: 'Details Page', width: 90 }
+  ];
+  const tableWidth = columns.reduce((sum, col) => sum + col.width, 0);
+  const startX = (pageWidth - tableWidth) / 2;
+  const rowHeight = 30;
+  const headerRowHeight = 34;
+
+  // Helper to draw the table column header row
+  const drawTableHeader = () => {
+    doc.rect(startX, currentY, tableWidth, headerRowHeight)
+       .fillAndStroke('#2C5282', '#1A365D');
+
+    let colX = startX;
+    columns.forEach((col, colIdx) => {
+      if (colIdx > 0) {
+        doc.strokeColor('#FFFFFF')
+           .lineWidth(0.5)
+           .moveTo(colX, currentY + 5)
+           .lineTo(colX, currentY + headerRowHeight - 5)
+           .stroke();
+      }
+
+      doc.fillColor('#FFFFFF')
+         .font('Helvetica-Bold')
+         .fontSize(10)
+         .text(col.label, colX + 5, currentY + 11, {
+           width: col.width - 10,
+           align: 'center'
+         });
+      colX += col.width;
+    });
+
+    currentY += headerRowHeight;
+  };
+
+  drawTableHeader();
+
+  // Data rows
+  collegePageInfo.forEach((info, index) => {
+    // Check if we need to continue on the next reserved index page
+    if (currentY + rowHeight > pageHeight - 60) {
+      currentPageIdx++;
+      doc.switchToPage(currentPageIdx);
+      currentY = 40;
+
+      // Continuation header
+      doc.fillColor('#333333')
+         .font('Helvetica-Bold')
+         .fontSize(14)
+         .text('INDEX (Continued)', leftMargin, currentY, {
+           width: contentWidth,
+           align: 'center'
+         });
+      currentY += 30;
+      drawTableHeader();
+    }
+
+    const fillColor = index % 2 === 0 ? '#F7FAFC' : '#FFFFFF';
+
+    // Row background
+    doc.rect(startX, currentY, tableWidth, rowHeight)
+       .fillAndStroke(fillColor, '#CBD5E0');
+
+    // Vertical cell separators
+    let colX = startX;
+    columns.forEach((col, colIdx) => {
+      if (colIdx > 0) {
+        doc.strokeColor('#CBD5E0')
+           .lineWidth(0.5)
+           .moveTo(colX, currentY)
+           .lineTo(colX, currentY + rowHeight)
+           .stroke();
+      }
+      colX += col.width;
+    });
+
+    colX = startX;
+
+    // SL No
+    doc.fillColor('#2D3748')
+       .font('Helvetica-Bold')
+       .fontSize(10)
+       .text(String(index + 1), colX + 5, currentY + 9, {
+         width: columns[0].width - 10,
+         align: 'center'
+       });
+    colX += columns[0].width;
+
+    // College Name (truncate if too long)
+    const displayName = info.collegeName.length > 42
+      ? info.collegeName.substring(0, 39) + '...'
+      : info.collegeName;
+    doc.fillColor('#2D3748')
+       .font('Helvetica-Bold')
+       .fontSize(9)
+       .text(displayName, colX + 8, currentY + 10, {
+         width: columns[1].width - 16,
+         align: 'left',
+         lineBreak: false,
+         ellipsis: true
+       });
+    colX += columns[1].width;
+
+    // Flex Page No (1-indexed for display)
+    doc.fillColor('#2B6CB0')
+       .font('Helvetica-Bold')
+       .fontSize(10)
+       .text(String(info.posterStartPage + 1), colX + 5, currentY + 9, {
+         width: columns[2].width - 10,
+         align: 'center'
+       });
+    colX += columns[2].width;
+
+    // Details Page (1-indexed for display)
+    doc.fillColor('#2B6CB0')
+       .font('Helvetica-Bold')
+       .fontSize(10)
+       .text(String(info.mappingStartPage + 1), colX + 5, currentY + 9, {
+         width: columns[3].width - 10,
+         align: 'center'
+       });
+
+    currentY += rowHeight;
+  });
+
+  // Bottom border of the table
+  doc.strokeColor('#1A365D')
+     .lineWidth(1.5)
+     .moveTo(startX, currentY)
+     .lineTo(startX + tableWidth, currentY)
+     .stroke();
+
+  // Draw black border frame on all used index pages (matching poster style)
+  for (let p = 0; p <= currentPageIdx; p++) {
+    doc.switchToPage(p);
+
+    // Left border
+    doc.rect(leftMargin, 0, 2, pageHeight - bottomMargin)
+       .fill('#000000');
+
+    // Right border
+    doc.rect(pageWidth - rightMargin - 2, 0, 2, pageHeight - bottomMargin)
+       .fill('#000000');
+
+    // Bottom border
+    doc.rect(leftMargin, pageHeight - bottomMargin - 2, contentWidth, 2)
+       .fill('#000000');
+  }
+
+  doc.restore();
+};
+
+/**
  * Generate Multi-College Placement Poster PDF
  * Creates a combined placement poster for multiple colleges
- * Each college's poster pages are followed by its Excel-type mapping table
+ *
+ * When multiple colleges are present:
+ *   Index Page -> All College Posters (in order) -> All Mapping Tables (in order)
+ * When only one college has data:
+ *   Poster Pages -> Mapping Table (same as single-college behavior)
  *
  * @param {Array} collegesData - Array of college data objects with placements
  * @param {Response} res - Express response object
@@ -2357,26 +2584,71 @@ export const generateMultiCollegePlacementPosterPDF = async (collegesData, res) 
       res.send(pdfData);
     });
 
-    // Process each college
+    const isMultiCollege = collegesData.length > 1;
+    const collegePageInfo = [];
+
+    // Reserve index page(s) at the start for multi-college mode
+    if (isMultiCollege) {
+      // Calculate how many index pages are needed
+      // First page fits ~18 rows (header + title + table header take space)
+      // Continuation pages fit ~22 rows
+      const ROWS_FIRST_PAGE = 18;
+      const ROWS_CONTINUATION = 22;
+      let indexPagesNeeded = 1;
+      if (collegesData.length > ROWS_FIRST_PAGE) {
+        indexPagesNeeded = 1 + Math.ceil((collegesData.length - ROWS_FIRST_PAGE) / ROWS_CONTINUATION);
+      }
+
+      console.log(`📑 [MULTI-COLLEGE] Reserving ${indexPagesNeeded} index page(s) for ${collegesData.length} colleges`);
+
+      // Page 0 is already created by PDFDocument constructor
+      // Add additional blank index pages if needed
+      for (let p = 1; p < indexPagesNeeded; p++) {
+        doc.addPage({ size: 'A4', margin: 0 });
+      }
+    }
+
+    // Phase 1: Generate ALL college poster pages
     for (let i = 0; i < collegesData.length; i++) {
-      const { collegeName, collegeLogo, placements, startYear, endYear } = collegesData[i];
-      const isFirstCollege = (i === 0);
+      const { collegeName, collegeLogo, placements, endYear } = collegesData[i];
 
-      console.log(`🎨 [MULTI-COLLEGE] Processing ${collegeName}: ${placements.length} students`);
+      // In multi-college mode, all colleges start on new pages (page 0+ are index)
+      // In single college mode, first college uses the initial page
+      const isFirst = (i === 0) && !isMultiCollege;
 
-      // Generate poster pages for this college (inline implementation)
-      await generateSingleCollegePosterPages(doc, placements, collegeName, collegeLogo, endYear, isFirstCollege);
+      console.log(`🎨 [MULTI-COLLEGE] Phase 1 - Generating posters for ${collegeName}: ${placements.length} students`);
 
-      // Add Excel-type mapping table for this college
-      console.log(`📋 [MULTI-COLLEGE] Adding Excel table for ${collegeName}`);
+      const posterStartPage = isFirst ? 0 : doc.bufferedPageRange().count;
+      await generateSingleCollegePosterPages(doc, placements, collegeName, collegeLogo, endYear, isFirst);
+
+      collegePageInfo.push({
+        collegeName,
+        posterStartPage,
+        mappingStartPage: -1 // Will be set in Phase 2
+      });
+    }
+
+    // Phase 2: Generate ALL mapping tables (after all posters are done)
+    for (let i = 0; i < collegesData.length; i++) {
+      const { collegeName, placements, endYear } = collegesData[i];
+
+      console.log(`📋 [MULTI-COLLEGE] Phase 2 - Adding Excel table for ${collegeName}`);
+
+      collegePageInfo[i].mappingStartPage = doc.bufferedPageRange().count;
       drawExcelTypeMappingTable(doc, placements, collegeName, endYear || new Date().getFullYear());
     }
 
-    // Add page numbers to all pages
+    // Phase 3: Draw the index page(s) for multi-college mode
+    if (isMultiCollege) {
+      console.log(`📑 [MULTI-COLLEGE] Phase 3 - Drawing index page`);
+      drawIndexPage(doc, collegePageInfo);
+    }
+
+    // Phase 4: Add page numbers to all pages
     const pages = doc.bufferedPageRange();
     for (let i = 0; i < pages.count; i++) {
       doc.switchToPage(i);
-      const pageText = `Page ${i + 1} of ${pages.count}`;
+      const pageText = String(i + 1);
       doc.fontSize(8).font('Helvetica');
       const textWidth = doc.widthOfString(pageText);
       const xPosition = (doc.page.width - textWidth) / 2;
@@ -3142,7 +3414,7 @@ export const generatePlacementPosterPDF = async (placements, options, res) => {
       doc.switchToPage(i);
 
       // Page numbers centered at bottom
-      const pageNumText = `Page ${i + 1} of ${finalPageCount}`;
+      const pageNumText = String(i + 1);
       doc.fontSize(8).font('Helvetica');
       const textWidth = doc.widthOfString(pageNumText);
       const xPos = (pageWidth - textWidth) / 2;

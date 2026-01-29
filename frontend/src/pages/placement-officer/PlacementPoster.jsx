@@ -61,6 +61,11 @@ export default function PlacementPoster() {
       return;
     }
 
+    if (!stats.college_logo_url) {
+      toast.error('College logo is required. Please upload your college logo from your Profile page.');
+      return;
+    }
+
     try {
       setGenerating(true);
       const loadingToast = toast.loading('Generating placement poster PDF...');
@@ -198,7 +203,7 @@ export default function PlacementPoster() {
                 <p className="text-sm text-gray-600 font-medium">
                   {hasLogo
                     ? 'College logo is available and will be included in the poster.'
-                    : 'College logo is not available. Contact super admin to upload college logo.'}
+                    : 'College logo is not uploaded. Please upload your college logo from your Profile page.'}
                 </p>
               </div>
             </div>
@@ -284,11 +289,11 @@ export default function PlacementPoster() {
                 logos, and package details organized by company.
               </p>
               {!hasLogo && (
-                <div className="mt-4 flex items-start space-x-2 p-4 bg-yellow-50 border-2 border-yellow-200 rounded-xl">
-                  <AlertCircle className="text-yellow-600 flex-shrink-0 mt-1" size={20} />
-                  <p className="text-sm text-yellow-800 font-medium">
-                    Note: The poster will be generated without a college logo. For a professional
-                    appearance, please contact the super admin to upload your college logo.
+                <div className="mt-4 flex items-start space-x-2 p-4 bg-red-50 border-2 border-red-200 rounded-xl">
+                  <AlertCircle className="text-red-600 flex-shrink-0 mt-1" size={20} />
+                  <p className="text-sm text-red-800 font-medium">
+                    College logo is required to generate the placement poster. Please upload your
+                    college logo from your Profile page before generating.
                   </p>
                 </div>
               )}
@@ -299,7 +304,7 @@ export default function PlacementPoster() {
                 size="lg"
                 icon={Download}
                 onClick={handleGeneratePoster}
-                disabled={!isReady || generating}
+                disabled={!isReady || !hasLogo || generating}
                 className="min-w-[200px]"
               >
                 {generating ? 'Generating...' : 'Generate Poster'}

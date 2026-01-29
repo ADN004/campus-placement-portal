@@ -2385,6 +2385,14 @@ export const generatePlacementPoster = async (req, res) => {
 
     const { college_id: collegeId, college_name: collegeName, logo_url: logoUrl } = officerResult.rows[0];
 
+    // College logo is mandatory for placement officer poster generation
+    if (!logoUrl) {
+      return res.status(400).json({
+        success: false,
+        message: 'College logo is required to generate the placement poster. Please upload your college logo from your Profile page.',
+      });
+    }
+
     console.log(`🎨 [PLACEMENT POSTER] Generating for college: ${collegeName} (ID: ${collegeId})`);
 
     // Fetch all placed students with complete details

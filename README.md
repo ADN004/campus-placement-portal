@@ -41,7 +41,7 @@ The **State Placement Cell** is a production-ready, enterprise-grade placement m
 - **60 Colleges:** All polytechnic colleges across 5 Kerala regions
 - **26 Branches:** Support for all Kerala polytechnic diploma engineering programs
 - **3-Tier Student Data:** Basic profile (Tier 1) + Extended profile (Tier 2) + Custom job fields (Tier 3)
-- **80+ API Endpoints:** Complete REST API with role-based access control
+- **200+ API Endpoints:** Complete REST API with role-based access control
 - **28 Database Tables:** Normalized schema with triggers, functions, and materialized views
 - **40+ Indexes:** Query optimization for 20,000+ concurrent users
 
@@ -334,9 +334,25 @@ The **State Placement Cell** is a production-ready, enterprise-grade placement m
   - Notification history tracking
 - **Notification Analytics:** View delivery status and read counts
 
+#### College Logo Management
+- **Upload College Logo:** Upload a logo image for their college (used in placement posters and exports)
+- **Delete College Logo:** Remove the current college logo
+
 #### College Branch Management
 - **View College Branches:** See all branches available in their college
 - **Manage Branches:** (If authorized) Add/remove branches for their college
+- **Apply Branch Templates:** Apply predefined branch templates to their college
+
+#### Application Management
+- **Update Application Status:** Change individual application status (pending, shortlisted, selected, rejected)
+- **Bulk Update Status:** Update status for multiple applications at once
+- **Update Placement Details:** Record package, joining date, and location for selected students
+- **Notify Students:** Send email notifications about application status changes
+
+#### Job Drive Management
+- **Schedule Placement Drives:** Set date, time, location for job drives
+- **Add Drive Instructions:** Include additional instructions for students
+- **View Drive Details:** See scheduled drive information
 
 ---
 
@@ -673,8 +689,19 @@ The **State Placement Cell** is a production-ready, enterprise-grade placement m
 #### Notification System
 - **Send System-Wide Notifications:** To all students or filtered groups
 - **Targeted Messaging:** By region, college, or student status
+- **Select Colleges and Branches:** Choose specific colleges and their branches as notification targets
 - **Priority Levels:** Set notification priority
 - **Notification Analytics:** View delivery and read statistics
+
+#### Admin Notifications
+- **In-App Admin Notifications:** Receive notifications for system events (new job requests, whitelist requests, etc.)
+- **Unread Count Badge:** Real-time unread notification count displayed in the dashboard
+- **Mark as Read:** Mark individual or all admin notifications as read
+
+#### Multi-College Placement Posters
+- **Single College Poster:** Generate PDF placement poster for a specific college
+- **Multi-College Poster:** Generate combined placement poster across multiple selected colleges
+- **College-Wise Student Organization:** Students organized by college in multi-college posters
 
 ---
 
@@ -929,7 +956,7 @@ The system uses a sophisticated 3-tier architecture to manage student data effic
 ## 📁 Project Structure
 
 ```
-MajorProject/
+campus-placement-portal/
 ├── backend/
 │   ├── config/
 │   │   ├── database.js                    # PostgreSQL connection pool
@@ -1122,6 +1149,7 @@ MajorProject/
 ├── start-frontend.sh                      # Start frontend only
 ├── start-docker.sh                        # Start with Docker
 ├── push-to-github.bat / push-to-github.sh # Push to GitHub
+├── Makefile                               # Docker management commands (make help)
 ├── TESTING.md                             # Comprehensive testing guide
 ├── SETUP.md                               # Detailed setup instructions
 └── README.md                              # This file
@@ -1183,8 +1211,8 @@ start.bat
 
 ```bash
 # Clone repository
-git clone <your-repo-url>
-cd MajorProject
+git clone https://github.com/ADN004/campus-placement-portal.git
+cd campus-placement-portal
 
 # Create environment file
 cp backend/.env.example backend/.env
@@ -1202,29 +1230,69 @@ docker-compose logs -f
 # Database: localhost:5432
 ```
 
-**Docker Commands:**
+**Docker Commands (via Makefile):**
+
+The project includes a comprehensive `Makefile` for simplified Docker management. Run `make help` for all commands.
+
+**Requirements:** Docker & Docker Compose, GNU Make (Windows: install via Chocolatey, Scoop, or use Git Bash)
+
 ```bash
-# Stop services
-docker-compose down
+# Full first-time setup (create env, build, start, seed database)
+make setup
 
-# Rebuild after changes
-docker-compose up -d --build
-
-# View service status
-docker-compose ps
-
-# Execute commands in containers
-docker-compose exec backend npm run db:seed
-docker-compose exec postgres psql -U postgres -d campus_placement_portal
+# Quick start (assumes env is configured)
+make quick-start
 ```
+
+| Category | Command | Description |
+| --- | --- | --- |
+| **Production** | `make up` / `make start` | Start all production containers |
+| | `make down` / `make stop` | Stop all production containers |
+| | `make restart` | Restart all production containers |
+| | `make build` | Build production images |
+| | `make build-no-cache` | Build production images without cache |
+| | `make logs` | View logs from all containers (follow mode) |
+| | `make logs-backend` | View backend logs only |
+| | `make logs-frontend` | View frontend logs only |
+| | `make logs-db` | View database logs only |
+| | `make status` / `make ps` | Show container status |
+| **Development** | `make dev` | Start dev environment with hot-reload |
+| | `make dev-build` | Build and start dev environment |
+| | `make dev-down` | Stop dev environment |
+| | `make dev-logs` | View dev logs |
+| | `make dev-restart` | Restart dev environment |
+| | `make dev-status` | Show dev container status |
+| **Database** | `make seed` | Seed the database with initial data |
+| | `make seed-dev` | Seed the dev database |
+| | `make db-shell` | Open PostgreSQL shell |
+| | `make db-shell-dev` | Open PostgreSQL shell (dev) |
+| | `make db-backup` | Backup database to `./backups` folder |
+| | `make db-restore FILE=backup.sql` | Restore database from backup |
+| | `make db-reset` | Reset database (drop and recreate) |
+| **Maintenance** | `make clean` | Stop containers and remove volumes |
+| | `make clean-dev` | Stop dev containers and remove volumes |
+| | `make clean-all` | Remove all containers, volumes, and images |
+| | `make prune` | Remove unused Docker resources (system-wide) |
+| | `make prune-all` | Remove ALL unused Docker resources incl. volumes |
+| | `make rebuild` | Rebuild and restart all containers |
+| | `make rebuild-backend` | Rebuild only the backend service |
+| | `make rebuild-frontend` | Rebuild only the frontend service |
+| **Utilities** | `make shell-backend` | Open shell in backend container |
+| | `make shell-frontend` | Open shell in frontend container |
+| | `make shell-db` | Open shell in database container |
+| | `make images` | List project Docker images |
+| | `make env-check` | Check if `.env` file exists |
+| | `make env-create` | Create `.env` file from template |
+| | `make health` | Check health of all services |
+| | `make info` | Show Docker and project information |
 
 **Development Mode (with hot-reload):**
 ```bash
-# Use development compose file
-docker-compose -f docker-compose.dev.yml up -d
+# Start dev environment (Frontend: http://localhost:5173, Backend: http://localhost:5000)
+make dev
 
-# Frontend will run on http://localhost:5173 with Vite HMR
-# Backend will run on http://localhost:5000 with nodemon
+# Or without Makefile:
+docker-compose -f docker-compose.dev.yml up -d
 ```
 
 ---
@@ -1238,8 +1306,8 @@ docker-compose -f docker-compose.dev.yml up -d
 
 #### 1. Clone Repository
 ```bash
-git clone <your-repo-url>
-cd MajorProject
+git clone https://github.com/ADN004/campus-placement-portal.git
+cd campus-placement-portal
 ```
 
 #### 2. Setup Database
@@ -1549,7 +1617,7 @@ Job postings with eligibility criteria.
 - company_name
 - company_location
 - job_description
-- job_type (Full-time, Part-time, Internship, Contract)
+- no_of_vacancies (optional, number of vacancies for the job)
 - salary_package
 - application_form_url
 - application_start_date
@@ -1878,6 +1946,12 @@ Error:
 - **GET `/notifications`** - Get student notifications
 - **PUT `/notifications/:id/read`** - Mark notification as read
 - **PUT `/notifications/:id/unread`** - Mark notification as unread
+- **GET `/resume`** - Get student resume data
+- **PUT `/resume`** - Update custom resume content
+- **GET `/resume/download/standard`** - Download standard resume as PDF
+- **GET `/resume/download/custom`** - Download custom resume as PDF
+- **GET `/extended-profile`** - Get extended profile data
+- **GET `/extended-profile/completion`** - Get profile completion percentage
 
 ---
 
@@ -1896,6 +1970,7 @@ Error:
 ### 🚀 Enhanced Application Routes (`/api/students/jobs`)
 
 - **POST `/:jobId/check-readiness`** - Check application readiness (validates Tier 1, 2, 3)
+- **GET `/:jobId/missing-fields`** - Get missing fields required for job application
 - **POST `/:jobId/apply-enhanced`** - Submit enhanced application with all tiers
 
 ---
@@ -1924,8 +1999,35 @@ Error:
 - **GET `/job-requests`** - Get all job requests from this officer
 - **PUT `/job-requests/:id`** - Update pending job request
 - **DELETE `/job-requests/:id`** - Delete pending job request
+- **PUT `/students/bulk-approve`** - Bulk approve student registrations
+- **PUT `/students/bulk-reject`** - Bulk reject student registrations
+- **POST `/students/custom-export`** - Custom export with field selection
+- **GET `/students/:studentId/detailed-profile`** - Get detailed student profile
+- **GET `/students/:studentId/resume/status`** - Check student resume status
+- **GET `/students/:studentId/resume/standard`** - Download student's standard resume
+- **GET `/students/:studentId/resume/custom`** - Download student's custom resume
+- **GET `/jobs`** - Get all jobs accessible to officer's college
 - **GET `/jobs/:id/applicants`** - View job applicants from college
+- **GET `/jobs/:id/applicants/export`** - Export job applicants to Excel
+- **POST `/jobs/:id/applicants/enhanced-export`** - Enhanced export with detailed info
+- **PUT `/applications/:id/status`** - Update application status
+- **POST `/applications/bulk-update-status`** - Bulk update application status
+- **PUT `/applications/:id/placement`** - Update placement details
+- **POST `/applications/notify`** - Send notification about status change
+- **GET `/jobs/:id/placement-stats`** - Get placement statistics for a job
+- **POST `/jobs/:id/drive`** - Create or update job drive schedule
+- **GET `/jobs/:id/drive`** - Get job drive details
+- **POST `/job-requests/:id/requirements`** - Set requirements for job request
+- **GET `/job-requests/:id/requirements`** - Get requirements for job request
 - **GET `/college-branches`** - Get branches for officer's college
+- **PUT `/college-branches`** - Update college branches
+- **GET `/branch-templates`** - Get branch templates
+- **POST `/college/logo`** - Upload college logo
+- **DELETE `/college/logo`** - Delete college logo
+- **POST `/manually-add-student-to-job`** - Manually add student to a job
+- **POST `/validate-student-for-manual-addition`** - Validate student before manual addition
+- **GET `/placement-poster/stats`** - Get placement poster statistics
+- **POST `/placement-poster/generate`** - Generate placement poster PDF
 
 ---
 
@@ -1957,15 +2059,24 @@ Error:
 - **GET `/jobs`** - Get all jobs with application counts
 - **POST `/jobs`** - Create job posting
 - **PUT `/jobs/:id`** - Update job details
+- **PUT `/jobs/:id/toggle-status`** - Toggle job active/inactive status
 - **DELETE `/jobs/:id`** - Soft delete job (with reason)
 - **DELETE `/jobs/:id/permanent`** - Permanently delete job
 - **GET `/jobs/deleted-history`** - Get deleted jobs history
-- **DELETE `/jobs/deleted-history/clear`** - Clear deleted jobs history
+- **DELETE `/jobs/deleted-history`** - Clear deleted jobs history
 - **GET `/jobs/:id/applicants`** - Get all applicants for a job (system-wide)
+- **POST `/jobs/:id/applicants/export`** - Export job applicants
+- **POST `/jobs/:id/applicants/enhanced-export`** - Enhanced export with detailed info
+- **GET `/jobs/:id/placement-stats`** - Get placement statistics
+- **POST `/jobs/:id/requirements`** - Set job requirements
+- **PUT `/jobs/:id/requirements`** - Update job requirements
+- **GET `/jobs/:id/requirements`** - Get job requirements
+- **POST `/jobs/:id/drive`** - Create or update placement drive
+- **GET `/jobs/:id/drive`** - Get drive details
 - **PUT `/applications/:id/status`** - Update application status
-- **PUT `/applications/:id/placement-details`** - Record placement details
-- **POST `/jobs/:id/drive-schedule`** - Schedule placement drive
-- **PUT `/jobs/:id/drive-schedule`** - Update drive schedule
+- **POST `/applications/bulk-update-status`** - Bulk update application status
+- **PUT `/applications/:id/placement`** - Record placement details
+- **POST `/applications/notify`** - Notify students about status changes
 
 #### Job Request Management
 - **GET `/job-requests`** - Get all pending job requests
@@ -1975,11 +2086,16 @@ Error:
 #### Student Management
 - **GET `/students`** - Get all students (system-wide) with filters
 - **GET `/students/search/:prn`** - Search student by PRN
+- **GET `/students/:studentId/detailed-profile`** - Get detailed student profile
+- **GET `/students/:studentId/resume/status`** - Check student resume status
+- **GET `/students/:studentId/resume/standard`** - Download student's standard resume
+- **GET `/students/:studentId/resume/custom`** - Download student's custom resume
+- **POST `/students/custom-export`** - Custom student export with field selection
+- **POST `/students/enhanced-export`** - Enhanced export with detailed student info
 - **PUT `/students/:id/blacklist`** - System-wide blacklist
 - **PUT `/students/:id/whitelist`** - Direct whitelist (bypass request)
 - **DELETE `/students/:id`** - Permanently delete student
 - **POST `/students/bulk-delete-photos`** - Bulk delete student photos
-- **GET `/students/export/custom`** - Custom student export with field selection
 
 #### Whitelist Request Management
 - **GET `/whitelist-requests`** - Get all whitelist requests
@@ -1996,9 +2112,56 @@ Error:
 - **PUT `/super-admins/:id/deactivate`** - Deactivate super admin
 - **PUT `/super-admins/:id/activate`** - Reactivate super admin
 
+#### Placement Officer Management
+- **GET `/placement-officers`** - Get all placement officers across colleges
+- **POST `/placement-officers`** - Add/replace placement officer
+- **PUT `/placement-officers/:id`** - Update officer details
+- **PUT `/placement-officers/:id/reset-password`** - Reset officer password
+- **DELETE `/placement-officers/:id`** - Delete placement officer
+- **GET `/placement-officers/history/:collegeId`** - Get officer history for a college
+- **DELETE `/placement-officers/history/:collegeId`** - Clear officer history
+
 #### Branch Management
-- **GET `/college-branches/:collegeId`** - Get branches for a specific college
+- **GET `/branches`** - Get all normalized branches
+- **GET `/colleges/:id/branches`** - Get branches for a specific college
+- **GET `/college-branches`** - Get all college branches
+- **PUT `/college-branches/:collegeId`** - Update branches for a college
+- **GET `/branch-templates`** - Get branch templates
+- **GET `/branch-references`** - Get all branch references
+- **PUT `/branch-references/:branchId`** - Update branch short name
+
+#### Notifications
+- **GET `/colleges-for-notifications`** - Get colleges for notification targeting
+- **POST `/branches-for-colleges`** - Get branches for selected colleges
 - **POST `/send-notification`** - Send system-wide notification
+
+#### Admin Notifications
+- **GET `/admin-notifications`** - Get admin notifications
+- **GET `/admin-notifications/unread-count`** - Get unread notification count
+- **PUT `/admin-notifications/mark-all-read`** - Mark all admin notifications as read
+- **PUT `/admin-notifications/:id/read`** - Mark single admin notification as read
+
+#### Super Admin Management
+- **GET `/admins`** - Get all super admins
+- **POST `/admins`** - Create new super admin
+- **PUT `/admins/:id/deactivate`** - Deactivate super admin
+- **PUT `/admins/:id/activate`** - Activate super admin
+- **DELETE `/admins/:id`** - Delete super admin
+
+#### Requirement Templates
+- **GET `/requirement-templates`** - Get requirement templates
+- **POST `/requirement-templates`** - Create requirement template
+- **PUT `/requirement-templates/:templateId`** - Update requirement template
+- **DELETE `/requirement-templates/:templateId`** - Delete requirement template
+
+#### Placement Posters
+- **GET `/placement-poster/stats/:collegeId`** - Get poster statistics for a college
+- **POST `/placement-poster/generate/:collegeId`** - Generate poster for a college
+- **POST `/placement-poster/generate-multi`** - Generate multi-college poster
+
+#### Manual Student Addition
+- **POST `/manually-add-student-to-job`** - Manually add student to a job
+- **POST `/validate-student-for-manual-addition`** - Validate student before manual addition
 
 ---
 
@@ -2020,6 +2183,7 @@ Error:
 - **GET `/colleges/:id/branches`** - Get branches for a specific college
 - **POST `/validate-prn`** - Validate PRN before registration
 - **GET `/jobs/:id`** - Get public job details
+- **GET `/branch-mapping`** - Get branch name mapping
 
 ---
 
@@ -2089,8 +2253,8 @@ Error:
 #### Production Deployment
 ```bash
 # Clone repository
-git clone <your-repo-url>
-cd MajorProject
+git clone https://github.com/ADN004/campus-placement-portal.git
+cd campus-placement-portal
 
 # Configure environment
 cp backend/.env.example backend/.env
@@ -2289,7 +2453,7 @@ node database/db-commands.js recent
 - **Scale:** Designed for 20,000+ concurrent users
 
 ### Technical Metrics
-- **API Endpoints:** 80+ RESTful endpoints
+- **API Endpoints:** 200+ RESTful endpoints
 - **Database Tables:** 28 core tables
 - **Database Indexes:** 40+ optimized indexes
 - **Database Triggers:** 4 automated triggers
@@ -2326,7 +2490,7 @@ node database/db-commands.js recent
 ✅ Auto-calculated age and programme CGPA
 
 ### Placement Officer Role
-✅ Approve/reject student registrations
+✅ Approve/reject student registrations (single and bulk)
 ✅ Blacklist students with reason
 ✅ Request whitelist from super admin
 ✅ Send college-specific notifications
@@ -2336,10 +2500,15 @@ node database/db-commands.js recent
 ✅ View/export students from PRN ranges
 ✅ Create job requests with requirements configuration
 ✅ View job applicants from college
+✅ Update application status (single and bulk)
+✅ Record placement details (package, location, joining date)
+✅ Schedule placement drives
 ✅ Generate placement posters
-✅ Bulk photo deletion
+✅ Upload/delete college logo
 ✅ Upload/delete officer photo
-✅ Manage college branches
+✅ Download student resumes (standard and custom)
+✅ Manage college branches with templates
+✅ Manually add students to jobs
 
 ### Super Admin Role
 ✅ System-wide PRN range management

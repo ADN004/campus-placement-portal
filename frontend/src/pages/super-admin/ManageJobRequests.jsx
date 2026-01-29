@@ -153,10 +153,10 @@ export default function ManageJobRequests() {
                           <span className="font-medium">{request.location}</span>
                         </div>
                       )}
-                      {request.job_type && (
+                      {request.no_of_vacancies && (
                         <div className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-lg shadow-sm">
-                          <Clock size={16} className="text-blue-500" />
-                          <span className="font-medium">{request.job_type}</span>
+                          <Users size={16} className="text-blue-500" />
+                          <span className="font-medium">{request.no_of_vacancies} Vacancies</span>
                         </div>
                       )}
                       <div className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-lg shadow-sm">

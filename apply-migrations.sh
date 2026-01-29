@@ -19,6 +19,7 @@ echo "  - Placement officer photos"
 echo "  - Job deletion history"
 echo "  - Auto age updates"
 echo "  - Year field for PRN ranges"
+echo "  - No. of vacancies field for jobs"
 echo ""
 read -p "Press Enter to continue..."
 
@@ -30,6 +31,23 @@ echo "Applying migrations..."
 echo ""
 
 count=0
+
+# Apply migrations from backend/migrations directory
+for migration in backend/migrations/*.sql; do
+    if [ -f "$migration" ]; then
+        echo "[*] Applying: $(basename "$migration")"
+        psql -U postgres -d campus_placement_portal -f "$migration" 2>/dev/null
+        if [ $? -eq 0 ]; then
+            echo "    [OK] Applied successfully"
+            ((count++))
+        else
+            echo "    [SKIP] Already applied or optional"
+        fi
+        echo ""
+    fi
+done
+
+# Also check database/migrations directory (legacy)
 for migration in database/migrations/*.sql; do
     if [ -f "$migration" ]; then
         echo "[*] Applying: $(basename "$migration")"

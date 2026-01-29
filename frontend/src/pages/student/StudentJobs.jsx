@@ -481,8 +481,8 @@ function JobDetailsModal({ job, onClose, onApply }) {
                     <span className="font-bold text-green-700">{job.salary_package} LPA</span>
                   </div>
                 )}
-                {job.job_type && (
-                  <span className="bg-indigo-100 text-indigo-800 text-sm font-bold px-4 py-2 rounded-xl">{job.job_type}</span>
+                {job.no_of_vacancies && (
+                  <span className="bg-indigo-100 text-indigo-800 text-sm font-bold px-4 py-2 rounded-xl">{job.no_of_vacancies} Vacancies</span>
                 )}
               </div>
             </div>

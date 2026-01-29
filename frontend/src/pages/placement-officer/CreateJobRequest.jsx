@@ -20,6 +20,7 @@ import {
   Trash2,
   Zap,
   MapPin,
+  Users,
 } from 'lucide-react';
 import { KERALA_POLYTECHNIC_BRANCHES } from '../../constants/branches';
 import DashboardHeader from '../../components/DashboardHeader';
@@ -46,7 +47,7 @@ export default function CreateJobRequest() {
     description: '',
     location: '',
     salary_package: '',
-    job_type: 'Full-time',
+    no_of_vacancies: '',
     application_deadline: '',
     min_cgpa: '',
     max_backlogs: '',
@@ -117,7 +118,7 @@ export default function CreateJobRequest() {
       description: '',
       location: '',
       salary_package: '',
-      job_type: 'Full-time',
+      no_of_vacancies: '',
       application_deadline: '',
       min_cgpa: '',
       max_backlogs: '',
@@ -283,7 +284,7 @@ export default function CreateJobRequest() {
         job_title: formData.title,
         company_name: formData.company_name,
         job_description: formData.description,
-        job_type: formData.job_type,
+        no_of_vacancies: formData.no_of_vacancies || null,
         location: formData.location,
         salary_range: formData.salary_package,
         application_deadline: formData.application_deadline,
@@ -708,15 +709,15 @@ export default function CreateJobRequest() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">Job Type</label>
-                    <select
+                    <label className="block text-sm font-bold text-gray-700 mb-2">No. of Vacancies</label>
+                    <input
+                      type="number"
+                      min="1"
                       className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium bg-white"
-                      value={formData.job_type}
-                      onChange={(e) => setFormData({ ...formData, job_type: e.target.value })}
-                    >
-                      <option value="Full-time">Full-time</option>
-                      <option value="Internship">Internship</option>
-                    </select>
+                      value={formData.no_of_vacancies}
+                      onChange={(e) => setFormData({ ...formData, no_of_vacancies: e.target.value })}
+                      placeholder="e.g., 10"
+                    />
                   </div>
                 </div>
 
@@ -1185,10 +1186,12 @@ export default function CreateJobRequest() {
                         <span>₹{selectedRequest.salary_range} LPA</span>
                       </div>
                     )}
-                    <div className="flex items-center space-x-1">
-                      <Clock size={16} />
-                      <span>{selectedRequest.job_type}</span>
-                    </div>
+                    {selectedRequest.no_of_vacancies && (
+                      <div className="flex items-center space-x-1">
+                        <Users size={16} />
+                        <span>{selectedRequest.no_of_vacancies} Vacancies</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS job_requests (
     job_title VARCHAR(255) NOT NULL,
     company_name VARCHAR(255) NOT NULL,
     job_description TEXT NOT NULL,
-    job_type VARCHAR(50) DEFAULT 'Full-time',
+    no_of_vacancies INTEGER,
     location VARCHAR(255),
     salary_range VARCHAR(100),
     application_deadline TIMESTAMP,

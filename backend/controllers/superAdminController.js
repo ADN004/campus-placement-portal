@@ -908,7 +908,7 @@ export const createJob = async (req, res) => {
       company_name,
       description,
       location,
-      job_type,
+      no_of_vacancies,
       salary_package,
       application_form_url,
       application_deadline,
@@ -937,7 +937,7 @@ export const createJob = async (req, res) => {
       // Create job
       const jobResult = await client.query(
         `INSERT INTO jobs
-         (job_title, company_name, job_description, job_location, job_type, salary_package,
+         (job_title, company_name, job_description, job_location, no_of_vacancies, salary_package,
           application_form_url, application_start_date, application_deadline, min_cgpa, max_backlogs, allowed_branches,
           target_type, target_regions, target_colleges, created_by, is_active)
          VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, $8, $9, $10, $11, $12, $13, $14, $15, TRUE)
@@ -947,7 +947,7 @@ export const createJob = async (req, res) => {
           company_name,
           description,
           location || null,
-          job_type || 'Full-time',
+          no_of_vacancies ? parseInt(no_of_vacancies) : null,
           salary_package || null,
           application_form_url,
           application_deadline,
@@ -1051,7 +1051,7 @@ export const updateJob = async (req, res) => {
       company_name,
       description,
       location,
-      job_type,
+      no_of_vacancies,
       salary_package,
       application_form_url,
       application_deadline,
@@ -1085,9 +1085,9 @@ export const updateJob = async (req, res) => {
       updates.push(`job_location = $${paramCount++}`);
       values.push(location);
     }
-    if (job_type !== undefined) {
-      updates.push(`job_type = $${paramCount++}`);
-      values.push(job_type);
+    if (no_of_vacancies !== undefined) {
+      updates.push(`no_of_vacancies = $${paramCount++}`);
+      values.push(no_of_vacancies ? parseInt(no_of_vacancies) : null);
     }
     if (salary_package !== undefined) {
       updates.push(`salary_package = $${paramCount++}`);
@@ -2461,7 +2461,7 @@ export const approveJobRequest = async (req, res) => {
       // Create the job
       const jobResult = await client.query(
         `INSERT INTO jobs
-         (job_title, company_name, job_description, job_location, job_type, salary_package,
+         (job_title, company_name, job_description, job_location, no_of_vacancies, salary_package,
           application_form_url, application_start_date, application_deadline, min_cgpa, max_backlogs,
           allowed_branches, target_type, target_regions, target_colleges, created_by, is_active)
          VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, $8, $9, $10, $11::jsonb, $12, $13::jsonb, $14::jsonb, $15, TRUE)
@@ -2471,7 +2471,7 @@ export const approveJobRequest = async (req, res) => {
           jobRequest.company_name,
           jobRequest.job_description,
           jobRequest.location || null,
-          jobRequest.job_type || 'Full-time',
+          jobRequest.no_of_vacancies || null,
           jobRequest.salary_range || null,
           jobRequest.application_form_url,
           jobRequest.application_deadline,

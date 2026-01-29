@@ -70,6 +70,24 @@ if errorlevel 1 (
 )
 
 echo.
+
+REM Migration: Replace job_type with no_of_vacancies
+echo [2] Checking no_of_vacancies column in jobs table...
+psql -U postgres -d campus_placement_portal -c "SELECT no_of_vacancies FROM jobs LIMIT 1;" >nul 2>&1
+if errorlevel 1 (
+    echo     Adding no_of_vacancies column and removing job_type...
+    psql -U postgres -d campus_placement_portal -f backend\migrations\replace_job_type_with_vacancies.sql
+    if errorlevel 1 (
+        echo [ERROR] Failed to apply vacancies migration!
+        pause
+        exit /b 1
+    )
+    echo     [OK] no_of_vacancies column added, job_type removed!
+) else (
+    echo     [SKIP] no_of_vacancies column already exists
+)
+
+echo.
 echo ========================================
 echo   Migrations Complete!
 echo ========================================

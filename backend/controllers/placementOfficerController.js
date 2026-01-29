@@ -1666,7 +1666,7 @@ export const createJobRequest = async (req, res) => {
       job_title,
       company_name,
       job_description,
-      job_type,
+      no_of_vacancies,
       location,
       salary_range,
       application_deadline,
@@ -1735,7 +1735,7 @@ export const createJobRequest = async (req, res) => {
         const jobRequestResult = await client.query(
           `INSERT INTO job_requests (
             placement_officer_id, college_id, job_title, company_name, job_description,
-            job_type, location, salary_range, application_deadline, application_form_url,
+            no_of_vacancies, location, salary_range, application_deadline, application_form_url,
             min_cgpa, max_backlogs, allowed_branches, target_type, target_regions, target_colleges,
             status, reviewed_date
           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, CURRENT_TIMESTAMP)
@@ -1746,7 +1746,7 @@ export const createJobRequest = async (req, res) => {
             job_title.trim(),
             company_name.trim(),
             job_description.trim(),
-            job_type || 'Full-time',
+            toNumberOrNull(no_of_vacancies),
             toNullIfEmpty(location),
             toNullIfEmpty(salary_range),
             application_deadline,
@@ -1766,7 +1766,7 @@ export const createJobRequest = async (req, res) => {
         // Create the job directly
         const jobResult = await client.query(
           `INSERT INTO jobs
-           (job_title, company_name, job_description, job_location, job_type, salary_package,
+           (job_title, company_name, job_description, job_location, no_of_vacancies, salary_package,
             application_form_url, application_start_date, application_deadline, min_cgpa, max_backlogs,
             allowed_branches, target_type, target_regions, target_colleges, created_by, is_active,
             placement_officer_id, is_auto_approved, source_job_request_id)
@@ -1777,7 +1777,7 @@ export const createJobRequest = async (req, res) => {
             company_name.trim(),
             job_description.trim(),
             toNullIfEmpty(location),
-            job_type || 'Full-time',
+            toNumberOrNull(no_of_vacancies),
             toNullIfEmpty(salary_range),
             application_form_url.trim(),
             application_deadline,
@@ -1894,7 +1894,7 @@ export const createJobRequest = async (req, res) => {
     const jobRequestResult = await query(
       `INSERT INTO job_requests (
         placement_officer_id, college_id, job_title, company_name, job_description,
-        job_type, location, salary_range, application_deadline, application_form_url,
+        no_of_vacancies, location, salary_range, application_deadline, application_form_url,
         min_cgpa, max_backlogs, allowed_branches, target_type, target_regions, target_colleges,
         status
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
@@ -1905,7 +1905,7 @@ export const createJobRequest = async (req, res) => {
         job_title.trim(),
         company_name.trim(),
         job_description.trim(),
-        job_type || 'Full-time',
+        toNumberOrNull(no_of_vacancies),
         toNullIfEmpty(location),
         toNullIfEmpty(salary_range),
         application_deadline,

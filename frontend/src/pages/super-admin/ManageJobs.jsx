@@ -47,7 +47,7 @@ export default function ManageJobs() {
     description: '',
     location: '',
     salary_package: '',
-    job_type: 'Full-time',
+    no_of_vacancies: '',
     application_deadline: '',
     min_cgpa: '',
     max_backlogs: '',
@@ -152,7 +152,7 @@ export default function ManageJobs() {
       description: '',
       location: '',
       salary_package: '',
-      job_type: 'Full-time',
+      no_of_vacancies: '',
       application_deadline: '',
       min_cgpa: '',
       max_backlogs: '',
@@ -200,7 +200,7 @@ export default function ManageJobs() {
       description: job.description || '',
       location: job.location || '',
       salary_package: job.salary_package || '',
-      job_type: job.job_type || 'Full-time',
+      no_of_vacancies: job.no_of_vacancies || '',
       application_deadline: job.application_deadline
         ? new Date(job.application_deadline).toISOString().split('T')[0]
         : '',
@@ -1037,15 +1037,15 @@ export default function ManageJobs() {
                     />
                   </div>
                   <div>
-                    <label className="label">Job Type</label>
-                    <select
+                    <label className="label">No. of Vacancies</label>
+                    <input
+                      type="number"
+                      min="1"
                       className="input"
-                      value={formData.job_type}
-                      onChange={(e) => setFormData({ ...formData, job_type: e.target.value })}
-                    >
-                      <option value="Full-time">Full-time</option>
-                      <option value="Internship">Internship</option>
-                    </select>
+                      value={formData.no_of_vacancies}
+                      onChange={(e) => setFormData({ ...formData, no_of_vacancies: e.target.value })}
+                      placeholder="e.g., 10"
+                    />
                   </div>
                 </div>
 
@@ -1416,10 +1416,12 @@ export default function ManageJobs() {
                         <span>₹{selectedJob.salary_package} LPA</span>
                       </div>
                     )}
-                    <div className="flex items-center space-x-1">
-                      <Clock size={16} />
-                      <span>{selectedJob.job_type}</span>
-                    </div>
+                    {selectedJob.no_of_vacancies && (
+                      <div className="flex items-center space-x-1">
+                        <Users size={16} />
+                        <span>{selectedJob.no_of_vacancies} Vacancies</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

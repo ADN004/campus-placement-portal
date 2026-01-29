@@ -2045,16 +2045,6 @@ Error:
 - **GET `/prn-ranges/:id/students`** - View all students in a PRN range
 - **GET `/prn-ranges/:id/students/export`** - Export students from PRN range to Excel
 
-#### Placement Officer Management
-- **GET `/placement-officers`** - Get all placement officers across colleges
-- **POST `/placement-officers`** - Add/replace placement officer
-- **PUT `/placement-officers/:id`** - Update officer details
-- **POST `/placement-officers/:id/upload-photo`** - Upload officer photo
-- **DELETE `/placement-officers/:id/photo`** - Delete officer photo
-- **PUT `/placement-officers/:id/deactivate`** - Deactivate/remove officer
-- **GET `/placement-officers/history/:collegeId`** - Get officer history for a college
-- **DELETE `/placement-officers/history/:collegeId`** - Clear officer history for a college
-
 #### Job Management
 - **GET `/jobs`** - Get all jobs with application counts
 - **POST `/jobs`** - Create job posting
@@ -2105,12 +2095,6 @@ Error:
 #### Activity Logs
 - **GET `/activity-logs`** - Get activity logs with filters
 - **GET `/activity-logs/export`** - Export activity logs to CSV
-
-#### Super Admin Management
-- **GET `/super-admins`** - Get all super admins
-- **POST `/super-admins`** - Create new super admin
-- **PUT `/super-admins/:id/deactivate`** - Deactivate super admin
-- **PUT `/super-admins/:id/activate`** - Reactivate super admin
 
 #### Placement Officer Management
 - **GET `/placement-officers`** - Get all placement officers across colleges
@@ -2515,32 +2499,39 @@ node database/db-commands.js recent
 ✅ Enable/disable PRN ranges for graduated batches
 ✅ View/export students from any PRN range
 ✅ Manage placement officers with complete history
+✅ Reset placement officer passwords
 ✅ Upload/delete officer photos
 ✅ Create and manage jobs with advanced requirements
+✅ Toggle job active/inactive status
 ✅ Configure Tier 2/3 requirements per job
 ✅ Manage requirement templates
 ✅ Schedule placement drives
-✅ Update application status
+✅ Update application status (single and bulk)
 ✅ Record placement details (package, location, joining date)
 ✅ Soft delete and permanently delete jobs
 ✅ View deleted jobs history
 ✅ Approve/reject job requests
 ✅ System-wide student management
+✅ Download student resumes (standard and custom)
 ✅ Approve/reject whitelist requests
 ✅ Custom student export with dynamic branch filtering
+✅ Enhanced student export with detailed info
 ✅ College-specific branch filtering
 ✅ View and export activity logs
-✅ Manage super admins
+✅ Manage super admins (create, activate, deactivate, delete)
 ✅ Bulk student photo deletion
 ✅ Complete audit trail
-✅ Send system-wide notifications
+✅ Send system-wide notifications with college/branch targeting
+✅ Admin notifications with unread count
+✅ Manually add students to jobs
+✅ Generate single and multi-college placement posters
 
 ---
 
 ## 🛣️ Roadmap
 
 ### Phase 1 (Completed) ✅
-- [x] Complete backend API with 80+ endpoints
+- [x] Complete backend API with 200+ endpoints
 - [x] Database schema with triggers, functions, materialized views
 - [x] JWT authentication and role-based authorization
 - [x] Email verification system
@@ -2566,6 +2557,14 @@ node database/db-commands.js recent
 - [x] Rate limiting for 20k+ users
 - [x] Background jobs (age update, view refresh, cleanup)
 - [x] Docker deployment configuration
+- [x] Makefile for Docker management commands
+- [x] Resume builder and PDF download (standard and custom)
+- [x] College logo management
+- [x] Admin notifications system
+- [x] Multi-college placement poster generation
+- [x] Manual student addition to jobs
+- [x] Application status management (single and bulk)
+- [x] Enhanced student export with detailed info
 - [x] Database CLI utility
 - [x] 23 database migrations
 
@@ -2607,16 +2606,29 @@ Built for 60 Polytechnic Colleges in Kerala
 
 ### Quick Commands
 ```bash
-# Development
+# Development (without Docker)
 npm run dev           # Start backend in dev mode
 npm run db:setup      # Initialize database
 npm run db:seed       # Seed initial data
 
-# Database
+# Database CLI
 node database/db-commands.js stats    # Database statistics
 node database/db-commands.js help     # View all commands
 
-# Production
+# Docker via Makefile (recommended)
+make setup            # Full first-time setup
+make quick-start      # Quick start (env already configured)
+make dev              # Start dev environment with hot-reload
+make up               # Start production containers
+make down             # Stop production containers
+make logs             # View logs (follow mode)
+make seed             # Seed the database
+make db-shell         # Open PostgreSQL shell
+make db-backup        # Backup database
+make health           # Check service health
+make help             # View all available make commands
+
+# Docker without Makefile
 docker-compose up -d                  # Start all services
 docker-compose logs -f backend        # View backend logs
 docker-compose exec postgres psql -U postgres  # Access database

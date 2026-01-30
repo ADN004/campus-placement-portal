@@ -2057,7 +2057,7 @@ const drawExcelTypeMappingTable = (doc, placements, collegeName, currentYear) =>
   const leftMargin = 40;
   const rightMargin = 12;
   const topMargin = 30;
-  const bottomMargin = 30;
+  const bottomMargin = 12;
 
   // Available width for the table
   const availableWidth = pageWidth - leftMargin - rightMargin; // 543px
@@ -2123,7 +2123,7 @@ const drawExcelTypeMappingTable = (doc, placements, collegeName, currentYear) =>
         const collegeHeaderHeight = 35;
 
         // Draw colored rectangle for college name
-        doc.roundedRect(startX, currentY, tableWidth, collegeHeaderHeight, 3)
+        doc.rect(startX, currentY, tableWidth, collegeHeaderHeight)
            .fillAndStroke('#2C5282', '#2C5282');
 
         // College name text in white
@@ -2151,63 +2151,72 @@ const drawExcelTypeMappingTable = (doc, placements, collegeName, currentYear) =>
              .rect(leftMargin, topMargin, pageWidth - leftMargin - rightMargin, pageHeight - topMargin - bottomMargin)
              .stroke();
 
-          currentY = topMargin + innerPadding; // Start from top margin + padding
+          currentY = topMargin + innerPadding;
         }
 
-        // Company header row (colored background)
-        const headerHeight = 30;
-        doc.roundedRect(startX, currentY, tableWidth, headerHeight, 3)
-           .fillAndStroke('#4472C4', '#4472C4');
+        // Company header row (plain Excel style - white bg, black border)
+        const headerHeight = 24;
+        doc.rect(startX, currentY, tableWidth, headerHeight)
+           .fillAndStroke('#FFFFFF', '#000000');
 
-        // Company name and package text
         const companyText = companyGroup.location
           ? `${companyGroup.company}, ${companyGroup.location}, PACKAGE: ${companyGroup.lpa.toFixed(2)} LPA`
           : `${companyGroup.company}, PACKAGE: ${companyGroup.lpa.toFixed(2)} LPA`;
 
-        doc.fontSize(11)
+        doc.fontSize(9)
            .font('Helvetica-Bold')
-           .fillColor('#FFFFFF')
-           .text(companyText, startX + 5, currentY + 9, {
+           .fillColor('#000000')
+           .text(companyText, startX + 5, currentY + 7, {
              width: tableWidth - 10,
              align: 'center'
            });
-        currentY += headerHeight + 2;
+        currentY += headerHeight;
 
-        // Column headers (colored background)
-        const colHeaderHeight = 25;
-        doc.roundedRect(startX, currentY, tableWidth, colHeaderHeight, 3)
-           .fillAndStroke('#5B9BD5', '#5B9BD5');
+        // Column headers (plain Excel style - light gray bg, black border)
+        const colHeaderHeight = 20;
+        doc.rect(startX, currentY, tableWidth, colHeaderHeight)
+           .fillAndStroke('#F0F0F0', '#000000');
 
         let colX = startX;
         columns.forEach(col => {
-          doc.fontSize(8)
+          doc.strokeColor('#000000')
+             .lineWidth(0.5)
+             .moveTo(colX, currentY)
+             .lineTo(colX, currentY + colHeaderHeight)
+             .stroke();
+
+          doc.fontSize(7.5)
              .font('Helvetica-Bold')
-             .fillColor('#FFFFFF')
-             .text(col.label, colX + 2, currentY + 7, {
+             .fillColor('#000000')
+             .text(col.label, colX + 2, currentY + 5, {
                width: col.width - 4,
                align: 'center'
              });
           colX += col.width;
         });
-        currentY += colHeaderHeight + 1;
+        // Right border of header
+        doc.strokeColor('#000000')
+           .lineWidth(0.5)
+           .moveTo(colX, currentY)
+           .lineTo(colX, currentY + colHeaderHeight)
+           .stroke();
+        currentY += colHeaderHeight;
       }
 
-      // Draw student data row
-      const rowHeight = 22;
-      const fillColor = studentCounter % 2 === 0 ? '#F0F0F0' : '#FFFFFF';
+      // Draw student data row (plain Excel style - white bg, black borders)
+      const rowHeight = 20;
 
-      // Draw row background
       doc.rect(startX, currentY, tableWidth, rowHeight)
-         .fillAndStroke(fillColor, '#CCCCCC');
+         .fillAndStroke('#FFFFFF', '#000000');
 
-      // Draw cell borders and data
+      // Draw cell data with vertical borders
       let colX = startX;
       doc.font('Helvetica')
          .fillColor('#000000');
 
       columns.forEach(col => {
-        // Draw vertical border
-        doc.strokeColor('#CCCCCC')
+        // Vertical cell border
+        doc.strokeColor('#000000')
            .lineWidth(0.5)
            .moveTo(colX, currentY)
            .lineTo(colX, currentY + rowHeight)
@@ -2231,7 +2240,6 @@ const drawExcelTypeMappingTable = (doc, placements, collegeName, currentYear) =>
             value = BRANCH_SHORT_NAMES[student.branch] || student.branch?.substring(0, 6).toUpperCase() || 'N/A';
             break;
           case 'year':
-            // Year is previous year (if current 2026, then 2025)
             value = String(currentYear - 1);
             break;
           case 'phone':
@@ -2242,22 +2250,16 @@ const drawExcelTypeMappingTable = (doc, placements, collegeName, currentYear) =>
             break;
         }
 
-        // Determine alignment - center for all except name and email
         const align = (col.key === 'name' || col.key === 'email') ? 'left' : 'center';
 
-        // Calculate dynamic font size for name and email cells to prevent wrapping
-        const availableWidth = col.width - 6;
+        const cellWidth = col.width - 6;
         let fontSize = 7.5;
         const valueStr = String(value);
 
-        // Only apply dynamic sizing for name and email columns
         if (col.key === 'name' || col.key === 'email') {
-          // Use PDFKit's actual text width measurement for accuracy
           doc.fontSize(fontSize);
           let textWidth = doc.widthOfString(valueStr);
-
-          // If text is too wide, reduce font size until it fits
-          while (textWidth > availableWidth && fontSize > 5) {
+          while (textWidth > cellWidth && fontSize > 5) {
             fontSize -= 0.5;
             doc.fontSize(fontSize);
             textWidth = doc.widthOfString(valueStr);
@@ -2266,7 +2268,7 @@ const drawExcelTypeMappingTable = (doc, placements, collegeName, currentYear) =>
 
         doc.fontSize(fontSize);
 
-        doc.text(value, colX + 3, currentY + 6, {
+        doc.text(value, colX + 3, currentY + 5, {
           width: col.width - 6,
           align: align,
           lineBreak: false,
@@ -2276,8 +2278,8 @@ const drawExcelTypeMappingTable = (doc, placements, collegeName, currentYear) =>
         colX += col.width;
       });
 
-      // Draw right border
-      doc.strokeColor('#CCCCCC')
+      // Right border of last cell
+      doc.strokeColor('#000000')
          .lineWidth(0.5)
          .moveTo(colX, currentY)
          .lineTo(colX, currentY + rowHeight)
@@ -2347,39 +2349,38 @@ const drawIndexPage = (doc, collegePageInfo) => {
   doc.fillColor('#000000');
   doc.strokeColor('#000000');
 
-  // Golden header bar
-  const headerBarHeight = 60;
-  const headerBarY = 30;
-  doc.rect(leftMargin, headerBarY, contentWidth, headerBarHeight)
+  // Golden header bar - flush to top like poster pages
+  const headerBarHeight = 75;
+  doc.rect(leftMargin, 0, contentWidth, headerBarHeight)
      .fill('#D4A015');
 
   doc.fillColor('#FFFFFF')
      .font('Helvetica-Bold')
      .fontSize(18)
-     .text('STATE PLACEMENT CELL', leftMargin, headerBarY + 12, {
+     .text('STATE PLACEMENT CELL', leftMargin, 15, {
        width: contentWidth,
        align: 'center'
      });
 
   doc.font('Helvetica')
      .fontSize(10)
-     .text('Government and Government Aided Polytechnic Colleges, Kerala', leftMargin, headerBarY + 35, {
+     .text('Government and Government Aided Polytechnic Colleges, Kerala', leftMargin, 38, {
        width: contentWidth,
        align: 'center'
      });
 
-  let currentY = headerBarY + headerBarHeight + 25;
+  let currentY = headerBarHeight + 15;
 
   // INDEX title
   doc.fillColor('#333333')
      .font('Helvetica-Bold')
-     .fontSize(22)
+     .fontSize(20)
      .text('INDEX', leftMargin, currentY, {
        width: contentWidth,
        align: 'center'
      });
 
-  currentY += 35;
+  currentY += 30;
 
   // Decorative line
   doc.strokeColor('#D4A015')
@@ -2388,7 +2389,7 @@ const drawIndexPage = (doc, collegePageInfo) => {
      .lineTo(pageWidth - rightMargin - 100, currentY)
      .stroke();
 
-  currentY += 25;
+  currentY += 20;
 
   // Table column definitions
   const columns = [
@@ -2398,7 +2399,7 @@ const drawIndexPage = (doc, collegePageInfo) => {
     { label: 'Details Page', width: 90 }
   ];
   const tableWidth = columns.reduce((sum, col) => sum + col.width, 0);
-  const startX = (pageWidth - tableWidth) / 2;
+  const startX = leftMargin + (contentWidth - tableWidth) / 2;
   const rowHeight = 30;
   const headerRowHeight = 34;
 

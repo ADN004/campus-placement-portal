@@ -127,7 +127,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: ${VITE_API_URL:-http://localhost:5000/api}
+        VITE_API_URL: ${VITE_API_URL:-/api}
     image: cpp-frontend:latest
     container_name: cpp_frontend
     restart: unless-stopped

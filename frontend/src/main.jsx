@@ -4,11 +4,13 @@ import App from './App.jsx';
 import './index.css';
 import { AuthProvider } from './context/AuthContext.jsx';
 import { Toaster } from 'react-hot-toast';
+import DesktopViewSwitcher from './components/DesktopViewSwitcher.jsx';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <AuthProvider>
       <App />
+      <DesktopViewSwitcher />
       <Toaster
         position="top-right"
         toastOptions={{

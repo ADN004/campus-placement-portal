@@ -1,0 +1,119 @@
+# ============================================
+# STATE PLACEMENT CELL - DOCKER HUB DEPLOYMENT
+# ============================================
+# This file pulls pre-built images from Docker Hub.
+# No source code is needed - just this file and a .env file.
+#
+# SETUP:
+#   1. Create a .env file (see below for required variables)
+#   2. Run: docker compose -f docker-compose.hub.yml up -d
+#   3. Wait ~30 seconds for all services to start
+#   4. Seed the database:
+#      docker compose -f docker-compose.hub.yml exec backend node scripts/seedDatabase.js
+#   5. Open http://localhost in your browser
+#
+# REQUIRED .env variables:
+#   DOCKERHUB_USERNAME=your_dockerhub_username
+#   DB_PASSWORD=postgres
+#   JWT_SECRET=any_long_random_string_minimum_64_characters
+#
+# ============================================
+
+services:
+  # PostgreSQL Database (with schema pre-loaded)
+  postgres:
+    image: ${DOCKERHUB_USERNAME}/spc-database:latest
+    container_name: spc_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-campus_placement_portal}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-campus_placement_portal}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - spc_network
+
+  # Backend API
+  backend:
+    image: ${DOCKERHUB_USERNAME}/spc-backend:latest
+    container_name: spc_backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-campus_placement_portal}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      JWT_SECRET: ${JWT_SECRET:-change_this_to_a_long_random_string}
+      JWT_EXPIRE: ${JWT_EXPIRE:-7d}
+      JWT_COOKIE_EXPIRE: ${JWT_COOKIE_EXPIRE:-7}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+      MAX_FILE_SIZE: ${MAX_FILE_SIZE:-5242880}
+      UPLOAD_PATH: ./uploads
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+      EMAIL_SERVICE: ${EMAIL_SERVICE:-gmail}
+      EMAIL_USER: ${EMAIL_USER:-}
+      EMAIL_PASSWORD: ${EMAIL_PASSWORD:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
+      SETUP_SECRET_KEY: ${SETUP_SECRET_KEY:-}
+      CREATE_SUPER_ADMIN: ${CREATE_SUPER_ADMIN:-false}
+      SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:-}
+      SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD:-}
+    ports:
+      - "${BACKEND_PORT:-5000}:5000"
+    volumes:
+      - backend_uploads:/app/uploads
+      - backend_logs:/app/logs
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:5000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - spc_network
+
+  # Frontend (Nginx + React)
+  frontend:
+    image: ${DOCKERHUB_USERNAME}/spc-frontend:latest
+    container_name: spc_frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - spc_network
+
+volumes:
+  postgres_data:
+  backend_uploads:
+  backend_logs:
+
+networks:
+  spc_network:
+    driver: bridge

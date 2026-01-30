@@ -35,7 +35,7 @@ export default function ResumePromptModal({ onClose }) {
       }`}>
         <GlassCard className="p-0 overflow-hidden">
           {/* Gradient Header with Animation */}
-          <div className="relative bg-gradient-to-br from-green-600 via-teal-600 to-cyan-700 p-8 pb-16 overflow-hidden">
+          <div className="relative bg-gradient-to-br from-green-600 via-teal-600 to-cyan-700 p-8 pb-10 overflow-hidden">
             {/* Animated Background Orbs */}
             <div className="absolute top-0 left-0 w-64 h-64 bg-green-400 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-pulse"></div>
             <div className="absolute bottom-0 right-0 w-64 h-64 bg-cyan-400 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-pulse" style={{ animationDelay: '1s' }}></div>
@@ -72,7 +72,7 @@ export default function ResumePromptModal({ onClose }) {
           </div>
 
           {/* Content */}
-          <div className="p-8 pt-6 -mt-8 relative z-10">
+          <div className="p-8 pt-8 relative z-10 bg-white rounded-t-2xl -mt-4">
             {/* Benefits */}
             <div className="mb-8">
               <h3 className="text-xl font-bold text-gray-900 mb-5 flex items-center">

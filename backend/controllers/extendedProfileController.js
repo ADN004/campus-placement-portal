@@ -109,7 +109,7 @@ export const getExtendedProfile = async (req, res) => {
         ep.created_at,
         ep.updated_at,
         -- Student basic info
-        s.prn, s.name, s.email, s.branch, s.programme_cgpa, s.backlog_count, s.gender, s.age,
+        s.prn, s.student_name, s.email, s.branch, s.programme_cgpa, s.backlog_count, s.gender, s.age,
         COALESCE(
           (SELECT COUNT(*) FROM profile_section_completion
            WHERE student_id = ep.student_id AND is_completed = true),

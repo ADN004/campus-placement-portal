@@ -1467,7 +1467,7 @@ export const getActivityLogs = async (req, res) => {
 
     let queryText = `
       SELECT al.*, u.email as user_email, u.role as user_role,
-             COALESCE(po.officer_name, s.name, u.email) as user_name
+             COALESCE(po.officer_name, s.student_name, u.email) as user_name
       FROM activity_logs al
       JOIN users u ON al.user_id = u.id
       LEFT JOIN placement_officers po ON u.id = po.user_id
@@ -2301,7 +2301,7 @@ export const getJobApplicants = async (req, res) => {
     // Get all students who have applied to this job across all colleges
     const applicantsResult = await query(
       `SELECT
-        s.id, s.prn, s.name, s.email, s.mobile_number, s.branch,
+        s.id, s.prn, s.student_name as name, s.email, s.mobile_number, s.branch,
         s.programme_cgpa as cgpa,
         s.backlog_count, s.date_of_birth, s.college_id, s.registration_status, s.region_id,
         c.college_name,

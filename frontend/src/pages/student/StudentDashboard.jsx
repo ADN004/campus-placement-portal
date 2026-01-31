@@ -50,9 +50,13 @@ export default function StudentDashboard() {
       const completion = response.data.data.overall_completion || 0;
       setExtendedProfileCompletion(completion);
 
-      // Show prompt if profile is incomplete
+      // Show prompt if profile is incomplete and not dismissed today
       if (completion < 100) {
-        setShowExtendedProfilePrompt(true);
+        const today = new Date().toISOString().split('T')[0];
+        const dismissed = localStorage.getItem('spc_profile_prompt_dismissed');
+        if (dismissed !== today) {
+          setShowExtendedProfilePrompt(true);
+        }
       }
     } catch (error) {
       console.error('Failed to check extended profile completion:', error);
@@ -64,7 +68,11 @@ export default function StudentDashboard() {
       const response = await studentAPI.getResume();
       const resumeData = response.data.data;
       if (resumeData && !resumeData.has_custom_content) {
-        setShowResumePrompt(true);
+        const today = new Date().toISOString().split('T')[0];
+        const dismissed = localStorage.getItem('spc_resume_prompt_dismissed');
+        if (dismissed !== today) {
+          setShowResumePrompt(true);
+        }
       }
     } catch (error) {
       console.error('Failed to check resume completion:', error);
@@ -198,7 +206,10 @@ export default function StudentDashboard() {
       {/* Extended Profile Prompt Modal */}
       {showExtendedProfilePrompt && (
         <ExtendedProfilePromptModal
-          onClose={() => setShowExtendedProfilePrompt(false)}
+          onClose={() => {
+            localStorage.setItem('spc_profile_prompt_dismissed', new Date().toISOString().split('T')[0]);
+            setShowExtendedProfilePrompt(false);
+          }}
           profileCompletion={extendedProfileCompletion}
         />
       )}
@@ -206,7 +217,10 @@ export default function StudentDashboard() {
       {/* Resume Prompt Modal (only shows if extended profile prompt is not showing) */}
       {showResumePrompt && !showExtendedProfilePrompt && (
         <ResumePromptModal
-          onClose={() => setShowResumePrompt(false)}
+          onClose={() => {
+            localStorage.setItem('spc_resume_prompt_dismissed', new Date().toISOString().split('T')[0]);
+            setShowResumePrompt(false);
+          }}
         />
       )}
 

@@ -15,6 +15,7 @@
 # Configuration
 COMPOSE_FILE := docker-compose.yml
 COMPOSE_DEV_FILE := docker-compose.dev.yml
+COMPOSE_HUB_FILE := docker-compose.hub.yml
 PROJECT_NAME := cpp
 
 # Detect docker compose command (v2 vs v1)
@@ -40,8 +41,11 @@ help: ## Show this help message
 	@echo "  State Placement Cell - Docker Commands"
 	@echo "=========================================="
 	@echo ""
-	@echo "PRODUCTION:"
+	@echo "PRODUCTION (local build):"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E "^(up|down|start|stop|restart|build|logs|status)" | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-18s %s\n", $$1, $$2}'
+	@echo ""
+	@echo "HUB DEPLOYMENT (Docker Hub images):"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E "^hub-" | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-18s %s\n", $$1, $$2}'
 	@echo ""
 	@echo "DEVELOPMENT:"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E "^dev" | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-18s %s\n", $$1, $$2}'
@@ -112,6 +116,113 @@ status: ## Show container status
 	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) ps
 
 ps: status ## Alias for 'status'
+
+# ============================================
+# HUB DEPLOYMENT COMMANDS (Docker Hub images)
+# ============================================
+# These commands use docker-compose.hub.yml which
+# pulls pre-built images from Docker Hub.
+# Used for server/production deployment.
+
+hub-deploy: ## Pull latest Hub images and restart
+	@echo "Deploying latest images from Docker Hub..."
+	$(DOCKER_COMPOSE) -f $(COMPOSE_HUB_FILE) pull
+	$(DOCKER_COMPOSE) -f $(COMPOSE_HUB_FILE) up -d
+	@echo ""
+	@echo "Deployment complete!"
+	@$(MAKE) --no-print-directory hub-status
+
+hub-pull: ## Pull latest images from Docker Hub
+	@echo "Pulling latest images..."
+	$(DOCKER_COMPOSE) -f $(COMPOSE_HUB_FILE) pull
+
+hub-up: ## Start Hub containers
+	$(DOCKER_COMPOSE) -f $(COMPOSE_HUB_FILE) up -d
+	@$(MAKE) --no-print-directory hub-status
+
+hub-down: ## Stop Hub containers
+	@echo "Stopping Hub containers..."
+	$(DOCKER_COMPOSE) -f $(COMPOSE_HUB_FILE) down
+
+hub-restart: ## Restart Hub containers
+	$(DOCKER_COMPOSE) -f $(COMPOSE_HUB_FILE) restart
+
+hub-status: ## Show Hub container status
+	@echo ""
+	@echo "Hub Container Status:"
+	@echo "---------------------"
+	$(DOCKER_COMPOSE) -f $(COMPOSE_HUB_FILE) ps
+
+hub-ports: ## Show Hub container port mappings
+	@echo ""
+	@echo "Port Mappings:"
+	@echo "--------------"
+	@docker ps --filter "name=spc_" --format "table {{.Names}}\t{{.Ports}}"
+
+hub-logs: ## View Hub backend logs (follow)
+	$(DOCKER_COMPOSE) -f $(COMPOSE_HUB_FILE) logs -f backend
+
+hub-logs-all: ## View all Hub logs (follow)
+	$(DOCKER_COMPOSE) -f $(COMPOSE_HUB_FILE) logs -f
+
+hub-logs-db: ## View Hub database logs
+	$(DOCKER_COMPOSE) -f $(COMPOSE_HUB_FILE) logs -f postgres
+
+hub-seed: ## Seed the Hub database
+	@echo "Running database seeding..."
+	$(DOCKER_COMPOSE) -f $(COMPOSE_HUB_FILE) exec backend node scripts/seedDatabase.js
+
+hub-db-shell: ## Open PostgreSQL shell on Hub DB
+	$(DOCKER_COMPOSE) -f $(COMPOSE_HUB_FILE) exec postgres psql -U postgres -d campus_placement_portal
+
+hub-db-sql: ## Run SQL on Hub DB (usage: make hub-db-sql SQL="SELECT 1")
+	@if [ -z "$(SQL)" ]; then \
+		echo "Usage: make hub-db-sql SQL=\"YOUR SQL HERE\""; \
+		exit 1; \
+	fi
+	$(DOCKER_COMPOSE) -f $(COMPOSE_HUB_FILE) exec postgres psql -U postgres -d campus_placement_portal -c "$(SQL)"
+
+hub-db-tables: ## List all tables in Hub DB
+	$(DOCKER_COMPOSE) -f $(COMPOSE_HUB_FILE) exec postgres psql -U postgres -d campus_placement_portal -c "\dt"
+
+hub-db-backup: ## Backup Hub database to ./backups folder
+	@echo "Creating Hub database backup..."
+	@mkdir -p backups
+	$(DOCKER_COMPOSE) -f $(COMPOSE_HUB_FILE) exec postgres pg_dump -U postgres campus_placement_portal > backups/hub_backup_$$(date +%Y%m%d_%H%M%S).sql
+	@echo "Backup saved to backups/ folder"
+
+hub-db-reset: ## Full Hub DB reset: stop, remove volume, pull, start, seed
+	@echo "WARNING: This will DELETE ALL DATA and recreate the database!"
+	@read -p "Are you sure? (y/N) " confirm && [ "$$confirm" = "y" ] || exit 1
+	@echo "Stopping containers..."
+	$(DOCKER_COMPOSE) -f $(COMPOSE_HUB_FILE) down
+	@echo "Removing database volume..."
+	docker volume ls --format '{{.Name}}' | grep postgres_data | xargs -r docker volume rm || true
+	@echo "Pulling latest images..."
+	$(DOCKER_COMPOSE) -f $(COMPOSE_HUB_FILE) pull
+	@echo "Starting containers..."
+	$(DOCKER_COMPOSE) -f $(COMPOSE_HUB_FILE) up -d
+	@echo "Waiting for database to initialize..."
+	@sleep 30
+	@echo "Seeding database..."
+	$(DOCKER_COMPOSE) -f $(COMPOSE_HUB_FILE) exec backend node scripts/seedDatabase.js
+	@echo ""
+	@echo "Database reset complete! Fresh start with seeded data."
+
+hub-health: ## Check health of Hub services
+	@echo "Checking Hub service health..."
+	@echo ""
+	@echo "Containers:"
+	@docker ps --filter "name=spc_" --format "  {{.Names}}: {{.Status}}"
+	@echo ""
+
+hub-shell-backend: ## Open shell in Hub backend container
+	$(DOCKER_COMPOSE) -f $(COMPOSE_HUB_FILE) exec backend sh
+
+hub-clean: ## Stop Hub containers and remove volumes
+	@echo "Stopping Hub containers and removing volumes..."
+	$(DOCKER_COMPOSE) -f $(COMPOSE_HUB_FILE) down -v
+	@echo "Hub cleanup complete."
 
 # ============================================
 # DEVELOPMENT COMMANDS

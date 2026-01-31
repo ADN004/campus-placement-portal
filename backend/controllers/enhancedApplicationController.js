@@ -526,14 +526,6 @@ export const submitEnhancedApplication = async (req, res) => {
     const userId = req.user.id;
     const { custom_field_responses, additional_data, tier2_data, sections_filled } = req.body;
 
-    console.log('=== ENHANCED APPLICATION SUBMISSION ===');
-    console.log('Job ID:', jobId);
-    console.log('User ID:', userId);
-    console.log('Tier2 Data:', tier2_data);
-    console.log('Sections Filled:', sections_filled);
-    console.log('Has tier2_data:', tier2_data && Object.keys(tier2_data).length > 0);
-    console.log('Has sections_filled:', sections_filled && sections_filled.length > 0);
-
     await transaction(async (client) => {
       // Get student with extended profile
       const studentResult = await client.query(
@@ -648,15 +640,9 @@ export const submitEnhancedApplication = async (req, res) => {
         }
       }
 
-      // NEW: Update extended profile from tier2_data BEFORE creating application
-      console.log('Checking if should update extended profile...');
-      console.log('  tier2_data exists:', !!tier2_data);
-      console.log('  tier2_data keys count:', tier2_data ? Object.keys(tier2_data).length : 0);
-      console.log('  sections_filled exists:', !!sections_filled);
-      console.log('  sections_filled length:', sections_filled ? sections_filled.length : 0);
-
+      // Update extended profile from tier2_data BEFORE creating application
       if (tier2_data && Object.keys(tier2_data).length > 0 && sections_filled && sections_filled.length > 0) {
-        console.log('✅ UPDATING EXTENDED PROFILE for student:', student.id);
+        console.log('Updating extended profile for student:', student.id);
         try {
           await updateExtendedProfileFromTier2(
             client,
@@ -664,13 +650,13 @@ export const submitEnhancedApplication = async (req, res) => {
             tier2_data,
             sections_filled
           );
-          console.log('✅ Extended profile update completed successfully');
+          console.log('Extended profile update completed successfully');
         } catch (profileError) {
-          console.error('❌ Extended profile update FAILED:', profileError);
+          console.error('Extended profile update failed:', profileError);
           throw new Error(`Failed to update profile: ${profileError.message}`);
         }
       } else {
-        console.log('⚠️ SKIPPING extended profile update - conditions not met');
+        console.log('No new extended profile data submitted - student profile already complete or no sections required');
       }
 
       // Fetch UPDATED profile for snapshot
@@ -699,6 +685,53 @@ export const submitEnhancedApplication = async (req, res) => {
       );
 
       const updatedStudent = updatedProfileResult.rows[0] || student;
+
+      // Validate required extended profile sections are actually filled
+      if (requirements) {
+        if (requirements.requires_physical_details) {
+          if (!updatedStudent.height_cm || !updatedStudent.weight_kg) {
+            meetsRequirements = false;
+            validationErrors.push('Physical details (height, weight) are required for this job but not completed');
+          }
+        }
+
+        if (requirements.requires_academic_extended) {
+          if (!updatedStudent.sslc_marks || !updatedStudent.sslc_year) {
+            meetsRequirements = false;
+            validationErrors.push('SSLC academic details are required for this job but not completed');
+          }
+        }
+
+        if (requirements.requires_family_details) {
+          if (!updatedStudent.father_name || !updatedStudent.mother_name) {
+            meetsRequirements = false;
+            validationErrors.push('Family details are required for this job but not completed');
+          }
+        }
+
+        if (requirements.requires_document_verification) {
+          const hasPanCard = updatedStudent.ep_has_pan_card !== null ? updatedStudent.ep_has_pan_card : updatedStudent.has_pan_card;
+          const hasAadharCard = updatedStudent.has_aadhar_card;
+          if (hasPanCard === null || hasPanCard === undefined || hasAadharCard === null || hasAadharCard === undefined) {
+            meetsRequirements = false;
+            validationErrors.push('Document verification details are required for this job but not completed');
+          }
+        }
+
+        if (requirements.requires_education_preferences) {
+          if (updatedStudent.interested_in_btech === null || updatedStudent.interested_in_btech === undefined) {
+            meetsRequirements = false;
+            validationErrors.push('Education preferences are required for this job but not completed');
+          }
+        }
+
+        if (requirements.requires_personal_details) {
+          if (!updatedStudent.district || !updatedStudent.permanent_address) {
+            meetsRequirements = false;
+            validationErrors.push('Personal details (district, address) are required for this job but not completed');
+          }
+        }
+      }
 
       // CRITICAL: Re-validate specific field requirements AFTER profile update
       // This ensures that newly filled values (height, weight, SSLC) meet the minimum requirements

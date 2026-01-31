@@ -59,6 +59,20 @@ CREATE INDEX idx_users_role ON users(role);
 CREATE INDEX idx_users_active ON users(is_active);
 
 -- ============================================
+-- 3b. SUPER ADMINS TABLE
+-- ============================================
+CREATE TABLE super_admins (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+    name VARCHAR(255),
+    phone_number VARCHAR(20),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_sa_user ON super_admins(user_id);
+
+-- ============================================
 -- 4. PLACEMENT OFFICERS TABLE
 -- ============================================
 CREATE TABLE placement_officers (

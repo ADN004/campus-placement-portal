@@ -1699,10 +1699,11 @@ export const getDashboard = async (req, res) => {
 export const getProfile = async (req, res) => {
   try {
     const profileResult = await query(
-      `SELECT sa.*, u.email, u.last_login
-       FROM super_admins sa
-       JOIN users u ON sa.user_id = u.id
-       WHERE sa.user_id = $1`,
+      `SELECT u.id as user_id, u.email, u.last_login, u.created_at,
+              sa.id, sa.name, sa.phone_number
+       FROM users u
+       LEFT JOIN super_admins sa ON sa.user_id = u.id
+       WHERE u.id = $1`,
       [req.user.id]
     );
 
@@ -1750,21 +1751,15 @@ export const updateProfile = async (req, res) => {
       });
     }
 
-    // Update profile
+    // Upsert profile (insert if not exists, update if exists)
     const result = await query(
-      `UPDATE super_admins
-       SET name = $1, phone_number = $2
-       WHERE user_id = $3
+      `INSERT INTO super_admins (user_id, name, phone_number, updated_at)
+       VALUES ($3, $1, $2, NOW())
+       ON CONFLICT (user_id) DO UPDATE
+       SET name = $1, phone_number = $2, updated_at = NOW()
        RETURNING *`,
       [name, phone_number, req.user.id]
     );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Profile not found',
-      });
-    }
 
     // Log activity
     await logActivity(

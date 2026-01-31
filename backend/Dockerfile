@@ -1,5 +1,8 @@
 # Backend Dockerfile - Production Optimized
 # Multi-stage build for smaller image size
+#
+# NOTE: Build context must be the PROJECT ROOT (not ./backend)
+# Example: docker build -f backend/Dockerfile -t spc-backend .
 
 # Stage 1: Dependencies
 FROM node:18-alpine AS dependencies
@@ -15,8 +18,8 @@ RUN apk add --no-cache dumb-init
 # Set working directory
 WORKDIR /app
 
-# Copy package files (package-lock.json is required for reproducible builds)
-COPY package*.json ./
+# Copy package files (from backend/ since context is project root)
+COPY backend/package*.json ./
 
 # Install production dependencies
 # Uses npm ci if package-lock.json exists, falls back to npm install otherwise
@@ -42,8 +45,11 @@ WORKDIR /app
 # Copy dependencies from build stage
 COPY --from=dependencies --chown=nodejs:nodejs /app/node_modules ./node_modules
 
-# Copy application code
-COPY --chown=nodejs:nodejs . .
+# Copy backend application code
+COPY --chown=nodejs:nodejs backend/ .
+
+# Copy database files for seeding (seed script reads from /database/)
+COPY --chown=nodejs:nodejs database/ /database/
 
 # Create necessary directories with proper permissions
 RUN mkdir -p uploads logs \

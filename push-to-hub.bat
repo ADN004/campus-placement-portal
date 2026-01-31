@@ -63,10 +63,10 @@ if errorlevel 1 (
     exit /b 1
 )
 
-REM Build backend image
+REM Build backend image (context is project root so database/ is accessible)
 echo.
 echo [Step 3/7] Building backend image...
-docker build -f backend/Dockerfile -t %DOCKERHUB_USERNAME%/spc-backend:latest ./backend
+docker build -f backend/Dockerfile -t %DOCKERHUB_USERNAME%/spc-backend:latest .
 if errorlevel 1 (
     echo ERROR: Backend image build failed!
     pause

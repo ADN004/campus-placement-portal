@@ -514,7 +514,7 @@ CREATE TABLE job_requirement_templates (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_job_requirements_job ON job_requirement_templates(job_id);
+CREATE UNIQUE INDEX idx_job_requirements_job ON job_requirement_templates(job_id);
 
 -- ============================================
 -- 16. COMPANY REQUIREMENT TEMPLATES TABLE

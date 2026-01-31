@@ -507,7 +507,7 @@ export const getStudents = async (req, res) => {
 
     // Get total count before pagination
     const countQuery = queryText.replace(
-      /SELECT s\.\*, u\.email as user_email, c\.college_name, r\.region_name,\s*COALESCE\(ep\.height_cm, s\.height\) as height,\s*COALESCE\(ep\.weight_kg, s\.weight\) as weight,\s*ep\.district/,
+      /SELECT s\.\*.*?ep\.district/s,
       'SELECT COUNT(DISTINCT s.id) as total'
     );
     const countResult = await query(countQuery, params);

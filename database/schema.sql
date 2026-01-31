@@ -386,6 +386,11 @@ CREATE TABLE jobs (
     min_weight DECIMAL(5,2) CHECK (min_weight >= 30 AND min_weight <= 150),
     max_weight DECIMAL(5,2) CHECK (max_weight >= 30 AND max_weight <= 150),
 
+    -- Targeting
+    target_type VARCHAR(50) DEFAULT 'all' CHECK (target_type IN ('all', 'specific', 'region', 'college')),
+    target_regions JSONB,
+    target_colleges JSONB,
+
     -- Soft delete
     is_active BOOLEAN DEFAULT TRUE,
     is_deleted BOOLEAN DEFAULT FALSE,

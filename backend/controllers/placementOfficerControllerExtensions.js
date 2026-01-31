@@ -1507,8 +1507,8 @@ export const notifyApplicationStatus = async (req, res) => {
 
       // Create in-app notification
       const notifResult = await client.query(
-        `INSERT INTO notifications (title, message, notification_type, created_by)
-         VALUES ($1, $2, 'system', $3)
+        `INSERT INTO notifications (title, message, notification_type, target_type, created_by)
+         VALUES ($1, $2, 'general', 'all', $3)
          RETURNING id`,
         [title, message, req.user.id]
       );
@@ -1524,9 +1524,9 @@ export const notifyApplicationStatus = async (req, res) => {
 
       // Link to job
       await client.query(
-        `INSERT INTO notification_targets (notification_id, target_type, target_id)
-         VALUES ($1, 'job', $2)`,
-        [notificationId, app.job_id]
+        `INSERT INTO notification_targets (notification_id, target_entity_type, target_entity_id)
+         VALUES ($1, 'college', $2)`,
+        [notificationId, app.student_id]
       );
 
       notificationsCreated++;

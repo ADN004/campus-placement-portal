@@ -1205,7 +1205,7 @@ export const deleteJob = async (req, res) => {
 
     // Soft delete the job
     await query(
-      'UPDATE jobs SET deleted_at = NOW(), deleted_by = $1 WHERE id = $2',
+      'UPDATE jobs SET is_deleted = TRUE, is_active = FALSE, deleted_at = NOW(), deleted_by = $1 WHERE id = $2',
       [req.user.id, jobId]
     );
 

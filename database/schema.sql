@@ -491,6 +491,7 @@ CREATE TABLE job_requirement_templates (
     requires_academic_extended BOOLEAN DEFAULT FALSE,
     requires_physical_details BOOLEAN DEFAULT FALSE,
     requires_family_details BOOLEAN DEFAULT FALSE,
+    requires_personal_details BOOLEAN DEFAULT FALSE,
     requires_document_verification BOOLEAN DEFAULT FALSE,
     requires_education_preferences BOOLEAN DEFAULT FALSE,
     specific_field_requirements JSONB DEFAULT '{}'::jsonb,

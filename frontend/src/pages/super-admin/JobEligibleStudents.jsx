@@ -563,7 +563,7 @@ export default function JobEligibleStudents() {
                   {job.min_cgpa && <p>Min CGPA: {job.min_cgpa}</p>}
                   {job.max_backlogs !== null && <p>Max Backlogs: {job.max_backlogs}</p>}
                   <p className="text-primary-600 font-medium">
-                    Deadline: {new Date(job.application_deadline).toLocaleDateString()}
+                    Deadline: {new Date(job.application_deadline).toLocaleDateString('en-IN')}
                   </p>
                 </div>
               </button>
@@ -1180,7 +1180,7 @@ export default function JobEligibleStudents() {
                             </td>
                             <td className="text-sm">
                               {student.date_of_birth
-                                ? new Date(student.date_of_birth).toLocaleDateString()
+                                ? new Date(student.date_of_birth).toLocaleDateString('en-IN')
                                 : '-'}
                             </td>
                             <td className="text-sm">{student.email}</td>

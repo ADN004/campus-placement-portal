@@ -467,7 +467,7 @@ export default function SendNotification() {
                         </div>
                       </div>
                       <p className="text-xs text-gray-400 mt-2 font-medium">
-                        {new Date(notification.sent_at).toLocaleString()}
+                        {new Date(notification.sent_at).toLocaleString('en-IN')}
                       </p>
                     </div>
                   ))}

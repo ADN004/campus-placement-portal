@@ -2307,10 +2307,7 @@ export const getJobApplicants = async (req, res) => {
         c.college_name,
         r.region_name,
         ja.id as application_id, ja.applied_date, ja.application_status,
-        j.job_title, j.company_name,
-        (SELECT jec.criteria_value FROM job_eligibility_criteria jec WHERE jec.job_id = j.id AND jec.criteria_type = 'min_cgpa' LIMIT 1) as min_cgpa,
-        (SELECT jec.criteria_value FROM job_eligibility_criteria jec WHERE jec.job_id = j.id AND jec.criteria_type = 'max_backlogs' LIMIT 1) as max_backlogs,
-        (SELECT jec.criteria_value FROM job_eligibility_criteria jec WHERE jec.job_id = j.id AND jec.criteria_type = 'specific_branches' LIMIT 1) as allowed_branches
+        j.job_title, j.company_name, j.min_cgpa, j.max_backlogs, j.allowed_branches
       FROM students s
       JOIN job_applications ja ON s.id = ja.student_id
       JOIN jobs j ON ja.job_id = j.id

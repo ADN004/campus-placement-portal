@@ -162,7 +162,7 @@ export default function ManageJobRequests() {
                       <div className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-lg shadow-sm">
                         <Calendar size={16} className="text-purple-500" />
                         <span className="font-medium">
-                          Requested {new Date(request.created_at).toLocaleDateString('en-US', {
+                          Requested {new Date(request.created_at).toLocaleDateString('en-IN', {
                             month: 'short',
                             day: 'numeric',
                             year: 'numeric'
@@ -280,7 +280,7 @@ export default function ManageJobRequests() {
                             <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Application Deadline</p>
                             <p className="text-base font-bold text-gray-900 mt-0.5">
                               {request.application_deadline
-                                ? new Date(request.application_deadline).toLocaleDateString('en-US', {
+                                ? new Date(request.application_deadline).toLocaleDateString('en-IN', {
                                     weekday: 'short',
                                     year: 'numeric',
                                     month: 'short',

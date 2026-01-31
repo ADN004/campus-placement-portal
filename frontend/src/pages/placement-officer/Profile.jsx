@@ -404,7 +404,7 @@ export default function PlacementOfficerProfile() {
                   <span className="text-sm font-bold text-gray-600">Appointed:</span>
                   <span className="ml-2 font-bold text-green-900">
                     {profile?.appointed_date
-                      ? new Date(profile.appointed_date).toLocaleDateString('en-US', {
+                      ? new Date(profile.appointed_date).toLocaleDateString('en-IN', {
                           year: 'numeric',
                           month: 'long',
                           day: 'numeric',
@@ -416,7 +416,7 @@ export default function PlacementOfficerProfile() {
                   <span className="text-sm font-bold text-gray-600">Last Login:</span>
                   <span className="ml-2 font-bold text-blue-900">
                     {profile?.last_login
-                      ? new Date(profile.last_login).toLocaleString('en-US', {
+                      ? new Date(profile.last_login).toLocaleString('en-IN', {
                           year: 'numeric',
                           month: 'short',
                           day: 'numeric',

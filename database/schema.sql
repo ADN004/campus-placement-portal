@@ -375,6 +375,11 @@ CREATE TABLE jobs (
     application_start_date TIMESTAMP NOT NULL,
     application_deadline TIMESTAMP NOT NULL,
 
+    -- Eligibility criteria
+    min_cgpa DECIMAL(4,2),
+    max_backlogs INTEGER,
+    allowed_branches JSONB,
+
     -- Height/Weight criteria
     min_height INTEGER CHECK (min_height >= 140 AND min_height <= 220),
     max_height INTEGER CHECK (max_height >= 140 AND max_height <= 220),
@@ -475,7 +480,7 @@ CREATE INDEX idx_eligibility_type ON job_eligibility_criteria(criteria_type);
 CREATE TABLE job_requirement_templates (
     id SERIAL PRIMARY KEY,
     job_id INTEGER NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
-    min_cgpa DECIMAL(3,2),
+    min_cgpa DECIMAL(4,2),
     max_backlogs INTEGER,
     allowed_branches JSONB DEFAULT '[]'::jsonb,
     requires_academic_extended BOOLEAN DEFAULT FALSE,
@@ -499,7 +504,7 @@ CREATE TABLE company_requirement_templates (
     template_name VARCHAR(200) NOT NULL UNIQUE,
     company_name VARCHAR(200),
     description TEXT,
-    min_cgpa DECIMAL(3,2),
+    min_cgpa DECIMAL(4,2),
     max_backlogs INTEGER,
     allowed_branches JSONB DEFAULT '[]'::jsonb,
     requires_academic_extended BOOLEAN DEFAULT FALSE,
@@ -581,7 +586,7 @@ CREATE TABLE job_requests (
     salary_range VARCHAR(100),
     application_deadline TIMESTAMP,
     application_form_url TEXT,
-    min_cgpa DECIMAL(3,2),
+    min_cgpa DECIMAL(4,2),
     max_backlogs INTEGER,
     allowed_branches JSONB,
     target_type VARCHAR(50) DEFAULT 'specific' CHECK (target_type IN ('all', 'specific')),
@@ -606,7 +611,7 @@ CREATE INDEX idx_job_requests_created ON job_requests(created_at DESC);
 CREATE TABLE job_request_requirement_templates (
     id SERIAL PRIMARY KEY,
     job_request_id INTEGER NOT NULL REFERENCES job_requests(id) ON DELETE CASCADE,
-    min_cgpa DECIMAL(3,2),
+    min_cgpa DECIMAL(4,2),
     max_backlogs INTEGER,
     allowed_branches JSONB DEFAULT '[]'::jsonb,
     requires_academic_extended BOOLEAN DEFAULT FALSE,

@@ -232,7 +232,7 @@ export default function StudentProfile() {
                       <label className="text-sm font-semibold text-gray-600 mb-1 block">Date of Birth</label>
                       <p className="text-gray-900 font-bold text-lg">
                         {profile?.date_of_birth
-                          ? new Date(profile.date_of_birth).toLocaleDateString('en-US', {
+                          ? new Date(profile.date_of_birth).toLocaleDateString('en-IN', {
                               year: 'numeric',
                               month: 'long',
                               day: 'numeric',
@@ -804,7 +804,7 @@ export default function StudentProfile() {
                   <span className="text-gray-600 font-semibold block mb-1">Registered On:</span>
                   <span className="text-gray-900 font-bold">
                     {profile?.created_at
-                      ? new Date(profile.created_at).toLocaleDateString('en-US', {
+                      ? new Date(profile.created_at).toLocaleDateString('en-IN', {
                           year: 'numeric',
                           month: 'long',
                           day: 'numeric',
@@ -816,7 +816,7 @@ export default function StudentProfile() {
                   <span className="text-gray-600 font-semibold block mb-1">Last Login:</span>
                   <span className="text-gray-900 font-bold">
                     {user?.last_login
-                      ? new Date(user.last_login).toLocaleString('en-US', {
+                      ? new Date(user.last_login).toLocaleString('en-IN', {
                           year: 'numeric',
                           month: 'short',
                           day: 'numeric',

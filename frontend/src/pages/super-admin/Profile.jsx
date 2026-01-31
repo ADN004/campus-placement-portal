@@ -238,7 +238,7 @@ export default function SuperAdminProfile() {
                 <span className="text-sm font-bold text-blue-700 flex items-center">
                   <Calendar size={16} className="mr-2" />
                   {profile?.last_login
-                    ? new Date(profile.last_login).toLocaleString('en-US', {
+                    ? new Date(profile.last_login).toLocaleString('en-IN', {
                         year: 'numeric',
                         month: 'short',
                         day: 'numeric',

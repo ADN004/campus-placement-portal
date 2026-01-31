@@ -509,7 +509,7 @@ export default function ManagePRNRanges() {
                       </div>
                     </td>
                     <td className="px-6 py-5 text-sm text-gray-600">
-                      {new Date(range.created_at).toLocaleDateString()}
+                      {new Date(range.created_at).toLocaleDateString('en-IN')}
                     </td>
                       <td className="px-6 py-5">
                         <div className="flex space-x-2">

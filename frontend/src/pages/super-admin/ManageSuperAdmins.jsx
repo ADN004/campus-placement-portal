@@ -188,10 +188,10 @@ export default function ManageSuperAdmins() {
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Inactive</span>
                     )}
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-700">{new Date(admin.created_at).toLocaleDateString()}</td>
+                  <td className="px-6 py-4 text-sm text-gray-700">{new Date(admin.created_at).toLocaleDateString('en-IN')}</td>
                   <td className="px-6 py-4 text-sm text-gray-700">
                     {admin.last_login ? (
-                      new Date(admin.last_login).toLocaleDateString()
+                      new Date(admin.last_login).toLocaleDateString('en-IN')
                     ) : (
                       <span className="text-gray-400">Never</span>
                     )}

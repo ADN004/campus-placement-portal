@@ -250,7 +250,7 @@ export default function PRNRangeStudents() {
                         </span>
                       )}
                     </td>
-                    <td>{new Date(student.created_at).toLocaleDateString()}</td>
+                    <td>{new Date(student.created_at).toLocaleDateString('en-IN')}</td>
                   </tr>
                 ))}
               </tbody>

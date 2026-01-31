@@ -556,7 +556,7 @@ export default function ManageJobs() {
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('en-US', {
+    return new Date(dateString).toLocaleDateString('en-IN', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -904,7 +904,7 @@ export default function ManageJobs() {
                       <td className="px-6 py-4 text-sm text-gray-600">{job.deleted_by_name || 'System'}</td>
                       <td className="px-6 py-4 text-sm text-gray-600">
                         {job.deleted_at
-                          ? new Date(job.deleted_at).toLocaleString('en-US', {
+                          ? new Date(job.deleted_at).toLocaleString('en-IN', {
                               year: 'numeric',
                               month: 'short',
                               day: 'numeric',

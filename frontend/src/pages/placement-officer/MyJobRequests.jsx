@@ -237,12 +237,12 @@ export default function MyJobRequests() {
                   <div className="flex items-center space-x-4 text-sm text-gray-600 mt-3 font-medium">
                     <div className="flex items-center space-x-1">
                       <Calendar size={16} className="text-blue-600" />
-                      <span>Requested: {new Date(request.created_at).toLocaleDateString()}</span>
+                      <span>Requested: {new Date(request.created_at).toLocaleDateString('en-IN')}</span>
                     </div>
                     {request.reviewed_at && (
                       <div className="flex items-center space-x-1">
                         <Calendar size={16} className="text-green-600" />
-                        <span>Reviewed: {new Date(request.reviewed_at).toLocaleDateString()}</span>
+                        <span>Reviewed: {new Date(request.reviewed_at).toLocaleDateString('en-IN')}</span>
                       </div>
                     )}
                   </div>

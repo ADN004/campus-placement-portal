@@ -541,13 +541,13 @@ export const registerStudent = async (req, res) => {
         // Create student profile with all fields
         const studentResult = await client.query(
           `INSERT INTO students
-           (user_id, prn, name, student_name, branch, region_id, college_id, email, mobile_number,
+           (user_id, prn, student_name, branch, region_id, college_id, email, mobile_number,
             date_of_birth, age, gender, height, weight,
             cgpa_sem1, cgpa_sem2, cgpa_sem3, cgpa_sem4, cgpa_sem5, cgpa_sem6, programme_cgpa,
             complete_address, has_driving_license, has_pan_card, has_aadhar_card, has_passport,
             photo_url, photo_cloudinary_id, email_verification_token,
             backlog_count, backlog_details)
-           VALUES ($1, $2, $3, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 0, 0, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 0, 0, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28)
            RETURNING id`,
           [
             userId,

@@ -2027,7 +2027,7 @@ export const searchStudentByPRN = async (req, res) => {
     }
 
     const studentResult = await query(
-      `SELECT s.*,
+      `SELECT s.*, s.student_name as name,
               c.college_name,
               c.college_code,
               r.region_name,
@@ -2212,7 +2212,7 @@ export const deleteStudent = async (req, res) => {
 
     // Get student details before deletion
     const studentResult = await query(
-      'SELECT s.*, u.email FROM students s JOIN users u ON s.user_id = u.id WHERE s.id = $1',
+      'SELECT s.*, s.student_name as name, u.email FROM students s JOIN users u ON s.user_id = u.id WHERE s.id = $1',
       [studentId]
     );
 

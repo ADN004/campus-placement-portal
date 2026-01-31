@@ -837,7 +837,7 @@ export const getStudentsByPRNRange = async (req, res) => {
     if (range.single_prn) {
       // Single PRN
       studentsResult = await query(
-        `SELECT s.*, c.college_name, r.region_name
+        `SELECT s.*, s.student_name as name, c.college_name, r.region_name
          FROM students s
          JOIN colleges c ON s.college_id = c.id
          JOIN regions r ON s.region_id = r.id
@@ -848,7 +848,7 @@ export const getStudentsByPRNRange = async (req, res) => {
     } else {
       // PRN Range
       studentsResult = await query(
-        `SELECT s.*, c.college_name, r.region_name
+        `SELECT s.*, s.student_name as name, c.college_name, r.region_name
          FROM students s
          JOIN colleges c ON s.college_id = c.id
          JOIN regions r ON s.region_id = r.id

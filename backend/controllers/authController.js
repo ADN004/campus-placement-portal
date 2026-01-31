@@ -177,7 +177,7 @@ export const getMe = async (req, res) => {
     // Get role-specific details
     if (userRole === 'student') {
       const studentResult = await query(
-        `SELECT s.*, c.college_name, r.region_name
+        `SELECT s.*, s.student_name as name, c.college_name, r.region_name
          FROM students s
          JOIN colleges c ON s.college_id = c.id
          JOIN regions r ON s.region_id = r.id

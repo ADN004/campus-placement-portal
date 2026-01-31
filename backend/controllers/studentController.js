@@ -7,7 +7,7 @@ import logActivity from '../middleware/activityLogger.js';
 export const getDashboard = async (req, res) => {
   try {
     const studentResult = await query(
-      `SELECT s.*, c.college_name, r.region_name
+      `SELECT s.*, s.student_name as name, c.college_name, r.region_name
        FROM students s
        JOIN colleges c ON s.college_id = c.id
        JOIN regions r ON s.region_id = r.id
@@ -79,7 +79,7 @@ export const getEligibleJobs = async (req, res) => {
   try {
     // Get student details
     const studentResult = await query(
-      `SELECT s.*, c.college_name, r.region_name
+      `SELECT s.*, s.student_name as name, c.college_name, r.region_name
        FROM students s
        JOIN colleges c ON s.college_id = c.id
        JOIN regions r ON s.region_id = r.id
@@ -355,7 +355,7 @@ export const markNotificationRead = async (req, res) => {
 export const getProfile = async (req, res) => {
   try {
     const profileResult = await query(
-      `SELECT s.*, c.college_name, r.region_name, u.email, u.last_login
+      `SELECT s.*, s.student_name as name, c.college_name, r.region_name, u.email, u.last_login
        FROM students s
        JOIN colleges c ON s.college_id = c.id
        JOIN regions r ON s.region_id = r.id

@@ -14,7 +14,7 @@ export const resendVerificationEmail = async (req, res) => {
   try {
     // Get student details
     const studentResult = await query(
-      `SELECT s.*, u.email
+      `SELECT s.*, s.student_name as name, u.email
        FROM students s
        JOIN users u ON s.user_id = u.id
        WHERE s.user_id = $1`,

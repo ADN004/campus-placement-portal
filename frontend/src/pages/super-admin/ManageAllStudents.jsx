@@ -1526,26 +1526,26 @@ export default function ManageAllStudents() {
       {/* Custom Export Modal */}
       {showCustomExportModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl flex flex-col max-h-[85vh]">
-            <div className="flex-shrink-0 border-b border-gray-200 px-5 py-3.5 flex justify-between items-center">
-              <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                <Settings size={20} className="text-gray-600" />
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-xl flex flex-col max-h-[85vh]">
+            <div className="flex-shrink-0 border-b border-gray-200 px-4 py-3 flex justify-between items-center">
+              <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                <Settings size={18} className="text-gray-600" />
                 Custom Export
               </h2>
               <button
                 onClick={() => setShowCustomExportModal(false)}
                 className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100"
               >
-                <XCircle size={20} />
+                <XCircle size={18} />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3.5">
               {/* Export Format Selection */}
               <div>
-                <h3 className="text-sm font-semibold text-gray-700 mb-2">Export Format</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <label className={`flex items-center gap-2.5 cursor-pointer p-3 border-2 rounded-lg transition-all ${
+                <h3 className="text-xs font-semibold text-gray-700 mb-1.5">Export Format</h3>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className={`flex items-center gap-2 cursor-pointer px-3 py-2 border-2 rounded-lg transition-all text-sm ${
                     exportFormat === 'excel' ? 'border-primary-600 bg-primary-50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                   }`}>
                     <input
@@ -1554,14 +1554,11 @@ export default function ManageAllStudents() {
                       value="excel"
                       checked={exportFormat === 'excel'}
                       onChange={(e) => setExportFormat(e.target.value)}
-                      className="w-4 h-4 text-primary-600"
+                      className="w-3.5 h-3.5 text-primary-600"
                     />
-                    <div>
-                      <span className="font-medium text-sm">Excel (.xlsx)</span>
-                      <p className="text-xs text-gray-500">Editable spreadsheet</p>
-                    </div>
+                    <span className="font-medium">Excel (.xlsx)</span>
                   </label>
-                  <label className={`flex items-center gap-2.5 cursor-pointer p-3 border-2 rounded-lg transition-all ${
+                  <label className={`flex items-center gap-2 cursor-pointer px-3 py-2 border-2 rounded-lg transition-all text-sm ${
                     exportFormat === 'pdf' ? 'border-primary-600 bg-primary-50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                   }`}>
                     <input
@@ -1570,21 +1567,18 @@ export default function ManageAllStudents() {
                       value="pdf"
                       checked={exportFormat === 'pdf'}
                       onChange={(e) => setExportFormat(e.target.value)}
-                      className="w-4 h-4 text-primary-600"
+                      className="w-3.5 h-3.5 text-primary-600"
                     />
-                    <div>
-                      <span className="font-medium text-sm">PDF (.pdf)</span>
-                      <p className="text-xs text-gray-500">Print-ready document</p>
-                    </div>
+                    <span className="font-medium">PDF (.pdf)</span>
                   </label>
                 </div>
               </div>
 
               {/* PDF Settings (only shown when PDF format selected) */}
               {exportFormat === 'pdf' && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-3">PDF Settings</h3>
-                  <div className="grid grid-cols-2 gap-3">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <h3 className="text-xs font-semibold text-gray-700 mb-2">PDF Settings</h3>
+                  <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className="label text-xs">Company Name</label>
                       <input
@@ -1637,8 +1631,8 @@ export default function ManageAllStudents() {
 
               {/* Filters Section */}
               <div>
-                <h3 className="text-sm font-semibold text-gray-700 mb-2">Filters (Optional)</h3>
-                <div className="grid grid-cols-2 gap-3 mb-3">
+                <h3 className="text-xs font-semibold text-gray-700 mb-1.5">Filters (Optional)</h3>
+                <div className="grid grid-cols-2 gap-2 mb-2">
                   <div>
                     <label className="label text-xs">Region</label>
                     <select
@@ -1725,9 +1719,9 @@ export default function ManageAllStudents() {
                       </div>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-3 gap-1 max-h-36 overflow-y-auto border border-gray-200 rounded-lg p-2 bg-gray-50">
+                    <div className="grid grid-cols-2 gap-0.5 max-h-28 overflow-y-auto border border-gray-200 rounded-lg p-1.5 bg-gray-50">
                       {availableBranches.map((branch) => (
-                        <label key={branch} className="flex items-center gap-1.5 cursor-pointer hover:bg-white p-1.5 rounded text-xs transition-colors">
+                        <label key={branch} className="flex items-center gap-1.5 cursor-pointer hover:bg-white px-1.5 py-1 rounded text-[11px] transition-colors">
                           <input
                             type="checkbox"
                             checked={exportFilters.branches.includes(branch)}
@@ -1738,9 +1732,9 @@ export default function ManageAllStudents() {
                                 setExportFilters(prev => ({ ...prev, branches: prev.branches.filter(b => b !== branch) }));
                               }
                             }}
-                            className="checkbox w-3.5 h-3.5"
+                            className="checkbox w-3 h-3 flex-shrink-0"
                           />
-                          <span className="leading-tight">{branch}</span>
+                          <span className="leading-tight truncate">{branch}</span>
                         </label>
                       ))}
                     </div>
@@ -1756,16 +1750,16 @@ export default function ManageAllStudents() {
 
               {/* Fields Selection */}
               <div>
-                <div className="flex justify-between items-center mb-2">
-                  <h3 className="text-sm font-semibold text-gray-700">Select Fields to Export <span className="text-red-500">*</span></h3>
+                <div className="flex justify-between items-center mb-1.5">
+                  <h3 className="text-xs font-semibold text-gray-700">Select Fields to Export <span className="text-red-500">*</span></h3>
                   <button
                     onClick={handleSelectAllFields}
-                    className="text-xs font-medium text-primary-600 hover:text-primary-700 px-2 py-1 rounded hover:bg-primary-50 transition-colors"
+                    className="text-xs font-medium text-primary-600 hover:text-primary-700 px-2 py-0.5 rounded hover:bg-primary-50 transition-colors"
                   >
                     {exportFields.length === 25 ? 'Deselect All' : 'Select All'}
                   </button>
                 </div>
-                <div className="grid grid-cols-3 lg:grid-cols-4 gap-1 max-h-52 overflow-y-auto border border-gray-200 rounded-lg p-2 bg-gray-50">
+                <div className="grid grid-cols-2 gap-0.5 max-h-36 overflow-y-auto border border-gray-200 rounded-lg p-1.5 bg-gray-50">
                   {[
                     { label: 'PRN', value: 'prn' },
                     { label: 'Student Name', value: 'student_name' },
@@ -1794,12 +1788,12 @@ export default function ManageAllStudents() {
                     { label: 'Registration Status', value: 'registration_status' },
                     { label: 'Blacklist Status', value: 'is_blacklisted' },
                   ].map((field) => (
-                    <label key={field.value} className="flex items-center gap-1.5 cursor-pointer hover:bg-white p-1.5 rounded text-xs transition-colors">
+                    <label key={field.value} className="flex items-center gap-1.5 cursor-pointer hover:bg-white px-1.5 py-1 rounded text-[11px] transition-colors">
                       <input
                         type="checkbox"
                         checked={exportFields.includes(field.value)}
                         onChange={() => handleFieldToggle(field.value)}
-                        className="checkbox w-3.5 h-3.5"
+                        className="checkbox w-3 h-3 flex-shrink-0"
                       />
                       <span className="leading-tight">{field.label}</span>
                     </label>
@@ -1812,52 +1806,46 @@ export default function ManageAllStudents() {
 
               {/* Photo URL Option (Excel only) */}
               {exportFormat === 'excel' && (
-                <div className="space-y-2">
-                  <label className="flex items-center gap-3 cursor-pointer p-3 bg-blue-50 border border-blue-100 rounded-lg hover:bg-blue-100/70 transition-colors">
+                <div className="space-y-1.5">
+                  <label className="flex items-center gap-2 cursor-pointer p-2 bg-blue-50 border border-blue-100 rounded-lg hover:bg-blue-100/70 transition-colors">
                     <input
                       type="checkbox"
                       checked={includePhotoUrl}
                       onChange={(e) => setIncludePhotoUrl(e.target.checked)}
-                      className="checkbox h-4 w-4"
+                      className="checkbox h-3.5 w-3.5 flex-shrink-0"
                     />
-                    <div className="flex-1">
-                      <span className="text-sm font-medium text-gray-800">Include Student Photo URLs</span>
-                      <p className="text-xs text-gray-500">Adds a column with Cloudinary photo URLs</p>
-                    </div>
+                    <span className="text-xs text-gray-700">Include Student Photo URLs</span>
                   </label>
-                  <label className="flex items-center gap-3 cursor-pointer p-3 bg-blue-50 border border-blue-100 rounded-lg hover:bg-blue-100/70 transition-colors">
+                  <label className="flex items-center gap-2 cursor-pointer p-2 bg-blue-50 border border-blue-100 rounded-lg hover:bg-blue-100/70 transition-colors">
                     <input
                       type="checkbox"
                       checked={useBranchShortNames}
                       onChange={(e) => setUseBranchShortNames(e.target.checked)}
-                      className="checkbox h-4 w-4"
+                      className="checkbox h-3.5 w-3.5 flex-shrink-0"
                     />
-                    <div className="flex-1">
-                      <span className="text-sm font-medium text-gray-800">Use Branch Short Names</span>
-                      <p className="text-xs text-gray-500">Export as abbreviations (e.g., CE, ME, CSE)</p>
-                    </div>
+                    <span className="text-xs text-gray-700">Use Branch Short Names (CE, ME, CSE)</span>
                   </label>
                 </div>
               )}
             </div>
 
             {/* Sticky Footer */}
-            <div className="flex-shrink-0 border-t border-gray-200 px-5 py-3 flex justify-between items-center bg-gray-50 rounded-b-xl">
-              <p className="text-xs text-gray-400">{exportFields.length} fields selected</p>
+            <div className="flex-shrink-0 border-t border-gray-200 px-4 py-2.5 flex justify-between items-center bg-gray-50 rounded-b-xl">
+              <p className="text-[11px] text-gray-400">{exportFields.length} fields selected</p>
               <div className="flex gap-2">
                 <button
                   onClick={() => setShowCustomExportModal(false)}
-                  className="btn btn-secondary text-sm px-4 py-2"
+                  className="btn btn-secondary text-xs px-3 py-1.5"
                   disabled={processing}
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleCustomExport}
-                  className="btn btn-primary text-sm px-4 py-2 flex items-center gap-1.5"
+                  className="btn btn-primary text-xs px-3 py-1.5 flex items-center gap-1"
                   disabled={processing || exportFields.length === 0}
                 >
-                  <Download size={16} />
+                  <Download size={14} />
                   <span>{processing ? 'Exporting...' : `Export ${exportFormat === 'pdf' ? 'PDF' : 'Excel'}`}</span>
                 </button>
               </div>

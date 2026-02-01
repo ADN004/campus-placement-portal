@@ -862,7 +862,8 @@ CREATE TABLE cgpa_unlock_windows (
     unlock_start TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     unlock_end TIMESTAMP NOT NULL,
     is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_cgpa_unlock_college ON cgpa_unlock_windows(college_id);

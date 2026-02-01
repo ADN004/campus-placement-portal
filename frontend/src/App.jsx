@@ -1,57 +1,58 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 
-// Auth Pages
-import RoleSelectionPage from './pages/auth/RoleSelectionPage';
-import StudentLoginPage from './pages/auth/StudentLoginPage';
-import PlacementOfficerLoginPage from './pages/auth/PlacementOfficerLoginPage';
-import SuperAdminLoginPage from './pages/auth/SuperAdminLoginPage';
-import StudentRegisterPage from './pages/auth/StudentRegisterPage';
-import VerifyEmailPage from './pages/auth/VerifyEmailPage';
-
-// Student Pages
-import StudentDashboard from './pages/student/StudentDashboard';
-import StudentJobs from './pages/student/StudentJobs';
-import StudentApplications from './pages/student/StudentApplications';
-import StudentNotifications from './pages/student/StudentNotifications';
-import StudentProfile from './pages/student/Profile';
-import ExtendedProfile from './pages/student/ExtendedProfile';
-import StudentResume from './pages/student/Resume';
-import WaitingPage from './pages/student/WaitingPage';
-
-// Placement Officer Pages
-import PlacementOfficerDashboard from './pages/placement-officer/PlacementOfficerDashboard';
-import ManageStudents from './pages/placement-officer/ManageStudents';
-import SendNotification from './pages/placement-officer/SendNotification';
-import CreateJobRequest from './pages/placement-officer/CreateJobRequest';
-import MyJobRequests from './pages/placement-officer/MyJobRequests';
-import PlacementOfficerProfile from './pages/placement-officer/Profile';
-import JobEligibleStudents from './pages/placement-officer/JobEligibleStudents';
-import PlacementOfficerPRNRanges from './pages/placement-officer/ManagePRNRanges';
-import PlacementOfficerManageCollegeBranches from './pages/placement-officer/ManageCollegeBranches';
-import PlacementOfficerPlacementPoster from './pages/placement-officer/PlacementPoster';
-
-// Super Admin Pages
-import SuperAdminDashboard from './pages/super-admin/SuperAdminDashboard';
-import ManagePRNRanges from './pages/super-admin/ManagePRNRanges';
-import PRNRangeStudents from './pages/super-admin/PRNRangeStudents';
-import ManagePlacementOfficers from './pages/super-admin/ManagePlacementOfficers';
-import ManageJobs from './pages/super-admin/ManageJobs';
-import ManageJobRequests from './pages/super-admin/ManageJobRequests';
-import ManageWhitelistRequests from './pages/super-admin/ManageWhitelistRequests';
-import ManageSuperAdmins from './pages/super-admin/ManageSuperAdmins';
-import ActivityLogs from './pages/super-admin/ActivityLogs';
-import SuperAdminProfile from './pages/super-admin/Profile';
-import SuperAdminJobEligibleStudents from './pages/super-admin/JobEligibleStudents';
-import ManageAllStudents from './pages/super-admin/ManageAllStudents';
-import ManageRequirementTemplates from './pages/super-admin/ManageRequirementTemplates';
-import SuperAdminManageCollegeBranches from './pages/super-admin/ManageCollegeBranches';
-import SuperAdminSendNotification from './pages/super-admin/SendNotification';
-import SuperAdminPlacementPoster from './pages/super-admin/PlacementPoster';
-
-// Shared Components
+// Shared Components (loaded eagerly - needed on every page)
 import Layout from './components/Layout';
 import LoadingSpinner from './components/LoadingSpinner';
+
+// Auth Pages (lazy loaded)
+const RoleSelectionPage = lazy(() => import('./pages/auth/RoleSelectionPage'));
+const StudentLoginPage = lazy(() => import('./pages/auth/StudentLoginPage'));
+const PlacementOfficerLoginPage = lazy(() => import('./pages/auth/PlacementOfficerLoginPage'));
+const SuperAdminLoginPage = lazy(() => import('./pages/auth/SuperAdminLoginPage'));
+const StudentRegisterPage = lazy(() => import('./pages/auth/StudentRegisterPage'));
+const VerifyEmailPage = lazy(() => import('./pages/auth/VerifyEmailPage'));
+
+// Student Pages (lazy loaded)
+const StudentDashboard = lazy(() => import('./pages/student/StudentDashboard'));
+const StudentJobs = lazy(() => import('./pages/student/StudentJobs'));
+const StudentApplications = lazy(() => import('./pages/student/StudentApplications'));
+const StudentNotifications = lazy(() => import('./pages/student/StudentNotifications'));
+const StudentProfile = lazy(() => import('./pages/student/Profile'));
+const ExtendedProfile = lazy(() => import('./pages/student/ExtendedProfile'));
+const StudentResume = lazy(() => import('./pages/student/Resume'));
+const WaitingPage = lazy(() => import('./pages/student/WaitingPage'));
+
+// Placement Officer Pages (lazy loaded)
+const PlacementOfficerDashboard = lazy(() => import('./pages/placement-officer/PlacementOfficerDashboard'));
+const ManageStudents = lazy(() => import('./pages/placement-officer/ManageStudents'));
+const SendNotification = lazy(() => import('./pages/placement-officer/SendNotification'));
+const CreateJobRequest = lazy(() => import('./pages/placement-officer/CreateJobRequest'));
+const MyJobRequests = lazy(() => import('./pages/placement-officer/MyJobRequests'));
+const PlacementOfficerProfile = lazy(() => import('./pages/placement-officer/Profile'));
+const JobEligibleStudents = lazy(() => import('./pages/placement-officer/JobEligibleStudents'));
+const PlacementOfficerPRNRanges = lazy(() => import('./pages/placement-officer/ManagePRNRanges'));
+const PlacementOfficerManageCollegeBranches = lazy(() => import('./pages/placement-officer/ManageCollegeBranches'));
+const PlacementOfficerPlacementPoster = lazy(() => import('./pages/placement-officer/PlacementPoster'));
+
+// Super Admin Pages (lazy loaded)
+const SuperAdminDashboard = lazy(() => import('./pages/super-admin/SuperAdminDashboard'));
+const ManagePRNRanges = lazy(() => import('./pages/super-admin/ManagePRNRanges'));
+const PRNRangeStudents = lazy(() => import('./pages/super-admin/PRNRangeStudents'));
+const ManagePlacementOfficers = lazy(() => import('./pages/super-admin/ManagePlacementOfficers'));
+const ManageJobs = lazy(() => import('./pages/super-admin/ManageJobs'));
+const ManageJobRequests = lazy(() => import('./pages/super-admin/ManageJobRequests'));
+const ManageWhitelistRequests = lazy(() => import('./pages/super-admin/ManageWhitelistRequests'));
+const ManageSuperAdmins = lazy(() => import('./pages/super-admin/ManageSuperAdmins'));
+const ActivityLogs = lazy(() => import('./pages/super-admin/ActivityLogs'));
+const SuperAdminProfile = lazy(() => import('./pages/super-admin/Profile'));
+const SuperAdminJobEligibleStudents = lazy(() => import('./pages/super-admin/JobEligibleStudents'));
+const ManageAllStudents = lazy(() => import('./pages/super-admin/ManageAllStudents'));
+const ManageRequirementTemplates = lazy(() => import('./pages/super-admin/ManageRequirementTemplates'));
+const SuperAdminManageCollegeBranches = lazy(() => import('./pages/super-admin/ManageCollegeBranches'));
+const SuperAdminSendNotification = lazy(() => import('./pages/super-admin/SendNotification'));
+const SuperAdminPlacementPoster = lazy(() => import('./pages/super-admin/PlacementPoster'));
 
 function App() {
   const { user, loading } = useAuth();
@@ -62,6 +63,7 @@ function App() {
 
   return (
     <Router>
+      <Suspense fallback={<LoadingSpinner />}>
       <Routes>
         {/* Public Routes */}
         <Route path="/login" element={!user ? <RoleSelectionPage /> : <Navigate to={getDashboardRoute(user.role)} />} />
@@ -134,6 +136,7 @@ function App() {
           <Route path="*" element={<Navigate to="/login" />} />
         )}
       </Routes>
+      </Suspense>
     </Router>
   );
 }

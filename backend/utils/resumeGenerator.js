@@ -34,12 +34,11 @@ const SP = {
 
 function formatDate(date) {
   if (!date) return '';
-  const d = new Date(date);
-  const months = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December',
-  ];
-  return `${months[d.getMonth()]} ${d.getFullYear()}`;
+  return new Date(date).toLocaleDateString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    month: 'long',
+    year: 'numeric',
+  });
 }
 
 /** Ensure enough room; add page if not. Returns current Y. */

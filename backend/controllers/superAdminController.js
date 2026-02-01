@@ -1536,8 +1536,9 @@ export const getActivityLogs = async (req, res) => {
 
         logsResult.rows.forEach(log => {
           const userInfo = log.user_email || log.user_phone || '';
+          const timestamp = log.created_at ? new Date(log.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : '';
           csvRows.push([
-            log.created_at,
+            timestamp,
             userInfo,
             log.user_role || '',
             log.action_type || ''

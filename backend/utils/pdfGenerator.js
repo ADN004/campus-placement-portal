@@ -139,7 +139,7 @@ const calculateColumnWidths = (fields, pageWidth, hasSignature, hasSlNo, useShor
         } else if (typeof value === 'boolean') {
           value = value ? 'Yes' : 'No';
         } else if (field === 'date_of_birth' && value) {
-          value = new Date(value).toLocaleDateString('en-IN');
+          value = new Date(value).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' });
         } else if (field === 'branch' && useShortNames && value) {
           value = BRANCH_SHORT_NAMES[value] || String(value);
         } else {
@@ -448,7 +448,7 @@ const drawTableRow = (doc, student, fields, columnWidths, hasSignature, hasSlNo,
     } else if (typeof value === 'boolean') {
       value = value ? 'Yes' : 'No';
     } else if (field === 'date_of_birth' && value) {
-      value = new Date(value).toLocaleDateString('en-IN');
+      value = new Date(value).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' });
     } else if (field === 'branch' && useShortNames && value) {
       // Use short name if option is enabled
       value = BRANCH_SHORT_NAMES[value] || String(value);
@@ -1013,7 +1013,7 @@ export const generateActivityLogsPDF = async (logs, options, res) => {
     doc.fontSize(10)
        .font('Helvetica')
        .fillColor('gray')
-       .text(`Generated on: ${new Date().toLocaleString('en-IN')}`, 0, currentY, {
+       .text(`Generated on: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`, 0, currentY, {
          width: doc.page.width,
          align: 'center'
        });
@@ -1112,6 +1112,7 @@ export const generateActivityLogsPDF = async (logs, options, res) => {
           value = String(rowNumber);
         } else if (col.key === 'created_at') {
           value = log[col.key] ? new Date(log[col.key]).toLocaleString('en-IN', {
+            timeZone: 'Asia/Kolkata',
             year: 'numeric',
             month: 'short',
             day: 'numeric',
@@ -1298,7 +1299,7 @@ export const generatePRNRangeStudentsPDF = async (students, options, res) => {
     doc.fontSize(9)
        .font('Helvetica')
        .fillColor('gray')
-       .text(`Generated on: ${new Date().toLocaleString('en-IN')}`, 0, currentY, {
+       .text(`Generated on: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`, 0, currentY, {
          width: doc.page.width,
          align: 'center'
        });
@@ -1396,7 +1397,7 @@ export const generatePRNRangeStudentsPDF = async (students, options, res) => {
         if (col.key === 'sl_no') {
           value = String(rowNumber);
         } else if (col.key === 'date_of_birth') {
-          value = student[col.key] ? new Date(student[col.key]).toLocaleDateString('en-IN') : '-';
+          value = student[col.key] ? new Date(student[col.key]).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' }) : '-';
         } else if (col.key === 'has_driving_license' || col.key === 'has_pan_card') {
           value = student[col.key] ? 'Yes' : 'No';
         } else if (col.key === 'is_blacklisted') {
@@ -1630,7 +1631,7 @@ export const generateJobApplicantsPDF = async (applicants, options, res) => {
     doc.fontSize(9)
        .font('Helvetica')
        .fillColor('gray')
-       .text(`Total Applicants: ${applicants.length} | Generated on: ${new Date().toLocaleString('en-IN')}`, 0, currentY, {
+       .text(`Total Applicants: ${applicants.length} | Generated on: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`, 0, currentY, {
          width: pageWidth,
          align: 'center'
        });
@@ -1728,7 +1729,7 @@ export const generateJobApplicantsPDF = async (applicants, options, res) => {
         if (col.key === 'sl_no') {
           value = String(rowNumber);
         } else if (col.key === 'date_of_birth' || col.key === 'applied_date') {
-          value = applicant[col.key] ? new Date(applicant[col.key]).toLocaleDateString('en-IN') : '-';
+          value = applicant[col.key] ? new Date(applicant[col.key]).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' }) : '-';
         } else if (col.key === 'programme_cgpa' || col.key === 'cgpa') {
           value = applicant.programme_cgpa || applicant.cgpa || '-';
         } else if (col.key === 'branch' && useShortNames && applicant[col.key]) {

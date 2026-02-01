@@ -2724,11 +2724,11 @@ export const exportStudentsByPRNRange = async (req, res) => {
     students.forEach((student) => {
       worksheet.addRow({
         ...student,
-        date_of_birth: student.date_of_birth ? new Date(student.date_of_birth).toLocaleDateString() : '',
+        date_of_birth: student.date_of_birth ? new Date(student.date_of_birth).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' }) : '',
         is_blacklisted: student.is_blacklisted ? 'Yes' : 'No',
         has_driving_license: student.has_driving_license ? 'Yes' : 'No',
         has_pan_card: student.has_pan_card ? 'Yes' : 'No',
-        created_at: student.created_at ? new Date(student.created_at).toLocaleDateString() : '',
+        created_at: student.created_at ? new Date(student.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : '',
       });
     });
 

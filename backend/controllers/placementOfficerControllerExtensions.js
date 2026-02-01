@@ -741,10 +741,10 @@ export const exportJobApplicants = async (req, res) => {
         email: applicant.email,
         mobile_number: applicant.mobile_number,
         branch: useShortNames ? (BRANCH_SHORT_NAMES[applicant.branch] || applicant.branch) : applicant.branch,
-        date_of_birth: applicant.date_of_birth ? new Date(applicant.date_of_birth).toLocaleDateString() : '',
+        date_of_birth: applicant.date_of_birth ? new Date(applicant.date_of_birth).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' }) : '',
         programme_cgpa: applicant.programme_cgpa,
         backlog_count: applicant.backlog_count,
-        applied_date: new Date(applicant.applied_date).toLocaleDateString(),
+        applied_date: new Date(applicant.applied_date).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' }),
         job_title: jobTitle,
         company_name: companyName,
       });
@@ -1916,7 +1916,7 @@ export const enhancedExportJobApplicants = async (req, res) => {
 
           // Format values
           if (field === 'date_of_birth' && value) {
-            value = new Date(value).toLocaleDateString();
+            value = new Date(value).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' });
           } else if (field === 'branch' && use_short_names && value) {
             value = BRANCH_SHORT_NAMES[value] || value;
           } else if (field.startsWith('has_') && typeof value === 'boolean') {
@@ -2186,9 +2186,9 @@ export const enhancedExportJobApplicants = async (req, res) => {
     applicants.forEach((applicant) => {
       worksheet.addRow({
         ...applicant,
-        date_of_birth: applicant.date_of_birth ? new Date(applicant.date_of_birth).toLocaleDateString() : '',
-        applied_date: applicant.applied_date ? new Date(applicant.applied_date).toLocaleDateString() : '',
-        joining_date: applicant.joining_date ? new Date(applicant.joining_date).toLocaleDateString() : '',
+        date_of_birth: applicant.date_of_birth ? new Date(applicant.date_of_birth).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' }) : '',
+        applied_date: applicant.applied_date ? new Date(applicant.applied_date).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' }) : '',
+        joining_date: applicant.joining_date ? new Date(applicant.joining_date).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' }) : '',
         physically_handicapped: applicant.physically_handicapped ? 'Yes' : 'No',
         has_driving_license: applicant.has_driving_license ? 'Yes' : 'No',
         has_pan_card: applicant.has_pan_card ? 'Yes' : 'No',
@@ -2812,8 +2812,8 @@ export const manuallyAddStudentToJob = async (req, res) => {
     // Prepare application data
     const packageToUse = placement_package || job.salary_package;
     const reviewNotes = notes
-      ? `[MANUAL ADDITION by Placement Officer on ${new Date().toISOString()}]\n${notes}`
-      : `[MANUAL ADDITION by Placement Officer on ${new Date().toISOString()}]`;
+      ? `[MANUAL ADDITION by Placement Officer on ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}]\n${notes}`
+      : `[MANUAL ADDITION by Placement Officer on ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}]`;
 
     let application;
     let isUpdate = false;

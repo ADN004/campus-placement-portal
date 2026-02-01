@@ -1002,7 +1002,7 @@ export const exportStudentsByPRNRange = async (req, res) => {
         student_name: student.name, // Updated to use 'name' alias
         email: student.email,
         mobile_number: student.mobile_number,
-        date_of_birth: student.date_of_birth ? new Date(student.date_of_birth).toLocaleDateString() : '',
+        date_of_birth: student.date_of_birth ? new Date(student.date_of_birth).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' }) : '',
         age: student.age,
         gender: student.gender,
         college_name: student.college_name,
@@ -1014,7 +1014,7 @@ export const exportStudentsByPRNRange = async (req, res) => {
         has_pan_card: student.has_pan_card ? 'Yes' : 'No',
         registration_status: student.registration_status,
         is_blacklisted: student.is_blacklisted ? 'Yes' : 'No',
-        created_at: new Date(student.created_at).toLocaleString(),
+        created_at: new Date(student.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
       });
     });
 
@@ -1178,10 +1178,10 @@ export const exportJobApplicants = async (req, res) => {
         college_name: applicant.college_name,
         region_name: applicant.region_name,
         branch: use_short_names ? (BRANCH_SHORT_NAMES[applicant.branch] || applicant.branch) : applicant.branch,
-        date_of_birth: applicant.date_of_birth ? new Date(applicant.date_of_birth).toLocaleDateString() : '',
+        date_of_birth: applicant.date_of_birth ? new Date(applicant.date_of_birth).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' }) : '',
         programme_cgpa: applicant.programme_cgpa,
         backlog_count: applicant.backlog_count,
-        applied_date: new Date(applicant.applied_date).toLocaleDateString(),
+        applied_date: new Date(applicant.applied_date).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' }),
         job_title: jobTitle,
         company_name: companyName,
       });
@@ -2276,7 +2276,7 @@ export const enhancedExportJobApplicants = async (req, res) => {
 
           // Format values
           if (field === 'date_of_birth' && value) {
-            value = new Date(value).toLocaleDateString();
+            value = new Date(value).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' });
           } else if (field === 'branch' && use_short_names && value) {
             value = BRANCH_SHORT_NAMES[value] || value;
           } else if (field.startsWith('has_') && typeof value === 'boolean') {
@@ -3039,8 +3039,8 @@ export const manuallyAddStudentToJob = async (req, res) => {
     // Prepare application data
     const packageToUse = placement_package || job.salary_package;
     const reviewNotes = notes
-      ? `[MANUAL ADDITION by Super Admin on ${new Date().toISOString()}]\n${notes}`
-      : `[MANUAL ADDITION by Super Admin on ${new Date().toISOString()}]`;
+      ? `[MANUAL ADDITION by Super Admin on ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}]\n${notes}`
+      : `[MANUAL ADDITION by Super Admin on ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}]`;
 
     let application;
     let isUpdate = false;

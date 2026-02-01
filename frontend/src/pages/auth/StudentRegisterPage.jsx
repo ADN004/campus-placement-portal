@@ -130,9 +130,9 @@ export default function StudentRegisterPage() {
     return age;
   };
 
-  // Calculate programme CGPA from sem1-4
+  // Calculate programme CGPA from non-zero semesters (supports lateral entry students)
   const calculateProgrammeCGPA = (sem1, sem2, sem3, sem4) => {
-    const semesters = [sem1, sem2, sem3, sem4].filter(val => val && !isNaN(parseFloat(val)));
+    const semesters = [sem1, sem2, sem3, sem4].filter(val => val && !isNaN(parseFloat(val)) && parseFloat(val) > 0);
     if (semesters.length === 0) return '';
     const sum = semesters.reduce((acc, val) => acc + parseFloat(val), 0);
     return (sum / semesters.length).toFixed(2);
@@ -691,7 +691,7 @@ export default function StudentRegisterPage() {
                 {/* Programme CGPA (Auto-calculated) */}
                 <div className="md:col-span-3">
                   <label htmlFor="programme_cgpa" className="label">
-                    Programme CGPA (Average of Sem 1-4)
+                    Programme CGPA (Average of filled semesters)
                   </label>
                   <input
                     id="programme_cgpa"

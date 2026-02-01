@@ -18,6 +18,9 @@ import {
   ChevronUp,
   ChevronLeft,
   ChevronRight,
+  Lock,
+  Unlock,
+  GraduationCap,
 } from 'lucide-react';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import toast from 'react-hot-toast';
@@ -106,6 +109,16 @@ export default function ManageAllStudents() {
     useBranchShortNames: false
   });
 
+  // CGPA Lock/Unlock
+  const [cgpaLocked, setCgpaLocked] = useState(true);
+  const [cgpaUnlockWindow, setCgpaUnlockWindow] = useState(null);
+  const [showCgpaUnlockModal, setShowCgpaUnlockModal] = useState(false);
+  const [unlockDays, setUnlockDays] = useState(7);
+  const [unlockReason, setUnlockReason] = useState('');
+  const [cgpaProcessing, setCgpaProcessing] = useState(false);
+  const [cgpaSelectedCollege, setCgpaSelectedCollege] = useState('');
+  const [cgpaGlobalMode, setCgpaGlobalMode] = useState(false);
+
   // Maps for export modal
   const [exportRegionsData, setExportRegionsData] = useState([]);
   const [exportCollegesData, setExportCollegesData] = useState([]);
@@ -176,6 +189,63 @@ export default function ManageAllStudents() {
     } catch (error) {
       console.error('Error fetching branches:', error);
       setBranches([]);
+    }
+  };
+
+  // Fetch CGPA lock status when a college is selected for CGPA management
+  const fetchCgpaLockStatus = async (collegeId) => {
+    if (!collegeId) return;
+    try {
+      const response = await superAdminAPI.getCgpaLockStatus(collegeId);
+      const data = response.data.data;
+      setCgpaLocked(data.is_locked);
+      setCgpaUnlockWindow(data.unlock_window);
+    } catch {
+      setCgpaLocked(true);
+      setCgpaUnlockWindow(null);
+    }
+  };
+
+  const handleCgpaUnlock = async () => {
+    if (unlockDays < 1 || unlockDays > 30) {
+      toast.error('Duration must be between 1 and 30 days');
+      return;
+    }
+    setCgpaProcessing(true);
+    try {
+      await superAdminAPI.unlockCgpa({
+        college_id: cgpaGlobalMode ? null : (cgpaSelectedCollege || null),
+        unlock_days: unlockDays,
+        reason: unlockReason || 'Semester results update',
+      });
+      toast.success(cgpaGlobalMode
+        ? `CGPA editing unlocked for ALL colleges for ${unlockDays} days`
+        : `CGPA editing unlocked for ${unlockDays} days`
+      );
+      setShowCgpaUnlockModal(false);
+      setUnlockDays(7);
+      setUnlockReason('');
+      setCgpaGlobalMode(false);
+      if (cgpaSelectedCollege) fetchCgpaLockStatus(cgpaSelectedCollege);
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to unlock CGPA');
+    } finally {
+      setCgpaProcessing(false);
+    }
+  };
+
+  const handleCgpaLock = async () => {
+    setCgpaProcessing(true);
+    try {
+      await superAdminAPI.lockCgpa({
+        college_id: cgpaSelectedCollege || null,
+      });
+      toast.success('CGPA editing locked');
+      if (cgpaSelectedCollege) fetchCgpaLockStatus(cgpaSelectedCollege);
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to lock CGPA');
+    } finally {
+      setCgpaProcessing(false);
     }
   };
 
@@ -946,6 +1016,78 @@ export default function ManageAllStudents() {
           </div>
         )}
       </div>
+
+        {/* CGPA Lock/Unlock Control */}
+        <div className="bg-white/90 backdrop-blur-xl rounded-2xl shadow-lg border border-white/50 p-4 mb-6">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-3">
+              <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg p-2">
+                <GraduationCap size={20} className="text-white" />
+              </div>
+              <div>
+                <h4 className="font-bold text-gray-800 text-sm">Student CGPA Lock / Unlock</h4>
+                <p className="text-xs text-gray-500 mt-0.5">Manage CGPA editing windows for colleges</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <select
+                value={cgpaSelectedCollege}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setCgpaSelectedCollege(val);
+                  if (val) fetchCgpaLockStatus(val);
+                  else { setCgpaLocked(true); setCgpaUnlockWindow(null); }
+                }}
+                className="px-3 py-2 border-2 border-gray-300 rounded-xl text-sm font-medium focus:border-indigo-500 outline-none"
+              >
+                <option value="">Select a college...</option>
+                {colleges.map(c => (
+                  <option key={c.id} value={c.id}>{c.college_name}</option>
+                ))}
+              </select>
+
+              {cgpaSelectedCollege && (
+                <>
+                  <span className={`text-xs px-2 py-1 rounded-full font-bold ${cgpaLocked ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                    {cgpaLocked ? 'LOCKED' : 'UNLOCKED'}
+                  </span>
+                  {!cgpaLocked && cgpaUnlockWindow && (
+                    <span className="text-xs text-gray-500">
+                      Expires: {new Date(cgpaUnlockWindow.unlock_end).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  )}
+                  {cgpaLocked ? (
+                    <button
+                      onClick={() => { setCgpaGlobalMode(false); setShowCgpaUnlockModal(true); }}
+                      disabled={cgpaProcessing}
+                      className="bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold px-3 py-1.5 rounded-xl text-xs hover:from-green-700 hover:to-emerald-700 transition-all flex items-center gap-1 disabled:opacity-50"
+                    >
+                      <Unlock size={13} /> Unlock
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleCgpaLock}
+                      disabled={cgpaProcessing}
+                      className="bg-gradient-to-r from-red-600 to-rose-600 text-white font-bold px-3 py-1.5 rounded-xl text-xs hover:from-red-700 hover:to-rose-700 transition-all flex items-center gap-1 disabled:opacity-50"
+                    >
+                      <Lock size={13} /> Lock Now
+                    </button>
+                  )}
+                </>
+              )}
+
+              <div className="border-l border-gray-300 pl-2 ml-1">
+                <button
+                  onClick={() => { setCgpaGlobalMode(true); setShowCgpaUnlockModal(true); }}
+                  disabled={cgpaProcessing}
+                  className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold px-3 py-1.5 rounded-xl text-xs hover:from-indigo-700 hover:to-purple-700 transition-all flex items-center gap-1 disabled:opacity-50"
+                >
+                  <Unlock size={13} /> Unlock All Colleges
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* Students Table */}
         <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl overflow-hidden border border-white/50">
@@ -1896,6 +2038,71 @@ export default function ManageAllStudents() {
               >
                 <Trash2 size={18} />
                 <span>{processing ? 'Deleting...' : 'Delete Photos'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* CGPA Unlock Modal */}
+      {showCgpaUnlockModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 max-w-md w-full p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg p-2">
+                <GraduationCap className="text-white" size={20} />
+              </div>
+              <h3 className="text-lg font-bold text-gray-800">
+                {cgpaGlobalMode ? 'Unlock CGPA — All Colleges' : 'Unlock CGPA Editing'}
+              </h3>
+            </div>
+            <p className="text-gray-600 text-sm mb-4">
+              {cgpaGlobalMode
+                ? 'This will open CGPA editing for ALL approved students across every college. A notification will be sent.'
+                : 'Students in this college will be able to update their semester CGPA during the unlock window. A notification will be sent to all approved students.'
+              }
+            </p>
+            {cgpaGlobalMode && (
+              <div className="mb-4 flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                <AlertTriangle size={16} className="text-amber-600 flex-shrink-0" />
+                <span className="text-amber-800 text-xs font-bold">Global unlock affects all 60 colleges</span>
+              </div>
+            )}
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Duration (days)</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="30"
+                  value={unlockDays}
+                  onChange={(e) => setUnlockDays(parseInt(e.target.value) || 1)}
+                  className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-xl focus:border-green-500 outline-none font-medium"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Reason (optional)</label>
+                <input
+                  type="text"
+                  value={unlockReason}
+                  onChange={(e) => setUnlockReason(e.target.value)}
+                  placeholder="e.g., Semester 4 results published"
+                  className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-xl focus:border-green-500 outline-none font-medium"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={handleCgpaUnlock}
+                disabled={cgpaProcessing}
+                className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold py-2.5 rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all disabled:opacity-50"
+              >
+                {cgpaProcessing ? 'Processing...' : `Unlock for ${unlockDays} days`}
+              </button>
+              <button
+                onClick={() => { setShowCgpaUnlockModal(false); setCgpaGlobalMode(false); }}
+                className="px-6 py-2.5 bg-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-300 transition-all"
+              >
+                Cancel
               </button>
             </div>
           </div>

@@ -72,6 +72,9 @@ import {
   generateMultiCollegePlacementPoster,
   manuallyAddStudentToJob,
   validateStudentForManualAddition,
+  getCgpaLockStatusSA,
+  unlockCgpaSA,
+  lockCgpaSA,
 } from '../controllers/superAdminControllerExtensions.js';
 import {
   getAllCollegeBranches,
@@ -211,6 +214,11 @@ router.post('/placement-poster/generate-multi', exportLimiter, generateMultiColl
 // Manual Student Addition Routes
 router.post('/manually-add-student-to-job', manuallyAddStudentToJob);
 router.post('/validate-student-for-manual-addition', validateStudentForManualAddition);
+
+// CGPA Lock/Unlock Management Routes
+router.get('/cgpa-lock-status/:collegeId', getCgpaLockStatusSA);
+router.post('/cgpa-unlock', unlockCgpaSA);
+router.post('/cgpa-lock', lockCgpaSA);
 
 // Admin Notifications (Auto-approved jobs, system alerts)
 router.get('/admin-notifications', getAdminNotifications);

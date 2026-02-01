@@ -3319,3 +3319,167 @@ export const validateStudentForManualAddition = async (req, res) => {
     });
   }
 };
+
+// ========================================
+// CGPA LOCK/UNLOCK MANAGEMENT
+// ========================================
+
+// @desc    Get CGPA lock status for a college
+// @route   GET /api/super-admin/cgpa-lock-status/:collegeId
+// @access  Private (Super Admin)
+export const getCgpaLockStatusSA = async (req, res) => {
+  try {
+    const { collegeId } = req.params;
+
+    const unlockResult = await query(
+      `SELECT id, college_id, unlock_end, reason, created_at FROM cgpa_unlock_windows
+       WHERE (college_id = $1 OR college_id IS NULL)
+       AND is_active = TRUE AND unlock_end > CURRENT_TIMESTAMP
+       ORDER BY unlock_end DESC LIMIT 1`,
+      [collegeId]
+    );
+
+    const isUnlocked = unlockResult.rows.length > 0;
+    res.json({
+      success: true,
+      data: {
+        is_locked: !isUnlocked,
+        unlock_window: isUnlocked ? unlockResult.rows[0] : null,
+      },
+    });
+  } catch (error) {
+    console.error('Get CGPA lock status error:', error);
+    res.status(500).json({ success: false, message: 'Error fetching CGPA lock status' });
+  }
+};
+
+// @desc    Unlock CGPA editing for specific or all colleges
+// @route   POST /api/super-admin/cgpa-unlock
+// @access  Private (Super Admin)
+export const unlockCgpaSA = async (req, res) => {
+  try {
+    const { college_id, unlock_days, reason } = req.body;
+
+    if (!unlock_days || unlock_days < 1 || unlock_days > 30) {
+      return res.status(400).json({
+        success: false,
+        message: 'Unlock duration must be between 1 and 30 days',
+      });
+    }
+
+    // Deactivate existing windows
+    if (college_id) {
+      await query(
+        `UPDATE cgpa_unlock_windows SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP
+         WHERE college_id = $1 AND is_active = TRUE`,
+        [college_id]
+      );
+    } else {
+      await query(
+        `UPDATE cgpa_unlock_windows SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP
+         WHERE college_id IS NULL AND is_active = TRUE`
+      );
+    }
+
+    // Create new unlock window (college_id NULL = all colleges)
+    const unlockResult = await query(
+      `INSERT INTO cgpa_unlock_windows (college_id, unlocked_by, unlock_end, reason)
+       VALUES ($1, $2, CURRENT_TIMESTAMP + ($3 || ' days')::INTERVAL, $4)
+       RETURNING *`,
+      [college_id || null, req.user.id, unlock_days, reason || 'Semester results update']
+    );
+
+    // Create notification
+    const targetType = college_id ? 'specific_colleges' : 'all';
+    const notifResult = await query(
+      `INSERT INTO notifications (title, message, notification_type, priority, created_by, target_type)
+       VALUES ($1, $2, 'general', 'high', $3, $4)
+       RETURNING id`,
+      [
+        'CGPA Update Window Open',
+        `You can now update your semester CGPA. This window will close in ${unlock_days} day${unlock_days > 1 ? 's' : ''}. Update your grades if needed.`,
+        req.user.id,
+        targetType,
+      ]
+    );
+
+    const notifId = notifResult.rows[0].id;
+
+    if (college_id) {
+      await query(
+        `INSERT INTO notification_targets (notification_id, target_entity_type, target_entity_id)
+         VALUES ($1, 'college', $2)`,
+        [notifId, college_id]
+      );
+      await query(
+        `INSERT INTO notification_recipients (notification_id, user_id)
+         SELECT $1, s.user_id FROM students s
+         WHERE s.college_id = $2 AND s.registration_status = 'approved' AND s.is_blacklisted = FALSE`,
+        [notifId, college_id]
+      );
+    } else {
+      await query(
+        `INSERT INTO notification_recipients (notification_id, user_id)
+         SELECT $1, s.user_id FROM students s
+         WHERE s.registration_status = 'approved' AND s.is_blacklisted = FALSE`,
+        [notifId]
+      );
+    }
+
+    await logActivity(
+      req.user.id,
+      'CGPA_UNLOCK',
+      `Unlocked CGPA editing for ${unlock_days} days${college_id ? ` (college ${college_id})` : ' (all colleges)'}`,
+      'system',
+      null,
+      { college_id, unlock_days, reason },
+      req
+    );
+
+    res.json({
+      success: true,
+      message: `CGPA editing unlocked for ${unlock_days} days`,
+      data: unlockResult.rows[0],
+    });
+  } catch (error) {
+    console.error('Unlock CGPA error:', error);
+    res.status(500).json({ success: false, message: 'Error unlocking CGPA' });
+  }
+};
+
+// @desc    Lock CGPA editing for specific or all colleges
+// @route   POST /api/super-admin/cgpa-lock
+// @access  Private (Super Admin)
+export const lockCgpaSA = async (req, res) => {
+  try {
+    const { college_id } = req.body;
+
+    if (college_id) {
+      await query(
+        `UPDATE cgpa_unlock_windows SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP
+         WHERE college_id = $1 AND is_active = TRUE`,
+        [college_id]
+      );
+    } else {
+      await query(
+        `UPDATE cgpa_unlock_windows SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP
+         WHERE is_active = TRUE`
+      );
+    }
+
+    await logActivity(
+      req.user.id,
+      'CGPA_LOCK',
+      `Locked CGPA editing${college_id ? ` for college ${college_id}` : ' for all colleges'}`,
+      'system',
+      null,
+      { college_id },
+      req
+    );
+
+    res.json({ success: true, message: 'CGPA editing locked' });
+  } catch (error) {
+    console.error('Lock CGPA error:', error);
+    res.status(500).json({ success: false, message: 'Error locking CGPA' });
+  }
+};

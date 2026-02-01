@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { placementOfficerAPI } from '../../services/api';
 import toast from 'react-hot-toast';
-import { Check, X, Ban, Shield, Eye, Search, Download, Filter, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Users, Settings, XCircle } from 'lucide-react';
+import { Check, X, Ban, Shield, Eye, Search, Download, Filter, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Users, Settings, XCircle, Lock, Unlock, GraduationCap } from 'lucide-react';
 import DashboardHeader from '../../components/DashboardHeader';
 import GlassCard from '../../components/GlassCard';
 import { BRANCH_SHORT_NAMES } from '../../constants/branches';
@@ -65,6 +65,14 @@ export default function ManageStudents() {
   const [blacklistReason, setBlacklistReason] = useState('');
   const [whitelistReason, setWhitelistReason] = useState('');
 
+  // CGPA Lock/Unlock
+  const [cgpaLocked, setCgpaLocked] = useState(true);
+  const [cgpaUnlockWindow, setCgpaUnlockWindow] = useState(null);
+  const [showCgpaUnlockModal, setShowCgpaUnlockModal] = useState(false);
+  const [unlockDays, setUnlockDays] = useState(7);
+  const [unlockReason, setUnlockReason] = useState('');
+  const [cgpaProcessing, setCgpaProcessing] = useState(false);
+
   // Export state
   const [showExportDropdown, setShowExportDropdown] = useState(false);
   const [showExcelConfigModal, setShowExcelConfigModal] = useState(false);
@@ -101,6 +109,7 @@ export default function ManageStudents() {
   useEffect(() => {
     fetchCollegeBranches();
     fetchDistricts();
+    fetchCgpaLockStatus();
   }, []);
 
   const fetchDistricts = async () => {
@@ -131,6 +140,53 @@ export default function ManageStudents() {
     }
     setSelectedStudents([]);
   }, [activeTab, searchQuery, advancedFilters, filterDocuments, filterDistricts]);
+
+  const fetchCgpaLockStatus = async () => {
+    try {
+      const response = await placementOfficerAPI.getCgpaLockStatus();
+      const data = response.data.data;
+      setCgpaLocked(data.is_locked);
+      setCgpaUnlockWindow(data.unlock_window);
+    } catch {
+      setCgpaLocked(true);
+    }
+  };
+
+  const handleCgpaUnlock = async () => {
+    if (unlockDays < 1 || unlockDays > 30) {
+      toast.error('Duration must be between 1 and 30 days');
+      return;
+    }
+    setCgpaProcessing(true);
+    try {
+      await placementOfficerAPI.unlockCgpa({
+        unlock_days: unlockDays,
+        reason: unlockReason || 'Semester results update',
+      });
+      toast.success(`CGPA editing unlocked for ${unlockDays} days`);
+      setShowCgpaUnlockModal(false);
+      setUnlockDays(7);
+      setUnlockReason('');
+      fetchCgpaLockStatus();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to unlock CGPA');
+    } finally {
+      setCgpaProcessing(false);
+    }
+  };
+
+  const handleCgpaLock = async () => {
+    setCgpaProcessing(true);
+    try {
+      await placementOfficerAPI.lockCgpa();
+      toast.success('CGPA editing locked');
+      fetchCgpaLockStatus();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to lock CGPA');
+    } finally {
+      setCgpaProcessing(false);
+    }
+  };
 
   const fetchStudents = async () => {
     try {
@@ -896,6 +952,106 @@ export default function ManageStudents() {
           )}
         </div>
       </div>
+
+      {/* CGPA Lock/Unlock Control */}
+      <GlassCard className="mb-6 p-4">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            <div className={`rounded-lg p-2 ${cgpaLocked ? 'bg-red-100' : 'bg-green-100'}`}>
+              {cgpaLocked ? <Lock size={20} className="text-red-600" /> : <Unlock size={20} className="text-green-600" />}
+            </div>
+            <div>
+              <h4 className="font-bold text-gray-800 text-sm flex items-center gap-2">
+                Student CGPA Editing
+                <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${cgpaLocked ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                  {cgpaLocked ? 'LOCKED' : 'UNLOCKED'}
+                </span>
+              </h4>
+              {!cgpaLocked && cgpaUnlockWindow && (
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Expires: {new Date(cgpaUnlockWindow.unlock_end).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="flex gap-2">
+            {cgpaLocked ? (
+              <button
+                onClick={() => setShowCgpaUnlockModal(true)}
+                disabled={cgpaProcessing}
+                className="bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold px-4 py-2 rounded-xl text-sm hover:from-green-700 hover:to-emerald-700 transition-all flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <Unlock size={14} />
+                Unlock CGPA Editing
+              </button>
+            ) : (
+              <button
+                onClick={handleCgpaLock}
+                disabled={cgpaProcessing}
+                className="bg-gradient-to-r from-red-600 to-rose-600 text-white font-bold px-4 py-2 rounded-xl text-sm hover:from-red-700 hover:to-rose-700 transition-all flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <Lock size={14} />
+                Lock Now
+              </button>
+            )}
+          </div>
+        </div>
+      </GlassCard>
+
+      {/* CGPA Unlock Modal */}
+      {showCgpaUnlockModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm">
+          <GlassCard className="max-w-md w-full p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg p-2">
+                <GraduationCap className="text-white" size={20} />
+              </div>
+              <h3 className="text-lg font-bold text-gray-800">Unlock CGPA Editing</h3>
+            </div>
+            <p className="text-gray-600 text-sm mb-4">
+              Students will be able to update their semester CGPA during the unlock window. A notification will be sent to all approved students.
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Duration (days)</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="30"
+                  value={unlockDays}
+                  onChange={(e) => setUnlockDays(parseInt(e.target.value) || 1)}
+                  className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-xl focus:border-green-500 outline-none font-medium"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Reason (optional)</label>
+                <input
+                  type="text"
+                  value={unlockReason}
+                  onChange={(e) => setUnlockReason(e.target.value)}
+                  placeholder="e.g., Semester 4 results published"
+                  className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-xl focus:border-green-500 outline-none font-medium"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={handleCgpaUnlock}
+                disabled={cgpaProcessing}
+                className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold py-2.5 rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all disabled:opacity-50"
+              >
+                {cgpaProcessing ? 'Processing...' : `Unlock for ${unlockDays} days`}
+              </button>
+              <button
+                onClick={() => setShowCgpaUnlockModal(false)}
+                className="px-6 py-2.5 bg-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-300 transition-all"
+              >
+                Cancel
+              </button>
+            </div>
+          </GlassCard>
+        </div>
+      )}
 
       {/* Filter Tabs */}
       <div className="mb-6 flex flex-wrap gap-3">

@@ -8,6 +8,7 @@ import {
   getMyApplications,
   getNotifications,
   markNotificationRead,
+  getCgpaLockStatus,
 } from '../controllers/studentController.js';
 import {
   resendVerificationEmail,
@@ -34,6 +35,7 @@ router.get('/notifications', getNotifications);
 router.put('/notifications/:id/read', markNotificationRead);
 router.post('/resend-verification', resendVerificationEmail);
 router.get('/verification-status', getVerificationStatus);
+router.get('/cgpa-lock-status', getCgpaLockStatus);
 
 // Resume Routes (accessible to all students)
 router.get('/resume', getStudentResume);

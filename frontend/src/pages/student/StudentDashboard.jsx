@@ -26,6 +26,7 @@ import SectionHeader from '../../components/SectionHeader';
 import GlassCard from '../../components/GlassCard';
 import ExtendedProfilePromptModal from '../../components/ExtendedProfilePromptModal';
 import ResumePromptModal from '../../components/ResumePromptModal';
+import CgpaUnlockPopup from '../../components/CgpaUnlockPopup';
 import api from '../../services/api';
 
 export default function StudentDashboard() {
@@ -223,6 +224,9 @@ export default function StudentDashboard() {
           }}
         />
       )}
+
+      {/* CGPA Unlock Popup (one-time, for approved students) */}
+      <CgpaUnlockPopup />
 
       {/* Dashboard Header */}
       <DashboardHeader

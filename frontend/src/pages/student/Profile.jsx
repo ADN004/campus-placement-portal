@@ -21,6 +21,8 @@ export default function StudentProfile() {
   const [profile, setProfile] = useState(null);
   const [extendedProfile, setExtendedProfile] = useState(null);
   const [extendedProfileLoading, setExtendedProfileLoading] = useState(true);
+  const [cgpaLocked, setCgpaLocked] = useState(false);
+  const [cgpaUnlockEnd, setCgpaUnlockEnd] = useState(null);
   const [formData, setFormData] = useState({
     mobile_number: '',
     height: '',
@@ -43,6 +45,7 @@ export default function StudentProfile() {
   useEffect(() => {
     fetchProfile();
     fetchExtendedProfile();
+    fetchCgpaLockStatus();
   }, []);
 
   const fetchProfile = async () => {
@@ -87,6 +90,18 @@ export default function StudentProfile() {
       // Don't show error toast as extended profile might not exist yet
     } finally {
       setExtendedProfileLoading(false);
+    }
+  };
+
+  const fetchCgpaLockStatus = async () => {
+    try {
+      const response = await studentAPI.getCgpaLockStatus();
+      const data = response.data.data;
+      setCgpaLocked(data.is_locked);
+      setCgpaUnlockEnd(data.unlock_end || null);
+    } catch {
+      // Default to locked on error for safety
+      setCgpaLocked(true);
     }
   };
 
@@ -388,11 +403,29 @@ export default function StudentProfile() {
                       Academic Performance
                     </h4>
 
+                    {/* CGPA Lock Status Banner */}
+                    {cgpaLocked && profile?.registration_status === 'approved' && (
+                      <div className="mb-4 flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                        <Lock size={16} className="text-amber-600 flex-shrink-0" />
+                        <p className="text-amber-800 text-sm font-medium">
+                          CGPA fields are locked. Contact your placement officer to request an unlock window.
+                        </p>
+                      </div>
+                    )}
+                    {!cgpaLocked && cgpaUnlockEnd && profile?.registration_status === 'approved' && (
+                      <div className="mb-4 flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+                        <Edit size={16} className="text-green-600 flex-shrink-0" />
+                        <p className="text-green-800 text-sm font-medium">
+                          CGPA editing is open until {new Date(cgpaUnlockEnd).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                    )}
+
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                       {[1, 2, 3, 4, 5, 6].map(sem => (
                         <div key={sem}>
                           <label className="block text-sm font-bold text-gray-700 mb-2">Semester {sem} CGPA</label>
-                          {editMode ? (
+                          {editMode && !(cgpaLocked && profile?.registration_status === 'approved') ? (
                             <input
                               type="number"
                               name={`cgpa_sem${sem}`}
@@ -405,7 +438,7 @@ export default function StudentProfile() {
                               step="0.01"
                             />
                           ) : (
-                            <p className="text-gray-900 font-bold text-lg bg-white rounded-xl p-3 border border-gray-100">{profile?.[`cgpa_sem${sem}`] || 'Not set'}</p>
+                            <p className={`text-gray-900 font-bold text-lg bg-white rounded-xl p-3 border border-gray-100 ${cgpaLocked && editMode ? 'opacity-60' : ''}`}>{profile?.[`cgpa_sem${sem}`] || 'Not set'}</p>
                           )}
                         </div>
                       ))}
@@ -413,9 +446,9 @@ export default function StudentProfile() {
 
                     {/* Programme CGPA (Auto-calculated, Read-only) */}
                     <div className="mt-6 bg-gradient-to-r from-blue-500 to-indigo-600 p-5 rounded-2xl shadow-lg">
-                      <label className="text-sm font-bold text-white/90 mb-2 block">Programme CGPA (Average of Sem 1-4)</label>
+                      <label className="text-sm font-bold text-white/90 mb-2 block">Programme CGPA (Average of filled semesters)</label>
                       <p className="text-white font-bold text-3xl">{profile?.programme_cgpa || 'Not calculated'}</p>
-                      <p className="text-xs text-white/80 mt-2">Auto-calculated from Semester 1-4 average</p>
+                      <p className="text-xs text-white/80 mt-2">Auto-calculated from all non-zero semester CGPAs</p>
                     </div>
                   </div>
 

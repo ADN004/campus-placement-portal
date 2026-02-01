@@ -47,6 +47,9 @@ import {
   deleteCollegeLogo,
   manuallyAddStudentToJob,
   validateStudentForManualAddition,
+  getCgpaLockStatusPO,
+  unlockCgpaPO,
+  lockCgpaPO,
 } from '../controllers/placementOfficerControllerExtensions.js';
 import {
   downloadStudentResumePO,
@@ -133,5 +136,10 @@ router.delete('/college/logo', deleteCollegeLogo);
 // Manual Student Addition Routes
 router.post('/manually-add-student-to-job', manuallyAddStudentToJob);
 router.post('/validate-student-for-manual-addition', validateStudentForManualAddition);
+
+// CGPA Lock/Unlock Management Routes
+router.get('/cgpa-lock-status', getCgpaLockStatusPO);
+router.post('/cgpa-unlock', unlockCgpaPO);
+router.post('/cgpa-lock', lockCgpaPO);
 
 export default router;

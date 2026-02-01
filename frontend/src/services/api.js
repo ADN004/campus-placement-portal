@@ -94,6 +94,9 @@ export const studentAPI = {
   getResume: () => API.get('/students/resume'),
   updateResume: (data) => API.put('/students/resume', data),
   downloadResume: () => API.get('/students/resume/download', { responseType: 'blob' }),
+
+  // CGPA Lock Status
+  getCgpaLockStatus: () => API.get('/students/cgpa-lock-status'),
 };
 
 // Placement Officer APIs
@@ -166,6 +169,11 @@ export const placementOfficerAPI = {
   // Student Resume Download
   getStudentResumeStatus: (studentId) => API.get(`/placement-officer/students/${studentId}/resume/status`),
   downloadStudentResume: (studentId) => API.get(`/placement-officer/students/${studentId}/resume/download`, { responseType: 'blob' }),
+
+  // CGPA Lock/Unlock Management
+  getCgpaLockStatus: () => API.get('/placement-officer/cgpa-lock-status'),
+  unlockCgpa: (data) => API.post('/placement-officer/cgpa-unlock', data),
+  lockCgpa: () => API.post('/placement-officer/cgpa-lock'),
 };
 
 // Super Admin APIs
@@ -317,6 +325,11 @@ export const superAdminAPI = {
   // Student Resume Download
   getStudentResumeStatus: (studentId) => API.get(`/super-admin/students/${studentId}/resume/status`),
   downloadStudentResume: (studentId) => API.get(`/super-admin/students/${studentId}/resume/download`, { responseType: 'blob' }),
+
+  // CGPA Lock/Unlock Management
+  getCgpaLockStatus: (collegeId) => API.get(`/super-admin/cgpa-lock-status/${collegeId}`),
+  unlockCgpa: (data) => API.post('/super-admin/cgpa-unlock', data),
+  lockCgpa: (data) => API.post('/super-admin/cgpa-lock', data),
 };
 
 export default API;

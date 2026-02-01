@@ -3,8 +3,9 @@ import { studentAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import {
   FileText, Download, Save, Plus, Trash2, Edit, X, Check, Briefcase,
-  Code, Users, Award, BookOpen, Target, ChevronDown, ChevronUp
+  Code, Users, Award, BookOpen, Target, ChevronDown, ChevronUp, MapPin, AlertCircle
 } from 'lucide-react';
+import api from '../../services/api';
 import GradientOrb from '../../components/GradientOrb';
 import DashboardHeader from '../../components/DashboardHeader';
 import GlassCard from '../../components/GlassCard';
@@ -18,6 +19,7 @@ export default function StudentResume() {
   const [expandedSections, setExpandedSections] = useState({
     objective: true,
     skills: true,
+    address: true,
     projects: false,
     experience: false,
     certifications: false,
@@ -25,6 +27,7 @@ export default function StudentResume() {
     extracurricular: false,
     custom: false
   });
+  const [extendedProfileAddress, setExtendedProfileAddress] = useState('');
 
   const [resumeData, setResumeData] = useState({
     career_objective: '',
@@ -38,6 +41,7 @@ export default function StudentResume() {
     extracurricular_activities: [],
     declaration_text: 'I hereby declare that the above-mentioned information is true to the best of my knowledge.',
     custom_sections: [],
+    address: '',
     has_custom_content: false
   });
 
@@ -50,7 +54,20 @@ export default function StudentResume() {
 
   useEffect(() => {
     fetchResume();
+    fetchExtendedProfileAddress();
   }, []);
+
+  const fetchExtendedProfileAddress = async () => {
+    try {
+      const response = await api.get('/students/extended-profile');
+      const ep = response.data.data?.profile;
+      if (ep?.permanent_address) {
+        setExtendedProfileAddress(ep.permanent_address);
+      }
+    } catch {
+      // ignore
+    }
+  };
 
   const fetchResume = async () => {
     setLoading(true);
@@ -70,6 +87,7 @@ export default function StudentResume() {
           extracurricular_activities: data.extracurricular_activities || [],
           declaration_text: data.declaration_text || 'I hereby declare that the above-mentioned information is true to the best of my knowledge.',
           custom_sections: data.custom_sections || [],
+          address: data.address || '',
           has_custom_content: data.has_custom_content || false
         });
       }
@@ -94,7 +112,25 @@ export default function StudentResume() {
     }
   };
 
+  // Check which mandatory sections are missing
+  const getMissingSections = () => {
+    const missing = [];
+    if (!resumeData.career_objective) missing.push('Career Objective');
+    if (!resumeData.technical_skills || resumeData.technical_skills.length === 0) missing.push('Skills');
+    if (!resumeData.projects || resumeData.projects.length === 0) missing.push('Projects');
+    if (!resumeData.work_experience || resumeData.work_experience.length === 0) missing.push('Work Experience / Internship');
+    if (!resumeData.address && !extendedProfileAddress) missing.push('Address');
+    return missing;
+  };
+
+  const canDownload = getMissingSections().length === 0;
+
   const handleDownload = async () => {
+    const missing = getMissingSections();
+    if (missing.length > 0) {
+      toast.error(`Please complete: ${missing.join(', ')}`);
+      return;
+    }
     setDownloading(true);
     try {
       const response = await studentAPI.downloadResume();
@@ -110,7 +146,8 @@ export default function StudentResume() {
       window.URL.revokeObjectURL(url);
       toast.success('Resume downloaded successfully!');
     } catch (error) {
-      toast.error('Failed to download resume');
+      const msg = error.response?.data?.message || 'Failed to download resume';
+      toast.error(msg);
       console.error(error);
     } finally {
       setDownloading(false);
@@ -310,8 +347,8 @@ export default function StudentResume() {
           <div className="flex flex-wrap gap-3">
             <button
               onClick={handleDownload}
-              disabled={downloading}
-              className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2 disabled:opacity-50"
+              disabled={downloading || !canDownload}
+              className={`font-bold px-6 py-3 rounded-xl shadow-lg transition-all duration-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${canDownload ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:shadow-xl' : 'bg-gray-300 text-gray-500'}`}
             >
               <Download size={18} />
               <span>{downloading ? 'Downloading...' : 'Download Resume'}</span>
@@ -353,6 +390,17 @@ export default function StudentResume() {
         <p className="text-gray-600 mt-4 text-sm">
           Your resume includes your profile data along with all the sections you've added below.
         </p>
+        {!canDownload && (
+          <div className="mt-4 flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+            <AlertCircle size={18} className="text-amber-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-amber-800 text-sm font-bold">Complete these mandatory sections to enable download:</p>
+              <ul className="text-amber-700 text-sm mt-1 list-disc list-inside">
+                {getMissingSections().map(s => <li key={s}>{s}</li>)}
+              </ul>
+            </div>
+          </div>
+        )}
       </GlassCard>
 
       <div className="space-y-4">
@@ -373,6 +421,43 @@ export default function StudentResume() {
                 <p className="text-gray-700 leading-relaxed">
                   {resumeData.career_objective || 'No career objective set. Click "Edit Resume" to add one.'}
                 </p>
+              )}
+            </div>
+          )}
+        </GlassCard>
+
+        {/* Address */}
+        <GlassCard className="p-6">
+          <SectionHeader title="Address" icon={MapPin} section="address" color="emerald" />
+          {expandedSections.address && (
+            <div className="mt-4">
+              {editMode ? (
+                <div>
+                  <textarea
+                    value={resumeData.address}
+                    onChange={(e) => setResumeData(prev => ({ ...prev, address: e.target.value }))}
+                    placeholder="Enter your complete address for the resume..."
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100 outline-none transition-all font-medium resize-none"
+                    rows={3}
+                  />
+                  {!resumeData.address && extendedProfileAddress && (
+                    <button
+                      onClick={() => setResumeData(prev => ({ ...prev, address: extendedProfileAddress }))}
+                      className="mt-2 text-sm text-emerald-600 hover:text-emerald-800 font-medium underline"
+                    >
+                      Use address from Extended Profile: "{extendedProfileAddress.substring(0, 60)}{extendedProfileAddress.length > 60 ? '...' : ''}"
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div>
+                  <p className="text-gray-700 leading-relaxed">
+                    {resumeData.address || extendedProfileAddress || 'No address set. Click "Edit Resume" to add one.'}
+                  </p>
+                  {!resumeData.address && extendedProfileAddress && (
+                    <p className="text-xs text-gray-500 mt-1 italic">Using address from Extended Profile</p>
+                  )}
+                </div>
               )}
             </div>
           )}

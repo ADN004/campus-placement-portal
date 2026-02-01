@@ -835,6 +835,9 @@ CREATE TABLE student_resumes (
     -- Custom sections
     custom_sections JSONB DEFAULT '[]'::jsonb,
 
+    -- Address (for resume; fallback to extended profile / students table)
+    address TEXT,
+
     -- Tracking
     has_custom_content BOOLEAN DEFAULT FALSE,
     last_modified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -844,6 +847,26 @@ CREATE TABLE student_resumes (
 
 CREATE INDEX idx_student_resumes_student_id ON student_resumes(student_id);
 CREATE INDEX idx_student_resumes_has_custom ON student_resumes(has_custom_content);
+
+-- ============================================
+-- 29. CGPA UNLOCK WINDOWS TABLE
+-- ============================================
+-- Tracks time-limited windows during which approved students can edit their CGPA.
+-- Created by placement officers (college-scoped) or super admins (college-scoped or global).
+
+CREATE TABLE cgpa_unlock_windows (
+    id SERIAL PRIMARY KEY,
+    college_id INTEGER REFERENCES colleges(id) ON DELETE CASCADE,  -- NULL = all colleges (super admin global unlock)
+    unlocked_by INTEGER NOT NULL REFERENCES users(id),
+    reason TEXT,
+    unlock_start TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    unlock_end TIMESTAMP NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_cgpa_unlock_college ON cgpa_unlock_windows(college_id);
+CREATE INDEX idx_cgpa_unlock_active ON cgpa_unlock_windows(is_active, unlock_end);
 
 -- ============================================
 -- TRIGGERS FOR UPDATED_AT TIMESTAMPS

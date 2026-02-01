@@ -292,7 +292,7 @@ export async function generateResume(studentData, extendedProfile = {}, resumeDa
       const parts = [];
       if (studentData.email) parts.push(studentData.email);
       if (studentData.mobile_number) parts.push(`+91 ${studentData.mobile_number}`);
-      const loc = extendedProfile.district || extendedProfile.permanent_address || '';
+      const loc = resumeData.address || extendedProfile.permanent_address || studentData.complete_address || extendedProfile.district || '';
       if (loc) parts.push(loc);
 
       if (parts.length > 0) {
@@ -503,7 +503,7 @@ export async function generateResume(studentData, extendedProfile = {}, resumeDa
 
       doc.y += 8;
 
-      const place = extendedProfile.district || extendedProfile.permanent_address || '____________';
+      const place = resumeData.address || extendedProfile.permanent_address || studentData.complete_address || extendedProfile.district || '____________';
       doc.fontSize(8.5)
          .font('Helvetica')
          .fillColor(MID_GRAY)

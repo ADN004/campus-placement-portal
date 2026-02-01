@@ -156,7 +156,8 @@ export const updateStudentResume = async (req, res) => {
       achievements,
       extracurricular_activities,
       declaration_text,
-      custom_sections
+      custom_sections,
+      address
     } = req.body;
 
     // Check if any custom content is provided
@@ -170,7 +171,8 @@ export const updateStudentResume = async (req, res) => {
       (certifications && certifications.length > 0) ||
       (achievements && achievements.length > 0) ||
       (extracurricular_activities && extracurricular_activities.length > 0) ||
-      (custom_sections && custom_sections.length > 0)
+      (custom_sections && custom_sections.length > 0) ||
+      address
     );
 
     const result = await query(`
@@ -178,9 +180,9 @@ export const updateStudentResume = async (req, res) => {
         student_id, career_objective, technical_skills, soft_skills,
         languages_known, projects, work_experience, certifications,
         achievements, extracurricular_activities, declaration_text,
-        custom_sections, has_custom_content
+        custom_sections, has_custom_content, address
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       ON CONFLICT (student_id)
       DO UPDATE SET
         career_objective = EXCLUDED.career_objective,
@@ -195,6 +197,7 @@ export const updateStudentResume = async (req, res) => {
         declaration_text = EXCLUDED.declaration_text,
         custom_sections = EXCLUDED.custom_sections,
         has_custom_content = EXCLUDED.has_custom_content,
+        address = EXCLUDED.address,
         updated_at = CURRENT_TIMESTAMP,
         last_modified_at = CURRENT_TIMESTAMP
       RETURNING *
@@ -211,7 +214,8 @@ export const updateStudentResume = async (req, res) => {
       JSON.stringify(extracurricular_activities || []),
       declaration_text || null,
       JSON.stringify(custom_sections || []),
-      hasCustomContent
+      hasCustomContent,
+      address || null
     ]);
 
     res.json({
@@ -254,6 +258,36 @@ export const downloadOwnResume = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Student data not found'
+      });
+    }
+
+    // Enforce mandatory resume sections before download
+    const missingSections = [];
+    if (!resumeData?.career_objective) missingSections.push('Career Objective');
+
+    const techSkills = resumeData?.technical_skills || [];
+    const parsedTech = typeof techSkills === 'string' ? JSON.parse(techSkills) : techSkills;
+    if (!parsedTech || parsedTech.length === 0) missingSections.push('Skills');
+
+    const projects = resumeData?.projects || [];
+    const parsedProjects = typeof projects === 'string' ? JSON.parse(projects) : projects;
+    if (!parsedProjects || parsedProjects.length === 0) missingSections.push('Projects');
+
+    const workExp = resumeData?.work_experience || [];
+    const parsedWork = typeof workExp === 'string' ? JSON.parse(workExp) : workExp;
+    if (!parsedWork || parsedWork.length === 0) missingSections.push('Work Experience / Internship');
+
+    // Address: check resume address, then extended profile, then students table
+    const hasAddress = resumeData?.address ||
+      extendedProfile?.permanent_address ||
+      studentData?.complete_address;
+    if (!hasAddress) missingSections.push('Address');
+
+    if (missingSections.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Please complete the following mandatory sections before downloading: ${missingSections.join(', ')}`,
+        missing_sections: missingSections
       });
     }
 

@@ -422,6 +422,29 @@ export const updateProfile = async (req, res) => {
 
     const currentStudent = currentStudentResult.rows[0];
 
+    // Check CGPA lock for approved students
+    const hasCgpaChange = cgpa_sem1 !== undefined || cgpa_sem2 !== undefined ||
+      cgpa_sem3 !== undefined || cgpa_sem4 !== undefined ||
+      cgpa_sem5 !== undefined || cgpa_sem6 !== undefined;
+
+    if (hasCgpaChange && currentStudent.registration_status === 'approved') {
+      // Check for active unlock window
+      const unlockResult = await query(
+        `SELECT id, unlock_end FROM cgpa_unlock_windows
+         WHERE (college_id = $1 OR college_id IS NULL)
+         AND is_active = TRUE AND unlock_end > CURRENT_TIMESTAMP
+         ORDER BY unlock_end DESC LIMIT 1`,
+        [currentStudent.college_id]
+      );
+
+      if (unlockResult.rows.length === 0) {
+        return res.status(403).json({
+          success: false,
+          message: 'CGPA editing is currently locked. Please contact your placement officer.',
+        });
+      }
+    }
+
     // Build dynamic update query
     const updateFields = [];
     const updateValues = [];
@@ -496,6 +519,8 @@ export const updateProfile = async (req, res) => {
       cgpa_sem2: currentStudent.cgpa_sem2,
       cgpa_sem3: currentStudent.cgpa_sem3,
       cgpa_sem4: currentStudent.cgpa_sem4,
+      cgpa_sem5: currentStudent.cgpa_sem5,
+      cgpa_sem6: currentStudent.cgpa_sem6,
     };
 
     let needsRecalculation = false;
@@ -576,6 +601,8 @@ export const updateProfile = async (req, res) => {
       updateFields.push(`cgpa_sem5 = $${paramCount}`);
       updateValues.push(cgpaNum);
       paramCount++;
+      semesterCGPAs.cgpa_sem5 = cgpaNum;
+      needsRecalculation = true;
     }
 
     // Validate and update sem6 CGPA
@@ -590,22 +617,22 @@ export const updateProfile = async (req, res) => {
       updateFields.push(`cgpa_sem6 = $${paramCount}`);
       updateValues.push(cgpaNum);
       paramCount++;
+      semesterCGPAs.cgpa_sem6 = cgpaNum;
+      needsRecalculation = true;
     }
 
-    // Auto-recalculate programme_cgpa if any of sem1-4 changed
+    // Auto-recalculate programme_cgpa from all semesters (1-6), excluding zeros and nulls
+    // This supports lateral entry students who skip sem1/sem2 by entering 0
     if (needsRecalculation) {
       const validSemesters = [];
-      if (semesterCGPAs.cgpa_sem1 !== null && semesterCGPAs.cgpa_sem1 !== undefined) {
-        validSemesters.push(parseFloat(semesterCGPAs.cgpa_sem1));
-      }
-      if (semesterCGPAs.cgpa_sem2 !== null && semesterCGPAs.cgpa_sem2 !== undefined) {
-        validSemesters.push(parseFloat(semesterCGPAs.cgpa_sem2));
-      }
-      if (semesterCGPAs.cgpa_sem3 !== null && semesterCGPAs.cgpa_sem3 !== undefined) {
-        validSemesters.push(parseFloat(semesterCGPAs.cgpa_sem3));
-      }
-      if (semesterCGPAs.cgpa_sem4 !== null && semesterCGPAs.cgpa_sem4 !== undefined) {
-        validSemesters.push(parseFloat(semesterCGPAs.cgpa_sem4));
+      for (let i = 1; i <= 6; i++) {
+        const val = semesterCGPAs[`cgpa_sem${i}`];
+        if (val !== null && val !== undefined) {
+          const num = parseFloat(val);
+          if (!isNaN(num) && num > 0) {
+            validSemesters.push(num);
+          }
+        }
       }
 
       if (validSemesters.length > 0) {
@@ -814,5 +841,61 @@ const checkJobEligibility = async (jobId, student) => {
   } catch (error) {
     console.error('Check eligibility error:', error);
     return { isEligible: false, reason: 'Error checking eligibility' };
+  }
+};
+
+// @desc    Get CGPA lock status for student
+// @route   GET /api/students/cgpa-lock-status
+// @access  Private (Student)
+export const getCgpaLockStatus = async (req, res) => {
+  try {
+    const studentResult = await query(
+      'SELECT id, college_id, registration_status FROM students WHERE user_id = $1',
+      [req.user.id]
+    );
+
+    if (studentResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Student not found' });
+    }
+
+    const student = studentResult.rows[0];
+
+    // Pending students can always edit
+    if (student.registration_status !== 'approved') {
+      return res.json({
+        success: true,
+        data: { is_locked: false, reason: 'pending_approval' },
+      });
+    }
+
+    // Check for active unlock window
+    const unlockResult = await query(
+      `SELECT id, unlock_end, reason FROM cgpa_unlock_windows
+       WHERE (college_id = $1 OR college_id IS NULL)
+       AND is_active = TRUE AND unlock_end > CURRENT_TIMESTAMP
+       ORDER BY unlock_end DESC LIMIT 1`,
+      [student.college_id]
+    );
+
+    if (unlockResult.rows.length > 0) {
+      const window = unlockResult.rows[0];
+      return res.json({
+        success: true,
+        data: {
+          is_locked: false,
+          unlock_window_id: window.id,
+          unlock_end: window.unlock_end,
+          unlock_reason: window.reason,
+        },
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: { is_locked: true },
+    });
+  } catch (error) {
+    console.error('Get CGPA lock status error:', error);
+    res.status(500).json({ success: false, message: 'Error fetching CGPA lock status' });
   }
 };

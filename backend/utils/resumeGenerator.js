@@ -291,8 +291,6 @@ export async function generateResume(studentData, extendedProfile = {}, resumeDa
       const parts = [];
       if (studentData.email) parts.push(studentData.email);
       if (studentData.mobile_number) parts.push(`+91 ${studentData.mobile_number}`);
-      const loc = resumeData.address || extendedProfile.permanent_address || studentData.complete_address || extendedProfile.district || '';
-      if (loc) parts.push(loc);
 
       if (parts.length > 0) {
         doc.fontSize(9)

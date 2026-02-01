@@ -72,6 +72,7 @@ import {
   generateMultiCollegePlacementPoster,
   manuallyAddStudentToJob,
   validateStudentForManualAddition,
+  getGlobalCgpaLockStatus,
   getCgpaLockStatusSA,
   unlockCgpaSA,
   lockCgpaSA,
@@ -216,6 +217,7 @@ router.post('/manually-add-student-to-job', manuallyAddStudentToJob);
 router.post('/validate-student-for-manual-addition', validateStudentForManualAddition);
 
 // CGPA Lock/Unlock Management Routes
+router.get('/cgpa-global-lock-status', getGlobalCgpaLockStatus);
 router.get('/cgpa-lock-status/:collegeId', getCgpaLockStatusSA);
 router.post('/cgpa-unlock', unlockCgpaSA);
 router.post('/cgpa-lock', lockCgpaSA);

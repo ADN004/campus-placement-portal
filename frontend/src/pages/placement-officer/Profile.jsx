@@ -35,7 +35,7 @@ export default function PlacementOfficerProfile() {
       setProfile(profileData);
       setFormData({
         officer_name: profileData.officer_name || '',
-        email: profileData.email || '',
+        email: profileData.officer_email || '',
       });
     } catch (error) {
       toast.error('Failed to load profile');
@@ -53,16 +53,18 @@ export default function PlacementOfficerProfile() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.officer_name || !formData.email) {
-      toast.error('All fields are required');
+    if (!formData.officer_name) {
+      toast.error('Name is required');
       return;
     }
 
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)) {
-      toast.error('Please enter a valid email address');
-      return;
+    // Validate email format only if provided
+    if (formData.email && formData.email.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.email)) {
+        toast.error('Please enter a valid email address');
+        return;
+      }
     }
 
     setSaving(true);
@@ -243,7 +245,7 @@ export default function PlacementOfficerProfile() {
                     <div className="bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg p-2 mr-3">
                       <Mail size={18} className="text-white" />
                     </div>
-                    Email Address <span className="text-red-500 ml-1">*</span>
+                    Email Address
                   </label>
                   {editMode ? (
                     <input
@@ -253,10 +255,9 @@ export default function PlacementOfficerProfile() {
                       onChange={handleChange}
                       className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-purple-100 focus:border-purple-500 outline-none transition-all font-medium bg-white"
                       placeholder="Enter your email address"
-                      required
                     />
                   ) : (
-                    <p className="text-gray-900 font-medium text-lg ml-11">{profile?.email || 'Not set'}</p>
+                    <p className="text-gray-900 font-medium text-lg ml-11">{profile?.officer_email || 'Not set'}</p>
                   )}
                 </div>
 

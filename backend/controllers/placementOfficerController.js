@@ -1510,43 +1510,33 @@ export const updateProfile = async (req, res) => {
   try {
     const { officer_name, email } = req.body;
 
-    // Validation
-    if (!officer_name || !email) {
+    // Validation - only name is required, email is optional
+    if (!officer_name) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide all required fields',
+        message: 'Please provide officer name',
       });
     }
 
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Please provide a valid email address',
-      });
+    // Validate email format only if provided
+    const officerEmail = email && email.trim() ? email.trim() : null;
+    if (officerEmail) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(officerEmail)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Please provide a valid email address',
+        });
+      }
     }
 
-    // Check if email is already in use by another user
-    const emailCheck = await query(
-      'SELECT id FROM users WHERE email = $1 AND id != $2',
-      [email, req.user.id]
-    );
-
-    if (emailCheck.rows.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Email is already in use',
-      });
-    }
-
-    // Update placement officer name
+    // Update placement officer name and officer_email
     const result = await query(
       `UPDATE placement_officers
-       SET officer_name = $1
-       WHERE user_id = $2
+       SET officer_name = $1, officer_email = $2, updated_at = CURRENT_TIMESTAMP
+       WHERE user_id = $3
        RETURNING *`,
-      [officer_name, req.user.id]
+      [officer_name, officerEmail, req.user.id]
     );
 
     if (result.rows.length === 0) {
@@ -1556,12 +1546,6 @@ export const updateProfile = async (req, res) => {
       });
     }
 
-    // Update email in users table
-    await query(
-      'UPDATE users SET email = $1 WHERE id = $2',
-      [email, req.user.id]
-    );
-
     // Log activity
     await logActivity(
       req.user.id,
@@ -1569,14 +1553,14 @@ export const updateProfile = async (req, res) => {
       'Updated profile information',
       'placement_officer',
       result.rows[0].id,
-      { officer_name, email },
+      { officer_name, officer_email: officerEmail },
       req
     );
 
     res.status(200).json({
       success: true,
       message: 'Profile updated successfully',
-      data: { ...result.rows[0], email },
+      data: result.rows[0],
     });
   } catch (error) {
     console.error('Update profile error:', error);

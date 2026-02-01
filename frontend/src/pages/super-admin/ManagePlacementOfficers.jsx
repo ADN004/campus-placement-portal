@@ -456,13 +456,13 @@ export default function ManagePlacementOfficers() {
                       <td className="px-6 py-5">
                         <div className="flex items-center space-x-2">
                           <Phone size={16} className="text-purple-400" />
-                          <span className="text-sm">{officer.officer_phone || 'N/A'}</span>
+                          <span className="text-sm">{officer.phone_number || 'N/A'}</span>
                         </div>
                       </td>
                       <td className="px-6 py-5">
                         <div className="flex items-center space-x-2">
                           <Mail size={16} className="text-pink-400" />
-                          <span className="text-sm">{officer.email || 'N/A'}</span>
+                          <span className="text-sm">{officer.officer_email || 'N/A'}</span>
                         </div>
                       </td>
                       <td className="px-6 py-5 max-w-xs">
@@ -569,14 +569,14 @@ export default function ManagePlacementOfficers() {
                     <p className="text-sm text-gray-600">Phone Number</p>
                     <p className="font-medium text-gray-900 flex items-center space-x-2">
                       <Phone size={16} className="text-gray-400" />
-                      <span>{selectedOfficer.email || 'N/A'}</span>
+                      <span>{selectedOfficer.phone_number || 'N/A'}</span>
                     </p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-600">Email Address</p>
                     <p className="font-medium text-gray-900 flex items-center space-x-2">
                       <Mail size={16} className="text-gray-400" />
-                      <span className="text-sm">{selectedOfficer.officer_phone || 'N/A'}</span>
+                      <span className="text-sm">{selectedOfficer.officer_email || 'N/A'}</span>
                     </p>
                   </div>
                 </div>

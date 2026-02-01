@@ -327,6 +327,7 @@ export const superAdminAPI = {
   downloadStudentResume: (studentId) => API.get(`/super-admin/students/${studentId}/resume/download`, { responseType: 'blob' }),
 
   // CGPA Lock/Unlock Management
+  getGlobalCgpaLockStatus: () => API.get('/super-admin/cgpa-global-lock-status'),
   getCgpaLockStatus: (collegeId) => API.get(`/super-admin/cgpa-lock-status/${collegeId}`),
   unlockCgpa: (data) => API.post('/super-admin/cgpa-unlock', data),
   lockCgpa: (data) => API.post('/super-admin/cgpa-lock', data),

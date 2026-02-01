@@ -118,6 +118,8 @@ export default function ManageAllStudents() {
   const [cgpaProcessing, setCgpaProcessing] = useState(false);
   const [cgpaSelectedCollege, setCgpaSelectedCollege] = useState('');
   const [cgpaGlobalMode, setCgpaGlobalMode] = useState(false);
+  const [globalCgpaUnlocked, setGlobalCgpaUnlocked] = useState(false);
+  const [globalCgpaWindow, setGlobalCgpaWindow] = useState(null);
 
   // Maps for export modal
   const [exportRegionsData, setExportRegionsData] = useState([]);
@@ -128,6 +130,7 @@ export default function ManageAllStudents() {
     const initializeData = async () => {
       await fetchRegionsAndColleges();
       await fetchDistricts();
+      await fetchGlobalCgpaStatus();
     };
     initializeData();
   }, []);
@@ -206,6 +209,18 @@ export default function ManageAllStudents() {
     }
   };
 
+  const fetchGlobalCgpaStatus = async () => {
+    try {
+      const response = await superAdminAPI.getGlobalCgpaLockStatus();
+      const data = response.data.data;
+      setGlobalCgpaUnlocked(data.has_global_window);
+      setGlobalCgpaWindow(data.global_window);
+    } catch {
+      setGlobalCgpaUnlocked(false);
+      setGlobalCgpaWindow(null);
+    }
+  };
+
   const handleCgpaUnlock = async () => {
     if (unlockDays < 1 || unlockDays > 30) {
       toast.error('Duration must be between 1 and 30 days');
@@ -227,6 +242,7 @@ export default function ManageAllStudents() {
       setUnlockReason('');
       setCgpaGlobalMode(false);
       if (cgpaSelectedCollege) fetchCgpaLockStatus(cgpaSelectedCollege);
+      fetchGlobalCgpaStatus();
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to unlock CGPA');
     } finally {
@@ -241,6 +257,21 @@ export default function ManageAllStudents() {
         college_id: cgpaSelectedCollege || null,
       });
       toast.success('CGPA editing locked');
+      if (cgpaSelectedCollege) fetchCgpaLockStatus(cgpaSelectedCollege);
+      fetchGlobalCgpaStatus();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to lock CGPA');
+    } finally {
+      setCgpaProcessing(false);
+    }
+  };
+
+  const handleGlobalCgpaLock = async () => {
+    setCgpaProcessing(true);
+    try {
+      await superAdminAPI.lockCgpa({ college_id: null });
+      toast.success('CGPA editing locked for ALL colleges');
+      fetchGlobalCgpaStatus();
       if (cgpaSelectedCollege) fetchCgpaLockStatus(cgpaSelectedCollege);
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to lock CGPA');
@@ -1077,13 +1108,30 @@ export default function ManageAllStudents() {
               )}
 
               <div className="border-l border-gray-300 pl-2 ml-1">
-                <button
-                  onClick={() => { setCgpaGlobalMode(true); setShowCgpaUnlockModal(true); }}
-                  disabled={cgpaProcessing}
-                  className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold px-3 py-1.5 rounded-xl text-xs hover:from-indigo-700 hover:to-purple-700 transition-all flex items-center gap-1 disabled:opacity-50"
-                >
-                  <Unlock size={13} /> Unlock All Colleges
-                </button>
+                {globalCgpaUnlocked ? (
+                  <div className="flex items-center gap-2">
+                    {globalCgpaWindow && (
+                      <span className="text-xs text-gray-500">
+                        Global expires: {new Date(globalCgpaWindow.unlock_end).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    )}
+                    <button
+                      onClick={handleGlobalCgpaLock}
+                      disabled={cgpaProcessing}
+                      className="bg-gradient-to-r from-red-600 to-rose-600 text-white font-bold px-3 py-1.5 rounded-xl text-xs hover:from-red-700 hover:to-rose-700 transition-all flex items-center gap-1 disabled:opacity-50"
+                    >
+                      <Lock size={13} /> Lock All Colleges
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => { setCgpaGlobalMode(true); setShowCgpaUnlockModal(true); }}
+                    disabled={cgpaProcessing}
+                    className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold px-3 py-1.5 rounded-xl text-xs hover:from-indigo-700 hover:to-purple-700 transition-all flex items-center gap-1 disabled:opacity-50"
+                  >
+                    <Unlock size={13} /> Unlock All Colleges
+                  </button>
+                )}
               </div>
             </div>
           </div>

@@ -3324,6 +3324,34 @@ export const validateStudentForManualAddition = async (req, res) => {
 // CGPA LOCK/UNLOCK MANAGEMENT
 // ========================================
 
+// @desc    Get global CGPA lock status (all colleges unlock window)
+// @route   GET /api/super-admin/cgpa-global-lock-status
+// @access  Private (Super Admin)
+export const getGlobalCgpaLockStatus = async (req, res) => {
+  try {
+    // Check for any global unlock window that hasn't expired yet
+    // Don't check is_active — even if a PO deactivated it for their college,
+    // the super admin should still see the global window as active
+    const result = await query(
+      `SELECT id, unlock_end, reason, is_active, created_at FROM cgpa_unlock_windows
+       WHERE college_id IS NULL AND unlock_end > CURRENT_TIMESTAMP
+       ORDER BY created_at DESC LIMIT 1`
+    );
+
+    const hasGlobalWindow = result.rows.length > 0;
+    res.json({
+      success: true,
+      data: {
+        has_global_window: hasGlobalWindow,
+        global_window: hasGlobalWindow ? result.rows[0] : null,
+      },
+    });
+  } catch (error) {
+    console.error('Get global CGPA lock status error:', error);
+    res.status(500).json({ success: false, message: 'Error fetching global CGPA lock status' });
+  }
+};
+
 // @desc    Get CGPA lock status for a college
 // @route   GET /api/super-admin/cgpa-lock-status/:collegeId
 // @access  Private (Super Admin)
@@ -3464,9 +3492,15 @@ export const lockCgpaSA = async (req, res) => {
         [college_id]
       );
     } else {
+      // Deactivate all active windows
       await query(
         `UPDATE cgpa_unlock_windows SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP
          WHERE is_active = TRUE`
+      );
+      // Also expire global windows so the toggle button resets properly
+      await query(
+        `UPDATE cgpa_unlock_windows SET unlock_end = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+         WHERE college_id IS NULL AND unlock_end > CURRENT_TIMESTAMP`
       );
     }
 

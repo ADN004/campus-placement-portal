@@ -3125,7 +3125,7 @@ export const unlockCgpaPO = async (req, res) => {
     // Deactivate any existing unlock windows for this college
     await query(
       `UPDATE cgpa_unlock_windows SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP
-       WHERE college_id = $1 AND is_active = TRUE`,
+       WHERE (college_id = $1 OR college_id IS NULL) AND is_active = TRUE`,
       [collegeId]
     );
 
@@ -3203,7 +3203,7 @@ export const lockCgpaPO = async (req, res) => {
 
     await query(
       `UPDATE cgpa_unlock_windows SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP
-       WHERE college_id = $1 AND is_active = TRUE`,
+       WHERE (college_id = $1 OR college_id IS NULL) AND is_active = TRUE`,
       [collegeId]
     );
 

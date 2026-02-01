@@ -3371,7 +3371,7 @@ export const unlockCgpaSA = async (req, res) => {
     if (college_id) {
       await query(
         `UPDATE cgpa_unlock_windows SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP
-         WHERE college_id = $1 AND is_active = TRUE`,
+         WHERE (college_id = $1 OR college_id IS NULL) AND is_active = TRUE`,
         [college_id]
       );
     } else {
@@ -3455,9 +3455,12 @@ export const lockCgpaSA = async (req, res) => {
     const { college_id } = req.body;
 
     if (college_id) {
+      // Deactivate both college-specific AND global (NULL) unlock windows
+      // A global unlock (college_id IS NULL) applies to all colleges,
+      // so we must deactivate it too when locking a specific college
       await query(
         `UPDATE cgpa_unlock_windows SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP
-         WHERE college_id = $1 AND is_active = TRUE`,
+         WHERE (college_id = $1 OR college_id IS NULL) AND is_active = TRUE`,
         [college_id]
       );
     } else {

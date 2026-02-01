@@ -1525,52 +1525,56 @@ export default function ManageAllStudents() {
 
       {/* Custom Export Modal */}
       {showCustomExportModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
-              <h2 className="text-2xl font-bold flex items-center space-x-2">
-                <Settings size={24} />
-                <span>Custom Export</span>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl flex flex-col max-h-[85vh]">
+            <div className="flex-shrink-0 border-b border-gray-200 px-5 py-3.5 flex justify-between items-center">
+              <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <Settings size={20} className="text-gray-600" />
+                Custom Export
               </h2>
               <button
                 onClick={() => setShowCustomExportModal(false)}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100"
               >
-                <XCircle size={24} />
+                <XCircle size={20} />
               </button>
             </div>
 
-            <div className="p-6 space-y-6">
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
               {/* Export Format Selection */}
-              <div className="border-b border-gray-200 pb-4">
-                <h3 className="text-lg font-semibold mb-3">Export Format</h3>
-                <div className="flex space-x-4">
-                  <label className="flex items-center space-x-2 cursor-pointer p-3 border-2 rounded-lg hover:bg-gray-50 transition-colors">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700 mb-2">Export Format</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className={`flex items-center gap-2.5 cursor-pointer p-3 border-2 rounded-lg transition-all ${
+                    exportFormat === 'excel' ? 'border-primary-600 bg-primary-50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                  }`}>
                     <input
                       type="radio"
                       name="format"
                       value="excel"
                       checked={exportFormat === 'excel'}
                       onChange={(e) => setExportFormat(e.target.value)}
-                      className="w-4 h-4"
+                      className="w-4 h-4 text-primary-600"
                     />
                     <div>
-                      <span className="font-medium">Excel (.xlsx)</span>
-                      <span className="text-sm text-gray-500 ml-2">- Editable spreadsheet</span>
+                      <span className="font-medium text-sm">Excel (.xlsx)</span>
+                      <p className="text-xs text-gray-500">Editable spreadsheet</p>
                     </div>
                   </label>
-                  <label className="flex items-center space-x-2 cursor-pointer p-3 border-2 rounded-lg hover:bg-gray-50 transition-colors">
+                  <label className={`flex items-center gap-2.5 cursor-pointer p-3 border-2 rounded-lg transition-all ${
+                    exportFormat === 'pdf' ? 'border-primary-600 bg-primary-50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                  }`}>
                     <input
                       type="radio"
                       name="format"
                       value="pdf"
                       checked={exportFormat === 'pdf'}
                       onChange={(e) => setExportFormat(e.target.value)}
-                      className="w-4 h-4"
+                      className="w-4 h-4 text-primary-600"
                     />
                     <div>
-                      <span className="font-medium">PDF (.pdf)</span>
-                      <span className="text-sm text-gray-500 ml-2">- Print-ready document</span>
+                      <span className="font-medium text-sm">PDF (.pdf)</span>
+                      <p className="text-xs text-gray-500">Print-ready document</p>
                     </div>
                   </label>
                 </div>
@@ -1578,72 +1582,65 @@ export default function ManageAllStudents() {
 
               {/* PDF Settings (only shown when PDF format selected) */}
               {exportFormat === 'pdf' && (
-                <div className="border-b border-gray-200 pb-4 bg-blue-50 p-4 rounded-lg">
-                  <h3 className="text-lg font-semibold mb-3">PDF Settings (Optional)</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3">PDF Settings</h3>
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="label">Company Name</label>
+                      <label className="label text-xs">Company Name</label>
                       <input
                         type="text"
                         placeholder="e.g., TNSER Technology Solutions (P) Ltd"
-                        className="input"
+                        className="input text-sm"
                         value={pdfSettings.companyName}
                         onChange={(e) => setPdfSettings({...pdfSettings, companyName: e.target.value})}
                       />
-                      <p className="text-xs text-gray-500 mt-1">Leave empty for data collection exports</p>
                     </div>
                     <div>
-                      <label className="label">Placement Drive Date</label>
+                      <label className="label text-xs">Placement Drive Date</label>
                       <input
                         type="date"
-                        className="input"
+                        className="input text-sm"
                         value={pdfSettings.driveDate}
                         onChange={(e) => setPdfSettings({...pdfSettings, driveDate: e.target.value})}
                       />
                     </div>
-                    <div className="md:col-span-2">
-                      <label className="flex items-center space-x-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={pdfSettings.includeSignature}
-                          onChange={(e) => setPdfSettings({...pdfSettings, includeSignature: e.target.checked})}
-                          className="w-4 h-4"
-                        />
-                        <span>Include Signature Column</span>
-                      </label>
-                    </div>
-                    <div className="md:col-span-2">
-                      <label className="flex items-center space-x-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={pdfSettings.separateColleges}
-                          onChange={(e) => setPdfSettings({...pdfSettings, separateColleges: e.target.checked})}
-                          className="w-4 h-4"
-                        />
-                        <span>Separate Colleges by Page (Each college starts on a new page)</span>
-                      </label>
-                    </div>
-                    <div className="md:col-span-2">
-                      <label className="flex items-center space-x-2 cursor-pointer bg-gradient-to-r from-blue-50 to-indigo-50 p-3 rounded-lg border border-blue-200">
-                        <input
-                          type="checkbox"
-                          checked={pdfSettings.useBranchShortNames}
-                          onChange={(e) => setPdfSettings({...pdfSettings, useBranchShortNames: e.target.checked})}
-                          className="w-4 h-4"
-                        />
-                        <span className="font-medium">Use Branch Short Names (e.g., CE, ME, CSE instead of full names)</span>
-                      </label>
-                    </div>
+                    <label className="flex items-center gap-2 cursor-pointer col-span-2">
+                      <input
+                        type="checkbox"
+                        checked={pdfSettings.includeSignature}
+                        onChange={(e) => setPdfSettings({...pdfSettings, includeSignature: e.target.checked})}
+                        className="w-4 h-4"
+                      />
+                      <span className="text-sm">Include Signature Column</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer col-span-2">
+                      <input
+                        type="checkbox"
+                        checked={pdfSettings.separateColleges}
+                        onChange={(e) => setPdfSettings({...pdfSettings, separateColleges: e.target.checked})}
+                        className="w-4 h-4"
+                      />
+                      <span className="text-sm">Separate Colleges by Page</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer col-span-2">
+                      <input
+                        type="checkbox"
+                        checked={pdfSettings.useBranchShortNames}
+                        onChange={(e) => setPdfSettings({...pdfSettings, useBranchShortNames: e.target.checked})}
+                        className="w-4 h-4"
+                      />
+                      <span className="text-sm">Use Branch Short Names (e.g., CE, ME, CSE)</span>
+                    </label>
                   </div>
                 </div>
               )}
 
               {/* Filters Section */}
               <div>
-                <h3 className="text-lg font-semibold mb-3">Filters (Optional)</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <h3 className="text-sm font-semibold text-gray-700 mb-2">Filters (Optional)</h3>
+                <div className="grid grid-cols-2 gap-3 mb-3">
                   <div>
-                    <label className="label">Region</label>
+                    <label className="label text-xs">Region</label>
                     <select
                       value={exportFilters.region_id}
                       onChange={(e) => {
@@ -1659,7 +1656,7 @@ export default function ManageAllStudents() {
                         }
                         setAvailableBranches(KERALA_POLYTECHNIC_BRANCHES);
                       }}
-                      className="input"
+                      className="input text-sm"
                     >
                       <option value="">All Regions</option>
                       {exportRegionsData.map((region) => (
@@ -1670,7 +1667,7 @@ export default function ManageAllStudents() {
                     </select>
                   </div>
                   <div>
-                    <label className="label">College</label>
+                    <label className="label text-xs">College</label>
                     <select
                       value={exportFilters.college_id}
                       onChange={(e) => {
@@ -1684,7 +1681,7 @@ export default function ManageAllStudents() {
                           setAvailableBranches(KERALA_POLYTECHNIC_BRANCHES);
                         }
                       }}
-                      className="input"
+                      className="input text-sm"
                     >
                       <option value="">All Colleges</option>
                       {filteredExportColleges.map((college) => (
@@ -1698,11 +1695,11 @@ export default function ManageAllStudents() {
 
                 {/* Branches with Checkboxes */}
                 <div>
-                  <div className="flex justify-between items-center mb-3">
-                    <label className="label">
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="text-xs font-medium text-gray-600">
                       Branches/Departments
                       {exportFilters.college_id && (
-                        <span className="text-xs text-gray-500 ml-2">(Filtered by selected college)</span>
+                        <span className="text-gray-400 ml-1">(Filtered by college)</span>
                       )}
                     </label>
                     <button
@@ -1714,23 +1711,23 @@ export default function ManageAllStudents() {
                           setExportFilters(prev => ({ ...prev, branches: [...availableBranches] }));
                         }
                       }}
-                      className="btn btn-sm btn-secondary"
+                      className="text-xs font-medium text-primary-600 hover:text-primary-700 px-2 py-1 rounded hover:bg-primary-50 transition-colors"
                       disabled={fetchingBranches}
                     >
                       {exportFilters.branches.length === availableBranches.length ? 'Deselect All' : 'Select All'}
                     </button>
                   </div>
                   {fetchingBranches ? (
-                    <div className="flex items-center justify-center h-48 border border-gray-200 rounded-lg">
+                    <div className="flex items-center justify-center h-32 border border-gray-200 rounded-lg">
                       <div className="text-center">
-                        <div className="animate-spin h-8 w-8 border-4 border-primary-600 border-t-transparent rounded-full mx-auto mb-2"></div>
-                        <p className="text-sm text-gray-600">Loading branches...</p>
+                        <div className="animate-spin h-6 w-6 border-3 border-primary-600 border-t-transparent rounded-full mx-auto mb-2"></div>
+                        <p className="text-xs text-gray-500">Loading branches...</p>
                       </div>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-3">
+                    <div className="grid grid-cols-3 gap-1 max-h-36 overflow-y-auto border border-gray-200 rounded-lg p-2 bg-gray-50">
                       {availableBranches.map((branch) => (
-                        <label key={branch} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                        <label key={branch} className="flex items-center gap-1.5 cursor-pointer hover:bg-white p-1.5 rounded text-xs transition-colors">
                           <input
                             type="checkbox"
                             checked={exportFilters.branches.includes(branch)}
@@ -1741,17 +1738,17 @@ export default function ManageAllStudents() {
                                 setExportFilters(prev => ({ ...prev, branches: prev.branches.filter(b => b !== branch) }));
                               }
                             }}
-                            className="checkbox"
+                            className="checkbox w-3.5 h-3.5"
                           />
-                          <span className="text-sm">{branch}</span>
+                          <span className="leading-tight">{branch}</span>
                         </label>
                       ))}
                     </div>
                   )}
-                  <p className="text-xs text-gray-500 mt-2">
+                  <p className="text-xs text-gray-400 mt-1">
                     {exportFilters.branches.length} branch(es) selected
                     {availableBranches.length < KERALA_POLYTECHNIC_BRANCHES.length && (
-                      <span className="ml-2">({availableBranches.length} available for selected college)</span>
+                      <span className="ml-1">({availableBranches.length} available)</span>
                     )}
                   </p>
                 </div>
@@ -1759,16 +1756,16 @@ export default function ManageAllStudents() {
 
               {/* Fields Selection */}
               <div>
-                <div className="flex justify-between items-center mb-3">
-                  <h3 className="text-lg font-semibold">Select Fields to Export *</h3>
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="text-sm font-semibold text-gray-700">Select Fields to Export <span className="text-red-500">*</span></h3>
                   <button
                     onClick={handleSelectAllFields}
-                    className="btn btn-secondary btn-sm"
+                    className="text-xs font-medium text-primary-600 hover:text-primary-700 px-2 py-1 rounded hover:bg-primary-50 transition-colors"
                   >
                     {exportFields.length === 25 ? 'Deselect All' : 'Select All'}
                   </button>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-64 overflow-y-auto border border-gray-200 rounded-lg p-4">
+                <div className="grid grid-cols-3 lg:grid-cols-4 gap-1 max-h-52 overflow-y-auto border border-gray-200 rounded-lg p-2 bg-gray-50">
                   {[
                     { label: 'PRN', value: 'prn' },
                     { label: 'Student Name', value: 'student_name' },
@@ -1797,73 +1794,73 @@ export default function ManageAllStudents() {
                     { label: 'Registration Status', value: 'registration_status' },
                     { label: 'Blacklist Status', value: 'is_blacklisted' },
                   ].map((field) => (
-                    <label key={field.value} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                    <label key={field.value} className="flex items-center gap-1.5 cursor-pointer hover:bg-white p-1.5 rounded text-xs transition-colors">
                       <input
                         type="checkbox"
                         checked={exportFields.includes(field.value)}
                         onChange={() => handleFieldToggle(field.value)}
-                        className="checkbox"
+                        className="checkbox w-3.5 h-3.5"
                       />
-                      <span className="text-sm">{field.label}</span>
+                      <span className="leading-tight">{field.label}</span>
                     </label>
                   ))}
                 </div>
-                <p className="text-sm text-gray-600 mt-2">
+                <p className="text-xs text-gray-400 mt-1">
                   {exportFields.length} field(s) selected
                 </p>
               </div>
 
               {/* Photo URL Option (Excel only) */}
               {exportFormat === 'excel' && (
-                <div className="border-t border-gray-200 pt-4 space-y-3">
-                  <label className="flex items-center space-x-3 cursor-pointer p-3 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors">
+                <div className="space-y-2">
+                  <label className="flex items-center gap-3 cursor-pointer p-3 bg-blue-50 border border-blue-100 rounded-lg hover:bg-blue-100/70 transition-colors">
                     <input
                       type="checkbox"
                       checked={includePhotoUrl}
                       onChange={(e) => setIncludePhotoUrl(e.target.checked)}
-                      className="checkbox h-5 w-5"
+                      className="checkbox h-4 w-4"
                     />
                     <div className="flex-1">
-                      <span className="text-sm font-semibold text-gray-900">Include Student Photo URLs in Export</span>
-                      <p className="text-xs text-gray-600 mt-1">
-                        Adds a column with Cloudinary photo URLs for students who have uploaded photos
-                      </p>
+                      <span className="text-sm font-medium text-gray-800">Include Student Photo URLs</span>
+                      <p className="text-xs text-gray-500">Adds a column with Cloudinary photo URLs</p>
                     </div>
                   </label>
-                  <label className="flex items-center space-x-3 cursor-pointer p-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg hover:border-blue-400 transition-all">
+                  <label className="flex items-center gap-3 cursor-pointer p-3 bg-blue-50 border border-blue-100 rounded-lg hover:bg-blue-100/70 transition-colors">
                     <input
                       type="checkbox"
                       checked={useBranchShortNames}
                       onChange={(e) => setUseBranchShortNames(e.target.checked)}
-                      className="checkbox h-5 w-5"
+                      className="checkbox h-4 w-4"
                     />
                     <div className="flex-1">
-                      <span className="text-sm font-semibold text-gray-900">Use Branch Short Names</span>
-                      <p className="text-xs text-gray-600 mt-1">
-                        Export branch names as short abbreviations (e.g., CE, ME, CSE) instead of full names
-                      </p>
+                      <span className="text-sm font-medium text-gray-800">Use Branch Short Names</span>
+                      <p className="text-xs text-gray-500">Export as abbreviations (e.g., CE, ME, CSE)</p>
                     </div>
                   </label>
                 </div>
               )}
             </div>
 
-            <div className="border-t border-gray-200 px-6 py-4 flex justify-end space-x-3">
-              <button
-                onClick={() => setShowCustomExportModal(false)}
-                className="btn btn-secondary"
-                disabled={processing}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleCustomExport}
-                className="btn btn-primary flex items-center space-x-2"
-                disabled={processing || exportFields.length === 0}
-              >
-                <Download size={18} />
-                <span>{processing ? 'Exporting...' : `Export to ${exportFormat === 'pdf' ? 'PDF' : 'Excel'}`}</span>
-              </button>
+            {/* Sticky Footer */}
+            <div className="flex-shrink-0 border-t border-gray-200 px-5 py-3 flex justify-between items-center bg-gray-50 rounded-b-xl">
+              <p className="text-xs text-gray-400">{exportFields.length} fields selected</p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowCustomExportModal(false)}
+                  className="btn btn-secondary text-sm px-4 py-2"
+                  disabled={processing}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCustomExport}
+                  className="btn btn-primary text-sm px-4 py-2 flex items-center gap-1.5"
+                  disabled={processing || exportFields.length === 0}
+                >
+                  <Download size={16} />
+                  <span>{processing ? 'Exporting...' : `Export ${exportFormat === 'pdf' ? 'PDF' : 'Excel'}`}</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1871,150 +1868,14 @@ export default function ManageAllStudents() {
 
       {/* Bulk Delete Photos Modal */}
       {showBulkDeletePhotoModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4">
-              <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold text-gray-900">Bulk Delete Student Photos</h2>
-                <button
-                  onClick={() => {
-                    setShowBulkDeletePhotoModal(false);
-                    setBulkDeleteData({
-                      prn_list: '',
-                      prn_range_start: '',
-                      prn_range_end: '',
-                      date_start: '',
-                      date_end: '',
-                    });
-                  }}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <XCircle size={24} />
-                </button>
-              </div>
-            </div>
-
-            <div className="p-6 space-y-6">
-              {/* Warning Banner */}
-              <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-                <div className="flex items-start">
-                  <AlertTriangle className="text-red-600 mt-0.5 mr-3 flex-shrink-0" size={20} />
-                  <div>
-                    <h4 className="font-semibold text-red-900 mb-1">Permanent Action</h4>
-                    <p className="text-sm text-red-800">
-                      This will permanently delete student photos from Cloudinary and the database. This action cannot be undone!
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Deletion Type Selection */}
-              <div>
-                <label className="label">Deletion Type</label>
-                <div className="grid grid-cols-3 gap-3">
-                  <button
-                    onClick={() => setBulkDeleteType('single_prn')}
-                    className={`p-3 border-2 rounded-lg text-sm font-medium transition-colors ${
-                      bulkDeleteType === 'single_prn'
-                        ? 'border-primary-600 bg-primary-50 text-primary-900'
-                        : 'border-gray-300 hover:border-gray-400'
-                    }`}
-                  >
-                    Single/Multiple PRNs
-                  </button>
-                  <button
-                    onClick={() => setBulkDeleteType('prn_range')}
-                    className={`p-3 border-2 rounded-lg text-sm font-medium transition-colors ${
-                      bulkDeleteType === 'prn_range'
-                        ? 'border-primary-600 bg-primary-50 text-primary-900'
-                        : 'border-gray-300 hover:border-gray-400'
-                    }`}
-                  >
-                    PRN Range
-                  </button>
-                  <button
-                    onClick={() => setBulkDeleteType('date_range')}
-                    className={`p-3 border-2 rounded-lg text-sm font-medium transition-colors ${
-                      bulkDeleteType === 'date_range'
-                        ? 'border-primary-600 bg-primary-50 text-primary-900'
-                        : 'border-gray-300 hover:border-gray-400'
-                    }`}
-                  >
-                    Date Range
-                  </button>
-                </div>
-              </div>
-
-              {/* Conditional Input Fields */}
-              {bulkDeleteType === 'single_prn' && (
-                <div>
-                  <label className="label">PRN Numbers (comma-separated)</label>
-                  <textarea
-                    className="input"
-                    rows="4"
-                    value={bulkDeleteData.prn_list}
-                    onChange={(e) => setBulkDeleteData({ ...bulkDeleteData, prn_list: e.target.value })}
-                    placeholder="e.g., 2301150001, 2301150002, 2301150003"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Enter one or more PRN numbers separated by commas
-                  </p>
-                </div>
-              )}
-
-              {bulkDeleteType === 'prn_range' && (
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="label">Start PRN</label>
-                    <input
-                      type="text"
-                      className="input"
-                      value={bulkDeleteData.prn_range_start}
-                      onChange={(e) => setBulkDeleteData({ ...bulkDeleteData, prn_range_start: e.target.value })}
-                      placeholder="e.g., 2301150001"
-                    />
-                  </div>
-                  <div>
-                    <label className="label">End PRN</label>
-                    <input
-                      type="text"
-                      className="input"
-                      value={bulkDeleteData.prn_range_end}
-                      onChange={(e) => setBulkDeleteData({ ...bulkDeleteData, prn_range_end: e.target.value })}
-                      placeholder="e.g., 2301150100"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {bulkDeleteType === 'date_range' && (
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="label">Start Date</label>
-                    <input
-                      type="date"
-                      className="input"
-                      value={bulkDeleteData.date_start}
-                      onChange={(e) => setBulkDeleteData({ ...bulkDeleteData, date_start: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <label className="label">End Date</label>
-                    <input
-                      type="date"
-                      className="input"
-                      value={bulkDeleteData.date_end}
-                      onChange={(e) => setBulkDeleteData({ ...bulkDeleteData, date_end: e.target.value })}
-                    />
-                  </div>
-                  <p className="text-xs text-gray-500 col-span-2">
-                    Delete photos uploaded between these dates (inclusive)
-                  </p>
-                </div>
-              )}
-            </div>
-
-            <div className="border-t border-gray-200 px-6 py-4 flex justify-end space-x-3">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg flex flex-col max-h-[85vh]">
+            {/* Header */}
+            <div className="flex-shrink-0 border-b border-gray-200 px-5 py-3.5 flex justify-between items-center">
+              <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <Trash2 size={20} className="text-red-500" />
+                Bulk Delete Photos
+              </h2>
               <button
                 onClick={() => {
                   setShowBulkDeletePhotoModal(false);
@@ -2026,17 +1887,155 @@ export default function ManageAllStudents() {
                     date_end: '',
                   });
                 }}
-                className="btn btn-secondary"
+                className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100"
+              >
+                <XCircle size={20} />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+              {/* Warning Banner */}
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2.5">
+                <AlertTriangle className="text-red-500 flex-shrink-0 mt-0.5" size={18} />
+                <div>
+                  <p className="text-sm font-medium text-red-800">Permanent Action</p>
+                  <p className="text-xs text-red-600 mt-0.5">
+                    This will permanently delete photos from Cloudinary and the database. Cannot be undone.
+                  </p>
+                </div>
+              </div>
+
+              {/* Deletion Type Selection */}
+              <div>
+                <label className="text-sm font-semibold text-gray-700 mb-2 block">Deletion Type</label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    onClick={() => setBulkDeleteType('single_prn')}
+                    className={`py-2 px-3 border-2 rounded-lg text-xs font-medium transition-all ${
+                      bulkDeleteType === 'single_prn'
+                        ? 'border-primary-600 bg-primary-50 text-primary-800'
+                        : 'border-gray-200 hover:border-gray-300 text-gray-600'
+                    }`}
+                  >
+                    Single/Multiple PRNs
+                  </button>
+                  <button
+                    onClick={() => setBulkDeleteType('prn_range')}
+                    className={`py-2 px-3 border-2 rounded-lg text-xs font-medium transition-all ${
+                      bulkDeleteType === 'prn_range'
+                        ? 'border-primary-600 bg-primary-50 text-primary-800'
+                        : 'border-gray-200 hover:border-gray-300 text-gray-600'
+                    }`}
+                  >
+                    PRN Range
+                  </button>
+                  <button
+                    onClick={() => setBulkDeleteType('date_range')}
+                    className={`py-2 px-3 border-2 rounded-lg text-xs font-medium transition-all ${
+                      bulkDeleteType === 'date_range'
+                        ? 'border-primary-600 bg-primary-50 text-primary-800'
+                        : 'border-gray-200 hover:border-gray-300 text-gray-600'
+                    }`}
+                  >
+                    Date Range
+                  </button>
+                </div>
+              </div>
+
+              {/* Conditional Input Fields */}
+              {bulkDeleteType === 'single_prn' && (
+                <div>
+                  <label className="label text-xs">PRN Numbers (comma-separated)</label>
+                  <textarea
+                    className="input text-sm"
+                    rows="3"
+                    value={bulkDeleteData.prn_list}
+                    onChange={(e) => setBulkDeleteData({ ...bulkDeleteData, prn_list: e.target.value })}
+                    placeholder="e.g., 2301150001, 2301150002, 2301150003"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">
+                    Enter one or more PRN numbers separated by commas
+                  </p>
+                </div>
+              )}
+
+              {bulkDeleteType === 'prn_range' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="label text-xs">Start PRN</label>
+                    <input
+                      type="text"
+                      className="input text-sm"
+                      value={bulkDeleteData.prn_range_start}
+                      onChange={(e) => setBulkDeleteData({ ...bulkDeleteData, prn_range_start: e.target.value })}
+                      placeholder="e.g., 2301150001"
+                    />
+                  </div>
+                  <div>
+                    <label className="label text-xs">End PRN</label>
+                    <input
+                      type="text"
+                      className="input text-sm"
+                      value={bulkDeleteData.prn_range_end}
+                      onChange={(e) => setBulkDeleteData({ ...bulkDeleteData, prn_range_end: e.target.value })}
+                      placeholder="e.g., 2301150100"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {bulkDeleteType === 'date_range' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="label text-xs">Start Date</label>
+                    <input
+                      type="date"
+                      className="input text-sm"
+                      value={bulkDeleteData.date_start}
+                      onChange={(e) => setBulkDeleteData({ ...bulkDeleteData, date_start: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="label text-xs">End Date</label>
+                    <input
+                      type="date"
+                      className="input text-sm"
+                      value={bulkDeleteData.date_end}
+                      onChange={(e) => setBulkDeleteData({ ...bulkDeleteData, date_end: e.target.value })}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-400 col-span-2">
+                    Photos uploaded between these dates will be deleted (inclusive)
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex-shrink-0 border-t border-gray-200 px-5 py-3 flex justify-end gap-2 bg-gray-50 rounded-b-xl">
+              <button
+                onClick={() => {
+                  setShowBulkDeletePhotoModal(false);
+                  setBulkDeleteData({
+                    prn_list: '',
+                    prn_range_start: '',
+                    prn_range_end: '',
+                    date_start: '',
+                    date_end: '',
+                  });
+                }}
+                className="btn btn-secondary text-sm px-4 py-2"
                 disabled={processing}
               >
                 Cancel
               </button>
               <button
                 onClick={handleBulkDeletePhotos}
-                className="btn bg-red-600 hover:bg-red-700 text-white flex items-center space-x-2"
+                className="bg-red-600 hover:bg-red-700 text-white text-sm font-medium px-4 py-2 rounded-lg flex items-center gap-1.5 transition-colors"
                 disabled={processing}
               >
-                <Trash2 size={18} />
+                <Trash2 size={16} />
                 <span>{processing ? 'Deleting...' : 'Delete Photos'}</span>
               </button>
             </div>

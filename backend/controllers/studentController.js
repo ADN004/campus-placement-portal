@@ -451,6 +451,29 @@ export const updateProfile = async (req, res) => {
       }
     }
 
+    // Check backlog lock for approved students
+    const hasBacklogChange = backlogs_sem1 !== undefined || backlogs_sem2 !== undefined ||
+      backlogs_sem3 !== undefined || backlogs_sem4 !== undefined ||
+      backlogs_sem5 !== undefined || backlogs_sem6 !== undefined ||
+      backlog_count !== undefined || backlog_details !== undefined;
+
+    if (hasBacklogChange && currentStudent.registration_status === 'approved') {
+      const backlogUnlockResult = await query(
+        `SELECT id, unlock_end FROM backlog_unlock_windows
+         WHERE (college_id = $1 OR college_id IS NULL)
+         AND is_active = TRUE AND unlock_end > CURRENT_TIMESTAMP
+         ORDER BY unlock_end DESC LIMIT 1`,
+        [currentStudent.college_id]
+      );
+
+      if (backlogUnlockResult.rows.length === 0) {
+        return res.status(403).json({
+          success: false,
+          message: 'Backlog editing is currently locked. Please contact your placement officer.',
+        });
+      }
+    }
+
     // Build dynamic update query
     const updateFields = [];
     const updateValues = [];
@@ -958,5 +981,61 @@ export const getCgpaLockStatus = async (req, res) => {
   } catch (error) {
     console.error('Get CGPA lock status error:', error);
     res.status(500).json({ success: false, message: 'Error fetching CGPA lock status' });
+  }
+};
+
+// @desc    Get backlog lock status for student
+// @route   GET /api/students/backlog-lock-status
+// @access  Private (Student)
+export const getBacklogLockStatus = async (req, res) => {
+  try {
+    const studentResult = await query(
+      'SELECT id, college_id, registration_status FROM students WHERE user_id = $1',
+      [req.user.id]
+    );
+
+    if (studentResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Student not found' });
+    }
+
+    const student = studentResult.rows[0];
+
+    // Pending students can always edit
+    if (student.registration_status !== 'approved') {
+      return res.json({
+        success: true,
+        data: { is_locked: false, reason: 'pending_approval' },
+      });
+    }
+
+    // Check for active unlock window
+    const unlockResult = await query(
+      `SELECT id, unlock_end, reason FROM backlog_unlock_windows
+       WHERE (college_id = $1 OR college_id IS NULL)
+       AND is_active = TRUE AND unlock_end > CURRENT_TIMESTAMP
+       ORDER BY unlock_end DESC LIMIT 1`,
+      [student.college_id]
+    );
+
+    if (unlockResult.rows.length > 0) {
+      const window = unlockResult.rows[0];
+      return res.json({
+        success: true,
+        data: {
+          is_locked: false,
+          unlock_window_id: window.id,
+          unlock_end: window.unlock_end,
+          unlock_reason: window.reason,
+        },
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: { is_locked: true },
+    });
+  } catch (error) {
+    console.error('Get backlog lock status error:', error);
+    res.status(500).json({ success: false, message: 'Error fetching backlog lock status' });
   }
 };

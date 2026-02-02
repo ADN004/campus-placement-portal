@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { placementOfficerAPI } from '../../services/api';
 import toast from 'react-hot-toast';
-import { Check, X, Ban, Shield, Eye, Search, Download, Filter, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Users, Settings, XCircle, Lock, Unlock, GraduationCap } from 'lucide-react';
+import { Check, X, Ban, Shield, Eye, Search, Download, Filter, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Users, Settings, XCircle, Lock, Unlock, GraduationCap, FileText } from 'lucide-react';
 import DashboardHeader from '../../components/DashboardHeader';
 import GlassCard from '../../components/GlassCard';
 import { BRANCH_SHORT_NAMES } from '../../constants/branches';
@@ -73,6 +73,14 @@ export default function ManageStudents() {
   const [unlockReason, setUnlockReason] = useState('');
   const [cgpaProcessing, setCgpaProcessing] = useState(false);
 
+  // Backlog Lock/Unlock
+  const [backlogLocked, setBacklogLocked] = useState(true);
+  const [backlogUnlockWindow, setBacklogUnlockWindow] = useState(null);
+  const [showBacklogUnlockModal, setShowBacklogUnlockModal] = useState(false);
+  const [backlogUnlockDays, setBacklogUnlockDays] = useState(7);
+  const [backlogUnlockReason, setBacklogUnlockReason] = useState('');
+  const [backlogProcessing, setBacklogProcessing] = useState(false);
+
   // Export state
   const [showExportDropdown, setShowExportDropdown] = useState(false);
   const [showExcelConfigModal, setShowExcelConfigModal] = useState(false);
@@ -110,6 +118,7 @@ export default function ManageStudents() {
     fetchCollegeBranches();
     fetchDistricts();
     fetchCgpaLockStatus();
+    fetchBacklogLockStatus();
   }, []);
 
   const fetchDistricts = async () => {
@@ -185,6 +194,53 @@ export default function ManageStudents() {
       toast.error(error.response?.data?.message || 'Failed to lock CGPA');
     } finally {
       setCgpaProcessing(false);
+    }
+  };
+
+  const fetchBacklogLockStatus = async () => {
+    try {
+      const response = await placementOfficerAPI.getBacklogLockStatus();
+      const data = response.data.data;
+      setBacklogLocked(data.is_locked);
+      setBacklogUnlockWindow(data.unlock_window);
+    } catch {
+      setBacklogLocked(true);
+    }
+  };
+
+  const handleBacklogUnlock = async () => {
+    if (backlogUnlockDays < 1 || backlogUnlockDays > 30) {
+      toast.error('Duration must be between 1 and 30 days');
+      return;
+    }
+    setBacklogProcessing(true);
+    try {
+      await placementOfficerAPI.unlockBacklog({
+        unlock_days: backlogUnlockDays,
+        reason: backlogUnlockReason || 'Exam results update',
+      });
+      toast.success(`Backlog editing unlocked for ${backlogUnlockDays} days`);
+      setShowBacklogUnlockModal(false);
+      setBacklogUnlockDays(7);
+      setBacklogUnlockReason('');
+      fetchBacklogLockStatus();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to unlock backlog editing');
+    } finally {
+      setBacklogProcessing(false);
+    }
+  };
+
+  const handleBacklogLock = async () => {
+    setBacklogProcessing(true);
+    try {
+      await placementOfficerAPI.lockBacklog();
+      toast.success('Backlog editing locked');
+      fetchBacklogLockStatus();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to lock backlog editing');
+    } finally {
+      setBacklogProcessing(false);
     }
   };
 
@@ -1044,6 +1100,106 @@ export default function ManageStudents() {
               </button>
               <button
                 onClick={() => setShowCgpaUnlockModal(false)}
+                className="px-6 py-2.5 bg-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-300 transition-all"
+              >
+                Cancel
+              </button>
+            </div>
+          </GlassCard>
+        </div>
+      )}
+
+      {/* Backlog Lock/Unlock Control */}
+      <GlassCard className="mb-6 p-4">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            <div className={`rounded-lg p-2 ${backlogLocked ? 'bg-red-100' : 'bg-green-100'}`}>
+              {backlogLocked ? <Lock size={20} className="text-red-600" /> : <Unlock size={20} className="text-green-600" />}
+            </div>
+            <div>
+              <h4 className="font-bold text-gray-800 text-sm flex items-center gap-2">
+                Student Backlog Count Editing
+                <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${backlogLocked ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                  {backlogLocked ? 'LOCKED' : 'UNLOCKED'}
+                </span>
+              </h4>
+              {!backlogLocked && backlogUnlockWindow && (
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Expires: {new Date(backlogUnlockWindow.unlock_end).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="flex gap-2">
+            {backlogLocked ? (
+              <button
+                onClick={() => setShowBacklogUnlockModal(true)}
+                disabled={backlogProcessing}
+                className="bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold px-4 py-2 rounded-xl text-sm hover:from-green-700 hover:to-emerald-700 transition-all flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <Unlock size={14} />
+                Unlock Backlog Editing
+              </button>
+            ) : (
+              <button
+                onClick={handleBacklogLock}
+                disabled={backlogProcessing}
+                className="bg-gradient-to-r from-red-600 to-rose-600 text-white font-bold px-4 py-2 rounded-xl text-sm hover:from-red-700 hover:to-rose-700 transition-all flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <Lock size={14} />
+                Lock Now
+              </button>
+            )}
+          </div>
+        </div>
+      </GlassCard>
+
+      {/* Backlog Unlock Modal */}
+      {showBacklogUnlockModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm">
+          <GlassCard className="max-w-md w-full p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="bg-gradient-to-br from-orange-500 to-red-600 rounded-lg p-2">
+                <FileText className="text-white" size={20} />
+              </div>
+              <h3 className="text-lg font-bold text-gray-800">Unlock Backlog Count Editing</h3>
+            </div>
+            <p className="text-gray-600 text-sm mb-4">
+              Students will be able to update their semester backlog counts during the unlock window. A notification will be sent to all approved students.
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Duration (days)</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="30"
+                  value={backlogUnlockDays}
+                  onChange={(e) => setBacklogUnlockDays(parseInt(e.target.value) || 1)}
+                  className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-xl focus:border-orange-500 outline-none font-medium"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Reason (optional)</label>
+                <input
+                  type="text"
+                  value={backlogUnlockReason}
+                  onChange={(e) => setBacklogUnlockReason(e.target.value)}
+                  placeholder="e.g., Semester 4 exam results published"
+                  className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-xl focus:border-orange-500 outline-none font-medium"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={handleBacklogUnlock}
+                disabled={backlogProcessing}
+                className="flex-1 bg-gradient-to-r from-orange-600 to-red-600 text-white font-bold py-2.5 rounded-xl hover:from-orange-700 hover:to-red-700 transition-all disabled:opacity-50"
+              >
+                {backlogProcessing ? 'Processing...' : `Unlock for ${backlogUnlockDays} days`}
+              </button>
+              <button
+                onClick={() => setShowBacklogUnlockModal(false)}
                 className="px-6 py-2.5 bg-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-300 transition-all"
               >
                 Cancel

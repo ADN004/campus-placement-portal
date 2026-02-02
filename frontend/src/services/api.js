@@ -97,6 +97,9 @@ export const studentAPI = {
 
   // CGPA Lock Status
   getCgpaLockStatus: () => API.get('/students/cgpa-lock-status'),
+
+  // Backlog Lock Status
+  getBacklogLockStatus: () => API.get('/students/backlog-lock-status'),
 };
 
 // Placement Officer APIs
@@ -174,6 +177,11 @@ export const placementOfficerAPI = {
   getCgpaLockStatus: () => API.get('/placement-officer/cgpa-lock-status'),
   unlockCgpa: (data) => API.post('/placement-officer/cgpa-unlock', data),
   lockCgpa: () => API.post('/placement-officer/cgpa-lock'),
+
+  // Backlog Lock/Unlock Management
+  getBacklogLockStatus: () => API.get('/placement-officer/backlog-lock-status'),
+  unlockBacklog: (data) => API.post('/placement-officer/backlog-unlock', data),
+  lockBacklog: () => API.post('/placement-officer/backlog-lock'),
 };
 
 // Super Admin APIs
@@ -331,6 +339,12 @@ export const superAdminAPI = {
   getCgpaLockStatus: (collegeId) => API.get(`/super-admin/cgpa-lock-status/${collegeId}`),
   unlockCgpa: (data) => API.post('/super-admin/cgpa-unlock', data),
   lockCgpa: (data) => API.post('/super-admin/cgpa-lock', data),
+
+  // Backlog Lock/Unlock Management
+  getGlobalBacklogLockStatus: () => API.get('/super-admin/backlog-global-lock-status'),
+  getBacklogLockStatus: (collegeId) => API.get(`/super-admin/backlog-lock-status/${collegeId}`),
+  unlockBacklog: (data) => API.post('/super-admin/backlog-unlock', data),
+  lockBacklog: (data) => API.post('/super-admin/backlog-lock', data),
 };
 
 export default API;

@@ -9,6 +9,7 @@ import {
   getNotifications,
   markNotificationRead,
   getCgpaLockStatus,
+  getBacklogLockStatus,
 } from '../controllers/studentController.js';
 import {
   resendVerificationEmail,
@@ -36,6 +37,7 @@ router.put('/notifications/:id/read', markNotificationRead);
 router.post('/resend-verification', resendVerificationEmail);
 router.get('/verification-status', getVerificationStatus);
 router.get('/cgpa-lock-status', getCgpaLockStatus);
+router.get('/backlog-lock-status', getBacklogLockStatus);
 
 // Resume Routes (accessible to all students)
 router.get('/resume', getStudentResume);

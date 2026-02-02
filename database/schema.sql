@@ -881,6 +881,27 @@ CREATE INDEX idx_cgpa_unlock_college ON cgpa_unlock_windows(college_id);
 CREATE INDEX idx_cgpa_unlock_active ON cgpa_unlock_windows(is_active, unlock_end);
 
 -- ============================================
+-- 30. BACKLOG UNLOCK WINDOWS TABLE
+-- ============================================
+-- Tracks time-limited windows during which approved students can edit their backlog counts.
+-- Identical structure to cgpa_unlock_windows for consistent lock/unlock behavior.
+
+CREATE TABLE backlog_unlock_windows (
+    id SERIAL PRIMARY KEY,
+    college_id INTEGER REFERENCES colleges(id) ON DELETE CASCADE,  -- NULL = all colleges (super admin global unlock)
+    unlocked_by INTEGER NOT NULL REFERENCES users(id),
+    reason TEXT,
+    unlock_start TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    unlock_end TIMESTAMP NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_backlog_unlock_college ON backlog_unlock_windows(college_id);
+CREATE INDEX idx_backlog_unlock_active ON backlog_unlock_windows(is_active, unlock_end);
+
+-- ============================================
 -- TRIGGERS FOR UPDATED_AT TIMESTAMPS
 -- ============================================
 

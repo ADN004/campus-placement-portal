@@ -23,6 +23,8 @@ export default function StudentProfile() {
   const [extendedProfileLoading, setExtendedProfileLoading] = useState(true);
   const [cgpaLocked, setCgpaLocked] = useState(false);
   const [cgpaUnlockEnd, setCgpaUnlockEnd] = useState(null);
+  const [backlogLocked, setBacklogLocked] = useState(false);
+  const [backlogUnlockEnd, setBacklogUnlockEnd] = useState(null);
   const [formData, setFormData] = useState({
     mobile_number: '',
     height: '',
@@ -51,6 +53,7 @@ export default function StudentProfile() {
     fetchProfile();
     fetchExtendedProfile();
     fetchCgpaLockStatus();
+    fetchBacklogLockStatus();
   }, []);
 
   const fetchProfile = async () => {
@@ -112,6 +115,18 @@ export default function StudentProfile() {
     } catch {
       // Default to locked on error for safety
       setCgpaLocked(true);
+    }
+  };
+
+  const fetchBacklogLockStatus = async () => {
+    try {
+      const response = await studentAPI.getBacklogLockStatus();
+      const data = response.data.data;
+      setBacklogLocked(data.is_locked);
+      setBacklogUnlockEnd(data.unlock_end || null);
+    } catch {
+      // Default to locked on error for safety
+      setBacklogLocked(true);
     }
   };
 
@@ -575,11 +590,29 @@ export default function StudentProfile() {
                       Backlogs
                     </h4>
 
+                    {/* Backlog Lock Status Banner */}
+                    {backlogLocked && profile?.registration_status === 'approved' && (
+                      <div className="mb-4 flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                        <Lock size={16} className="text-amber-600 flex-shrink-0" />
+                        <p className="text-amber-800 text-sm font-medium">
+                          Backlog fields are locked. Contact your placement officer to request an unlock window.
+                        </p>
+                      </div>
+                    )}
+                    {!backlogLocked && backlogUnlockEnd && profile?.registration_status === 'approved' && (
+                      <div className="mb-4 flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+                        <Edit size={16} className="text-green-600 flex-shrink-0" />
+                        <p className="text-green-800 text-sm font-medium">
+                          Backlog editing is open until {new Date(backlogUnlockEnd).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                    )}
+
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                       {[1, 2, 3, 4, 5, 6].map(sem => (
                         <div key={sem}>
                           <label className="block text-sm font-bold text-gray-700 mb-2">Semester {sem}</label>
-                          {editMode ? (
+                          {editMode && !(backlogLocked && profile?.registration_status === 'approved') ? (
                             <select
                               name={`backlogs_sem${sem}`}
                               value={formData[`backlogs_sem${sem}`]}
@@ -592,7 +625,7 @@ export default function StudentProfile() {
                               ))}
                             </select>
                           ) : (
-                            <p className="text-gray-900 font-bold text-lg bg-white rounded-xl p-4 border border-gray-100">
+                            <p className={`text-gray-900 font-bold text-lg bg-white rounded-xl p-4 border border-gray-100 ${backlogLocked && editMode ? 'opacity-60' : ''}`}>
                               {profile?.[`backlogs_sem${sem}`] !== undefined ? profile[`backlogs_sem${sem}`] : '0'}
                             </p>
                           )}
@@ -617,7 +650,7 @@ export default function StudentProfile() {
                     {/* Backlog Details */}
                     <div className="mt-4">
                       <label className="block text-sm font-bold text-gray-700 mb-2">Backlog Details</label>
-                      {editMode ? (
+                      {editMode && !(backlogLocked && profile?.registration_status === 'approved') ? (
                         <textarea
                           name="backlog_details"
                           value={formData.backlog_details}

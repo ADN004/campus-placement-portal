@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { placementOfficerAPI } from '../../services/api';
 import toast from 'react-hot-toast';
-import { Plus, Edit2, Trash2, Save, X, Lock, Hash, Calendar, BookOpen, Shield, Eye, Download, ToggleLeft, ToggleRight, AlertCircle } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, X, Lock, Hash, Calendar, BookOpen, Shield, Eye, Download, ToggleLeft, ToggleRight, AlertCircle, User } from 'lucide-react';
 import DashboardHeader from '../../components/DashboardHeader';
 import GlassCard from '../../components/GlassCard';
 
@@ -9,6 +9,7 @@ export default function ManagePRNRanges() {
   const [prnRanges, setPrnRanges] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showAddSingleModal, setShowAddSingleModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [showDisableModal, setShowDisableModal] = useState(false);
   const [selectedRange, setSelectedRange] = useState(null);
@@ -20,6 +21,7 @@ export default function ManagePRNRanges() {
   const [formData, setFormData] = useState({
     start_prn: '',
     end_prn: '',
+    single_prn: '',
     year: '',
     description: '',
   });
@@ -50,11 +52,13 @@ export default function ManagePRNRanges() {
     setFormData({
       start_prn: '',
       end_prn: '',
+      single_prn: '',
       year: '',
       description: '',
     });
     setEditingId(null);
     setShowAddModal(false);
+    setShowAddSingleModal(false);
   };
 
   const handleAdd = async (e) => {
@@ -75,28 +79,70 @@ export default function ManagePRNRanges() {
     }
   };
 
-  const handleEdit = (range) => {
-    setFormData({
-      start_prn: range.start_prn,
-      end_prn: range.end_prn,
-      year: range.year,
-      description: range.description || '',
-    });
-    setEditingId(range.id);
-    setShowAddModal(true);
-  };
-
-  const handleUpdate = async (e) => {
+  const handleAddSingle = async (e) => {
     e.preventDefault();
 
-    if (!formData.start_prn || !formData.end_prn || !formData.year) {
+    if (!formData.single_prn || !formData.year) {
       toast.error('Please fill in all required fields');
       return;
     }
 
     try {
-      await placementOfficerAPI.updatePRNRange(editingId, formData);
-      toast.success('PRN range updated successfully');
+      await placementOfficerAPI.addPRNRange({ single_prn: formData.single_prn, year: formData.year, description: formData.description });
+      toast.success('Single PRN added successfully');
+      fetchPRNRanges();
+      resetForm();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to add single PRN');
+    }
+  };
+
+  const handleEdit = (range) => {
+    if (range.single_prn) {
+      setFormData({
+        start_prn: '',
+        end_prn: '',
+        single_prn: range.single_prn,
+        year: range.year,
+        description: range.description || '',
+      });
+      setEditingId(range.id);
+      setShowAddSingleModal(true);
+    } else {
+      setFormData({
+        start_prn: range.start_prn,
+        end_prn: range.end_prn,
+        single_prn: '',
+        year: range.year,
+        description: range.description || '',
+      });
+      setEditingId(range.id);
+      setShowAddModal(true);
+    }
+  };
+
+  const handleUpdate = async (e) => {
+    e.preventDefault();
+
+    const isSingle = showAddSingleModal;
+    if (isSingle) {
+      if (!formData.single_prn || !formData.year) {
+        toast.error('Please fill in all required fields');
+        return;
+      }
+    } else {
+      if (!formData.start_prn || !formData.end_prn || !formData.year) {
+        toast.error('Please fill in all required fields');
+        return;
+      }
+    }
+
+    try {
+      const updateData = isSingle
+        ? { single_prn: formData.single_prn, year: formData.year, description: formData.description }
+        : { start_prn: formData.start_prn, end_prn: formData.end_prn, year: formData.year, description: formData.description };
+      await placementOfficerAPI.updatePRNRange(editingId, updateData);
+      toast.success(isSingle ? 'Single PRN updated successfully' : 'PRN range updated successfully');
       fetchPRNRanges();
       resetForm();
     } catch (error) {
@@ -238,13 +284,22 @@ export default function ManagePRNRanges() {
           title="Manage PRN Ranges"
           subtitle="Define valid PRN ranges for student registration at your college"
         />
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 hover:from-green-700 hover:via-emerald-700 hover:to-teal-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 transition-all duration-200 flex items-center space-x-2"
-        >
-          <Plus size={20} />
-          <span>Add PRN Range</span>
-        </button>
+        <div className="flex space-x-3">
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 hover:from-green-700 hover:via-emerald-700 hover:to-teal-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 transition-all duration-200 flex items-center space-x-2"
+          >
+            <Plus size={20} />
+            <span>Add PRN Range</span>
+          </button>
+          <button
+            onClick={() => setShowAddSingleModal(true)}
+            className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:via-indigo-700 hover:to-purple-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 transition-all duration-200 flex items-center space-x-2"
+          >
+            <User size={20} />
+            <span>Add Single PRN</span>
+          </button>
+        </div>
       </div>
 
       {/* Info Box */}
@@ -310,8 +365,15 @@ export default function ManagePRNRanges() {
                       range.created_by === 'super_admin' ? 'bg-purple-50/30' : index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
                     }`}
                   >
-                    <td className="px-6 py-4 font-mono font-bold text-gray-900">{range.start_prn}</td>
-                    <td className="px-6 py-4 font-mono font-bold text-gray-900">{range.end_prn}</td>
+                    <td className="px-6 py-4 font-mono font-bold text-gray-900">
+                      {range.single_prn ? (
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-md text-xs font-bold">Single</span>
+                          {range.single_prn}
+                        </span>
+                      ) : range.start_prn}
+                    </td>
+                    <td className="px-6 py-4 font-mono font-bold text-gray-900">{range.single_prn ? '-' : range.end_prn}</td>
                     <td className="px-6 py-4 font-bold text-gray-900">{range.year || '-'}</td>
                     <td className="px-6 py-4 text-sm text-gray-700 font-medium">
                       {range.college_name ? (
@@ -510,6 +572,89 @@ export default function ManagePRNRanges() {
         </div>
       )}
 
+      {/* Add Single PRN Modal */}
+      {showAddSingleModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <GlassCard variant="elevated" className="p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-3 shadow-lg">
+                <User className="text-white" size={24} />
+              </div>
+              <h2 className="text-3xl font-bold text-gray-900">
+                {editingId ? 'Edit Single PRN' : 'Add Single PRN'}
+              </h2>
+            </div>
+
+            <form onSubmit={editingId ? handleUpdate : handleAddSingle} className="space-y-5">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">
+                  PRN <span className="text-red-600">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="single_prn"
+                  value={formData.single_prn}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all duration-200 text-gray-900 placeholder-gray-400 font-medium"
+                  placeholder="e.g., 2301150323"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">
+                  Year <span className="text-red-600">*</span>
+                </label>
+                <select
+                  name="year"
+                  value={formData.year}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all duration-200 text-gray-900 font-medium"
+                  required
+                >
+                  <option value="">Select Year</option>
+                  {Array.from({ length: 26 }, (_, i) => 2025 + i).map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Description (Optional)</label>
+                <textarea
+                  name="description"
+                  value={formData.description}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all duration-200 text-gray-900 placeholder-gray-400 font-medium"
+                  rows="3"
+                  placeholder="e.g., Special admission student"
+                />
+              </div>
+
+              <div className="flex space-x-3 pt-4 border-t-2 border-gray-100">
+                <button
+                  type="submit"
+                  className="flex-1 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:via-purple-700 hover:to-pink-700 text-white font-bold py-4 px-6 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center justify-center space-x-2"
+                >
+                  <Save size={20} />
+                  <span>{editingId ? 'Update' : 'Add'} Single PRN</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="px-6 py-4 border-2 border-gray-300 text-gray-700 bg-white hover:bg-gray-50 font-bold rounded-xl transition-all shadow-sm hover:shadow-md transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center space-x-2"
+                >
+                  <X size={20} />
+                  <span>Cancel</span>
+                </button>
+              </div>
+            </form>
+          </GlassCard>
+        </div>
+      )}
+
       {/* Disable PRN Range Modal */}
       {showDisableModal && selectedRange && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -519,7 +664,9 @@ export default function ManagePRNRanges() {
             <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
               <p className="text-sm text-gray-600 mb-1">PRN Range</p>
               <p className="font-mono font-semibold text-gray-900">
-                {selectedRange.start_prn} - {selectedRange.end_prn}
+                {selectedRange.single_prn
+                  ? selectedRange.single_prn
+                  : `${selectedRange.start_prn} - ${selectedRange.end_prn}`}
               </p>
             </div>
 
@@ -577,7 +724,9 @@ export default function ManagePRNRanges() {
               <div>
                 <h2 className="text-xl font-bold text-gray-900">Students in PRN Range</h2>
                 <p className="text-sm text-gray-600 mt-1 font-mono">
-                  {selectedRange.start_prn} - {selectedRange.end_prn}
+                  {selectedRange.single_prn
+                    ? selectedRange.single_prn
+                    : `${selectedRange.start_prn} - ${selectedRange.end_prn}`}
                   {selectedRange.is_enabled ? (
                     <span className="ml-3 inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-green-100 text-green-800">Enabled</span>
                   ) : (

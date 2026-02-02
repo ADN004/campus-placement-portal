@@ -76,6 +76,10 @@ import {
   getCgpaLockStatusSA,
   unlockCgpaSA,
   lockCgpaSA,
+  getGlobalBacklogLockStatus,
+  getBacklogLockStatusSA,
+  unlockBacklogSA,
+  lockBacklogSA,
 } from '../controllers/superAdminControllerExtensions.js';
 import {
   getAllCollegeBranches,
@@ -221,6 +225,12 @@ router.get('/cgpa-global-lock-status', getGlobalCgpaLockStatus);
 router.get('/cgpa-lock-status/:collegeId', getCgpaLockStatusSA);
 router.post('/cgpa-unlock', unlockCgpaSA);
 router.post('/cgpa-lock', lockCgpaSA);
+
+// Backlog Lock/Unlock Management Routes
+router.get('/backlog-global-lock-status', getGlobalBacklogLockStatus);
+router.get('/backlog-lock-status/:collegeId', getBacklogLockStatusSA);
+router.post('/backlog-unlock', unlockBacklogSA);
+router.post('/backlog-lock', lockBacklogSA);
 
 // Admin Notifications (Auto-approved jobs, system alerts)
 router.get('/admin-notifications', getAdminNotifications);

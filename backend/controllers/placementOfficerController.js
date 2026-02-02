@@ -2136,8 +2136,9 @@ export const getPRNRanges = async (req, res) => {
     // Map database field names to frontend expected names
     const mappedData = rangesResult.rows.map(range => ({
       ...range,
-      start_prn: range.range_start,
-      end_prn: range.range_end,
+      start_prn: range.single_prn || range.range_start,
+      end_prn: range.single_prn ? null : range.range_end,
+      single_prn: range.single_prn || null,
     }));
 
     res.status(200).json({
@@ -2250,7 +2251,7 @@ export const addPRNRange = async (req, res) => {
 export const updatePRNRange = async (req, res) => {
   try {
     // Map frontend field names to database field names
-    const { start_prn, end_prn, is_active, is_enabled, description, disabled_reason, year } = req.body;
+    const { start_prn, end_prn, single_prn, is_active, is_enabled, description, disabled_reason, year } = req.body;
     const range_start = start_prn;
     const range_end = end_prn;
 
@@ -2335,6 +2336,12 @@ export const updatePRNRange = async (req, res) => {
         // If enabling, clear disabled fields
         updates.push(`disabled_date = NULL, disabled_by = NULL, disabled_reason = NULL`);
       }
+    }
+
+    if (single_prn !== undefined) {
+      paramCount++;
+      updates.push(`single_prn = $${paramCount}`);
+      params.push(single_prn || null);
     }
 
     if (description !== undefined) {

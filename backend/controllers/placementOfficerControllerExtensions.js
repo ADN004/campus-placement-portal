@@ -3223,3 +3223,168 @@ export const lockCgpaPO = async (req, res) => {
     res.status(500).json({ success: false, message: 'Error locking CGPA' });
   }
 };
+
+// ============================================
+// BACKLOG COUNT LOCK/UNLOCK MANAGEMENT (PO)
+// ============================================
+
+// @desc    Get backlog lock status for placement officer's college
+// @route   GET /api/placement-officer/backlog-lock-status
+// @access  Private (Placement Officer)
+export const getBacklogLockStatusPO = async (req, res) => {
+  try {
+    const poResult = await query(
+      'SELECT college_id FROM placement_officers WHERE user_id = $1',
+      [req.user.id]
+    );
+    if (poResult.rows.length === 0) {
+      return res.status(403).json({ success: false, message: 'Placement officer not found' });
+    }
+    const collegeId = poResult.rows[0].college_id;
+
+    const unlockResult = await query(
+      `SELECT id, unlock_end, reason, created_at FROM backlog_unlock_windows
+       WHERE (college_id = $1 OR college_id IS NULL)
+       AND is_active = TRUE AND unlock_end > CURRENT_TIMESTAMP
+       ORDER BY unlock_end DESC LIMIT 1`,
+      [collegeId]
+    );
+
+    const isUnlocked = unlockResult.rows.length > 0;
+    res.json({
+      success: true,
+      data: {
+        is_locked: !isUnlocked,
+        unlock_window: isUnlocked ? unlockResult.rows[0] : null,
+      },
+    });
+  } catch (error) {
+    console.error('Get backlog lock status error:', error);
+    res.status(500).json({ success: false, message: 'Error fetching backlog lock status' });
+  }
+};
+
+// @desc    Unlock backlog editing for college students
+// @route   POST /api/placement-officer/backlog-unlock
+// @access  Private (Placement Officer)
+export const unlockBacklogPO = async (req, res) => {
+  try {
+    const { unlock_days, reason } = req.body;
+
+    if (!unlock_days || unlock_days < 1 || unlock_days > 30) {
+      return res.status(400).json({
+        success: false,
+        message: 'Unlock duration must be between 1 and 30 days',
+      });
+    }
+
+    const poResult = await query(
+      'SELECT college_id FROM placement_officers WHERE user_id = $1',
+      [req.user.id]
+    );
+    if (poResult.rows.length === 0) {
+      return res.status(403).json({ success: false, message: 'Placement officer not found' });
+    }
+    const collegeId = poResult.rows[0].college_id;
+
+    // Deactivate any existing unlock windows for this college
+    await query(
+      `UPDATE backlog_unlock_windows SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP
+       WHERE (college_id = $1 OR college_id IS NULL) AND is_active = TRUE`,
+      [collegeId]
+    );
+
+    // Create new unlock window
+    const unlockResult = await query(
+      `INSERT INTO backlog_unlock_windows (college_id, unlocked_by, unlock_end, reason)
+       VALUES ($1, $2, CURRENT_TIMESTAMP + ($3 || ' days')::INTERVAL, $4)
+       RETURNING *`,
+      [collegeId, req.user.id, unlock_days, reason || 'Exam results update']
+    );
+
+    // Create notification for all approved students in the college
+    const notifResult = await query(
+      `INSERT INTO notifications (title, message, notification_type, priority, created_by, target_type)
+       VALUES ($1, $2, 'general', 'high', $3, 'specific_colleges')
+       RETURNING id`,
+      [
+        'Backlog Count Update Window Open',
+        `You can now update your semester backlog counts. This window will close in ${unlock_days} day${unlock_days > 1 ? 's' : ''}. Update your backlog details if needed.`,
+        req.user.id,
+      ]
+    );
+
+    const notifId = notifResult.rows[0].id;
+
+    // Add notification target
+    await query(
+      `INSERT INTO notification_targets (notification_id, target_entity_type, target_entity_id)
+       VALUES ($1, 'college', $2)`,
+      [notifId, collegeId]
+    );
+
+    // Add recipients - all approved students in the college
+    await query(
+      `INSERT INTO notification_recipients (notification_id, user_id)
+       SELECT $1, s.user_id FROM students s
+       WHERE s.college_id = $2 AND s.registration_status = 'approved' AND s.is_blacklisted = FALSE`,
+      [notifId, collegeId]
+    );
+
+    await logActivity(
+      req.user.id,
+      'BACKLOG_UNLOCK',
+      `Unlocked backlog editing for ${unlock_days} days`,
+      'college',
+      collegeId,
+      { unlock_days, reason },
+      req
+    );
+
+    res.json({
+      success: true,
+      message: `Backlog editing unlocked for ${unlock_days} days`,
+      data: unlockResult.rows[0],
+    });
+  } catch (error) {
+    console.error('Unlock backlog error:', error);
+    res.status(500).json({ success: false, message: 'Error unlocking backlog editing' });
+  }
+};
+
+// @desc    Lock backlog editing (revoke unlock window)
+// @route   POST /api/placement-officer/backlog-lock
+// @access  Private (Placement Officer)
+export const lockBacklogPO = async (req, res) => {
+  try {
+    const poResult = await query(
+      'SELECT college_id FROM placement_officers WHERE user_id = $1',
+      [req.user.id]
+    );
+    if (poResult.rows.length === 0) {
+      return res.status(403).json({ success: false, message: 'Placement officer not found' });
+    }
+    const collegeId = poResult.rows[0].college_id;
+
+    await query(
+      `UPDATE backlog_unlock_windows SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP
+       WHERE (college_id = $1 OR college_id IS NULL) AND is_active = TRUE`,
+      [collegeId]
+    );
+
+    await logActivity(
+      req.user.id,
+      'BACKLOG_LOCK',
+      'Locked backlog editing for college students',
+      'college',
+      collegeId,
+      null,
+      req
+    );
+
+    res.json({ success: true, message: 'Backlog editing locked for all students' });
+  } catch (error) {
+    console.error('Lock backlog error:', error);
+    res.status(500).json({ success: false, message: 'Error locking backlog editing' });
+  }
+};

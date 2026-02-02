@@ -50,6 +50,9 @@ import {
   getCgpaLockStatusPO,
   unlockCgpaPO,
   lockCgpaPO,
+  getBacklogLockStatusPO,
+  unlockBacklogPO,
+  lockBacklogPO,
 } from '../controllers/placementOfficerControllerExtensions.js';
 import {
   downloadStudentResumePO,
@@ -141,5 +144,10 @@ router.post('/validate-student-for-manual-addition', validateStudentForManualAdd
 router.get('/cgpa-lock-status', getCgpaLockStatusPO);
 router.post('/cgpa-unlock', unlockCgpaPO);
 router.post('/cgpa-lock', lockCgpaPO);
+
+// Backlog Lock/Unlock Management Routes
+router.get('/backlog-lock-status', getBacklogLockStatusPO);
+router.post('/backlog-unlock', unlockBacklogPO);
+router.post('/backlog-lock', lockBacklogPO);
 
 export default router;

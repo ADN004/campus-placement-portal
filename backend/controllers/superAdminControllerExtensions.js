@@ -3520,3 +3520,196 @@ export const lockCgpaSA = async (req, res) => {
     res.status(500).json({ success: false, message: 'Error locking CGPA' });
   }
 };
+
+// ============================================
+// BACKLOG COUNT LOCK/UNLOCK MANAGEMENT (SA)
+// ============================================
+
+// @desc    Get global backlog lock status
+// @route   GET /api/super-admin/backlog-global-lock-status
+// @access  Private (Super Admin)
+export const getGlobalBacklogLockStatus = async (req, res) => {
+  try {
+    const result = await query(
+      `SELECT id, unlock_end, reason, is_active, created_at FROM backlog_unlock_windows
+       WHERE college_id IS NULL AND unlock_end > CURRENT_TIMESTAMP
+       ORDER BY created_at DESC LIMIT 1`
+    );
+
+    const hasGlobalWindow = result.rows.length > 0;
+    res.json({
+      success: true,
+      data: {
+        has_global_window: hasGlobalWindow,
+        global_window: hasGlobalWindow ? result.rows[0] : null,
+      },
+    });
+  } catch (error) {
+    console.error('Get global backlog lock status error:', error);
+    res.status(500).json({ success: false, message: 'Error fetching global backlog lock status' });
+  }
+};
+
+// @desc    Get backlog lock status for a college
+// @route   GET /api/super-admin/backlog-lock-status/:collegeId
+// @access  Private (Super Admin)
+export const getBacklogLockStatusSA = async (req, res) => {
+  try {
+    const { collegeId } = req.params;
+
+    const unlockResult = await query(
+      `SELECT id, college_id, unlock_end, reason, created_at FROM backlog_unlock_windows
+       WHERE (college_id = $1 OR college_id IS NULL)
+       AND is_active = TRUE AND unlock_end > CURRENT_TIMESTAMP
+       ORDER BY unlock_end DESC LIMIT 1`,
+      [collegeId]
+    );
+
+    const isUnlocked = unlockResult.rows.length > 0;
+    res.json({
+      success: true,
+      data: {
+        is_locked: !isUnlocked,
+        unlock_window: isUnlocked ? unlockResult.rows[0] : null,
+      },
+    });
+  } catch (error) {
+    console.error('Get backlog lock status error:', error);
+    res.status(500).json({ success: false, message: 'Error fetching backlog lock status' });
+  }
+};
+
+// @desc    Unlock backlog editing for specific or all colleges
+// @route   POST /api/super-admin/backlog-unlock
+// @access  Private (Super Admin)
+export const unlockBacklogSA = async (req, res) => {
+  try {
+    const { college_id, unlock_days, reason } = req.body;
+
+    if (!unlock_days || unlock_days < 1 || unlock_days > 30) {
+      return res.status(400).json({
+        success: false,
+        message: 'Unlock duration must be between 1 and 30 days',
+      });
+    }
+
+    // Deactivate existing windows
+    if (college_id) {
+      await query(
+        `UPDATE backlog_unlock_windows SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP
+         WHERE (college_id = $1 OR college_id IS NULL) AND is_active = TRUE`,
+        [college_id]
+      );
+    } else {
+      await query(
+        `UPDATE backlog_unlock_windows SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP
+         WHERE college_id IS NULL AND is_active = TRUE`
+      );
+    }
+
+    // Create new unlock window
+    const unlockResult = await query(
+      `INSERT INTO backlog_unlock_windows (college_id, unlocked_by, unlock_end, reason)
+       VALUES ($1, $2, CURRENT_TIMESTAMP + ($3 || ' days')::INTERVAL, $4)
+       RETURNING *`,
+      [college_id || null, req.user.id, unlock_days, reason || 'Exam results update']
+    );
+
+    // Create notification
+    const targetType = college_id ? 'specific_colleges' : 'all';
+    const notifResult = await query(
+      `INSERT INTO notifications (title, message, notification_type, priority, created_by, target_type)
+       VALUES ($1, $2, 'general', 'high', $3, $4)
+       RETURNING id`,
+      [
+        'Backlog Count Update Window Open',
+        `You can now update your semester backlog counts. This window will close in ${unlock_days} day${unlock_days > 1 ? 's' : ''}. Update your backlog details if needed.`,
+        req.user.id,
+        targetType,
+      ]
+    );
+
+    const notifId = notifResult.rows[0].id;
+
+    if (college_id) {
+      await query(
+        `INSERT INTO notification_targets (notification_id, target_entity_type, target_entity_id)
+         VALUES ($1, 'college', $2)`,
+        [notifId, college_id]
+      );
+      await query(
+        `INSERT INTO notification_recipients (notification_id, user_id)
+         SELECT $1, s.user_id FROM students s
+         WHERE s.college_id = $2 AND s.registration_status = 'approved' AND s.is_blacklisted = FALSE`,
+        [notifId, college_id]
+      );
+    } else {
+      await query(
+        `INSERT INTO notification_recipients (notification_id, user_id)
+         SELECT $1, s.user_id FROM students s
+         WHERE s.registration_status = 'approved' AND s.is_blacklisted = FALSE`,
+        [notifId]
+      );
+    }
+
+    await logActivity(
+      req.user.id,
+      'BACKLOG_UNLOCK',
+      `Unlocked backlog editing for ${unlock_days} days${college_id ? ` (college ${college_id})` : ' (all colleges)'}`,
+      'system',
+      null,
+      { college_id, unlock_days, reason },
+      req
+    );
+
+    res.json({
+      success: true,
+      message: `Backlog editing unlocked for ${unlock_days} days`,
+      data: unlockResult.rows[0],
+    });
+  } catch (error) {
+    console.error('Unlock backlog error:', error);
+    res.status(500).json({ success: false, message: 'Error unlocking backlog editing' });
+  }
+};
+
+// @desc    Lock backlog editing for specific or all colleges
+// @route   POST /api/super-admin/backlog-lock
+// @access  Private (Super Admin)
+export const lockBacklogSA = async (req, res) => {
+  try {
+    const { college_id } = req.body;
+
+    if (college_id) {
+      await query(
+        `UPDATE backlog_unlock_windows SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP
+         WHERE (college_id = $1 OR college_id IS NULL) AND is_active = TRUE`,
+        [college_id]
+      );
+    } else {
+      await query(
+        `UPDATE backlog_unlock_windows SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP
+         WHERE is_active = TRUE`
+      );
+      await query(
+        `UPDATE backlog_unlock_windows SET unlock_end = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+         WHERE college_id IS NULL AND unlock_end > CURRENT_TIMESTAMP`
+      );
+    }
+
+    await logActivity(
+      req.user.id,
+      'BACKLOG_LOCK',
+      `Locked backlog editing${college_id ? ` for college ${college_id}` : ' for all colleges'}`,
+      'system',
+      null,
+      { college_id },
+      req
+    );
+
+    res.json({ success: true, message: 'Backlog editing locked' });
+  } catch (error) {
+    console.error('Lock backlog error:', error);
+    res.status(500).json({ success: false, message: 'Error locking backlog editing' });
+  }
+};

@@ -826,7 +826,7 @@ export default function CreateJobRequest() {
                       </select>
                     </div>
                   </div>
-                )
+                )}
 
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-3">

@@ -1157,7 +1157,7 @@ export default function ManageJobs() {
                       </select>
                     </div>
                   </div>
-                )
+                )}
 
                 <div>
                   <label className="label">

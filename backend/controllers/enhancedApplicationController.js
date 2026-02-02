@@ -107,7 +107,7 @@ export const checkApplicationReadiness = async (req, res) => {
 
     // Get job details for fallback
     const jobResult = await query(
-      `SELECT id, job_title, company_name, min_cgpa, max_backlogs, allowed_branches
+      `SELECT id, job_title, company_name, min_cgpa, max_backlogs, backlog_max_semester, allowed_branches
        FROM jobs
        WHERE id = $1 AND is_active = TRUE`,
       [jobId]
@@ -164,21 +164,47 @@ export const checkApplicationReadiness = async (req, res) => {
       });
     }
 
-    // Parse backlog_count which could be a number or "All cleared"
-    const studentBacklogs = student.backlog_count === 'All cleared' ? 0 :
-                           (student.active_backlogs !== undefined ? student.active_backlogs :
-                           (typeof student.backlog_count === 'number' ? student.backlog_count : parseInt(student.backlog_count) || 0));
+    // Per-semester backlog check
+    const semBacklogs = [
+      student.backlogs_sem1 || 0, student.backlogs_sem2 || 0,
+      student.backlogs_sem3 || 0, student.backlogs_sem4 || 0,
+      student.backlogs_sem5 || 0, student.backlogs_sem6 || 0,
+    ];
+    const totalBacklogs = semBacklogs.reduce((a, b) => a + b, 0);
+    const backlogMaxSem = requirements.backlog_max_semester || null;
 
-    if (requirements.max_backlogs !== null && studentBacklogs > requirements.max_backlogs) {
-      missingFields.push({
-        field: 'backlog_count',
-        section: 'core',
-        label: 'Active Backlogs',
-        required_value: requirements.max_backlogs,
-        current_value: studentBacklogs,
-        message: `Maximum ${requirements.max_backlogs} backlogs allowed`,
-        blocking: true
-      });
+    if (requirements.max_backlogs !== null && requirements.max_backlogs !== undefined) {
+      let backlogFailed = false;
+      let backlogMessage = '';
+
+      if (backlogMaxSem) {
+        const withinRange = semBacklogs.slice(0, backlogMaxSem).reduce((a, b) => a + b, 0);
+        const afterRange = semBacklogs.slice(backlogMaxSem).reduce((a, b) => a + b, 0);
+        if (afterRange > 0) {
+          backlogFailed = true;
+          backlogMessage = `You have backlogs in semesters after Sem ${backlogMaxSem}. Only backlogs within Sem 1-${backlogMaxSem} are allowed`;
+        } else if (withinRange > requirements.max_backlogs) {
+          backlogFailed = true;
+          backlogMessage = `Maximum ${requirements.max_backlogs} backlogs allowed within Sem 1-${backlogMaxSem}. You have ${withinRange}`;
+        }
+      } else {
+        if (totalBacklogs > requirements.max_backlogs) {
+          backlogFailed = true;
+          backlogMessage = `Maximum ${requirements.max_backlogs} backlogs allowed. You have ${totalBacklogs}`;
+        }
+      }
+
+      if (backlogFailed) {
+        missingFields.push({
+          field: 'backlog_count',
+          section: 'core',
+          label: 'Active Backlogs',
+          required_value: requirements.max_backlogs,
+          current_value: totalBacklogs,
+          message: backlogMessage,
+          blocking: true
+        });
+      }
     }
 
     if (requirements.allowed_branches && requirements.allowed_branches.length > 0) {
@@ -596,7 +622,7 @@ export const submitEnhancedApplication = async (req, res) => {
 
       // Also check jobs table for criteria if no template requirements
       const jobCriteriaResult = await client.query(
-        'SELECT min_cgpa, max_backlogs, allowed_branches FROM jobs WHERE id = $1',
+        'SELECT min_cgpa, max_backlogs, backlog_max_semester, allowed_branches FROM jobs WHERE id = $1',
         [jobId]
       );
 
@@ -610,6 +636,7 @@ export const submitEnhancedApplication = async (req, res) => {
         requirements = {
           min_cgpa: jobCriteria.min_cgpa,
           max_backlogs: jobCriteria.max_backlogs,
+          backlog_max_semester: jobCriteria.backlog_max_semester,
           allowed_branches: jobCriteria.allowed_branches
         };
       }
@@ -622,14 +649,29 @@ export const submitEnhancedApplication = async (req, res) => {
           validationErrors.push(`CGPA below minimum: ${requirements.min_cgpa}`);
         }
 
-        // Parse backlog_count
-        const studentBacklogs = student.backlog_count === 'All cleared' ? 0 :
-                               (student.active_backlogs !== undefined ? student.active_backlogs :
-                               (typeof student.backlog_count === 'number' ? student.backlog_count : parseInt(student.backlog_count) || 0));
+        // Per-semester backlog check
+        const submitSemBacklogs = [
+          student.backlogs_sem1 || 0, student.backlogs_sem2 || 0,
+          student.backlogs_sem3 || 0, student.backlogs_sem4 || 0,
+          student.backlogs_sem5 || 0, student.backlogs_sem6 || 0,
+        ];
+        const submitTotalBacklogs = submitSemBacklogs.reduce((a, b) => a + b, 0);
+        const submitMaxSem = requirements.backlog_max_semester || null;
 
-        if (requirements.max_backlogs !== null && studentBacklogs > requirements.max_backlogs) {
-          meetsRequirements = false;
-          validationErrors.push(`Too many backlogs. Maximum allowed: ${requirements.max_backlogs}`);
+        if (requirements.max_backlogs !== null && requirements.max_backlogs !== undefined) {
+          if (submitMaxSem) {
+            const withinRange = submitSemBacklogs.slice(0, submitMaxSem).reduce((a, b) => a + b, 0);
+            const afterRange = submitSemBacklogs.slice(submitMaxSem).reduce((a, b) => a + b, 0);
+            if (withinRange > requirements.max_backlogs || afterRange > 0) {
+              meetsRequirements = false;
+              validationErrors.push(`Too many backlogs. Maximum ${requirements.max_backlogs} allowed within Sem 1-${submitMaxSem}`);
+            }
+          } else {
+            if (submitTotalBacklogs > requirements.max_backlogs) {
+              meetsRequirements = false;
+              validationErrors.push(`Too many backlogs. Maximum allowed: ${requirements.max_backlogs}`);
+            }
+          }
         }
 
         if (requirements.allowed_branches && requirements.allowed_branches.length > 0) {

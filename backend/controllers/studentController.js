@@ -403,6 +403,12 @@ export const updateProfile = async (req, res) => {
       cgpa_sem4,
       cgpa_sem5,
       cgpa_sem6,
+      backlogs_sem1,
+      backlogs_sem2,
+      backlogs_sem3,
+      backlogs_sem4,
+      backlogs_sem5,
+      backlogs_sem6,
       backlog_count,
       backlog_details
     } = req.body;
@@ -643,8 +649,45 @@ export const updateProfile = async (req, res) => {
       }
     }
 
-    // Backlog count validation and update
-    if (backlog_count !== undefined) {
+    // Per-semester backlog updates
+    const semBacklogFields = { backlogs_sem1, backlogs_sem2, backlogs_sem3, backlogs_sem4, backlogs_sem5, backlogs_sem6 };
+    let hasPerSemBacklogs = false;
+    for (const [field, value] of Object.entries(semBacklogFields)) {
+      if (value !== undefined) {
+        const num = parseInt(value);
+        if (isNaN(num) || num < 0 || num > 10) {
+          return res.status(400).json({
+            success: false,
+            message: `${field} must be a number between 0 and 10`,
+          });
+        }
+        updateFields.push(`${field} = $${paramCount}`);
+        updateValues.push(num);
+        paramCount++;
+        hasPerSemBacklogs = true;
+      }
+    }
+
+    // Auto-compute backlog_count from per-semester values if any were provided
+    if (hasPerSemBacklogs) {
+      // Get current student data to compute total
+      const currentData = await query(
+        'SELECT backlogs_sem1, backlogs_sem2, backlogs_sem3, backlogs_sem4, backlogs_sem5, backlogs_sem6 FROM students WHERE user_id = $1',
+        [req.user.id]
+      );
+      const current = currentData.rows[0] || {};
+      const totalBacklogs =
+        (backlogs_sem1 !== undefined ? parseInt(backlogs_sem1) : (current.backlogs_sem1 || 0)) +
+        (backlogs_sem2 !== undefined ? parseInt(backlogs_sem2) : (current.backlogs_sem2 || 0)) +
+        (backlogs_sem3 !== undefined ? parseInt(backlogs_sem3) : (current.backlogs_sem3 || 0)) +
+        (backlogs_sem4 !== undefined ? parseInt(backlogs_sem4) : (current.backlogs_sem4 || 0)) +
+        (backlogs_sem5 !== undefined ? parseInt(backlogs_sem5) : (current.backlogs_sem5 || 0)) +
+        (backlogs_sem6 !== undefined ? parseInt(backlogs_sem6) : (current.backlogs_sem6 || 0));
+      updateFields.push(`backlog_count = $${paramCount}`);
+      updateValues.push(String(totalBacklogs));
+      paramCount++;
+    } else if (backlog_count !== undefined) {
+      // Legacy support: direct backlog_count update
       const backlogNum = parseInt(backlog_count);
       if (isNaN(backlogNum) || backlogNum < 0) {
         return res.status(400).json({
@@ -751,11 +794,29 @@ const checkJobEligibility = async (jobId, student) => {
       return { isEligible: false, reason: `Your CGPA (${student.cgpa}) is below the minimum requirement (${job.min_cgpa})` };
     }
 
-    // Check backlog requirement
+    // Check backlog requirement using per-semester data
     if (job.max_backlogs !== null && job.max_backlogs !== undefined) {
-      const studentBacklogs = student.backlog_count === 'All cleared' ? 0 : parseInt(student.backlog_count) || 0;
-      if (studentBacklogs > parseInt(job.max_backlogs)) {
-        return { isEligible: false, reason: `You have ${studentBacklogs} backlogs, maximum allowed is ${job.max_backlogs}` };
+      const semBacklogs = [
+        student.backlogs_sem1 || 0, student.backlogs_sem2 || 0,
+        student.backlogs_sem3 || 0, student.backlogs_sem4 || 0,
+        student.backlogs_sem5 || 0, student.backlogs_sem6 || 0,
+      ];
+      const totalBacklogs = semBacklogs.reduce((a, b) => a + b, 0);
+
+      if (job.backlog_max_semester) {
+        // Semester-restricted check: backlogs within range must be <= max, and zero after range
+        const withinRange = semBacklogs.slice(0, job.backlog_max_semester).reduce((a, b) => a + b, 0);
+        const afterRange = semBacklogs.slice(job.backlog_max_semester).reduce((a, b) => a + b, 0);
+        if (withinRange > parseInt(job.max_backlogs) || afterRange > 0) {
+          if (afterRange > 0) {
+            return { isEligible: false, reason: `You have backlogs in semesters after Sem ${job.backlog_max_semester}. Only backlogs within Sem 1-${job.backlog_max_semester} are allowed` };
+          }
+          return { isEligible: false, reason: `You have ${withinRange} backlogs within Sem 1-${job.backlog_max_semester}, maximum allowed is ${job.max_backlogs}` };
+        }
+      } else {
+        if (totalBacklogs > parseInt(job.max_backlogs)) {
+          return { isEligible: false, reason: `You have ${totalBacklogs} backlogs, maximum allowed is ${job.max_backlogs}` };
+        }
       }
     }
 

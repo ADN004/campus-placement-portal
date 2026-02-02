@@ -38,7 +38,12 @@ export default function StudentProfile() {
     has_pan_card: false,
     has_aadhar_card: false,
     has_passport: false,
-    backlog_count: '',
+    backlogs_sem1: '0',
+    backlogs_sem2: '0',
+    backlogs_sem3: '0',
+    backlogs_sem4: '0',
+    backlogs_sem5: '0',
+    backlogs_sem6: '0',
     backlog_details: '',
   });
 
@@ -69,7 +74,12 @@ export default function StudentProfile() {
         has_pan_card: profileData.has_pan_card || false,
         has_aadhar_card: profileData.has_aadhar_card || false,
         has_passport: profileData.has_passport || false,
-        backlog_count: profileData.backlog_count !== undefined ? profileData.backlog_count : '',
+        backlogs_sem1: profileData.backlogs_sem1 !== undefined ? String(profileData.backlogs_sem1) : '0',
+        backlogs_sem2: profileData.backlogs_sem2 !== undefined ? String(profileData.backlogs_sem2) : '0',
+        backlogs_sem3: profileData.backlogs_sem3 !== undefined ? String(profileData.backlogs_sem3) : '0',
+        backlogs_sem4: profileData.backlogs_sem4 !== undefined ? String(profileData.backlogs_sem4) : '0',
+        backlogs_sem5: profileData.backlogs_sem5 !== undefined ? String(profileData.backlogs_sem5) : '0',
+        backlogs_sem6: profileData.backlogs_sem6 !== undefined ? String(profileData.backlogs_sem6) : '0',
         backlog_details: profileData.backlog_details || '',
       });
     } catch (error) {
@@ -142,7 +152,12 @@ export default function StudentProfile() {
       has_pan_card: profile.has_pan_card || false,
       has_aadhar_card: profile.has_aadhar_card || false,
       has_passport: profile.has_passport || false,
-      backlog_count: profile.backlog_count !== undefined ? profile.backlog_count : '',
+      backlogs_sem1: profile.backlogs_sem1 !== undefined ? String(profile.backlogs_sem1) : '0',
+      backlogs_sem2: profile.backlogs_sem2 !== undefined ? String(profile.backlogs_sem2) : '0',
+      backlogs_sem3: profile.backlogs_sem3 !== undefined ? String(profile.backlogs_sem3) : '0',
+      backlogs_sem4: profile.backlogs_sem4 !== undefined ? String(profile.backlogs_sem4) : '0',
+      backlogs_sem5: profile.backlogs_sem5 !== undefined ? String(profile.backlogs_sem5) : '0',
+      backlogs_sem6: profile.backlogs_sem6 !== undefined ? String(profile.backlogs_sem6) : '0',
       backlog_details: profile.backlog_details || '',
     });
     setEditMode(false);
@@ -560,39 +575,60 @@ export default function StudentProfile() {
                       Backlogs
                     </h4>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-2">Backlog Count</label>
-                        {editMode ? (
-                          <input
-                            type="number"
-                            name="backlog_count"
-                            value={formData.backlog_count}
-                            onChange={handleChange}
-                            className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all font-medium"
-                            placeholder="Enter number of backlogs"
-                            min="0"
-                          />
-                        ) : (
-                          <p className="text-gray-900 font-bold text-lg bg-white rounded-xl p-4 border border-gray-100">{profile?.backlog_count !== undefined ? profile.backlog_count : 'Not set'}</p>
-                        )}
-                      </div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      {[1, 2, 3, 4, 5, 6].map(sem => (
+                        <div key={sem}>
+                          <label className="block text-sm font-bold text-gray-700 mb-2">Semester {sem}</label>
+                          {editMode ? (
+                            <select
+                              name={`backlogs_sem${sem}`}
+                              value={formData[`backlogs_sem${sem}`]}
+                              onChange={handleChange}
+                              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all font-medium"
+                            >
+                              <option value="0">0</option>
+                              {Array.from({ length: 10 }, (_, i) => i + 1).map(num => (
+                                <option key={num} value={String(num)}>{num}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <p className="text-gray-900 font-bold text-lg bg-white rounded-xl p-4 border border-gray-100">
+                              {profile?.[`backlogs_sem${sem}`] !== undefined ? profile[`backlogs_sem${sem}`] : '0'}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
 
-                      <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-2">Backlog Details</label>
-                        {editMode ? (
-                          <textarea
-                            name="backlog_details"
-                            value={formData.backlog_details}
-                            onChange={handleChange}
-                            className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all font-medium"
-                            placeholder="Specify subjects (if any)"
-                            rows="2"
-                          />
-                        ) : (
-                          <p className="text-gray-900 font-bold text-lg bg-white rounded-xl p-4 border border-gray-100">{profile?.backlog_details || 'None'}</p>
-                        )}
-                      </div>
+                    {/* Total Backlogs */}
+                    <div className="mt-4 flex items-center gap-3 bg-white rounded-xl p-4 border border-orange-200">
+                      <span className="text-sm font-bold text-gray-700">Total Backlogs:</span>
+                      <span className={`text-2xl font-bold ${
+                        (profile?.backlog_count > 0 || (parseInt(formData.backlogs_sem1) || 0) + (parseInt(formData.backlogs_sem2) || 0) + (parseInt(formData.backlogs_sem3) || 0) + (parseInt(formData.backlogs_sem4) || 0) + (parseInt(formData.backlogs_sem5) || 0) + (parseInt(formData.backlogs_sem6) || 0) > 0)
+                          ? 'text-rose-600' : 'text-green-600'
+                      }`}>
+                        {editMode
+                          ? (parseInt(formData.backlogs_sem1) || 0) + (parseInt(formData.backlogs_sem2) || 0) + (parseInt(formData.backlogs_sem3) || 0) + (parseInt(formData.backlogs_sem4) || 0) + (parseInt(formData.backlogs_sem5) || 0) + (parseInt(formData.backlogs_sem6) || 0)
+                          : profile?.backlog_count || 0
+                        }
+                      </span>
+                    </div>
+
+                    {/* Backlog Details */}
+                    <div className="mt-4">
+                      <label className="block text-sm font-bold text-gray-700 mb-2">Backlog Details</label>
+                      {editMode ? (
+                        <textarea
+                          name="backlog_details"
+                          value={formData.backlog_details}
+                          onChange={handleChange}
+                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all font-medium"
+                          placeholder="Specify subjects (if any)"
+                          rows="2"
+                        />
+                      ) : (
+                        <p className="text-gray-900 font-bold text-lg bg-white rounded-xl p-4 border border-gray-100">{profile?.backlog_details || 'None'}</p>
+                      )}
                     </div>
                   </div>
 

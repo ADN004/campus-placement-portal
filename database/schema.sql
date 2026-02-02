@@ -188,6 +188,12 @@ CREATE TABLE students (
     sem5_cgpa_updated BOOLEAN DEFAULT FALSE,
     sem6_cgpa_updated BOOLEAN DEFAULT FALSE,
     backlog_count VARCHAR(50) NOT NULL,
+    backlogs_sem1 INTEGER DEFAULT 0 CHECK (backlogs_sem1 >= 0 AND backlogs_sem1 <= 10),
+    backlogs_sem2 INTEGER DEFAULT 0 CHECK (backlogs_sem2 >= 0 AND backlogs_sem2 <= 10),
+    backlogs_sem3 INTEGER DEFAULT 0 CHECK (backlogs_sem3 >= 0 AND backlogs_sem3 <= 10),
+    backlogs_sem4 INTEGER DEFAULT 0 CHECK (backlogs_sem4 >= 0 AND backlogs_sem4 <= 10),
+    backlogs_sem5 INTEGER DEFAULT 0 CHECK (backlogs_sem5 >= 0 AND backlogs_sem5 <= 10),
+    backlogs_sem6 INTEGER DEFAULT 0 CHECK (backlogs_sem6 >= 0 AND backlogs_sem6 <= 10),
     backlog_details TEXT,
 
     -- Documents
@@ -392,6 +398,7 @@ CREATE TABLE jobs (
     -- Eligibility criteria
     min_cgpa DECIMAL(4,2),
     max_backlogs INTEGER,
+    backlog_max_semester INTEGER CHECK (backlog_max_semester >= 1 AND backlog_max_semester <= 6),
     allowed_branches JSONB,
 
     -- Height/Weight criteria
@@ -501,6 +508,7 @@ CREATE TABLE job_requirement_templates (
     job_id INTEGER NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
     min_cgpa DECIMAL(4,2),
     max_backlogs INTEGER,
+    backlog_max_semester INTEGER CHECK (backlog_max_semester >= 1 AND backlog_max_semester <= 6),
     allowed_branches JSONB DEFAULT '[]'::jsonb,
     requires_academic_extended BOOLEAN DEFAULT FALSE,
     requires_physical_details BOOLEAN DEFAULT FALSE,
@@ -526,6 +534,7 @@ CREATE TABLE company_requirement_templates (
     description TEXT,
     min_cgpa DECIMAL(4,2),
     max_backlogs INTEGER,
+    backlog_max_semester INTEGER CHECK (backlog_max_semester >= 1 AND backlog_max_semester <= 6),
     allowed_branches JSONB DEFAULT '[]'::jsonb,
     requires_academic_extended BOOLEAN DEFAULT FALSE,
     requires_physical_details BOOLEAN DEFAULT FALSE,
@@ -608,6 +617,7 @@ CREATE TABLE job_requests (
     application_form_url TEXT,
     min_cgpa DECIMAL(4,2),
     max_backlogs INTEGER,
+    backlog_max_semester INTEGER CHECK (backlog_max_semester >= 1 AND backlog_max_semester <= 6),
     allowed_branches JSONB,
     target_type VARCHAR(50) DEFAULT 'specific' CHECK (target_type IN ('all', 'specific')),
     target_regions JSONB,
@@ -633,6 +643,7 @@ CREATE TABLE job_request_requirement_templates (
     job_request_id INTEGER NOT NULL REFERENCES job_requests(id) ON DELETE CASCADE,
     min_cgpa DECIMAL(4,2),
     max_backlogs INTEGER,
+    backlog_max_semester INTEGER CHECK (backlog_max_semester >= 1 AND backlog_max_semester <= 6),
     allowed_branches JSONB DEFAULT '[]'::jsonb,
     requires_academic_extended BOOLEAN DEFAULT FALSE,
     requires_physical_details BOOLEAN DEFAULT FALSE,

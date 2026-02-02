@@ -392,9 +392,19 @@ export const registerStudent = async (req, res) => {
       has_aadhar_card,
       has_passport,
       photo_base64,
-      backlog_count,
+      backlogs_sem1,
+      backlogs_sem2,
+      backlogs_sem3,
+      backlogs_sem4,
+      backlogs_sem5,
+      backlogs_sem6,
       backlog_details,
     } = req.body;
+
+    // Auto-compute backlog_count from per-semester values
+    const backlog_count = (parseInt(backlogs_sem1) || 0) + (parseInt(backlogs_sem2) || 0) +
+      (parseInt(backlogs_sem3) || 0) + (parseInt(backlogs_sem4) || 0) +
+      (parseInt(backlogs_sem5) || 0) + (parseInt(backlogs_sem6) || 0);
 
     // Validate required fields
     if (
@@ -420,8 +430,7 @@ export const registerStudent = async (req, res) => {
       has_pan_card === undefined ||
       has_aadhar_card === undefined ||
       has_passport === undefined ||
-      !photo_base64 ||
-      backlog_count === undefined
+      !photo_base64
     ) {
       return res.status(400).json({
         success: false,
@@ -546,8 +555,9 @@ export const registerStudent = async (req, res) => {
             cgpa_sem1, cgpa_sem2, cgpa_sem3, cgpa_sem4, cgpa_sem5, cgpa_sem6, programme_cgpa,
             complete_address, has_driving_license, has_pan_card, has_aadhar_card, has_passport,
             photo_url, photo_cloudinary_id, email_verification_token,
-            backlog_count, backlog_details)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 0, 0, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28)
+            backlog_count, backlogs_sem1, backlogs_sem2, backlogs_sem3, backlogs_sem4, backlogs_sem5, backlogs_sem6,
+            backlog_details)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 0, 0, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34)
            RETURNING id`,
           [
             userId,
@@ -576,7 +586,13 @@ export const registerStudent = async (req, res) => {
             photoUrl,
             photoCloudinaryId,
             emailVerificationToken,
-            backlog_count,
+            String(backlog_count),
+            parseInt(backlogs_sem1) || 0,
+            parseInt(backlogs_sem2) || 0,
+            parseInt(backlogs_sem3) || 0,
+            parseInt(backlogs_sem4) || 0,
+            parseInt(backlogs_sem5) || 0,
+            parseInt(backlogs_sem6) || 0,
             backlog_details || null,
           ]
         );

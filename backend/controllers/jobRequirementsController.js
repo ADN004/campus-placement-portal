@@ -21,6 +21,7 @@ export const createOrUpdateJobRequirements = async (req, res) => {
     const {
       min_cgpa,
       max_backlogs,
+      backlog_max_semester,
       allowed_branches,
       requires_academic_extended,
       requires_physical_details,
@@ -49,30 +50,32 @@ export const createOrUpdateJobRequirements = async (req, res) => {
     // Upsert job requirements
     const result = await query(
       `INSERT INTO job_requirement_templates (
-        job_id, min_cgpa, max_backlogs, allowed_branches,
+        job_id, min_cgpa, max_backlogs, backlog_max_semester, allowed_branches,
         requires_academic_extended, requires_physical_details,
         requires_family_details, requires_document_verification,
         requires_education_preferences, specific_field_requirements,
         custom_fields, requires_personal_details
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       ON CONFLICT (job_id) DO UPDATE SET
         min_cgpa = $2,
         max_backlogs = $3,
-        allowed_branches = $4,
-        requires_academic_extended = $5,
-        requires_physical_details = $6,
-        requires_family_details = $7,
-        requires_document_verification = $8,
-        requires_education_preferences = $9,
-        specific_field_requirements = $10,
-        custom_fields = $11,
-        requires_personal_details = $12,
+        backlog_max_semester = $4,
+        allowed_branches = $5,
+        requires_academic_extended = $6,
+        requires_physical_details = $7,
+        requires_family_details = $8,
+        requires_document_verification = $9,
+        requires_education_preferences = $10,
+        specific_field_requirements = $11,
+        custom_fields = $12,
+        requires_personal_details = $13,
         updated_at = CURRENT_TIMESTAMP
       RETURNING *`,
       [
         jobId,
         min_cgpa,
         max_backlogs,
+        backlog_max_semester || null,
         JSON.stringify(allowed_branches || []),
         requires_academic_extended || false,
         requires_physical_details || false,
@@ -156,6 +159,7 @@ export const createCompanyTemplate = async (req, res) => {
       description,
       min_cgpa,
       max_backlogs,
+      backlog_max_semester,
       allowed_branches,
       requires_academic_extended,
       requires_physical_details,
@@ -182,12 +186,12 @@ export const createCompanyTemplate = async (req, res) => {
     const result = await query(
       `INSERT INTO company_requirement_templates (
         template_name, company_name, description,
-        min_cgpa, max_backlogs, allowed_branches,
+        min_cgpa, max_backlogs, backlog_max_semester, allowed_branches,
         requires_academic_extended, requires_physical_details,
         requires_family_details, requires_document_verification,
         requires_education_preferences, specific_field_requirements,
         custom_fields, created_by
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
       RETURNING *`,
       [
         template_name,
@@ -195,6 +199,7 @@ export const createCompanyTemplate = async (req, res) => {
         description,
         min_cgpa,
         max_backlogs,
+        backlog_max_semester || null,
         JSON.stringify(allowed_branches || []),
         requires_academic_extended || false,
         requires_physical_details || false,
@@ -385,9 +390,23 @@ export const getEligibleStudentsCount = async (req, res) => {
     }
 
     if (requirements.max_backlogs !== null) {
-      whereConditions.push(`s.active_backlogs <= $${paramCounter}`);
-      queryParams.push(requirements.max_backlogs);
-      paramCounter++;
+      if (requirements.backlog_max_semester) {
+        // Build per-semester sum for the allowed range
+        const semCols = Array.from({ length: requirements.backlog_max_semester }, (_, i) => `COALESCE(s.backlogs_sem${i + 1}, 0)`).join(' + ');
+        whereConditions.push(`(${semCols}) <= $${paramCounter}`);
+        queryParams.push(requirements.max_backlogs);
+        paramCounter++;
+        // Also ensure no backlogs after the allowed semester range
+        if (requirements.backlog_max_semester < 6) {
+          const afterCols = Array.from({ length: 6 - requirements.backlog_max_semester }, (_, i) => `COALESCE(s.backlogs_sem${requirements.backlog_max_semester + i + 1}, 0)`).join(' + ');
+          whereConditions.push(`(${afterCols}) = 0`);
+        }
+      } else {
+        // Simple total check across all semesters
+        whereConditions.push(`(COALESCE(s.backlogs_sem1, 0) + COALESCE(s.backlogs_sem2, 0) + COALESCE(s.backlogs_sem3, 0) + COALESCE(s.backlogs_sem4, 0) + COALESCE(s.backlogs_sem5, 0) + COALESCE(s.backlogs_sem6, 0)) <= $${paramCounter}`);
+        queryParams.push(requirements.max_backlogs);
+        paramCounter++;
+      }
     }
 
     if (requirements.allowed_branches && requirements.allowed_branches.length > 0) {
@@ -492,6 +511,7 @@ export const updateCompanyTemplate = async (req, res) => {
       description,
       min_cgpa,
       max_backlogs,
+      backlog_max_semester,
       allowed_branches,
       requires_academic_extended,
       requires_physical_details,
@@ -509,16 +529,17 @@ export const updateCompanyTemplate = async (req, res) => {
            description = COALESCE($3, description),
            min_cgpa = COALESCE($4, min_cgpa),
            max_backlogs = COALESCE($5, max_backlogs),
-           allowed_branches = COALESCE($6, allowed_branches),
-           requires_academic_extended = COALESCE($7, requires_academic_extended),
-           requires_physical_details = COALESCE($8, requires_physical_details),
-           requires_family_details = COALESCE($9, requires_family_details),
-           requires_document_verification = COALESCE($10, requires_document_verification),
-           requires_education_preferences = COALESCE($11, requires_education_preferences),
-           specific_field_requirements = COALESCE($12, specific_field_requirements),
-           custom_fields = COALESCE($13, custom_fields),
+           backlog_max_semester = $6,
+           allowed_branches = COALESCE($7, allowed_branches),
+           requires_academic_extended = COALESCE($8, requires_academic_extended),
+           requires_physical_details = COALESCE($9, requires_physical_details),
+           requires_family_details = COALESCE($10, requires_family_details),
+           requires_document_verification = COALESCE($11, requires_document_verification),
+           requires_education_preferences = COALESCE($12, requires_education_preferences),
+           specific_field_requirements = COALESCE($13, specific_field_requirements),
+           custom_fields = COALESCE($14, custom_fields),
            updated_at = CURRENT_TIMESTAMP
-       WHERE id = $14
+       WHERE id = $15
        RETURNING *`,
       [
         template_name,
@@ -526,6 +547,7 @@ export const updateCompanyTemplate = async (req, res) => {
         description,
         min_cgpa,
         max_backlogs,
+        backlog_max_semester || null,
         allowed_branches ? JSON.stringify(allowed_branches) : null,
         requires_academic_extended,
         requires_physical_details,
@@ -572,6 +594,7 @@ export const superAdminCreateOrUpdateJobRequirements = async (req, res) => {
     const {
       min_cgpa,
       max_backlogs,
+      backlog_max_semester,
       allowed_branches,
       requires_academic_extended,
       requires_physical_details,
@@ -599,30 +622,32 @@ export const superAdminCreateOrUpdateJobRequirements = async (req, res) => {
     // Upsert job requirements
     const result = await query(
       `INSERT INTO job_requirement_templates (
-        job_id, min_cgpa, max_backlogs, allowed_branches,
+        job_id, min_cgpa, max_backlogs, backlog_max_semester, allowed_branches,
         requires_academic_extended, requires_physical_details,
         requires_family_details, requires_document_verification,
         requires_education_preferences, specific_field_requirements,
         custom_fields, requires_personal_details
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       ON CONFLICT (job_id) DO UPDATE SET
         min_cgpa = $2,
         max_backlogs = $3,
-        allowed_branches = $4,
-        requires_academic_extended = $5,
-        requires_physical_details = $6,
-        requires_family_details = $7,
-        requires_document_verification = $8,
-        requires_education_preferences = $9,
-        specific_field_requirements = $10,
-        custom_fields = $11,
-        requires_personal_details = $12,
+        backlog_max_semester = $4,
+        allowed_branches = $5,
+        requires_academic_extended = $6,
+        requires_physical_details = $7,
+        requires_family_details = $8,
+        requires_document_verification = $9,
+        requires_education_preferences = $10,
+        specific_field_requirements = $11,
+        custom_fields = $12,
+        requires_personal_details = $13,
         updated_at = CURRENT_TIMESTAMP
       RETURNING *`,
       [
         jobId,
         min_cgpa,
         max_backlogs,
+        backlog_max_semester || null,
         JSON.stringify(allowed_branches || []),
         requires_academic_extended || false,
         requires_physical_details || false,

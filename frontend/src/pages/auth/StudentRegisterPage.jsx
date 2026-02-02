@@ -41,7 +41,12 @@ export default function StudentRegisterPage() {
     has_aadhar_card: false,
     has_passport: false,
     cgpa: '',
-    backlog_count: '0',
+    backlogs_sem1: '0',
+    backlogs_sem2: '0',
+    backlogs_sem3: '0',
+    backlogs_sem4: '0',
+    backlogs_sem5: '0',
+    backlogs_sem6: '0',
     backlog_details: '',
     photo_base64: '',
   });
@@ -713,45 +718,63 @@ export default function StudentRegisterPage() {
                 Backlogs
               </h2>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Backlog Count */}
-                <div>
-                  <label htmlFor="backlog_count" className="label">
-                    Backlog Count *
-                  </label>
-                  <select
-                    id="backlog_count"
-                    name="backlog_count"
-                    value={formData.backlog_count}
-                    onChange={handleChange}
-                    className="input"
-                    required
-                  >
-                    <option value="0">No Backlogs</option>
-                    {Array.from({ length: 10 }, (_, i) => i + 1).map(num => (
-                      <option key={num} value={num}>{num}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Backlog Details */}
-                {formData.backlog_count !== '0' && (
-                  <div className="md:col-span-2">
-                    <label htmlFor="backlog_details" className="label">
-                      Backlog Details
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {[1, 2, 3, 4, 5, 6].map(sem => (
+                  <div key={sem}>
+                    <label htmlFor={`backlogs_sem${sem}`} className="label">
+                      Semester {sem} *
                     </label>
-                    <textarea
-                      id="backlog_details"
-                      name="backlog_details"
-                      value={formData.backlog_details}
+                    <select
+                      id={`backlogs_sem${sem}`}
+                      name={`backlogs_sem${sem}`}
+                      value={formData[`backlogs_sem${sem}`]}
                       onChange={handleChange}
-                      placeholder="Specify subject names and details"
                       className="input"
-                      rows="3"
-                    />
+                      required
+                    >
+                      <option value="0">0</option>
+                      {Array.from({ length: 10 }, (_, i) => i + 1).map(num => (
+                        <option key={num} value={String(num)}>{num}</option>
+                      ))}
+                    </select>
                   </div>
-                )}
+                ))}
               </div>
+
+              {/* Total Backlogs (auto-computed) */}
+              <div className="mt-4 flex items-center gap-3 bg-white rounded-xl p-4 border border-rose-200">
+                <span className="text-sm font-bold text-gray-700">Total Backlogs:</span>
+                <span className={`text-2xl font-bold ${
+                  (parseInt(formData.backlogs_sem1) || 0) + (parseInt(formData.backlogs_sem2) || 0) +
+                  (parseInt(formData.backlogs_sem3) || 0) + (parseInt(formData.backlogs_sem4) || 0) +
+                  (parseInt(formData.backlogs_sem5) || 0) + (parseInt(formData.backlogs_sem6) || 0) > 0
+                    ? 'text-rose-600' : 'text-green-600'
+                }`}>
+                  {(parseInt(formData.backlogs_sem1) || 0) + (parseInt(formData.backlogs_sem2) || 0) +
+                   (parseInt(formData.backlogs_sem3) || 0) + (parseInt(formData.backlogs_sem4) || 0) +
+                   (parseInt(formData.backlogs_sem5) || 0) + (parseInt(formData.backlogs_sem6) || 0)}
+                </span>
+              </div>
+
+              {/* Backlog Details */}
+              {((parseInt(formData.backlogs_sem1) || 0) + (parseInt(formData.backlogs_sem2) || 0) +
+                (parseInt(formData.backlogs_sem3) || 0) + (parseInt(formData.backlogs_sem4) || 0) +
+                (parseInt(formData.backlogs_sem5) || 0) + (parseInt(formData.backlogs_sem6) || 0)) > 0 && (
+                <div className="mt-4">
+                  <label htmlFor="backlog_details" className="label">
+                    Backlog Details
+                  </label>
+                  <textarea
+                    id="backlog_details"
+                    name="backlog_details"
+                    value={formData.backlog_details}
+                    onChange={handleChange}
+                    placeholder="Specify subject names and details"
+                    className="input"
+                    rows="3"
+                  />
+                </div>
+              )}
             </div>
 
             {/* Documents Section */}

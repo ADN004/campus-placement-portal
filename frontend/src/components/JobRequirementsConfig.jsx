@@ -19,7 +19,9 @@ const JobRequirementsConfig = ({ jobId, onRequirementsSaved, initialData = null 
 
   const [requirements, setRequirements] = useState({
     min_cgpa: initialData?.min_cgpa || '',
-    max_backlogs: initialData?.max_backlogs || '',
+    max_backlogs: initialData?.max_backlogs !== null && initialData?.max_backlogs !== undefined ? String(initialData.max_backlogs) : '',
+    backlog_max_semester: initialData?.backlog_max_semester ? String(initialData.backlog_max_semester) : '',
+    backlog_policy: initialData?.max_backlogs === null || initialData?.max_backlogs === undefined ? 'no_restriction' : initialData?.max_backlogs === 0 ? 'no_backlogs' : 'limited',
     allowed_branches: initialData?.allowed_branches || [],
     requires_academic_extended: initialData?.requires_academic_extended || false,
     requires_physical_details: initialData?.requires_physical_details || false,
@@ -59,7 +61,9 @@ const JobRequirementsConfig = ({ jobId, onRequirementsSaved, initialData = null 
       if (template) {
         setRequirements({
           min_cgpa: template.min_cgpa || '',
-          max_backlogs: template.max_backlogs || '',
+          max_backlogs: template.max_backlogs !== null && template.max_backlogs !== undefined ? String(template.max_backlogs) : '',
+          backlog_max_semester: template.backlog_max_semester ? String(template.backlog_max_semester) : '',
+          backlog_policy: template.max_backlogs === null || template.max_backlogs === undefined ? 'no_restriction' : template.max_backlogs === 0 ? 'no_backlogs' : 'limited',
           allowed_branches: template.allowed_branches || [],
           requires_academic_extended: template.requires_academic_extended || false,
           requires_physical_details: template.requires_physical_details || false,
@@ -190,17 +194,61 @@ const JobRequirementsConfig = ({ jobId, onRequirementsSaved, initialData = null 
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Maximum Backlogs Allowed (Optional)
+              Backlog Policy
             </label>
-            <input
-              type="number"
-              value={requirements.max_backlogs}
-              onChange={(e) => setRequirements({ ...requirements, max_backlogs: e.target.value })}
-              min="0"
+            <select
+              value={requirements.backlog_policy}
+              onChange={(e) => {
+                const policy = e.target.value;
+                if (policy === 'no_restriction') {
+                  setRequirements({ ...requirements, backlog_policy: policy, max_backlogs: '', backlog_max_semester: '' });
+                } else if (policy === 'no_backlogs') {
+                  setRequirements({ ...requirements, backlog_policy: policy, max_backlogs: '0', backlog_max_semester: '' });
+                } else {
+                  setRequirements({ ...requirements, backlog_policy: policy, max_backlogs: requirements.max_backlogs || '1', backlog_max_semester: '' });
+                }
+              }}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              placeholder="e.g., 0"
-            />
+            >
+              <option value="no_restriction">No Restriction</option>
+              <option value="no_backlogs">No Backlogs (Strict)</option>
+              <option value="limited">Allow Limited Backlogs</option>
+            </select>
           </div>
+        </div>
+        {requirements.backlog_policy === 'limited' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Maximum Backlogs Allowed
+              </label>
+              <select
+                value={requirements.max_backlogs}
+                onChange={(e) => setRequirements({ ...requirements, max_backlogs: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                {Array.from({ length: 10 }, (_, i) => i + 1).map(num => (
+                  <option key={num} value={String(num)}>{num}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Backlogs Must Be Within
+              </label>
+              <select
+                value={requirements.backlog_max_semester}
+                onChange={(e) => setRequirements({ ...requirements, backlog_max_semester: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Any Semester</option>
+                {[1, 2, 3, 4, 5, 6].map(sem => (
+                  <option key={sem} value={String(sem)}>Up to Semester {sem}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )
         </div>
       </div>
 

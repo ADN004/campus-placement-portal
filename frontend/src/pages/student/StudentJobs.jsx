@@ -539,8 +539,15 @@ function JobDetailsModal({ job, onClose, onApply }) {
               )}
               {job.max_backlogs !== null && job.max_backlogs !== undefined && (
                 <div className="bg-white rounded-xl p-5 border border-indigo-100">
-                  <span className="text-sm text-gray-600 font-semibold block mb-2">Max Backlogs:</span>
-                  <p className="font-bold text-3xl text-indigo-600">{job.max_backlogs}</p>
+                  <span className="text-sm text-gray-600 font-semibold block mb-2">Backlog Criteria:</span>
+                  <p className="font-bold text-xl text-indigo-600">
+                    {job.max_backlogs === 0
+                      ? 'No Backlogs'
+                      : job.backlog_max_semester
+                        ? `Max ${job.max_backlogs} within Sem 1-${job.backlog_max_semester}`
+                        : `Max ${job.max_backlogs}`
+                    }
+                  </p>
                 </div>
               )}
             </div>

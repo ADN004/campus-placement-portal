@@ -51,6 +51,8 @@ export default function ManageJobs() {
     application_deadline: '',
     min_cgpa: '',
     max_backlogs: '',
+    backlog_max_semester: '',
+    backlog_policy: 'no_restriction',
     allowed_branches: [],
     target_type: 'region', // 'region' or 'college'
     target_regions: [],
@@ -156,6 +158,8 @@ export default function ManageJobs() {
       application_deadline: '',
       min_cgpa: '',
       max_backlogs: '',
+      backlog_max_semester: '',
+      backlog_policy: 'no_restriction',
       allowed_branches: [],
       target_type: 'region',
       target_regions: [],
@@ -205,7 +209,9 @@ export default function ManageJobs() {
         ? new Date(job.application_deadline).toISOString().split('T')[0]
         : '',
       min_cgpa: job.min_cgpa || '',
-      max_backlogs: job.max_backlogs !== null && job.max_backlogs !== undefined ? job.max_backlogs : '',
+      max_backlogs: job.max_backlogs !== null && job.max_backlogs !== undefined ? String(job.max_backlogs) : '',
+      backlog_max_semester: job.backlog_max_semester ? String(job.backlog_max_semester) : '',
+      backlog_policy: job.max_backlogs === null || job.max_backlogs === undefined ? 'no_restriction' : job.max_backlogs === 0 ? 'no_backlogs' : 'limited',
       allowed_branches: parseJsonField(job.allowed_branches),
       target_type: job.target_type || 'region',
       target_regions: parseJsonField(job.target_regions),
@@ -280,7 +286,9 @@ export default function ManageJobs() {
       setFormData((prev) => ({
         ...prev,
         min_cgpa: template.min_cgpa || '',
-        max_backlogs: template.max_backlogs ?? '',
+        max_backlogs: template.max_backlogs !== null && template.max_backlogs !== undefined ? String(template.max_backlogs) : '',
+        backlog_max_semester: template.backlog_max_semester ? String(template.backlog_max_semester) : '',
+        backlog_policy: template.max_backlogs === null || template.max_backlogs === undefined ? 'no_restriction' : template.max_backlogs === 0 ? 'no_backlogs' : 'limited',
         allowed_branches: template.allowed_branches
           ? typeof template.allowed_branches === 'string'
             ? JSON.parse(template.allowed_branches)
@@ -368,6 +376,7 @@ export default function ManageJobs() {
           const requirementsData = {
             min_cgpa: formData.min_cgpa ? parseFloat(formData.min_cgpa) : null,
             max_backlogs: formData.max_backlogs !== '' ? parseInt(formData.max_backlogs) : null,
+            backlog_max_semester: formData.backlog_max_semester ? parseInt(formData.backlog_max_semester) : null,
             allowed_branches: formData.allowed_branches,
             requires_academic_extended: formData.requires_academic_extended,
             requires_physical_details: formData.requires_physical_details,
@@ -1099,17 +1108,56 @@ export default function ManageJobs() {
                     />
                   </div>
                   <div>
-                    <label className="label">Maximum Backlogs Allowed</label>
-                    <input
-                      type="number"
-                      min="0"
+                    <label className="label">Backlog Policy</label>
+                    <select
                       className="input"
-                      value={formData.max_backlogs}
-                      onChange={(e) => setFormData({ ...formData, max_backlogs: e.target.value })}
-                      placeholder="e.g., 0"
-                    />
+                      value={formData.backlog_policy}
+                      onChange={(e) => {
+                        const policy = e.target.value;
+                        if (policy === 'no_restriction') {
+                          setFormData({ ...formData, backlog_policy: policy, max_backlogs: '', backlog_max_semester: '' });
+                        } else if (policy === 'no_backlogs') {
+                          setFormData({ ...formData, backlog_policy: policy, max_backlogs: '0', backlog_max_semester: '' });
+                        } else {
+                          setFormData({ ...formData, backlog_policy: policy, max_backlogs: formData.max_backlogs || '1', backlog_max_semester: '' });
+                        }
+                      }}
+                    >
+                      <option value="no_restriction">No Restriction</option>
+                      <option value="no_backlogs">No Backlogs (Strict)</option>
+                      <option value="limited">Allow Limited Backlogs</option>
+                    </select>
                   </div>
                 </div>
+                {formData.backlog_policy === 'limited' && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <div>
+                      <label className="label">Maximum Backlogs Allowed</label>
+                      <select
+                        className="input"
+                        value={formData.max_backlogs}
+                        onChange={(e) => setFormData({ ...formData, max_backlogs: e.target.value })}
+                      >
+                        {Array.from({ length: 10 }, (_, i) => i + 1).map(num => (
+                          <option key={num} value={String(num)}>{num}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="label">Backlogs Must Be Within</label>
+                      <select
+                        className="input"
+                        value={formData.backlog_max_semester}
+                        onChange={(e) => setFormData({ ...formData, backlog_max_semester: e.target.value })}
+                      >
+                        <option value="">Any Semester</option>
+                        {[1, 2, 3, 4, 5, 6].map(sem => (
+                          <option key={sem} value={String(sem)}>Up to Semester {sem}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )
 
                 <div>
                   <label className="label">
@@ -1444,8 +1492,15 @@ export default function ManageJobs() {
                   )}
                   {selectedJob.max_backlogs !== null && selectedJob.max_backlogs !== undefined && (
                     <div>
-                      <span className="text-sm text-gray-600">Max Backlogs:</span>
-                      <p className="font-semibold">{selectedJob.max_backlogs}</p>
+                      <span className="text-sm text-gray-600">Backlog Criteria:</span>
+                      <p className="font-semibold">
+                        {selectedJob.max_backlogs === 0
+                          ? 'No Backlogs'
+                          : selectedJob.backlog_max_semester
+                            ? `Max ${selectedJob.max_backlogs} within Sem 1-${selectedJob.backlog_max_semester}`
+                            : `Max ${selectedJob.max_backlogs}`
+                        }
+                      </p>
                     </div>
                   )}
                 </div>

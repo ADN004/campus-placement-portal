@@ -51,6 +51,8 @@ export default function CreateJobRequest() {
     application_deadline: '',
     min_cgpa: '',
     max_backlogs: '',
+    backlog_max_semester: '',
+    backlog_policy: 'no_restriction',
     allowed_branches: [],
     target_type: 'college', // Defaults to own college (auto-approved)
     target_regions: [],
@@ -122,6 +124,8 @@ export default function CreateJobRequest() {
       application_deadline: '',
       min_cgpa: '',
       max_backlogs: '',
+      backlog_max_semester: '',
+      backlog_policy: 'no_restriction',
       allowed_branches: [],
       target_type: 'college',
       target_regions: [],
@@ -224,7 +228,9 @@ export default function CreateJobRequest() {
       setFormData((prev) => ({
         ...prev,
         min_cgpa: template.min_cgpa || '',
-        max_backlogs: template.max_backlogs ?? '',
+        max_backlogs: template.max_backlogs !== null && template.max_backlogs !== undefined ? String(template.max_backlogs) : '',
+        backlog_max_semester: template.backlog_max_semester ? String(template.backlog_max_semester) : '',
+        backlog_policy: template.max_backlogs === null || template.max_backlogs === undefined ? 'no_restriction' : template.max_backlogs === 0 ? 'no_backlogs' : 'limited',
         allowed_branches: template.allowed_branches
           ? typeof template.allowed_branches === 'string'
             ? JSON.parse(template.allowed_branches)
@@ -290,7 +296,8 @@ export default function CreateJobRequest() {
         application_deadline: formData.application_deadline,
         application_form_url: formData.application_form_url,
         min_cgpa: formData.min_cgpa || null,
-        max_backlogs: formData.max_backlogs || null,
+        max_backlogs: formData.max_backlogs !== '' ? parseInt(formData.max_backlogs) : null,
+        backlog_max_semester: formData.backlog_max_semester ? parseInt(formData.backlog_max_semester) : null,
         allowed_branches: formData.allowed_branches,
         target_type: formData.target_type,
         // For region/specific_colleges, send both regions and specific colleges
@@ -341,6 +348,7 @@ export default function CreateJobRequest() {
             const requirementsData = {
               min_cgpa: formData.min_cgpa ? parseFloat(formData.min_cgpa) : null,
               max_backlogs: formData.max_backlogs !== '' ? parseInt(formData.max_backlogs) : null,
+              backlog_max_semester: formData.backlog_max_semester ? parseInt(formData.backlog_max_semester) : null,
               allowed_branches: formData.allowed_branches,
               requires_academic_extended: formData.requires_academic_extended,
               requires_physical_details: formData.requires_physical_details,
@@ -769,17 +777,56 @@ export default function CreateJobRequest() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">Maximum Backlogs Allowed</label>
-                    <input
-                      type="number"
-                      min="0"
+                    <label className="block text-sm font-bold text-gray-700 mb-2">Backlog Policy</label>
+                    <select
                       className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium bg-white"
-                      value={formData.max_backlogs}
-                      onChange={(e) => setFormData({ ...formData, max_backlogs: e.target.value })}
-                      placeholder="e.g., 0"
-                    />
+                      value={formData.backlog_policy}
+                      onChange={(e) => {
+                        const policy = e.target.value;
+                        if (policy === 'no_restriction') {
+                          setFormData({ ...formData, backlog_policy: policy, max_backlogs: '', backlog_max_semester: '' });
+                        } else if (policy === 'no_backlogs') {
+                          setFormData({ ...formData, backlog_policy: policy, max_backlogs: '0', backlog_max_semester: '' });
+                        } else {
+                          setFormData({ ...formData, backlog_policy: policy, max_backlogs: formData.max_backlogs || '1', backlog_max_semester: '' });
+                        }
+                      }}
+                    >
+                      <option value="no_restriction">No Restriction</option>
+                      <option value="no_backlogs">No Backlogs (Strict)</option>
+                      <option value="limited">Allow Limited Backlogs</option>
+                    </select>
                   </div>
                 </div>
+                {formData.backlog_policy === 'limited' && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-2">Maximum Backlogs Allowed</label>
+                      <select
+                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium bg-white"
+                        value={formData.max_backlogs}
+                        onChange={(e) => setFormData({ ...formData, max_backlogs: e.target.value })}
+                      >
+                        {Array.from({ length: 10 }, (_, i) => i + 1).map(num => (
+                          <option key={num} value={String(num)}>{num}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-2">Backlogs Must Be Within</label>
+                      <select
+                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium bg-white"
+                        value={formData.backlog_max_semester}
+                        onChange={(e) => setFormData({ ...formData, backlog_max_semester: e.target.value })}
+                      >
+                        <option value="">Any Semester</option>
+                        {[1, 2, 3, 4, 5, 6].map(sem => (
+                          <option key={sem} value={String(sem)}>Up to Semester {sem}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )
 
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-3">
@@ -1215,8 +1262,15 @@ export default function CreateJobRequest() {
                     )}
                     {selectedRequest.max_backlogs !== null && selectedRequest.max_backlogs !== undefined && (
                       <div>
-                        <span className="text-sm text-gray-600 font-bold">Max Backlogs:</span>
-                        <p className="font-bold text-lg text-gray-900">{selectedRequest.max_backlogs}</p>
+                        <span className="text-sm text-gray-600 font-bold">Backlog Criteria:</span>
+                        <p className="font-bold text-lg text-gray-900">
+                          {selectedRequest.max_backlogs === 0
+                            ? 'No Backlogs'
+                            : selectedRequest.backlog_max_semester
+                              ? `Max ${selectedRequest.max_backlogs} within Sem 1-${selectedRequest.backlog_max_semester}`
+                              : `Max ${selectedRequest.max_backlogs}`
+                          }
+                        </p>
                       </div>
                     )}
                   </div>

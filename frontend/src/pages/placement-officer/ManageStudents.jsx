@@ -1597,11 +1597,16 @@ export default function ManageStudents() {
                       <td className="px-6 py-4 text-gray-700">{student.mobile_number || '-'}</td>
                       <td className="px-6 py-4 font-bold text-gray-900">{student.programme_cgpa || '-'}</td>
                       <td className="px-6 py-4">
-                        {student.backlogs ? (
-                          <span className="text-red-600 font-bold text-lg">{student.backlogs}</span>
-                        ) : (
-                          <span className="text-green-600 font-bold text-lg">0</span>
-                        )}
+                        {(() => {
+                          const total = (parseInt(student.backlogs_sem1) || 0) + (parseInt(student.backlogs_sem2) || 0) +
+                            (parseInt(student.backlogs_sem3) || 0) + (parseInt(student.backlogs_sem4) || 0) +
+                            (parseInt(student.backlogs_sem5) || 0) + (parseInt(student.backlogs_sem6) || 0);
+                          return total > 0 ? (
+                            <span className="text-red-600 font-bold text-lg">{total}</span>
+                          ) : (
+                            <span className="text-green-600 font-bold text-lg">0</span>
+                          );
+                        })()}
                       </td>
                       <td className="px-6 py-4">{getStatusBadge(student.registration_status)}</td>
                       <td className="px-6 py-4">{getBlacklistBadge(student.is_blacklisted)}</td>
@@ -1825,9 +1830,16 @@ export default function ManageStudents() {
                   </div>
                   <div>
                     <p className="text-sm text-gray-600 font-bold mb-1">Backlogs</p>
-                    <p className={`font-bold text-2xl ${selectedStudent.backlogs > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                      {selectedStudent.backlogs || 0}
-                    </p>
+                    {(() => {
+                      const total = (parseInt(selectedStudent.backlogs_sem1) || 0) + (parseInt(selectedStudent.backlogs_sem2) || 0) +
+                        (parseInt(selectedStudent.backlogs_sem3) || 0) + (parseInt(selectedStudent.backlogs_sem4) || 0) +
+                        (parseInt(selectedStudent.backlogs_sem5) || 0) + (parseInt(selectedStudent.backlogs_sem6) || 0);
+                      return (
+                        <p className={`font-bold text-2xl ${total > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                          {total}
+                        </p>
+                      );
+                    })()}
                   </div>
                 </div>
                 {selectedStudent.backlog_details && (

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { placementOfficerAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import {
@@ -15,6 +15,8 @@ import EnhancedFilterPanel from '../../components/EnhancedFilterPanel';
 import PlacementDetailsForm from '../../components/PlacementDetailsForm';
 import PDFFieldSelector from '../../components/PDFFieldSelector';
 import ManualStudentAdditionModal from '../../components/ManualStudentAdditionModal';
+import useAutoRefresh from '../../hooks/useAutoRefresh';
+import AutoRefreshIndicator from '../../components/AutoRefreshIndicator';
 
 export default function JobEligibleStudents() {
   const [jobs, setJobs] = useState([]);
@@ -129,6 +131,24 @@ export default function JobEligibleStudents() {
       setPlacementStats(null);
     }
   };
+
+  // Silent refresh for auto-refresh (no loading spinners / toasts)
+  const silentRefresh = useCallback(async () => {
+    if (!selectedJob) return;
+    try {
+      const [applicantsRes, statsRes] = await Promise.all([
+        placementOfficerAPI.getJobApplicants(selectedJob.id),
+        placementOfficerAPI.getJobPlacementStats(selectedJob.id),
+      ]);
+      setStudents(applicantsRes.data.data || []);
+      setPlacementStats(statsRes.data.data);
+    } catch (e) {
+      // Silently fail on auto-refresh
+    }
+  }, [selectedJob]);
+
+  const { lastRefreshed, autoRefreshEnabled, toggleAutoRefresh, manualRefresh, refreshing } =
+    useAutoRefresh(silentRefresh, 30000, true);
 
   const filterEligibleStudents = () => {
     if (!selectedJob) {
@@ -422,7 +442,7 @@ export default function JobEligibleStudents() {
     setShowExportDropdown(false);
   };
 
-  const handlePDFExportWithFields = async (selectedFields) => {
+  const handlePDFExportWithFields = async ({ fields: selectedFields, includeSignature }) => {
     try {
       setExporting(true);
       setShowPDFFieldSelector(false);
@@ -431,6 +451,7 @@ export default function JobEligibleStudents() {
       const exportData = {
         format: 'pdf',
         pdf_fields: selectedFields,
+        include_signature: includeSignature || false,
       };
 
       // Add enhanced filters if it's an enhanced export
@@ -978,13 +999,20 @@ export default function JobEligibleStudents() {
 
           {/* Job Applicants Table */}
           <GlassCard variant="elevated" className="overflow-hidden p-0">
-            <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+            <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 flex items-center justify-between flex-wrap gap-3">
               <h2 className="text-2xl font-bold text-gray-900 flex items-center">
                 <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-2 mr-3 shadow-lg">
                   <Users className="text-white" size={24} />
                 </div>
                 Job Applicants ({filteredStudents.length})
               </h2>
+              <AutoRefreshIndicator
+                lastRefreshed={lastRefreshed}
+                autoRefreshEnabled={autoRefreshEnabled}
+                onToggle={toggleAutoRefresh}
+                onManualRefresh={manualRefresh}
+                refreshing={refreshing}
+              />
             </div>
 
             <div className="overflow-x-auto">

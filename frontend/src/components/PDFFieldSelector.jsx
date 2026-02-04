@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileText, X, Check } from 'lucide-react';
+import { FileText, X, Check, PenLine } from 'lucide-react';
 
 const PDFFieldSelector = ({ onExport, onClose, applicantCount, exportType = 'enhanced' }) => {
   const [selectedFields, setSelectedFields] = useState([
@@ -9,6 +9,7 @@ const PDFFieldSelector = ({ onExport, onClose, applicantCount, exportType = 'enh
     'cgpa',
     'application_status'
   ]);
+  const [includeSignature, setIncludeSignature] = useState(false);
 
   const availableFields = [
     { key: 'prn', label: 'PRN' },
@@ -53,7 +54,7 @@ const PDFFieldSelector = ({ onExport, onClose, applicantCount, exportType = 'enh
       alert('Please select at least one field to export');
       return;
     }
-    onExport(selectedFields);
+    onExport({ fields: selectedFields, includeSignature });
   };
 
   return (
@@ -122,6 +123,31 @@ const PDFFieldSelector = ({ onExport, onClose, applicantCount, exportType = 'enh
                 )}
               </button>
             ))}
+          </div>
+
+          {/* Signature Toggle */}
+          <div className="mt-5 pt-4 border-t border-gray-200">
+            <button
+              onClick={() => setIncludeSignature(!includeSignature)}
+              className={`w-full p-4 rounded-xl border-2 transition-all flex items-center justify-between ${
+                includeSignature
+                  ? 'border-amber-500 bg-amber-50 text-amber-900'
+                  : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-lg ${includeSignature ? 'bg-amber-200' : 'bg-gray-100'}`}>
+                  <PenLine size={18} className={includeSignature ? 'text-amber-700' : 'text-gray-500'} />
+                </div>
+                <div className="text-left">
+                  <span className="font-semibold text-sm block">Include Signature Column</span>
+                  <span className="text-xs text-gray-500">Adds an empty signature column for students to sign</span>
+                </div>
+              </div>
+              <div className={`w-11 h-6 rounded-full transition-colors relative ${includeSignature ? 'bg-amber-500' : 'bg-gray-300'}`}>
+                <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${includeSignature ? 'translate-x-5' : 'translate-x-0.5'}`}></div>
+              </div>
+            </button>
           </div>
         </div>
 

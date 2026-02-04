@@ -1914,6 +1914,7 @@ export const enhancedExportJobApplicants = async (req, res) => {
       weight_min,
       physically_handicapped,
       use_short_names = true,
+      include_signature = false,
     } = req.body;
 
     // Build dynamic WHERE clauses
@@ -2187,9 +2188,13 @@ export const enhancedExportJobApplicants = async (req, res) => {
         ? pdf_fields.filter(field => fieldMap[field])
         : ['prn', 'student_name', 'branch', 'programme_cgpa', 'application_status'];
 
+      // Signature column config
+      const signatureWidth = include_signature ? 70 : 0;
+
       // Determine orientation based on number of selected fields
       // Portrait: <= 6 fields, Landscape: > 6 fields
-      const layout = selectedFields.length <= 6 ? 'portrait' : 'landscape';
+      const totalCols = selectedFields.length + (include_signature ? 1 : 0);
+      const layout = totalCols <= 6 ? 'portrait' : 'landscape';
       const pageMargin = 25;
 
       const doc = new PDFDocument({
@@ -2226,24 +2231,35 @@ export const enhancedExportJobApplicants = async (req, res) => {
 
       // Calculate table positioning with proper margins
       const availableWidth = doc.page.width - (2 * pageMargin);
-      const tableWidth = selectedFields.reduce((sum, field) => sum + (fieldMap[field]?.width || 60), 0);
+      const tableWidth = selectedFields.reduce((sum, field) => sum + (fieldMap[field]?.width || 60), 0) + signatureWidth;
 
       // Use left alignment with margin if table is too wide, otherwise center
       const startX = tableWidth > availableWidth ? pageMargin : (doc.page.width - tableWidth) / 2;
       let currentY = doc.y + 10; // Add spacing after header
 
-      // Draw table header
-      let currentX = startX;
-      doc.fontSize(9).font('Helvetica-Bold');
-      selectedFields.forEach(field => {
-        doc.rect(currentX, currentY, fieldMap[field].width, 20).stroke();
-        doc.text(fieldMap[field].label, currentX + 5, currentY + 5, {
-          width: fieldMap[field].width - 10,
-          align: 'left'
+      // Helper: draw header row (fields + optional signature)
+      const drawHeaderRow = (y) => {
+        let x = startX;
+        doc.fontSize(9).font('Helvetica-Bold');
+        selectedFields.forEach(field => {
+          doc.rect(x, y, fieldMap[field].width, 20).stroke();
+          doc.text(fieldMap[field].label, x + 5, y + 5, {
+            width: fieldMap[field].width - 10,
+            align: 'left'
+          });
+          x += fieldMap[field].width;
         });
-        currentX += fieldMap[field].width;
-      });
+        if (include_signature) {
+          doc.rect(x, y, signatureWidth, 20).fillAndStroke('#F3F4F6', '#000000');
+          doc.fillColor('#000000').text('Signature', x + 5, y + 5, {
+            width: signatureWidth - 10,
+            align: 'center'
+          });
+        }
+      };
 
+      // Draw table header
+      drawHeaderRow(currentY);
       currentY += 20;
 
       // Draw table rows
@@ -2256,21 +2272,12 @@ export const enhancedExportJobApplicants = async (req, res) => {
           currentY = 50;
 
           // Redraw header on new page
-          currentX = startX;
-          doc.fontSize(9).font('Helvetica-Bold');
-          selectedFields.forEach(field => {
-            doc.rect(currentX, currentY, fieldMap[field].width, 20).stroke();
-            doc.text(fieldMap[field].label, currentX + 5, currentY + 5, {
-              width: fieldMap[field].width - 10,
-              align: 'left'
-            });
-            currentX += fieldMap[field].width;
-          });
+          drawHeaderRow(currentY);
           currentY += 20;
           doc.fontSize(8).font('Helvetica');
         }
 
-        currentX = startX;
+        let currentX = startX;
         selectedFields.forEach(field => {
           let value = applicant[field];
 
@@ -2292,6 +2299,10 @@ export const enhancedExportJobApplicants = async (req, res) => {
           });
           currentX += fieldMap[field].width;
         });
+        // Signature cell (empty for student to sign)
+        if (include_signature) {
+          doc.rect(currentX, currentY, signatureWidth, 15).stroke();
+        }
         currentY += 15;
       });
 

@@ -630,15 +630,44 @@ export const addPlacementOfficer = async (req, res) => {
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash('123', salt);
 
-      // Create new user account
-      const userResult = await client.query(
-        `INSERT INTO users (email, password_hash, role)
-         VALUES ($1, $2, 'placement_officer')
-         RETURNING id`,
-        [phone_number, hashedPassword]
+      // Check if a user with this phone number already exists
+      const existingUserResult = await client.query(
+        'SELECT id, is_active, role FROM users WHERE email = $1',
+        [phone_number]
       );
 
-      const userId = userResult.rows[0].id;
+      let userId;
+
+      if (existingUserResult.rows.length > 0) {
+        const existingUser = existingUserResult.rows[0];
+
+        // If the existing user is active and is NOT a placement_officer, reject
+        if (existingUser.is_active && existingUser.role !== 'placement_officer') {
+          throw new Error('This phone number is already registered with a different role');
+        }
+
+        // Reactivate and reset the existing user account
+        await client.query(
+          `UPDATE users SET password_hash = $1, role = 'placement_officer', is_active = TRUE WHERE id = $2`,
+          [hashedPassword, existingUser.id]
+        );
+        userId = existingUser.id;
+
+        // Deactivate any old placement_officers records for this user
+        await client.query(
+          'UPDATE placement_officers SET is_active = FALSE WHERE user_id = $1 AND is_active = TRUE',
+          [userId]
+        );
+      } else {
+        // Create new user account
+        const userResult = await client.query(
+          `INSERT INTO users (email, password_hash, role)
+           VALUES ($1, $2, 'placement_officer')
+           RETURNING id`,
+          [phone_number, hashedPassword]
+        );
+        userId = userResult.rows[0].id;
+      }
 
       // Create new placement officer
       await client.query(
@@ -666,6 +695,14 @@ export const addPlacementOfficer = async (req, res) => {
     });
   } catch (error) {
     console.error('Add placement officer error:', error);
+
+    if (error.message === 'This phone number is already registered with a different role') {
+      return res.status(409).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
     res.status(500).json({
       success: false,
       message: 'Error adding placement officer',

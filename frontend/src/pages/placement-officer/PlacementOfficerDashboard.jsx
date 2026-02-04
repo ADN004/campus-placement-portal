@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { placementOfficerAPI } from '../../services/api';
 import toast from 'react-hot-toast';
@@ -19,6 +19,8 @@ import DashboardHeader from '../../components/DashboardHeader';
 import GlassStatCard from '../../components/GlassStatCard';
 import SectionHeader from '../../components/SectionHeader';
 import GlassCard from '../../components/GlassCard';
+import useAutoRefresh from '../../hooks/useAutoRefresh';
+import AutoRefreshIndicator from '../../components/AutoRefreshIndicator';
 
 export default function PlacementOfficerDashboard() {
   const [stats, setStats] = useState(null);
@@ -39,6 +41,19 @@ export default function PlacementOfficerDashboard() {
       setLoading(false);
     }
   };
+
+  // Silent refresh for auto-refresh
+  const silentRefresh = useCallback(async () => {
+    try {
+      const response = await placementOfficerAPI.getDashboard();
+      setStats(response.data.data);
+    } catch (e) {
+      // Silently fail
+    }
+  }, []);
+
+  const { lastRefreshed, autoRefreshEnabled, toggleAutoRefresh, manualRefresh, refreshing } =
+    useAutoRefresh(silentRefresh, 60000, true);
 
   if (loading) {
     return (
@@ -112,11 +127,20 @@ export default function PlacementOfficerDashboard() {
   return (
     <div>
       {/* Dashboard Header */}
-      <DashboardHeader
-        icon={LayoutDashboard}
-        title="Placement Officer Dashboard"
-        subtitle={`${stats?.college_name || 'Your College'} - ${stats?.region_name || 'Region'}`}
-      />
+      <div className="flex items-center justify-between flex-wrap gap-3 mb-2">
+        <DashboardHeader
+          icon={LayoutDashboard}
+          title="Placement Officer Dashboard"
+          subtitle={`${stats?.college_name || 'Your College'} - ${stats?.region_name || 'Region'}`}
+        />
+        <AutoRefreshIndicator
+          lastRefreshed={lastRefreshed}
+          autoRefreshEnabled={autoRefreshEnabled}
+          onToggle={toggleAutoRefresh}
+          onManualRefresh={manualRefresh}
+          refreshing={refreshing}
+        />
+      </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">

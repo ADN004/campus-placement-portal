@@ -30,6 +30,7 @@ CREATE TABLE colleges (
     logo_url TEXT,
     logo_cloudinary_id VARCHAR(255),
     logo_uploaded_at TIMESTAMP,
+    sort_order INTEGER DEFAULT 999,
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

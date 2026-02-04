@@ -522,7 +522,7 @@ export const getPlacementOfficers = async (req, res) => {
        JOIN regions r ON c.region_id = r.id
        JOIN users u ON po.user_id = u.id
        LEFT JOIN users appointed_by_user ON po.appointed_by = appointed_by_user.id
-       ORDER BY c.college_name`
+       ORDER BY c.sort_order, c.college_name`
     );
 
     res.status(200).json({

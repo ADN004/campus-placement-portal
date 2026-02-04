@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { superAdminAPI } from '../../services/api';
 import toast from 'react-hot-toast';
@@ -24,6 +24,8 @@ import DashboardHeader from '../../components/DashboardHeader';
 import GlassStatCard from '../../components/GlassStatCard';
 import SectionHeader from '../../components/SectionHeader';
 import GlassCard from '../../components/GlassCard';
+import useAutoRefresh from '../../hooks/useAutoRefresh';
+import AutoRefreshIndicator from '../../components/AutoRefreshIndicator';
 
 export default function SuperAdminDashboard() {
   const [stats, setStats] = useState(null);
@@ -60,6 +62,25 @@ export default function SuperAdminDashboard() {
       console.error('Failed to fetch admin notifications:', error);
     }
   };
+
+  // Silent refresh for auto-refresh
+  const silentRefresh = useCallback(async () => {
+    try {
+      const [dashRes, notifRes, countRes] = await Promise.all([
+        superAdminAPI.getDashboard(),
+        superAdminAPI.getAdminNotifications({ limit: 5, unread_only: false }),
+        superAdminAPI.getAdminNotificationUnreadCount(),
+      ]);
+      setStats(dashRes.data.data);
+      setAdminNotifications(notifRes.data.data || []);
+      setUnreadCount(countRes.data.unread_count || 0);
+    } catch (e) {
+      // Silently fail
+    }
+  }, []);
+
+  const { lastRefreshed, autoRefreshEnabled, toggleAutoRefresh, manualRefresh, refreshing } =
+    useAutoRefresh(silentRefresh, 60000, true);
 
   const handleMarkAsRead = async (id) => {
     try {
@@ -225,11 +246,20 @@ export default function SuperAdminDashboard() {
   return (
     <div>
       {/* Dashboard Header */}
-      <DashboardHeader
-        icon={LayoutDashboard}
-        title="Super Admin Dashboard"
-        subtitle="System-wide overview of State Placement Cell - Kerala Polytechnics"
-      />
+      <div className="flex items-center justify-between flex-wrap gap-3 mb-2">
+        <DashboardHeader
+          icon={LayoutDashboard}
+          title="Super Admin Dashboard"
+          subtitle="System-wide overview of State Placement Cell - Kerala Polytechnics"
+        />
+        <AutoRefreshIndicator
+          lastRefreshed={lastRefreshed}
+          autoRefreshEnabled={autoRefreshEnabled}
+          onToggle={toggleAutoRefresh}
+          onManualRefresh={manualRefresh}
+          refreshing={refreshing}
+        />
+      </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">

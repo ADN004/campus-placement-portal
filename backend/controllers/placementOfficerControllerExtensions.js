@@ -1917,7 +1917,7 @@ export const enhancedExportJobApplicants = async (req, res) => {
           doc.fontSize(8).font('Helvetica');
         }
 
-        currentX = startX;
+        let currentX = startX;
         selectedFields.forEach(field => {
           let value = applicant[field];
 

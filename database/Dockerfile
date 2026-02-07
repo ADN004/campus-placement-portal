@@ -17,7 +17,7 @@ COPY database/schema.sql /docker-entrypoint-initdb.d/01-schema.sql
 # POSTGRES_PASSWORD env var, even on existing volumes where the default
 # Docker entrypoint skips password setup.
 COPY database/sync-password.sh /usr/local/bin/sync-password.sh
-RUN chmod +x /usr/local/bin/sync-password.sh
+RUN sed -i 's/\r$//' /usr/local/bin/sync-password.sh && chmod +x /usr/local/bin/sync-password.sh
 
 ENTRYPOINT ["sync-password.sh"]
 CMD ["postgres"]

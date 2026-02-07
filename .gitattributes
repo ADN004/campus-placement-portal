@@ -1,0 +1,3 @@
+# Ensure shell scripts always use Unix line endings (LF)
+# This prevents "bad interpreter" errors in Docker containers
+*.sh text eol=lf

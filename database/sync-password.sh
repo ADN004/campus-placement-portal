@@ -20,16 +20,16 @@ PGDATA="${PGDATA:-/var/lib/postgresql/data}"
 if [ -s "$PGDATA/PG_VERSION" ] && [ -n "$POSTGRES_PASSWORD" ]; then
   echo "🔄 Syncing PostgreSQL password with environment variable..."
 
-  # Start PostgreSQL temporarily (Unix socket only - no external connections)
-  pg_ctl -D "$PGDATA" -o "-c listen_addresses=''" -w start -l /tmp/pg_password_sync.log
+  # Must run pg_ctl as the postgres user (PostgreSQL refuses to run as root)
+  su-exec postgres pg_ctl -D "$PGDATA" -o "-c listen_addresses=''" -w start -l /tmp/pg_password_sync.log
 
   # Sync the password to match POSTGRES_PASSWORD env var
-  psql -U "${POSTGRES_USER:-postgres}" -d postgres -c \
+  su-exec postgres psql -U "${POSTGRES_USER:-postgres}" -d postgres -c \
     "ALTER USER \"${POSTGRES_USER:-postgres}\" PASSWORD '${POSTGRES_PASSWORD}';" \
     > /dev/null 2>&1
 
   # Stop PostgreSQL (the real entrypoint will start it properly)
-  pg_ctl -D "$PGDATA" -m fast -w stop > /dev/null 2>&1
+  su-exec postgres pg_ctl -D "$PGDATA" -m fast -w stop > /dev/null 2>&1
 
   echo "✅ Password synced successfully"
 fi

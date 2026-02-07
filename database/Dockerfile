@@ -12,3 +12,12 @@ LABEL description="PostgreSQL database for State Placement Cell with schema pre-
 # Migrations are NOT included here because they're for upgrading existing
 # databases, not fresh installs. schema.sql is the single source of truth.
 COPY database/schema.sql /docker-entrypoint-initdb.d/01-schema.sql
+
+# Password sync script: ensures the postgres password always matches the
+# POSTGRES_PASSWORD env var, even on existing volumes where the default
+# Docker entrypoint skips password setup.
+COPY database/sync-password.sh /usr/local/bin/sync-password.sh
+RUN chmod +x /usr/local/bin/sync-password.sh
+
+ENTRYPOINT ["sync-password.sh"]
+CMD ["postgres"]

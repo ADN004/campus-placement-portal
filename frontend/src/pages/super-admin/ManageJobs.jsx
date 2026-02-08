@@ -20,8 +20,10 @@ import {
   Info,
   ChevronDown,
   ChevronRight,
+  Download,
 } from 'lucide-react';
 import { KERALA_POLYTECHNIC_BRANCHES } from '../../constants/branches';
+import { generateJobDetailsPDF } from '../../utils/jobDetailsPdf';
 
 export default function ManageJobs() {
   const [activeTab, setActiveTab] = useState('all'); // 'all', 'pending', 'deleted'
@@ -1434,15 +1436,25 @@ export default function ManageJobs() {
           <div className="bg-white rounded-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
               <h2 className="text-2xl font-bold">{selectedJob.title}</h2>
-              <button
-                onClick={() => {
-                  setShowDetailsModal(false);
-                  setSelectedJob(null);
-                }}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <XCircle size={24} />
-              </button>
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={() => generateJobDetailsPDF(selectedJob, { regions, colleges })}
+                  className="flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-semibold rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all shadow-sm"
+                  title="Download Job Details as PDF"
+                >
+                  <Download size={16} />
+                  <span>Download PDF</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setShowDetailsModal(false);
+                    setSelectedJob(null);
+                  }}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <XCircle size={24} />
+                </button>
+              </div>
             </div>
 
             <div className="p-6 space-y-6">

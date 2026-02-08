@@ -17,6 +17,7 @@ import PDFFieldSelector from '../../components/PDFFieldSelector';
 import ManualStudentAdditionModal from '../../components/ManualStudentAdditionModal';
 import useAutoRefresh from '../../hooks/useAutoRefresh';
 import AutoRefreshIndicator from '../../components/AutoRefreshIndicator';
+import { generateJobDetailsPDF } from '../../utils/jobDetailsPdf';
 
 export default function JobEligibleStudents() {
   const [jobs, setJobs] = useState([]);
@@ -540,16 +541,16 @@ export default function JobEligibleStudents() {
             <p className="text-gray-500 col-span-full text-center py-8 font-medium">No active jobs available</p>
           ) : (
             jobs.map((job) => (
-              <button
+              <div
                 key={job.id}
-                onClick={() => setSelectedJob(job)}
-                className={`p-6 border-2 rounded-2xl text-left transition-all duration-300 transform hover:scale-105 ${
+                className={`relative p-6 border-2 rounded-2xl text-left transition-all duration-300 transform hover:scale-105 cursor-pointer ${
                   selectedJob?.id === job.id
                     ? 'border-blue-500 bg-gradient-to-br from-blue-50 to-indigo-50 shadow-xl'
                     : 'border-gray-200 bg-white hover:border-blue-300 hover:shadow-lg'
                 }`}
+                onClick={() => setSelectedJob(job)}
               >
-                <h3 className="font-bold text-gray-900 text-lg mb-2">{job.job_title}</h3>
+                <h3 className="font-bold text-gray-900 text-lg mb-2 pr-8">{job.job_title}</h3>
                 <p className="text-gray-700 font-medium mb-4">{job.company_name}</p>
                 <div className="space-y-2 text-sm font-medium">
                   {job.min_cgpa && <p className="text-blue-600">Min CGPA: {job.min_cgpa}</p>}
@@ -558,7 +559,21 @@ export default function JobEligibleStudents() {
                     Deadline: {new Date(job.application_deadline).toLocaleDateString('en-IN')}
                   </p>
                 </div>
-              </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    generateJobDetailsPDF({
+                      ...job,
+                      title: job.job_title,
+                      description: job.job_description,
+                    });
+                  }}
+                  className="absolute top-4 right-4 p-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all shadow-sm hover:shadow-md"
+                  title="Download Job Details as PDF"
+                >
+                  <Download size={14} />
+                </button>
+              </div>
             ))
           )}
         </div>

@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import { placementOfficerAPI } from '../../services/api';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import toast from 'react-hot-toast';
-import { Briefcase, CheckCircle, XCircle, Clock, Plus, Calendar, Building2, IndianRupee } from 'lucide-react';
+import { Briefcase, CheckCircle, XCircle, Clock, Plus, Calendar, Building2, IndianRupee, Download } from 'lucide-react';
+import { generateJobDetailsPDF } from '../../utils/jobDetailsPdf';
 import DashboardHeader from '../../components/DashboardHeader';
 import GlassCard from '../../components/GlassCard';
 
@@ -247,7 +248,36 @@ export default function MyJobRequests() {
                     )}
                   </div>
                 </div>
-                {getStatusBadge(request.status)}
+                <div className="flex items-center space-x-3">
+                  {request.status === 'approved' && (
+                    <button
+                      onClick={() => generateJobDetailsPDF({
+                        company_name: request.company_name,
+                        title: request.job_title,
+                        job_description: request.job_description,
+                        salary_package: request.salary_range,
+                        location: request.location,
+                        no_of_vacancies: request.no_of_vacancies,
+                        min_cgpa: request.min_cgpa,
+                        max_backlogs: request.max_backlogs,
+                        backlog_max_semester: request.backlog_max_semester,
+                        allowed_branches: request.allowed_branches,
+                        target_type: request.target_type,
+                        target_regions: request.target_regions,
+                        target_colleges: request.target_colleges,
+                        application_deadline: request.application_deadline,
+                        application_form_url: request.application_form_url,
+                        is_active: true,
+                      })}
+                      className="flex items-center space-x-1.5 px-3 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-bold rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all shadow-md hover:shadow-lg transform hover:scale-105 active:scale-95"
+                      title="Download Job Details as PDF"
+                    >
+                      <Download size={16} />
+                      <span>PDF</span>
+                    </button>
+                  )}
+                  {getStatusBadge(request.status)}
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { studentAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
+import { motion } from 'framer-motion';
 import { User, Lock, Edit, Save, X, GraduationCap, FileText, Users, CheckCircle2, Shield, Calendar, UserCircle } from 'lucide-react';
 import ChangePassword from '../../components/ChangePassword';
 import { Link } from 'react-router-dom';
@@ -9,12 +10,99 @@ import api from '../../services/api';
 import GradientOrb from '../../components/GradientOrb';
 import DashboardHeader from '../../components/DashboardHeader';
 import GlassCard from '../../components/GlassCard';
-import LoadingSpinner from '../../components/LoadingSpinner';
 import { BRANCH_SHORT_NAMES } from '../../constants/branches';
+
+// Skeleton for profile page
+function ProfileSkeleton() {
+  return (
+    <div className="min-h-screen">
+      {/* Header skeleton */}
+      <div className="mb-8">
+        <div className="h-10 w-40 bg-gray-200/70 rounded-xl animate-pulse mb-2" />
+        <div className="h-5 w-72 bg-gray-200/50 rounded-lg animate-pulse" />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main profile card skeleton */}
+        <div className="lg:col-span-2 space-y-6">
+          <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-8 border border-gray-200/50">
+            {/* Title + edit button */}
+            <div className="flex justify-between items-center mb-8">
+              <div className="flex items-center gap-3">
+                <div className="h-12 w-12 bg-gray-200/70 rounded-xl animate-pulse" />
+                <div className="h-7 w-48 bg-gray-200/70 rounded-lg animate-pulse" />
+              </div>
+              <div className="h-10 w-32 bg-blue-100/70 rounded-xl animate-pulse" />
+            </div>
+
+            {/* Read-only fields */}
+            <div className="bg-gray-50/50 p-6 rounded-2xl border border-gray-200/50 mb-6">
+              <div className="h-5 w-56 bg-gray-200/70 rounded-lg animate-pulse mb-5" />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {[...Array(9)].map((_, i) => (
+                  <div key={i} className="bg-white rounded-xl p-4 border border-gray-100">
+                    <div className="h-3 w-16 bg-gray-200/70 rounded animate-pulse mb-2" />
+                    <div className="h-5 w-32 bg-gray-200/70 rounded-lg animate-pulse" />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Editable fields */}
+            <div className="space-y-6">
+              <div className="h-6 w-40 bg-gray-200/70 rounded-lg animate-pulse" />
+              {[...Array(3)].map((_, i) => (
+                <div key={i}>
+                  <div className="h-4 w-24 bg-gray-200/70 rounded animate-pulse mb-2" />
+                  <div className="h-12 w-full bg-gray-100/70 rounded-xl animate-pulse" />
+                </div>
+              ))}
+            </div>
+
+            {/* Academic section */}
+            <div className="mt-6 bg-indigo-50/50 p-6 rounded-2xl border border-indigo-100/50">
+              <div className="h-6 w-48 bg-gray-200/70 rounded-lg animate-pulse mb-5" />
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {[...Array(6)].map((_, i) => (
+                  <div key={i}>
+                    <div className="h-3 w-20 bg-gray-200/70 rounded animate-pulse mb-2" />
+                    <div className="h-10 w-full bg-white rounded-xl animate-pulse" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Sidebar skeleton */}
+        <div className="space-y-6">
+          <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-6 border border-gray-200/50">
+            <div className="h-6 w-24 bg-gray-200/70 rounded-lg animate-pulse mb-6" />
+            <div className="h-12 w-full bg-blue-100/70 rounded-xl animate-pulse" />
+          </div>
+          <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-6 border border-gray-200/50">
+            <div className="h-6 w-44 bg-gray-200/70 rounded-lg animate-pulse mb-6" />
+            <div className="space-y-4">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="h-14 w-full bg-gray-100/70 rounded-xl animate-pulse" />
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0 },
+};
 
 export default function StudentProfile() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [showSkeleton, setShowSkeleton] = useState(true);
   const [editMode, setEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
@@ -55,6 +143,18 @@ export default function StudentProfile() {
     fetchCgpaLockStatus();
     fetchBacklogLockStatus();
   }, []);
+
+  // Skeleton loading gate
+  useEffect(() => {
+    const timer = setTimeout(() => setShowSkeleton(false), 900);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Lock scroll during skeleton
+  useEffect(() => {
+    document.body.style.overflow = showSkeleton ? 'hidden' : 'auto';
+    return () => { document.body.style.overflow = 'auto'; };
+  }, [showSkeleton]);
 
   const fetchProfile = async () => {
     setLoading(true);
@@ -100,7 +200,6 @@ export default function StudentProfile() {
       setExtendedProfile(response.data.data);
     } catch (error) {
       console.error('Error fetching extended profile:', error);
-      // Don't show error toast as extended profile might not exist yet
     } finally {
       setExtendedProfileLoading(false);
     }
@@ -113,7 +212,6 @@ export default function StudentProfile() {
       setCgpaLocked(data.is_locked);
       setCgpaUnlockEnd(data.unlock_end || null);
     } catch {
-      // Default to locked on error for safety
       setCgpaLocked(true);
     }
   };
@@ -125,7 +223,6 @@ export default function StudentProfile() {
       setBacklogLocked(data.is_locked);
       setBacklogUnlockEnd(data.unlock_end || null);
     } catch {
-      // Default to locked on error for safety
       setBacklogLocked(true);
     }
   };
@@ -189,7 +286,7 @@ export default function StudentProfile() {
     return <span className={`px-4 py-2 rounded-xl text-sm font-bold border-2 ${config.color}`}>{config.text}</span>;
   };
 
-  if (loading) return <LoadingSpinner />;
+  if (loading || showSkeleton) return <ProfileSkeleton />;
 
   return (
     <div>
@@ -198,18 +295,19 @@ export default function StudentProfile() {
       <GradientOrb color="purple" position="center" delay="4s" />
 
       {/* Header */}
-      <div className="mb-8">
+      <motion.div className="mb-8" variants={fadeUp} initial="hidden" animate="visible" transition={{ duration: 0.4, delay: 0 }}>
         <DashboardHeader
           icon={UserCircle}
           title="My Profile"
           subtitle="View and manage your profile information"
         />
-      </div>
+      </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Profile Card */}
         <div className="lg:col-span-2 space-y-6">
-          <GlassCard className="p-8">
+          <motion.div variants={fadeUp} initial="hidden" animate="visible" transition={{ duration: 0.4, delay: 0.1 }}>
+            <GlassCard className="p-8">
               <div className="flex justify-between items-center mb-8">
                 <div className="flex items-center gap-3">
                   <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl p-3">
@@ -220,31 +318,37 @@ export default function StudentProfile() {
                   </h2>
                 </div>
                 {!editMode ? (
-                  <button
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
                     onClick={() => setEditMode(true)}
-                    className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 transform hover:scale-105 active:scale-95 flex items-center space-x-2"
+                    className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 flex items-center space-x-2"
                   >
                     <Edit size={18} />
                     <span>Edit Profile</span>
-                  </button>
+                  </motion.button>
                 ) : (
                   <div className="flex space-x-2">
-                    <button
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
                       onClick={handleSubmit}
                       disabled={saving}
-                      className="bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-200 transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center space-x-2"
+                      className="bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                     >
                       <Save size={18} />
                       <span>{saving ? 'Saving...' : 'Save'}</span>
-                    </button>
-                    <button
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
                       onClick={handleCancel}
                       disabled={saving}
-                      className="bg-gradient-to-r from-gray-600 to-gray-700 text-white font-bold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl hover:from-gray-700 hover:to-gray-800 transition-all duration-200 transform hover:scale-105 active:scale-95 disabled:opacity-50 flex items-center space-x-2"
+                      className="bg-gradient-to-r from-gray-600 to-gray-700 text-white font-bold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl hover:from-gray-700 hover:to-gray-800 transition-all duration-200 disabled:opacity-50 flex items-center space-x-2"
                     >
                       <X size={18} />
                       <span>Cancel</span>
-                    </button>
+                    </motion.button>
                   </div>
                 )}
               </div>
@@ -260,19 +364,14 @@ export default function StudentProfile() {
                   </h3>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* PRN */}
                     <div className="bg-white rounded-xl p-4 border border-gray-100">
                       <label className="text-sm font-semibold text-gray-600 mb-1 block">PRN Number</label>
                       <p className="text-gray-900 font-bold text-lg">{profile?.prn}</p>
                     </div>
-
-                    {/* Name */}
                     <div className="bg-white rounded-xl p-4 border border-gray-100">
                       <label className="text-sm font-semibold text-gray-600 mb-1 block">Full Name</label>
                       <p className="text-gray-900 font-bold text-lg">{profile?.student_name || 'Not set'}</p>
                     </div>
-
-                    {/* DOB */}
                     <div className="bg-white rounded-xl p-4 border border-gray-100">
                       <label className="text-sm font-semibold text-gray-600 mb-1 block">Date of Birth</label>
                       <p className="text-gray-900 font-bold text-lg">
@@ -285,40 +384,28 @@ export default function StudentProfile() {
                           : 'Not set'}
                       </p>
                     </div>
-
-                    {/* Age */}
                     <div className="bg-white rounded-xl p-4 border border-gray-100">
                       <label className="text-sm font-semibold text-gray-600 mb-1 block">Age</label>
                       <p className="text-gray-900 font-bold text-lg">{profile?.age || 'Not set'}</p>
                     </div>
-
-                    {/* Gender */}
                     <div className="bg-white rounded-xl p-4 border border-gray-100">
                       <label className="text-sm font-semibold text-gray-600 mb-1 block">Gender</label>
                       <p className="text-gray-900 font-bold text-lg">{profile?.gender || 'Not set'}</p>
                     </div>
-
-                    {/* Branch */}
                     <div className="bg-white rounded-xl p-4 border border-gray-100">
                       <label className="text-sm font-semibold text-gray-600 mb-1 block">Branch/Department</label>
                       <p className="text-gray-900 font-bold text-lg">
                         {profile?.branch} {BRANCH_SHORT_NAMES[profile?.branch] ? <span className="text-blue-600">({BRANCH_SHORT_NAMES[profile?.branch]})</span> : ''}
                       </p>
                     </div>
-
-                    {/* College */}
                     <div className="bg-white rounded-xl p-4 border border-gray-100">
                       <label className="text-sm font-semibold text-gray-600 mb-1 block">College</label>
                       <p className="text-gray-900 font-bold text-lg">{profile?.college_name}</p>
                     </div>
-
-                    {/* Region */}
                     <div className="bg-white rounded-xl p-4 border border-gray-100">
                       <label className="text-sm font-semibold text-gray-600 mb-1 block">Region</label>
                       <p className="text-gray-900 font-bold text-lg">{profile?.region_name}</p>
                     </div>
-
-                    {/* Email */}
                     <div className="md:col-span-2 bg-white rounded-xl p-4 border border-gray-100">
                       <label className="text-sm font-semibold text-gray-600 mb-1 block">Email Address</label>
                       <div className="flex items-center gap-3 flex-wrap">
@@ -348,7 +435,6 @@ export default function StudentProfile() {
                     {editMode ? 'Edit Your Information' : 'Your Information'}
                   </h3>
 
-                  {/* Mobile Number */}
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-2">Mobile Number</label>
                     {editMode ? (
@@ -366,7 +452,6 @@ export default function StudentProfile() {
                     )}
                   </div>
 
-                  {/* Height & Weight */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                       <label className="block text-sm font-bold text-gray-700 mb-2">Height (cm)</label>
@@ -407,7 +492,6 @@ export default function StudentProfile() {
                     </div>
                   </div>
 
-                  {/* Complete Address */}
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-2">Complete Address</label>
                     {editMode ? (
@@ -433,7 +517,6 @@ export default function StudentProfile() {
                       Academic Performance
                     </h4>
 
-                    {/* CGPA Lock Status Banner */}
                     {cgpaLocked && profile?.registration_status === 'approved' && (
                       <div className="mb-4 flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
                         <Lock size={16} className="text-amber-600 flex-shrink-0" />
@@ -474,7 +557,6 @@ export default function StudentProfile() {
                       ))}
                     </div>
 
-                    {/* Programme CGPA (Auto-calculated, Read-only) */}
                     <div className="mt-6 bg-gradient-to-r from-blue-500 to-indigo-600 p-5 rounded-2xl shadow-lg">
                       <label className="text-sm font-bold text-white/90 mb-2 block">Programme CGPA (Average of filled semesters)</label>
                       <p className="text-white font-bold text-3xl">{profile?.programme_cgpa || 'Not calculated'}</p>
@@ -495,59 +577,20 @@ export default function StudentProfile() {
                       {editMode ? (
                         <>
                           <div className="flex items-center bg-white rounded-xl p-4 border border-green-100">
-                            <input
-                              id="has_driving_license"
-                              type="checkbox"
-                              name="has_driving_license"
-                              checked={formData.has_driving_license}
-                              onChange={handleChange}
-                              className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                            />
-                            <label htmlFor="has_driving_license" className="ml-3 text-base font-bold text-gray-800">
-                              I have a valid Driving License
-                            </label>
+                            <input id="has_driving_license" type="checkbox" name="has_driving_license" checked={formData.has_driving_license} onChange={handleChange} className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" />
+                            <label htmlFor="has_driving_license" className="ml-3 text-base font-bold text-gray-800">I have a valid Driving License</label>
                           </div>
-
                           <div className="flex items-center bg-white rounded-xl p-4 border border-green-100">
-                            <input
-                              id="has_pan_card"
-                              type="checkbox"
-                              name="has_pan_card"
-                              checked={formData.has_pan_card}
-                              onChange={handleChange}
-                              className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                            />
-                            <label htmlFor="has_pan_card" className="ml-3 text-base font-bold text-gray-800">
-                              I have a PAN Card
-                            </label>
+                            <input id="has_pan_card" type="checkbox" name="has_pan_card" checked={formData.has_pan_card} onChange={handleChange} className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" />
+                            <label htmlFor="has_pan_card" className="ml-3 text-base font-bold text-gray-800">I have a PAN Card</label>
                           </div>
-
                           <div className="flex items-center bg-white rounded-xl p-4 border border-green-100">
-                            <input
-                              id="has_aadhar_card"
-                              type="checkbox"
-                              name="has_aadhar_card"
-                              checked={formData.has_aadhar_card}
-                              onChange={handleChange}
-                              className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                            />
-                            <label htmlFor="has_aadhar_card" className="ml-3 text-base font-bold text-gray-800">
-                              I have an Aadhar Card
-                            </label>
+                            <input id="has_aadhar_card" type="checkbox" name="has_aadhar_card" checked={formData.has_aadhar_card} onChange={handleChange} className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" />
+                            <label htmlFor="has_aadhar_card" className="ml-3 text-base font-bold text-gray-800">I have an Aadhar Card</label>
                           </div>
-
                           <div className="flex items-center bg-white rounded-xl p-4 border border-green-100">
-                            <input
-                              id="has_passport"
-                              type="checkbox"
-                              name="has_passport"
-                              checked={formData.has_passport}
-                              onChange={handleChange}
-                              className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                            />
-                            <label htmlFor="has_passport" className="ml-3 text-base font-bold text-gray-800">
-                              I have a Passport
-                            </label>
+                            <input id="has_passport" type="checkbox" name="has_passport" checked={formData.has_passport} onChange={handleChange} className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" />
+                            <label htmlFor="has_passport" className="ml-3 text-base font-bold text-gray-800">I have a Passport</label>
                           </div>
                         </>
                       ) : (
@@ -590,7 +633,6 @@ export default function StudentProfile() {
                       Backlogs
                     </h4>
 
-                    {/* Backlog Lock Status Banner */}
                     {backlogLocked && profile?.registration_status === 'approved' && (
                       <div className="mb-4 flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
                         <Lock size={16} className="text-amber-600 flex-shrink-0" />
@@ -633,7 +675,6 @@ export default function StudentProfile() {
                       ))}
                     </div>
 
-                    {/* Total Backlogs */}
                     <div className="mt-4 flex items-center gap-3 bg-white rounded-xl p-4 border border-orange-200">
                       <span className="text-sm font-bold text-gray-700">Total Backlogs:</span>
                       <span className={`text-2xl font-bold ${
@@ -647,7 +688,6 @@ export default function StudentProfile() {
                       </span>
                     </div>
 
-                    {/* Backlog Details */}
                     <div className="mt-4">
                       <label className="block text-sm font-bold text-gray-700 mb-2">Backlog Details</label>
                       {editMode && !(backlogLocked && profile?.registration_status === 'approved') ? (
@@ -685,9 +725,11 @@ export default function StudentProfile() {
                 </div>
               </form>
             </GlassCard>
+          </motion.div>
 
-            {/* Extended Profile Summary Card */}
-            {!extendedProfileLoading && extendedProfile?.profile && (
+          {/* Extended Profile Summary Card */}
+          {!extendedProfileLoading && extendedProfile?.profile && (
+            <motion.div variants={fadeUp} initial="hidden" animate="visible" transition={{ duration: 0.4, delay: 0.2 }}>
               <GlassCard className="p-8">
                 <div className="flex justify-between items-center mb-8">
                   <div>
@@ -696,13 +738,15 @@ export default function StudentProfile() {
                     </h2>
                     <p className="text-gray-600 mt-2 font-medium">Additional information for job applications</p>
                   </div>
-                  <Link
-                    to="/student/extended-profile"
-                    className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 transform hover:scale-105 active:scale-95 flex items-center space-x-2"
-                  >
-                    <Edit size={18} />
-                    <span>Edit Extended Profile</span>
-                  </Link>
+                  <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                    <Link
+                      to="/student/extended-profile"
+                      className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 flex items-center space-x-2"
+                    >
+                      <Edit size={18} />
+                      <span>Edit Extended Profile</span>
+                    </Link>
+                  </motion.div>
                 </div>
 
                 {/* Profile Completion Bar */}
@@ -722,7 +766,6 @@ export default function StudentProfile() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Academic Extended */}
                   {(extendedProfile.profile.sslc_marks || extendedProfile.profile.twelfth_marks) && (
                     <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-5 rounded-2xl border-2 border-blue-100">
                       <div className="flex items-center mb-4">
@@ -748,7 +791,6 @@ export default function StudentProfile() {
                     </div>
                   )}
 
-                  {/* Family Details */}
                   {(extendedProfile.profile.father_name || extendedProfile.profile.mother_name) && (
                     <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-5 rounded-2xl border-2 border-green-100">
                       <div className="flex items-center mb-4">
@@ -780,7 +822,6 @@ export default function StudentProfile() {
                     </div>
                   )}
 
-                  {/* Documents */}
                   {(extendedProfile.profile.has_driving_license || extendedProfile.profile.has_pan_card || extendedProfile.profile.has_aadhar_card || extendedProfile.profile.has_passport) && (
                     <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-5 rounded-2xl border-2 border-purple-100">
                       <div className="flex items-center mb-4">
@@ -818,7 +859,6 @@ export default function StudentProfile() {
                     </div>
                   )}
 
-                  {/* Personal Details */}
                   {(extendedProfile.profile.district || extendedProfile.profile.interests_hobbies) && (
                     <div className="bg-gradient-to-br from-orange-50 to-yellow-50 p-5 rounded-2xl border-2 border-orange-100">
                       <div className="flex items-center mb-4">
@@ -845,11 +885,13 @@ export default function StudentProfile() {
                   )}
                 </div>
               </GlassCard>
-            )}
-          </div>
+            </motion.div>
+          )}
+        </div>
 
-          {/* Security & Info Card */}
-          <div className="space-y-6">
+        {/* Security & Info Card */}
+        <div className="space-y-6">
+          <motion.div variants={fadeUp} initial="hidden" animate="visible" transition={{ duration: 0.4, delay: 0.3 }}>
             <GlassCard className="p-6">
               <div className="flex items-center gap-3 mb-6">
                 <div className="bg-gradient-to-br from-red-500 to-pink-600 rounded-xl p-3">
@@ -873,17 +915,21 @@ export default function StudentProfile() {
                     </div>
                   </div>
                 </div>
-                <button
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                   onClick={() => setShowChangePassword(true)}
-                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold px-6 py-4 rounded-xl shadow-lg hover:shadow-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 transform hover:scale-105 active:scale-95 flex items-center justify-center space-x-2"
+                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold px-6 py-4 rounded-xl shadow-lg hover:shadow-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 flex items-center justify-center space-x-2"
                 >
                   <Lock size={20} />
                   <span>Change Password</span>
-                </button>
+                </motion.button>
               </div>
             </GlassCard>
+          </motion.div>
 
-            {/* Account Info */}
+          {/* Account Info */}
+          <motion.div variants={fadeUp} initial="hidden" animate="visible" transition={{ duration: 0.4, delay: 0.4 }}>
             <GlassCard className="p-6">
               <div className="flex items-center gap-3 mb-6">
                 <div className="bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl p-3">
@@ -930,34 +976,41 @@ export default function StudentProfile() {
                 </div>
               </div>
             </GlassCard>
+          </motion.div>
 
-            {/* Status Info */}
-            {profile?.registration_status === 'pending' && (
+          {/* Status Info */}
+          {profile?.registration_status === 'pending' && (
+            <motion.div variants={fadeUp} initial="hidden" animate="visible" transition={{ duration: 0.4, delay: 0.5 }}>
               <GlassCard className="p-6 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border-yellow-300">
                 <h3 className="font-bold text-yellow-900 text-xl mb-2">Pending Approval</h3>
                 <p className="text-yellow-800 font-medium">
                   Your registration is under review by your placement officer. You will receive access to job postings once approved.
                 </p>
               </GlassCard>
-            )}
-            {profile?.registration_status === 'rejected' && (
+            </motion.div>
+          )}
+          {profile?.registration_status === 'rejected' && (
+            <motion.div variants={fadeUp} initial="hidden" animate="visible" transition={{ duration: 0.4, delay: 0.5 }}>
               <GlassCard className="p-6 bg-gradient-to-r from-red-500/20 to-pink-500/20 border-red-300">
                 <h3 className="font-bold text-red-900 text-xl mb-2">Registration Rejected</h3>
                 <p className="text-red-800 font-medium">
                   Please contact your placement officer for more information.
                 </p>
               </GlassCard>
-            )}
-            {profile?.registration_status === 'blacklisted' && (
+            </motion.div>
+          )}
+          {profile?.registration_status === 'blacklisted' && (
+            <motion.div variants={fadeUp} initial="hidden" animate="visible" transition={{ duration: 0.4, delay: 0.5 }}>
               <GlassCard className="p-6 bg-gradient-to-r from-gray-700/20 to-gray-900/20 border-gray-600">
                 <h3 className="font-bold text-gray-900 text-xl mb-2">Account Blacklisted</h3>
                 <p className="text-gray-800 font-medium">
                   Your account has been restricted. Contact your placement officer for details.
                 </p>
               </GlassCard>
-            )}
-          </div>
+            </motion.div>
+          )}
         </div>
+      </div>
 
       {/* Change Password Modal */}
       {showChangePassword && (

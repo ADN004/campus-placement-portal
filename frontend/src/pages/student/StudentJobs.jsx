@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { studentAPI } from '../../services/api';
+import { motion } from 'framer-motion';
 import {
   Briefcase,
   MapPin,
@@ -13,7 +14,6 @@ import {
   Filter,
   Search,
 } from 'lucide-react';
-import LoadingSpinner from '../../components/LoadingSpinner';
 import SmartApplicationModal from '../../components/SmartApplicationModal';
 import toast from 'react-hot-toast';
 import DashboardHeader from '../../components/DashboardHeader';
@@ -21,12 +21,81 @@ import GlassCard from '../../components/GlassCard';
 import GlassButton from '../../components/GlassButton';
 import GradientOrb from '../../components/GradientOrb';
 
+// Skeleton for jobs page loading state
+function JobsSkeleton() {
+  return (
+    <div className="min-h-screen">
+      {/* Header skeleton */}
+      <div className="mb-8">
+        <div className="h-10 w-48 bg-gray-200/70 rounded-xl animate-pulse mb-2" />
+        <div className="h-5 w-72 bg-gray-200/50 rounded-lg animate-pulse" />
+      </div>
+
+      {/* Search bar skeleton */}
+      <div className="mb-5">
+        <div className="bg-white/60 backdrop-blur-sm rounded-2xl border border-gray-200/50 h-14 animate-pulse" />
+      </div>
+
+      {/* Filter bar skeleton */}
+      <div className="mb-8">
+        <div className="bg-white/60 backdrop-blur-sm rounded-2xl border border-gray-200/50 p-5">
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="h-10 w-10 bg-gray-200/70 rounded-lg animate-pulse" />
+            <div className="h-5 w-20 bg-gray-200/70 rounded-lg animate-pulse" />
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="h-10 w-28 bg-gray-200/70 rounded-xl animate-pulse" />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Job cards grid skeleton */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {[...Array(6)].map((_, i) => (
+          <div key={i} className="bg-white/60 backdrop-blur-sm rounded-2xl p-6 border border-gray-200/50">
+            {/* Badges */}
+            <div className="flex gap-2 mb-5">
+              <div className="h-6 w-16 bg-gray-200/70 rounded-lg animate-pulse" />
+              <div className="h-6 w-20 bg-green-100/70 rounded-lg animate-pulse" />
+            </div>
+            {/* Company info */}
+            <div className="flex items-start gap-3 mb-5">
+              <div className="h-12 w-12 bg-gray-200/70 rounded-xl animate-pulse" />
+              <div className="flex-1">
+                <div className="h-5 w-32 bg-gray-200/70 rounded-lg animate-pulse mb-2" />
+                <div className="h-4 w-24 bg-gray-200/50 rounded animate-pulse" />
+              </div>
+            </div>
+            {/* Details */}
+            <div className="space-y-3 mb-5">
+              <div className="h-10 w-full bg-gray-100/70 rounded-xl animate-pulse" />
+              <div className="h-10 w-full bg-green-50/70 rounded-xl animate-pulse" />
+              <div className="h-10 w-full bg-orange-50/70 rounded-xl animate-pulse" />
+            </div>
+            {/* Actions */}
+            <div className="flex gap-3 pt-4 border-t-2 border-gray-100">
+              <div className="h-10 flex-1 bg-gray-200/70 rounded-xl animate-pulse" />
+              <div className="h-10 flex-1 bg-blue-100/70 rounded-xl animate-pulse" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0 },
+};
+
 export default function StudentJobs() {
   const [jobs, setJobs] = useState([]);
   const [filteredJobs, setFilteredJobs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showSkeleton, setShowSkeleton] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterEligibility, setFilterEligibility] = useState('all'); // 'all', 'eligible', 'not-eligible', 'missed'
+  const [filterEligibility, setFilterEligibility] = useState('all');
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showApplicationModal, setShowApplicationModal] = useState(false);
   const [selectedJob, setSelectedJob] = useState(null);
@@ -39,6 +108,18 @@ export default function StudentJobs() {
   useEffect(() => {
     filterJobsData();
   }, [searchQuery, filterEligibility, jobs]);
+
+  // Skeleton loading gate
+  useEffect(() => {
+    const timer = setTimeout(() => setShowSkeleton(false), 900);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Lock scroll during skeleton
+  useEffect(() => {
+    document.body.style.overflow = showSkeleton ? 'hidden' : 'auto';
+    return () => { document.body.style.overflow = 'auto'; };
+  }, [showSkeleton]);
 
   const fetchJobs = async () => {
     try {
@@ -68,20 +149,16 @@ export default function StudentJobs() {
   const filterJobsData = () => {
     let filtered = jobs;
 
-    // Filter by deadline and eligibility
     if (filterEligibility === 'all') {
-      // Show only available jobs (not deadline passed and not already applied)
       filtered = filtered.filter((job) => !job.deadline_passed || job.has_applied);
     } else if (filterEligibility === 'eligible') {
       filtered = filtered.filter((job) => job.is_eligible && (!job.deadline_passed || job.has_applied));
     } else if (filterEligibility === 'not-eligible') {
       filtered = filtered.filter((job) => !job.is_eligible && (!job.deadline_passed || job.has_applied));
     } else if (filterEligibility === 'missed') {
-      // Show only deadline-passed jobs that student hasn't applied to
       filtered = filtered.filter((job) => job.deadline_passed && !job.has_applied);
     }
 
-    // Filter by search query
     if (searchQuery) {
       filtered = filtered.filter(
         (job) =>
@@ -112,13 +189,12 @@ export default function StudentJobs() {
       toast.error('This job is no longer active');
       return;
     }
-    // Note: We no longer check is_eligible here - the smart modal will handle it
     setSelectedJob(job);
     setShowApplicationModal(true);
   };
 
   const handleApplicationSuccess = () => {
-    fetchJobs(); // Refresh to update applied status
+    fetchJobs();
   };
 
   const formatDate = (dateString) => {
@@ -130,12 +206,7 @@ export default function StudentJobs() {
     });
   };
 
-  const isDeadlinePassed = (deadline) => {
-    if (!deadline) return false;
-    return new Date(deadline) < new Date();
-  };
-
-  if (loading) return <LoadingSpinner />;
+  if (loading || showSkeleton) return <JobsSkeleton />;
 
   if (error) {
     return (
@@ -144,33 +215,35 @@ export default function StudentJobs() {
         <GradientOrb color="indigo" position="bottom-left" delay="2s" />
         <GradientOrb color="purple" position="center" delay="4s" />
 
-        <div className="mb-8">
+        <motion.div className="mb-8" variants={fadeUp} initial="hidden" animate="visible" transition={{ duration: 0.4 }}>
           <DashboardHeader
             icon={Briefcase}
             title="Available Jobs"
             subtitle="Browse and apply to job opportunities"
           />
-        </div>
+        </motion.div>
 
-        <GlassCard className="p-16 text-center">
-          <div className={`rounded-2xl p-6 inline-block mb-6 ${
-            error.type === 'pending'
-              ? 'bg-gradient-to-br from-yellow-500 to-orange-600'
-              : 'bg-gradient-to-br from-red-500 to-pink-600'
-          }`}>
-            <Briefcase className="text-white" size={64} />
-          </div>
-          <h3 className="text-2xl font-bold text-gray-900 mb-3">{error.title}</h3>
-          <p className="text-gray-600 text-lg mb-6">{error.message}</p>
-          {error.type === 'pending' && (
-            <div className="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-6 max-w-2xl mx-auto">
-              <p className="text-yellow-900 font-semibold">
-                Please wait for your placement officer to approve your registration.
-                You'll be able to view and apply for jobs once approved.
-              </p>
+        <motion.div variants={fadeUp} initial="hidden" animate="visible" transition={{ duration: 0.4, delay: 0.1 }}>
+          <GlassCard className="p-16 text-center">
+            <div className={`rounded-2xl p-6 inline-block mb-6 ${
+              error.type === 'pending'
+                ? 'bg-gradient-to-br from-yellow-500 to-orange-600'
+                : 'bg-gradient-to-br from-red-500 to-pink-600'
+            }`}>
+              <Briefcase className="text-white" size={64} />
             </div>
-          )}
-        </GlassCard>
+            <h3 className="text-2xl font-bold text-gray-900 mb-3">{error.title}</h3>
+            <p className="text-gray-600 text-lg mb-6">{error.message}</p>
+            {error.type === 'pending' && (
+              <div className="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-6 max-w-2xl mx-auto">
+                <p className="text-yellow-900 font-semibold">
+                  Please wait for your placement officer to approve your registration.
+                  You'll be able to view and apply for jobs once approved.
+                </p>
+              </div>
+            )}
+          </GlassCard>
+        </motion.div>
       </div>
     );
   }
@@ -182,107 +255,122 @@ export default function StudentJobs() {
       <GradientOrb color="purple" position="center" delay="4s" />
 
       {/* Header */}
-      <div className="mb-8">
+      <motion.div className="mb-8" variants={fadeUp} initial="hidden" animate="visible" transition={{ duration: 0.4, delay: 0 }}>
         <DashboardHeader
           icon={Briefcase}
           title="Available Jobs"
           subtitle="Browse and apply to job opportunities"
         />
-      </div>
+      </motion.div>
 
       {/* Filters */}
       <div className="mb-8 space-y-5">
         {/* Search Bar */}
-        <GlassCard className="p-0 overflow-hidden">
-          <div className="relative">
-            <div className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg p-2">
-              <Search className="text-white" size={20} />
+        <motion.div variants={fadeUp} initial="hidden" animate="visible" transition={{ duration: 0.4, delay: 0.1 }}>
+          <GlassCard className="p-0 overflow-hidden">
+            <div className="relative">
+              <div className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg p-2">
+                <Search className="text-white" size={20} />
+              </div>
+              <input
+                type="text"
+                placeholder="Search by company, title, or location..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-16 pr-6 py-4 bg-transparent border-none outline-none focus:ring-0 font-medium text-lg"
+              />
             </div>
-            <input
-              type="text"
-              placeholder="Search by company, title, or location..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-16 pr-6 py-4 bg-transparent border-none outline-none focus:ring-0 font-medium text-lg"
-            />
-          </div>
-        </GlassCard>
+          </GlassCard>
+        </motion.div>
 
         {/* Eligibility Filters */}
-        <GlassCard className="p-5">
-          <div className="flex items-center gap-4 flex-wrap">
-            <div className="flex items-center gap-2">
-              <div className="bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg p-2">
-                <Filter size={20} className="text-white" />
+        <motion.div variants={fadeUp} initial="hidden" animate="visible" transition={{ duration: 0.4, delay: 0.2 }}>
+          <GlassCard className="p-5">
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="flex items-center gap-2">
+                <div className="bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg p-2">
+                  <Filter size={20} className="text-white" />
+                </div>
+                <span className="font-bold text-gray-800">Filter by:</span>
               </div>
-              <span className="font-bold text-gray-800">Filter by:</span>
+              <button
+                onClick={() => setFilterEligibility('all')}
+                className={`px-6 py-3 rounded-xl font-bold text-sm transition-all transform hover:scale-105 active:scale-95 ${
+                  filterEligibility === 'all'
+                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-2 border-gray-300'
+                }`}
+              >
+                All Jobs ({jobs.filter((j) => !j.deadline_passed || j.has_applied).length})
+              </button>
+              <button
+                onClick={() => setFilterEligibility('eligible')}
+                className={`px-6 py-3 rounded-xl font-bold text-sm transition-all transform hover:scale-105 active:scale-95 ${
+                  filterEligibility === 'eligible'
+                    ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-lg'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-2 border-gray-300'
+                }`}
+              >
+                Eligible ({jobs.filter((j) => j.is_eligible && (!j.deadline_passed || j.has_applied)).length})
+              </button>
+              <button
+                onClick={() => setFilterEligibility('not-eligible')}
+                className={`px-6 py-3 rounded-xl font-bold text-sm transition-all transform hover:scale-105 active:scale-95 ${
+                  filterEligibility === 'not-eligible'
+                    ? 'bg-gradient-to-r from-yellow-600 to-orange-600 text-white shadow-lg'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-2 border-gray-300'
+                }`}
+              >
+                Check Eligibility ({jobs.filter((j) => !j.is_eligible && (!j.deadline_passed || j.has_applied)).length})
+              </button>
+              <button
+                onClick={() => setFilterEligibility('missed')}
+                className={`px-6 py-3 rounded-xl font-bold text-sm transition-all transform hover:scale-105 active:scale-95 ${
+                  filterEligibility === 'missed'
+                    ? 'bg-gradient-to-r from-orange-600 to-red-600 text-white shadow-lg'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-2 border-gray-300'
+                }`}
+              >
+                Missed Opportunities ({jobs.filter((j) => j.deadline_passed && !j.has_applied).length})
+              </button>
             </div>
-            <button
-              onClick={() => setFilterEligibility('all')}
-              className={`px-6 py-3 rounded-xl font-bold text-sm transition-all transform hover:scale-105 active:scale-95 ${
-                filterEligibility === 'all'
-                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-2 border-gray-300'
-              }`}
-            >
-              All Jobs ({jobs.filter((j) => !j.deadline_passed || j.has_applied).length})
-            </button>
-            <button
-              onClick={() => setFilterEligibility('eligible')}
-              className={`px-6 py-3 rounded-xl font-bold text-sm transition-all transform hover:scale-105 active:scale-95 ${
-                filterEligibility === 'eligible'
-                  ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-lg'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-2 border-gray-300'
-              }`}
-            >
-              Eligible ({jobs.filter((j) => j.is_eligible && (!j.deadline_passed || j.has_applied)).length})
-            </button>
-            <button
-              onClick={() => setFilterEligibility('not-eligible')}
-              className={`px-6 py-3 rounded-xl font-bold text-sm transition-all transform hover:scale-105 active:scale-95 ${
-                filterEligibility === 'not-eligible'
-                  ? 'bg-gradient-to-r from-yellow-600 to-orange-600 text-white shadow-lg'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-2 border-gray-300'
-              }`}
-            >
-              Check Eligibility ({jobs.filter((j) => !j.is_eligible && (!j.deadline_passed || j.has_applied)).length})
-            </button>
-            <button
-              onClick={() => setFilterEligibility('missed')}
-              className={`px-6 py-3 rounded-xl font-bold text-sm transition-all transform hover:scale-105 active:scale-95 ${
-                filterEligibility === 'missed'
-                  ? 'bg-gradient-to-r from-orange-600 to-red-600 text-white shadow-lg'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-2 border-gray-300'
-              }`}
-            >
-              Missed Opportunities ({jobs.filter((j) => j.deadline_passed && !j.has_applied).length})
-            </button>
-          </div>
-        </GlassCard>
+          </GlassCard>
+        </motion.div>
       </div>
 
       {/* Jobs Grid */}
       {filteredJobs.length === 0 ? (
-        <GlassCard className="p-16 text-center">
-          <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-6 inline-block mb-6">
-            <Briefcase className="text-white" size={64} />
-          </div>
-          <p className="text-gray-700 text-xl font-bold">
-            {searchQuery || filterEligibility !== 'all'
-              ? 'No jobs found matching your filters'
-              : 'No jobs available at the moment'}
-          </p>
-          <p className="text-gray-600 mt-2">Check back later for new opportunities</p>
-        </GlassCard>
+        <motion.div variants={fadeUp} initial="hidden" animate="visible" transition={{ duration: 0.4, delay: 0.3 }}>
+          <GlassCard className="p-16 text-center">
+            <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-6 inline-block mb-6">
+              <Briefcase className="text-white" size={64} />
+            </div>
+            <p className="text-gray-700 text-xl font-bold">
+              {searchQuery || filterEligibility !== 'all'
+                ? 'No jobs found matching your filters'
+                : 'No jobs available at the moment'}
+            </p>
+            <p className="text-gray-600 mt-2">Check back later for new opportunities</p>
+          </GlassCard>
+        </motion.div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredJobs.map((job) => (
-            <JobCard
+          {filteredJobs.map((job, index) => (
+            <motion.div
               key={job.id}
-              job={job}
-              onViewDetails={handleViewDetails}
-              onApply={handleApplyClick}
-            />
+              variants={fadeUp}
+              initial="hidden"
+              animate="visible"
+              transition={{ duration: 0.4, delay: 0.3 + Math.min(index, 8) * 0.05 }}
+              whileHover={{ y: -4 }}
+              style={{ willChange: 'transform' }}
+            >
+              <JobCard
+                job={job}
+                onViewDetails={handleViewDetails}
+                onApply={handleApplyClick}
+              />
+            </motion.div>
           ))}
         </div>
       )}
@@ -336,7 +424,7 @@ function JobCard({ job, onViewDetails, onApply }) {
   const deadlinePassed = isDeadlinePassed(job.application_deadline);
 
   return (
-    <GlassCard className="group relative p-6 hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
+    <GlassCard className="group relative p-6 hover:shadow-2xl transition-all duration-300">
       <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-30 transition-opacity duration-500 blur-xl"></div>
 
       <div className="relative z-10">
@@ -400,28 +488,32 @@ function JobCard({ job, onViewDetails, onApply }) {
 
         {/* Actions */}
         <div className="flex space-x-3 pt-4 border-t-2 border-gray-100">
-          <GlassButton
-            variant="secondary"
-            onClick={() => onViewDetails(job)}
-            className="flex-1 flex items-center justify-center space-x-2"
-          >
-            <Eye size={18} />
-            <span>Details</span>
-          </GlassButton>
-          <GlassButton
-            variant="primary"
-            onClick={() => onApply(job)}
-            disabled={job.has_applied || deadlinePassed || !job.is_active}
-            className="flex-1"
-          >
-            {job.has_applied
-              ? 'Applied'
-              : deadlinePassed
-              ? 'Deadline Passed'
-              : !job.is_active
-              ? 'Inactive'
-              : 'Apply'}
-          </GlassButton>
+          <motion.div className="flex-1" whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+            <GlassButton
+              variant="secondary"
+              onClick={() => onViewDetails(job)}
+              className="w-full flex items-center justify-center space-x-2"
+            >
+              <Eye size={18} />
+              <span>Details</span>
+            </GlassButton>
+          </motion.div>
+          <motion.div className="flex-1" whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+            <GlassButton
+              variant="primary"
+              onClick={() => onApply(job)}
+              disabled={job.has_applied || deadlinePassed || !job.is_active}
+              className="w-full"
+            >
+              {job.has_applied
+                ? 'Applied'
+                : deadlinePassed
+                ? 'Deadline Passed'
+                : !job.is_active
+                ? 'Inactive'
+                : 'Apply'}
+            </GlassButton>
+          </motion.div>
         </div>
       </div>
     </GlassCard>

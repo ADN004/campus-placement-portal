@@ -1,17 +1,77 @@
 import { useEffect, useState } from 'react';
 import { studentAPI } from '../../services/api';
+import { motion } from 'framer-motion';
 import { Bell, Eye, Trash2, CheckCheck, Filter, Search, ArrowRight, Calendar, User, CheckCircle } from 'lucide-react';
-import LoadingSpinner from '../../components/LoadingSpinner';
 import toast from 'react-hot-toast';
 import DashboardHeader from '../../components/DashboardHeader';
 import GlassCard from '../../components/GlassCard';
 import GlassButton from '../../components/GlassButton';
 import GradientOrb from '../../components/GradientOrb';
 
+// Skeleton for notifications page
+function NotificationsSkeleton() {
+  return (
+    <div className="min-h-screen">
+      {/* Header skeleton */}
+      <div className="mb-8 flex justify-between items-start">
+        <div>
+          <div className="h-10 w-44 bg-gray-200/70 rounded-xl animate-pulse mb-2" />
+          <div className="h-5 w-80 bg-gray-200/50 rounded-lg animate-pulse" />
+        </div>
+        <div className="h-10 w-44 bg-blue-100/70 rounded-xl animate-pulse" />
+      </div>
+
+      {/* Filter skeleton */}
+      <div className="mb-5">
+        <div className="bg-white/60 backdrop-blur-sm rounded-2xl border border-gray-200/50 p-5">
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="h-10 w-10 bg-gray-200/70 rounded-xl animate-pulse" />
+            <div className="h-5 w-20 bg-gray-200/70 rounded-lg animate-pulse" />
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="h-10 w-36 bg-gray-200/70 rounded-xl animate-pulse" />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Search skeleton */}
+      <div className="mb-8">
+        <div className="bg-white/60 backdrop-blur-sm rounded-2xl border border-gray-200/50 h-14 animate-pulse" />
+      </div>
+
+      {/* Notification cards skeleton */}
+      <div className="space-y-4">
+        {[...Array(5)].map((_, i) => (
+          <div key={i} className="bg-white/60 backdrop-blur-sm rounded-2xl p-6 border border-gray-200/50">
+            <div className="flex items-start justify-between">
+              <div className="flex items-start gap-4 flex-1">
+                <div className="h-12 w-12 bg-gray-200/70 rounded-xl animate-pulse" />
+                <div className="flex-1">
+                  <div className="h-6 w-48 bg-gray-200/70 rounded-lg animate-pulse mb-3" />
+                  <div className="h-4 w-full bg-gray-200/50 rounded animate-pulse mb-2" />
+                  <div className="h-4 w-3/4 bg-gray-200/50 rounded animate-pulse mb-3" />
+                  <div className="h-3 w-24 bg-gray-200/50 rounded animate-pulse" />
+                </div>
+              </div>
+              <div className="h-9 w-20 bg-red-100/70 rounded-xl animate-pulse" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0 },
+};
+
 export default function StudentNotifications() {
   const [notifications, setNotifications] = useState([]);
   const [filteredNotifications, setFilteredNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showSkeleton, setShowSkeleton] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [readFilter, setReadFilter] = useState('all');
   const [unreadCount, setUnreadCount] = useState(0);
@@ -26,6 +86,18 @@ export default function StudentNotifications() {
   useEffect(() => {
     filterNotifications();
   }, [searchQuery, readFilter, notifications]);
+
+  // Skeleton loading gate
+  useEffect(() => {
+    const timer = setTimeout(() => setShowSkeleton(false), 900);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Lock scroll during skeleton
+  useEffect(() => {
+    document.body.style.overflow = showSkeleton ? 'hidden' : 'auto';
+    return () => { document.body.style.overflow = 'auto'; };
+  }, [showSkeleton]);
 
   const fetchNotifications = async () => {
     try {
@@ -83,7 +155,6 @@ export default function StudentNotifications() {
     setSelectedNotification(notification);
     setShowDetailView(true);
 
-    // Mark as read if not already read
     if (!notification.is_read) {
       handleMarkAsRead(notification.id);
     }
@@ -115,7 +186,6 @@ export default function StudentNotifications() {
   const handleDelete = async (notificationId) => {
     if (!window.confirm('Are you sure you want to delete this notification?')) return;
     try {
-      // Since deleteNotification API might not exist, we'll just filter it out locally
       setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
       toast.success('Notification deleted');
     } catch (error) {
@@ -145,7 +215,7 @@ export default function StudentNotifications() {
     });
   };
 
-  if (loading) return <LoadingSpinner />;
+  if (loading || showSkeleton) return <NotificationsSkeleton />;
 
   if (error) {
     return (
@@ -154,28 +224,32 @@ export default function StudentNotifications() {
         <GradientOrb color="indigo" position="bottom-left" delay="2s" />
         <GradientOrb color="purple" position="center" delay="4s" />
 
-        <div className="mb-8">
+        <motion.div className="mb-8" variants={fadeUp} initial="hidden" animate="visible" transition={{ duration: 0.4 }}>
           <DashboardHeader
             icon={Bell}
             title="Notifications"
             subtitle="Stay updated with important announcements and updates"
           />
-        </div>
+        </motion.div>
 
-        <GlassCard className="p-16 text-center">
-          <div className="bg-gradient-to-br from-red-500 to-pink-600 rounded-2xl p-6 inline-block mb-6">
-            <Bell className="text-white" size={64} />
-          </div>
-          <h3 className="text-2xl font-bold text-gray-900 mb-3">{error.title}</h3>
-          <p className="text-gray-600 text-lg mb-6">{error.message}</p>
-          <GlassButton
-            variant="primary"
-            onClick={fetchNotifications}
-            className="inline-flex items-center space-x-2"
-          >
-            <span>Try Again</span>
-          </GlassButton>
-        </GlassCard>
+        <motion.div variants={fadeUp} initial="hidden" animate="visible" transition={{ duration: 0.4, delay: 0.1 }}>
+          <GlassCard className="p-16 text-center">
+            <div className="bg-gradient-to-br from-red-500 to-pink-600 rounded-2xl p-6 inline-block mb-6">
+              <Bell className="text-white" size={64} />
+            </div>
+            <h3 className="text-2xl font-bold text-gray-900 mb-3">{error.title}</h3>
+            <p className="text-gray-600 text-lg mb-6">{error.message}</p>
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="inline-block">
+              <GlassButton
+                variant="primary"
+                onClick={fetchNotifications}
+                className="inline-flex items-center space-x-2"
+              >
+                <span>Try Again</span>
+              </GlassButton>
+            </motion.div>
+          </GlassCard>
+        </motion.div>
       </div>
     );
   }
@@ -187,127 +261,151 @@ export default function StudentNotifications() {
       <GradientOrb color="purple" position="center" delay="4s" />
 
       {/* Header */}
-      <div className="mb-8 flex justify-between items-start">
+      <motion.div
+        className="mb-8 flex justify-between items-start"
+        variants={fadeUp}
+        initial="hidden"
+        animate="visible"
+        transition={{ duration: 0.4, delay: 0 }}
+      >
         <DashboardHeader
           icon={Bell}
           title="Notifications"
           subtitle="Stay updated with important announcements and updates"
           />
         {unreadCount > 0 && (
-          <GlassButton
-            variant="primary"
-            onClick={handleMarkAllAsRead}
-            className="flex items-center space-x-2"
-          >
-            <CheckCheck size={20} />
-            <span>Mark All as Read ({unreadCount})</span>
-          </GlassButton>
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+            <GlassButton
+              variant="primary"
+              onClick={handleMarkAllAsRead}
+              className="flex items-center space-x-2"
+            >
+              <CheckCheck size={20} />
+              <span>Mark All as Read ({unreadCount})</span>
+            </GlassButton>
+          </motion.div>
         )}
-      </div>
+      </motion.div>
 
       {/* Filters */}
       <div className="mb-8 space-y-5">
         {/* Read Status Filters */}
-        <GlassCard className="p-5">
-          <div className="flex items-center gap-4 flex-wrap">
-            <div className="flex items-center gap-2">
-              <div className="bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl p-2">
-                <Filter size={20} className="text-white" />
+        <motion.div variants={fadeUp} initial="hidden" animate="visible" transition={{ duration: 0.4, delay: 0.1 }}>
+          <GlassCard className="p-5">
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="flex items-center gap-2">
+                <div className="bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl p-2">
+                  <Filter size={20} className="text-white" />
+                </div>
+                <span className="font-bold text-gray-800">Filter by:</span>
               </div>
-              <span className="font-bold text-gray-800">Filter by:</span>
+              <button
+                onClick={() => setReadFilter('all')}
+                className={`px-6 py-3 rounded-xl font-bold text-sm transition-all transform hover:scale-105 active:scale-95 ${
+                  readFilter === 'all'
+                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-2 border-gray-300'
+                }`}
+              >
+                All Notifications
+                <span className={`ml-2 px-2.5 py-0.5 text-xs rounded-full ${readFilter === 'all' ? 'bg-white/20' : 'bg-blue-100 text-blue-800'}`}>
+                  {notifications.length}
+                </span>
+              </button>
+              <button
+                onClick={() => setReadFilter('unread')}
+                className={`px-6 py-3 rounded-xl font-bold text-sm transition-all transform hover:scale-105 active:scale-95 ${
+                  readFilter === 'unread'
+                    ? 'bg-gradient-to-r from-orange-600 to-red-600 text-white shadow-lg'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-2 border-gray-300'
+                }`}
+              >
+                Unread
+                <span className={`ml-2 px-2.5 py-0.5 text-xs rounded-full ${readFilter === 'unread' ? 'bg-white/20' : 'bg-orange-100 text-orange-800'}`}>
+                  {unreadCount}
+                </span>
+              </button>
+              <button
+                onClick={() => setReadFilter('read')}
+                className={`px-6 py-3 rounded-xl font-bold text-sm transition-all transform hover:scale-105 active:scale-95 ${
+                  readFilter === 'read'
+                    ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-lg'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-2 border-gray-300'
+                }`}
+              >
+                Read
+                <span className={`ml-2 px-2.5 py-0.5 text-xs rounded-full ${readFilter === 'read' ? 'bg-white/20' : 'bg-green-100 text-green-800'}`}>
+                  {notifications.length - unreadCount}
+                </span>
+              </button>
             </div>
-            <button
-              onClick={() => setReadFilter('all')}
-              className={`px-6 py-3 rounded-xl font-bold text-sm transition-all transform hover:scale-105 active:scale-95 ${
-                readFilter === 'all'
-                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-2 border-gray-300'
-              }`}
-            >
-              All Notifications
-              <span className={`ml-2 px-2.5 py-0.5 text-xs rounded-full ${readFilter === 'all' ? 'bg-white/20' : 'bg-blue-100 text-blue-800'}`}>
-                {notifications.length}
-              </span>
-            </button>
-            <button
-              onClick={() => setReadFilter('unread')}
-              className={`px-6 py-3 rounded-xl font-bold text-sm transition-all transform hover:scale-105 active:scale-95 ${
-                readFilter === 'unread'
-                  ? 'bg-gradient-to-r from-orange-600 to-red-600 text-white shadow-lg'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-2 border-gray-300'
-              }`}
-            >
-              Unread
-              <span className={`ml-2 px-2.5 py-0.5 text-xs rounded-full ${readFilter === 'unread' ? 'bg-white/20' : 'bg-orange-100 text-orange-800'}`}>
-                {unreadCount}
-              </span>
-            </button>
-            <button
-              onClick={() => setReadFilter('read')}
-              className={`px-6 py-3 rounded-xl font-bold text-sm transition-all transform hover:scale-105 active:scale-95 ${
-                readFilter === 'read'
-                  ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-lg'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-2 border-gray-300'
-              }`}
-            >
-              Read
-              <span className={`ml-2 px-2.5 py-0.5 text-xs rounded-full ${readFilter === 'read' ? 'bg-white/20' : 'bg-green-100 text-green-800'}`}>
-                {notifications.length - unreadCount}
-              </span>
-            </button>
-          </div>
-        </GlassCard>
+          </GlassCard>
+        </motion.div>
 
         {/* Search Bar */}
-        <GlassCard className="p-0 overflow-hidden">
-          <div className="relative">
-            <div className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl p-2">
-              <Search className="text-white" size={20} />
+        <motion.div variants={fadeUp} initial="hidden" animate="visible" transition={{ duration: 0.4, delay: 0.2 }}>
+          <GlassCard className="p-0 overflow-hidden">
+            <div className="relative">
+              <div className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl p-2">
+                <Search className="text-white" size={20} />
+              </div>
+              <input
+                type="text"
+                placeholder="Search notifications..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-16 pr-6 py-4 bg-transparent border-none outline-none focus:ring-0 font-medium text-lg"
+              />
             </div>
-            <input
-              type="text"
-              placeholder="Search notifications..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-16 pr-6 py-4 bg-transparent border-none outline-none focus:ring-0 font-medium text-lg"
-            />
-          </div>
-        </GlassCard>
+          </GlassCard>
+        </motion.div>
       </div>
 
       {/* Notifications List or Detail View */}
       {showDetailView && selectedNotification ? (
-        <NotificationDetailView
-          notification={selectedNotification}
-          onClose={handleCloseDetailView}
-          onDelete={handleDelete}
-          formatDate={formatDate}
-        />
+        <motion.div variants={fadeUp} initial="hidden" animate="visible" transition={{ duration: 0.4 }}>
+          <NotificationDetailView
+            notification={selectedNotification}
+            onClose={handleCloseDetailView}
+            onDelete={handleDelete}
+            formatDate={formatDate}
+          />
+        </motion.div>
       ) : filteredNotifications.length === 0 ? (
-        <GlassCard className="p-16 text-center">
-          <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-6 inline-block mb-6">
-            <Bell className="text-white" size={64} />
-          </div>
-          <h3 className="text-2xl font-bold text-gray-900 mb-3">
-            {notifications.length === 0 ? 'No Notifications Yet' : 'No notifications found'}
-          </h3>
-          <p className="text-gray-600 text-lg">
-            {notifications.length === 0
-              ? "You're all caught up! Check back later for new updates."
-              : 'Try adjusting your search or filter criteria'}
-          </p>
-        </GlassCard>
+        <motion.div variants={fadeUp} initial="hidden" animate="visible" transition={{ duration: 0.4, delay: 0.3 }}>
+          <GlassCard className="p-16 text-center">
+            <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-6 inline-block mb-6">
+              <Bell className="text-white" size={64} />
+            </div>
+            <h3 className="text-2xl font-bold text-gray-900 mb-3">
+              {notifications.length === 0 ? 'No Notifications Yet' : 'No notifications found'}
+            </h3>
+            <p className="text-gray-600 text-lg">
+              {notifications.length === 0
+                ? "You're all caught up! Check back later for new updates."
+                : 'Try adjusting your search or filter criteria'}
+            </p>
+          </GlassCard>
+        </motion.div>
       ) : (
         <div className="space-y-4">
-          {filteredNotifications.map((notification) => (
-            <NotificationCard
+          {filteredNotifications.map((notification, index) => (
+            <motion.div
               key={notification.id}
-              notification={notification}
-              onMarkAsRead={handleMarkAsRead}
-              onDelete={handleDelete}
-              onView={handleViewNotification}
-              formatDate={formatDate}
-            />
+              variants={fadeUp}
+              initial="hidden"
+              animate="visible"
+              transition={{ duration: 0.4, delay: 0.3 + Math.min(index, 8) * 0.05 }}
+              style={{ willChange: 'transform' }}
+            >
+              <NotificationCard
+                notification={notification}
+                onMarkAsRead={handleMarkAsRead}
+                onDelete={handleDelete}
+                onView={handleViewNotification}
+                formatDate={formatDate}
+              />
+            </motion.div>
           ))}
         </div>
       )}
@@ -317,64 +415,68 @@ export default function StudentNotifications() {
 
 function NotificationCard({ notification, onMarkAsRead, onDelete, onView, formatDate }) {
   return (
-    <GlassCard
-      className={`p-6 hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] cursor-pointer ${
-        !notification.is_read ? 'border-l-4 border-blue-500' : ''
-      }`}
-      onClick={() => onView(notification)}
-    >
-      <div className="flex items-start justify-between space-x-4">
-        <div className="flex-1">
-          <div className="flex items-start space-x-4 mb-3">
-            <div className={`rounded-xl p-3 ${
-              !notification.is_read
-                ? 'bg-gradient-to-br from-blue-500 to-indigo-600'
-                : 'bg-gray-300'
-            }`}>
-              <Bell className="text-white" size={24} />
-            </div>
-            <div className="flex-1">
-              <div className="flex items-start justify-between mb-2">
-                <h3 className={`font-bold text-xl ${
-                  !notification.is_read ? 'text-gray-900' : 'text-gray-600'
-                }`}>
-                  {notification.title}
-                </h3>
-                {!notification.is_read && (
-                  <span className="bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1.5 rounded-full border-2 border-blue-200">
-                    New
-                  </span>
-                )}
-              </div>
-              <p className={`mb-3 leading-relaxed line-clamp-2 ${
-                !notification.is_read ? 'text-gray-700 font-medium' : 'text-gray-500'
+    <motion.div whileHover={{ y: -2 }} style={{ willChange: 'transform' }}>
+      <GlassCard
+        className={`p-6 hover:shadow-xl transition-all duration-300 cursor-pointer ${
+          !notification.is_read ? 'border-l-4 border-blue-500' : ''
+        }`}
+        onClick={() => onView(notification)}
+      >
+        <div className="flex items-start justify-between space-x-4">
+          <div className="flex-1">
+            <div className="flex items-start space-x-4 mb-3">
+              <div className={`rounded-xl p-3 ${
+                !notification.is_read
+                  ? 'bg-gradient-to-br from-blue-500 to-indigo-600'
+                  : 'bg-gray-300'
               }`}>
-                {notification.message}
-              </p>
-              <div className="flex items-center space-x-4 text-sm">
-                <span className="text-gray-500 font-semibold">{formatDate(notification.created_at)}</span>
-                {notification.sender_name && (
-                  <>
-                    <span className="text-gray-300">•</span>
-                    <span className="text-blue-600 font-bold">From: {notification.sender_name}</span>
-                  </>
-                )}
+                <Bell className="text-white" size={24} />
+              </div>
+              <div className="flex-1">
+                <div className="flex items-start justify-between mb-2">
+                  <h3 className={`font-bold text-xl ${
+                    !notification.is_read ? 'text-gray-900' : 'text-gray-600'
+                  }`}>
+                    {notification.title}
+                  </h3>
+                  {!notification.is_read && (
+                    <span className="bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1.5 rounded-full border-2 border-blue-200">
+                      New
+                    </span>
+                  )}
+                </div>
+                <p className={`mb-3 leading-relaxed line-clamp-2 ${
+                  !notification.is_read ? 'text-gray-700 font-medium' : 'text-gray-500'
+                }`}>
+                  {notification.message}
+                </p>
+                <div className="flex items-center space-x-4 text-sm">
+                  <span className="text-gray-500 font-semibold">{formatDate(notification.created_at)}</span>
+                  {notification.sender_name && (
+                    <>
+                      <span className="text-gray-300">•</span>
+                      <span className="text-blue-600 font-bold">From: {notification.sender_name}</span>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <div className="flex flex-col space-y-2" onClick={(e) => e.stopPropagation()}>
-          <button
-            onClick={() => onDelete(notification.id)}
-            className="bg-red-100 hover:bg-red-200 text-red-700 font-bold px-4 py-2 rounded-xl transition-all transform hover:scale-105 active:scale-95 flex items-center space-x-2"
-          >
-            <Trash2 size={18} />
-            <span>Delete</span>
-          </button>
+          <div className="flex flex-col space-y-2" onClick={(e) => e.stopPropagation()}>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => onDelete(notification.id)}
+              className="bg-red-100 hover:bg-red-200 text-red-700 font-bold px-4 py-2 rounded-xl transition-all flex items-center space-x-2"
+            >
+              <Trash2 size={18} />
+              <span>Delete</span>
+            </motion.button>
+          </div>
         </div>
-      </div>
-    </GlassCard>
+      </GlassCard>
+    </motion.div>
   );
 }
 
@@ -386,27 +488,31 @@ function NotificationDetailView({ notification, onClose, onDelete, formatDate })
       <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <button
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.95 }}
               onClick={onClose}
-              className="bg-white/20 hover:bg-white/30 text-white rounded-xl p-2 transition-all transform hover:scale-110 active:scale-95"
+              className="bg-white/20 hover:bg-white/30 text-white rounded-xl p-2 transition-all"
             >
               <ArrowRight className="rotate-180" size={24} />
-            </button>
+            </motion.button>
             <div className="bg-white rounded-xl p-3">
               <Bell className="text-blue-600" size={28} />
             </div>
             <h2 className="text-2xl font-bold text-white">Notification Details</h2>
           </div>
-          <button
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             onClick={() => {
               onDelete(notification.id);
               onClose();
             }}
-            className="bg-red-500 hover:bg-red-600 text-white font-bold px-6 py-3 rounded-xl transition-all transform hover:scale-105 active:scale-95 flex items-center space-x-2"
+            className="bg-red-500 hover:bg-red-600 text-white font-bold px-6 py-3 rounded-xl transition-all flex items-center space-x-2"
           >
             <Trash2 size={18} />
             <span>Delete</span>
-          </button>
+          </motion.button>
         </div>
       </div>
 
@@ -456,12 +562,14 @@ function NotificationDetailView({ notification, onClose, onDelete, formatDate })
 
         {/* Actions */}
         <div className="mt-8 flex justify-end space-x-4">
-          <button
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             onClick={onClose}
-            className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-8 py-4 rounded-xl transition-all transform hover:scale-105 active:scale-95"
+            className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-8 py-4 rounded-xl transition-all"
           >
             Back to Notifications
-          </button>
+          </motion.button>
         </div>
       </div>
     </GlassCard>

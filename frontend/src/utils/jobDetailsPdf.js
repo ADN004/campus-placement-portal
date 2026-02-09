@@ -111,7 +111,7 @@ export function generateJobDetailsPDF(job) {
       if (h > maxVH) maxVH = h;
     });
 
-    const labelToVal = 3;
+    const labelToVal = 6;
     const cardH = padY + LH.label + labelToVal + maxVH + padY + 1;
     ensureSpace(cardH + 1);
 
@@ -119,7 +119,7 @@ export function generateJobDetailsPDF(job) {
     doc.roundedRect(M.left, y, CW, cardH, 1.5, 1.5, 'F');
 
     const lblY = y + padY + LH.label;
-    const valY = lblY + labelToVal + 0.5;
+    const valY = lblY + labelToVal;
 
     valid.forEach((f, i) => {
       const cx = M.left + padX + i * colW;

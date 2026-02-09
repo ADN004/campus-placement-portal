@@ -98,7 +98,7 @@ export function generateJobDetailsPDF(job) {
     const valid = fields.filter(f => f.value != null && f.value !== '');
     if (!valid.length) return;
 
-    const padX = 7, padY = 5;
+    const padX = 8, padY = 3;
     const innerW = CW - padX * 2;
     const colW = innerW / valid.length;
 
@@ -106,30 +106,31 @@ export function generateJobDetailsPDF(job) {
     setType(doc, T.val);
     let maxVH = LH.value;
     valid.forEach(f => {
-      const lines = doc.splitTextToSize(String(f.value), colW - 3);
+      const lines = doc.splitTextToSize(String(f.value), colW - 4);
       const h = lines.length * LH.value;
       if (h > maxVH) maxVH = h;
     });
 
-    const cardH = padY + LH.label + 3 + maxVH + padY;
+    const labelToVal = 3;
+    const cardH = padY + LH.label + labelToVal + maxVH + padY + 1;
     ensureSpace(cardH + 1);
 
     doc.setFillColor(...bg);
     doc.roundedRect(M.left, y, CW, cardH, 1.5, 1.5, 'F');
 
     const lblY = y + padY + LH.label;
-    const valY = lblY + 3.5;
+    const valY = lblY + labelToVal + 0.5;
 
     valid.forEach((f, i) => {
       const cx = M.left + padX + i * colW;
       setType(doc, T.lbl);
       doc.text(f.label.toUpperCase(), cx, lblY, { characterSpacing: 0.15 });
       setType(doc, T.val);
-      const vl = doc.splitTextToSize(String(f.value), colW - 3);
+      const vl = doc.splitTextToSize(String(f.value), colW - 4);
       doc.text(vl, cx, valY);
     });
 
-    y += cardH + 3;
+    y += cardH + 2;
   };
 
   /** Paragraph — renders line by line, handles page breaks mid-text */

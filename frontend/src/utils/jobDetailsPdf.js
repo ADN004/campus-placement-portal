@@ -1,10 +1,9 @@
 import jsPDF from 'jspdf';
 
-// ─── Color Palette ──────────────────────────────────────────────────────────
+// ─── Color Palette (unchanged) ─────────────────────────────────────────────
 const NAVY       = [27, 42, 74];
 const DARK_GRAY  = [55, 55, 55];
-const MID_GRAY   = [110, 110, 110];
-const LABEL_GRAY = [130, 130, 130];
+const LABEL_GRAY = [120, 120, 120];
 const LIGHT_LINE = [210, 210, 210];
 const ACCENT_BG  = [246, 248, 252];
 const GREEN_BG   = [243, 250, 243];
@@ -12,87 +11,64 @@ const GREEN_BD   = [195, 225, 195];
 const PILL_BG    = [232, 240, 252];
 const PILL_BD    = [185, 205, 235];
 const WHITE      = [255, 255, 255];
+const BLACK      = [0, 0, 0];
 
-// ─── Page Geometry (A4 in mm) ───────────────────────────────────────────────
+// ─── Page Geometry (A4 compact) ─────────────────────────────────────────────
 const PW = 210;
 const PH = 297;
-const M  = { top: 24, bottom: 28, left: 24, right: 24 };
-const CW = PW - M.left - M.right;                       // 162mm content width
-const MAX_TEXT_W = Math.min(CW - 8, 150);               // ~150mm readable cap
-const FOOTER_Y   = PH - M.bottom + 6;                   // footer line position
-const SAFE_BOTTOM = FOOTER_Y - 4;                        // content must stay above
+const BORDER   = 5;                                        // page border inset
+const M        = { top: 12, bottom: 16, left: 18, right: 18 };
+const CW       = PW - M.left - M.right;                   // 174mm
+const MAX_TW   = CW - 4;                                  // text width cap
+const FOOTER_Y = PH - BORDER - 7;                         // footer baseline
+const SAFE_BOT = FOOTER_Y - 5;                            // content ceiling
 
-// ─── Spacing Tokens (8-point grid) ──────────────────────────────────────────
-const SP = { xs: 2, sm: 4, md: 8, lg: 12, xl: 16, xxl: 24, xxxl: 32 };
+// ─── Compact Line Heights ───────────────────────────────────────────────────
+const LH = { label: 3.2, value: 3.6, body: 3.6 };
 
-// ─── Typography Presets ─────────────────────────────────────────────────────
-const TYPE = {
-  h1:      { size: 18, font: 'helvetica', style: 'bold',   color: WHITE,     spacing: 0.3 },
-  h2:      { size: 12, font: 'helvetica', style: 'normal', color: WHITE,     spacing: 0.15 },
-  section: { size: 10.5, font: 'helvetica', style: 'bold', color: NAVY,      spacing: 0.6 },
-  label:   { size: 8,  font: 'helvetica', style: 'bold',   color: LABEL_GRAY, spacing: 0.2 },
-  value:   { size: 9.5, font: 'helvetica', style: 'normal', color: DARK_GRAY, spacing: 0 },
-  body:    { size: 9,  font: 'helvetica', style: 'normal', color: DARK_GRAY, spacing: 0 },
-  small:   { size: 7.5, font: 'helvetica', style: 'normal', color: MID_GRAY,  spacing: 0 },
-  footer:  { size: 7,  font: 'helvetica', style: 'normal', color: LIGHT_LINE, spacing: 0 },
+// ─── Typography ─────────────────────────────────────────────────────────────
+const T = {
+  h1:   { size: 16, style: 'bold',   color: WHITE },
+  h2:   { size: 11, style: 'normal', color: WHITE },
+  sec:  { size: 9.5, style: 'bold',  color: NAVY },
+  lbl:  { size: 7,  style: 'bold',   color: LABEL_GRAY },
+  val:  { size: 9,  style: 'normal', color: DARK_GRAY },
+  body: { size: 8.5, style: 'normal', color: DARK_GRAY },
+  meta: { size: 6.5, style: 'normal', color: [170, 180, 200] },
+  ftr:  { size: 6.5, style: 'normal', color: LIGHT_LINE },
 };
 
-const LINE_H = {
-  label: 3.6,
-  value: 4.2,
-  body:  4.4,    // ~1.55x line-height for 9pt
+const setType = (doc, t) => {
+  doc.setFont('helvetica', t.style);
+  doc.setFontSize(t.size);
+  doc.setTextColor(...t.color);
 };
 
 /**
- * Generate a professional A4 PDF for a job/company detail.
- * @param {Object} job     - The job object with all fields
- * @param {Object} options - Optional: { regions, colleges } for resolving target names
+ * Generate a compact professional A4 PDF for job/company details.
  */
 export function generateJobDetailsPDF(job, options = {}) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   let y = M.top;
 
-  // ─── Core Helpers ─────────────────────────────────────────────────────────
+  // ─── Helpers ──────────────────────────────────────────────────────────────
 
-  /** Apply a typography preset */
-  const applyType = (preset) => {
-    doc.setFont(preset.font, preset.style);
-    doc.setFontSize(preset.size);
-    doc.setTextColor(...preset.color);
-  };
-
-  /** Check available space; add page if insufficient. Returns true if page was added. */
   const ensureSpace = (needed) => {
-    if (y + needed > SAFE_BOTTOM) {
-      doc.addPage();
-      y = M.top;
-      return true;
-    }
+    if (y + needed > SAFE_BOT) { doc.addPage(); y = M.top + BORDER + 2; return true; }
     return false;
   };
 
-  /** Draw horizontal rule */
-  const drawRule = (yPos, color = LIGHT_LINE, width = 0.3) => {
+  const rule = (yy, color = LIGHT_LINE, w = 0.3) => {
     doc.setDrawColor(...color);
-    doc.setLineWidth(width);
-    doc.line(M.left, yPos, M.left + CW, yPos);
+    doc.setLineWidth(w);
+    doc.line(M.left, yy, M.left + CW, yy);
   };
 
-  /** Measure wrapped text height */
-  const measureText = (text, maxW, lineH) => {
-    const lines = doc.splitTextToSize(String(text), maxW);
-    return { lines, height: lines.length * lineH };
-  };
-
-  /** Format a date string */
   const fmtDate = (d) => {
     if (!d) return 'N/A';
-    return new Date(d).toLocaleDateString('en-IN', {
-      year: 'numeric', month: 'long', day: 'numeric',
-    });
+    return new Date(d).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' });
   };
 
-  /** Parse branches (handles string / array / null) */
   const parseBranches = (b) => {
     if (!b) return [];
     if (Array.isArray(b)) return b;
@@ -100,16 +76,12 @@ export function generateJobDetailsPDF(job, options = {}) {
     return [];
   };
 
-  /** Clean salary text — prevents "3 LPA LPA" */
   const fmtSalary = (raw) => {
     if (!raw) return 'N/A';
     const s = String(raw).trim();
-    // If it already ends with LPA/lpa, return as-is
-    if (/lpa$/i.test(s)) return s;
-    return `${s} LPA`;
+    return /lpa$/i.test(s) ? s : `${s} LPA`;
   };
 
-  /** Resolve target audience text */
   const getTargetText = () => {
     const { regions = [], colleges = [] } = options;
     let type = job.target_type;
@@ -122,337 +94,293 @@ export function generateJobDetailsPDF(job, options = {}) {
       let ids = job.target_regions;
       if (typeof ids === 'string') try { ids = JSON.parse(ids); } catch { return 'N/A'; }
       if (!Array.isArray(ids)) return 'N/A';
-      const names = regions.filter(r => ids.includes(r.id)).map(r => r.region_name || r.name);
-      return names.length > 0 ? names.join(', ') : ids.join(', ');
+      const n = regions.filter(r => ids.includes(r.id)).map(r => r.region_name || r.name);
+      return n.length > 0 ? n.join(', ') : ids.join(', ');
     }
     if (type === 'college' && job.target_colleges) {
       let ids = job.target_colleges;
       if (typeof ids === 'string') try { ids = JSON.parse(ids); } catch { return 'N/A'; }
       if (!Array.isArray(ids)) return 'N/A';
-      const names = colleges.filter(c => ids.includes(c.id)).map(c => c.college_name || c.name);
-      return names.length > 0 ? names.join(', ') : ids.join(', ');
+      const n = colleges.filter(c => ids.includes(c.id)).map(c => c.college_name || c.name);
+      return n.length > 0 ? n.join(', ') : ids.join(', ');
     }
     return 'All Students';
   };
 
   // ─── Drawing Primitives ───────────────────────────────────────────────────
 
-  /** Section header: TITLE + navy underline. Keeps with ≥30mm of following content. */
-  const drawSectionHeader = (title) => {
-    ensureSpace(38);                       // header + at least some content below
-    y += SP.xxl;                           // 24mm gap before section
-    applyType(TYPE.section);
-    doc.text(title.toUpperCase(), M.left, y, { characterSpacing: TYPE.section.spacing });
-    y += 2;
-    drawRule(y, NAVY, 0.7);
-    y += SP.lg;                            // 12mm after line
+  /** Section header — only breaks page if truly no room for header + ~18mm content */
+  const sectionHeader = (title) => {
+    ensureSpace(22);
+    y += 8;                                 // compact gap before section
+    setType(doc, T.sec);
+    doc.text(title.toUpperCase(), M.left, y, { characterSpacing: 0.5 });
+    y += 1.5;
+    rule(y, NAVY, 0.6);
+    y += 4;                                 // tight gap after line
   };
 
-  /** Info card: equal-width columns inside a shaded rounded rect. Auto-height. */
-  const drawInfoCard = (fields, bgColor = ACCENT_BG) => {
-    const validFields = fields.filter(f => f.value !== null && f.value !== undefined && f.value !== '');
-    if (validFields.length === 0) return;
+  /** Compact info card with equal columns */
+  const infoCard = (fields, bg = ACCENT_BG) => {
+    const valid = fields.filter(f => f.value != null && f.value !== '');
+    if (!valid.length) return;
 
-    const cardPadX = SP.lg;               // 12mm horizontal padding
-    const cardPadY = SP.md;               // 8mm vertical padding
-    const innerW   = CW - cardPadX * 2;
-    const colW     = innerW / validFields.length;
+    const padX = 6, padY = 4;
+    const innerW = CW - padX * 2;
+    const colW = innerW / valid.length;
 
-    // Measure the tallest value
-    let maxValH = LINE_H.value;
-    validFields.forEach(f => {
-      const m = measureText(String(f.value), colW - 4, LINE_H.value);
-      if (m.height > maxValH) maxValH = m.height;
+    // Measure tallest value
+    setType(doc, T.val);
+    let maxVH = LH.value;
+    valid.forEach(f => {
+      const lines = doc.splitTextToSize(String(f.value), colW - 3);
+      const h = lines.length * LH.value;
+      if (h > maxVH) maxVH = h;
     });
 
-    const cardH = cardPadY + LINE_H.label + SP.sm + maxValH + cardPadY;
-    ensureSpace(cardH + 2);
+    const cardH = padY + LH.label + 2 + maxVH + padY;
+    ensureSpace(cardH + 1);
 
-    // Background
-    doc.setFillColor(...bgColor);
-    doc.roundedRect(M.left, y, CW, cardH, 2, 2, 'F');
+    doc.setFillColor(...bg);
+    doc.roundedRect(M.left, y, CW, cardH, 1.5, 1.5, 'F');
 
-    // Content
-    const labelY = y + cardPadY + LINE_H.label;
-    const valueY = labelY + SP.sm + LINE_H.value;
+    const lblY = y + padY + LH.label;
+    const valY = lblY + 2.5;
 
-    validFields.forEach((f, i) => {
-      const colX = M.left + cardPadX + i * colW;
-
-      // Label
-      applyType(TYPE.label);
-      doc.text(f.label.toUpperCase(), colX, labelY, { characterSpacing: TYPE.label.spacing });
-
-      // Value
-      applyType(TYPE.value);
-      const vLines = doc.splitTextToSize(String(f.value), colW - 4);
-      doc.text(vLines, colX, valueY);
+    valid.forEach((f, i) => {
+      const cx = M.left + padX + i * colW;
+      setType(doc, T.lbl);
+      doc.text(f.label.toUpperCase(), cx, lblY, { characterSpacing: 0.15 });
+      setType(doc, T.val);
+      const vl = doc.splitTextToSize(String(f.value), colW - 3);
+      doc.text(vl, cx, valY);
     });
 
-    y += cardH + SP.md;
+    y += cardH + 3;
   };
 
-  /** Draw wrapped paragraph text with proper line-height */
-  const drawParagraph = (text, indent = 0) => {
-    applyType(TYPE.body);
-    const maxW = Math.min(MAX_TEXT_W, CW - indent);
-    const { lines, height } = measureText(text, maxW, LINE_H.body);
-
-    // Render in chunks to handle page breaks mid-paragraph
-    const x = M.left + indent;
+  /** Paragraph — renders line by line, handles page breaks mid-text */
+  const paragraph = (text) => {
+    setType(doc, T.body);
+    const lines = doc.splitTextToSize(String(text), MAX_TW);
     for (let i = 0; i < lines.length; i++) {
-      ensureSpace(LINE_H.body + 2);
-      doc.text(lines[i], x, y);
-      y += LINE_H.body;
+      ensureSpace(LH.body + 1);
+      doc.text(lines[i], M.left + 1, y);
+      y += LH.body;
     }
-    y += SP.sm;
+    y += 2;
   };
 
-  // ═════════════════════════════════════════════════════════════════════════
-  //  HEADER BAND
-  // ═════════════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  HEADER BAND (compact: 34mm)
+  // ═══════════════════════════════════════════════════════════════════════════
 
-  const HEADER_H = 46;
+  const HDR = 34;
   doc.setFillColor(...NAVY);
-  doc.rect(0, 0, PW, HEADER_H, 'F');
+  doc.rect(0, 0, PW, HDR, 'F');
 
-  // Company name (H1)
-  applyType(TYPE.h1);
-  doc.text(
-    job.company_name || 'Company',
-    M.left, 18,
-    { characterSpacing: TYPE.h1.spacing }
-  );
+  setType(doc, T.h1);
+  doc.text(job.company_name || 'Company', M.left, 14, { characterSpacing: 0.2 });
 
-  // Job title (H2)
-  applyType(TYPE.h2);
-  doc.text(
-    job.title || job.job_title || 'Job Position',
-    M.left, 28,
-    { characterSpacing: TYPE.h2.spacing }
-  );
+  setType(doc, T.h2);
+  doc.text(job.title || job.job_title || 'Job Position', M.left, 22, { characterSpacing: 0.1 });
 
-  // Meta line
-  applyType(TYPE.small);
-  doc.setTextColor(170, 180, 200);
-  doc.text(`Generated on ${fmtDate(new Date())}`, M.left, 39);
-  doc.text(
-    'State Placement Cell - Kerala Polytechnics',
-    PW - M.right, 39,
-    { align: 'right' }
-  );
+  setType(doc, T.meta);
+  doc.text(`Generated on ${fmtDate(new Date())}`, M.left, 30);
+  doc.text('State Placement Cell - Kerala Polytechnics', PW - M.right, 30, { align: 'right' });
 
-  y = HEADER_H + SP.xl;                  // 16mm below header
+  y = HDR + 6;
 
-  // ═════════════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════════════
   //  COMPANY & POSITION OVERVIEW
-  // ═════════════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════════════
 
-  drawSectionHeader('Company & Position Overview');
+  sectionHeader('Company & Position Overview');
 
-  drawInfoCard([
+  infoCard([
     { label: 'Location',       value: job.location || job.job_location || 'N/A' },
     { label: 'Salary Package', value: fmtSalary(job.salary_package) },
     { label: 'Vacancies',      value: job.no_of_vacancies || 'N/A' },
   ]);
 
-  // Company description (if present)
   if (job.company_description) {
-    applyType(TYPE.label);
-    doc.text('COMPANY DESCRIPTION', M.left + SP.xs, y, { characterSpacing: TYPE.label.spacing });
-    y += SP.md;
-    drawParagraph(job.company_description, SP.xs);
-    drawRule(y);
-    y += SP.md;
+    setType(doc, T.lbl);
+    doc.text('COMPANY DESCRIPTION', M.left + 1, y, { characterSpacing: 0.15 });
+    y += 4;
+    paragraph(job.company_description);
+    rule(y);
+    y += 3;
   }
 
-  // ═════════════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════════════
   //  JOB DESCRIPTION
-  // ═════════════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════════════
 
   if (job.description || job.job_description) {
-    drawSectionHeader('Job Description');
-    drawParagraph(job.description || job.job_description, SP.xs);
+    sectionHeader('Job Description');
+    paragraph(job.description || job.job_description);
   }
 
-  // ═════════════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════════════
   //  ELIGIBILITY CRITERIA
-  // ═════════════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════════════
 
-  drawSectionHeader('Eligibility Criteria');
+  sectionHeader('Eligibility Criteria');
 
-  // CGPA + Backlog card
-  const eligFields = [];
-  if (job.min_cgpa) {
-    eligFields.push({ label: 'Minimum CGPA', value: String(job.min_cgpa) });
-  }
+  const eligF = [];
+  if (job.min_cgpa) eligF.push({ label: 'Minimum CGPA', value: String(job.min_cgpa) });
   if (job.max_backlogs !== null && job.max_backlogs !== undefined) {
-    let txt;
-    if (job.max_backlogs === 0) txt = 'No Backlogs Allowed';
-    else if (job.backlog_max_semester) txt = `Max ${job.max_backlogs} (within Sem 1-${job.backlog_max_semester})`;
-    else txt = `Max ${job.max_backlogs}`;
-    eligFields.push({ label: 'Backlog Criteria', value: txt });
+    let t;
+    if (job.max_backlogs === 0) t = 'No Backlogs Allowed';
+    else if (job.backlog_max_semester) t = `Max ${job.max_backlogs} (within Sem 1-${job.backlog_max_semester})`;
+    else t = `Max ${job.max_backlogs}`;
+    eligF.push({ label: 'Backlog Criteria', value: t });
   }
-  if (eligFields.length > 0) drawInfoCard(eligFields);
+  if (eligF.length > 0) infoCard(eligF);
 
-  // Height / Weight card
-  const physFields = [];
-  if (job.min_height || job.max_height) {
-    physFields.push({ label: 'Height (cm)', value: [job.min_height, job.max_height].filter(Boolean).join(' – ') });
-  }
-  if (job.min_weight || job.max_weight) {
-    physFields.push({ label: 'Weight (kg)', value: [job.min_weight, job.max_weight].filter(Boolean).join(' – ') });
-  }
-  if (physFields.length > 0) drawInfoCard(physFields);
+  // Height / Weight
+  const physF = [];
+  if (job.min_height || job.max_height)
+    physF.push({ label: 'Height (cm)', value: [job.min_height, job.max_height].filter(Boolean).join(' – ') });
+  if (job.min_weight || job.max_weight)
+    physF.push({ label: 'Weight (kg)', value: [job.min_weight, job.max_weight].filter(Boolean).join(' – ') });
+  if (physF.length > 0) infoCard(physF);
 
-  // ── Allowed Branches (pills) ──────────────────────────────────────────
+  // ── Allowed Branches (compact pills) ──────────────────────────────────────
   const branches = parseBranches(job.allowed_branches);
   if (branches.length > 0) {
-    ensureSpace(20);
-    applyType(TYPE.label);
-    doc.text('ALLOWED BRANCHES', M.left + SP.xs, y, { characterSpacing: TYPE.label.spacing });
-    y += SP.md + 1;
+    ensureSpace(14);
+    setType(doc, T.lbl);
+    doc.text('ALLOWED BRANCHES', M.left + 1, y, { characterSpacing: 0.15 });
+    y += 5;
 
-    const PILL_H   = 7;
-    const PILL_PAD = 4;        // left+right text padding inside pill
-    const PILL_GAP = 3;        // gap between pills
-    const ROW_GAP  = 3;        // gap between pill rows
-
-    let px = M.left + SP.xs;
+    const PH_H = 5.5, PP = 3, PG = 2.5, RG = 2;
+    let px = M.left + 1;
 
     branches.forEach((branch) => {
-      const text = String(branch);
-      applyType(TYPE.body);
-      doc.setFontSize(8);
-      const tw = doc.getTextWidth(text);
-      const pillW = tw + PILL_PAD * 2;
+      const txt = String(branch);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      const tw = doc.getTextWidth(txt);
+      const pw = tw + PP * 2;
 
-      // Wrap to next row
-      if (px + pillW > M.left + CW - SP.xs) {
-        px = M.left + SP.xs;
-        y += PILL_H + ROW_GAP;
-        ensureSpace(PILL_H + 4);
+      if (px + pw > M.left + CW - 1) {
+        px = M.left + 1;
+        y += PH_H + RG;
+        ensureSpace(PH_H + 2);
       }
 
-      // Pill background + border
       doc.setFillColor(...PILL_BG);
-      doc.roundedRect(px, y - PILL_H / 2 - 0.5, pillW, PILL_H, 1.8, 1.8, 'F');
+      doc.roundedRect(px, y - PH_H / 2 - 0.3, pw, PH_H, 1.5, 1.5, 'F');
       doc.setDrawColor(...PILL_BD);
-      doc.setLineWidth(0.25);
-      doc.roundedRect(px, y - PILL_H / 2 - 0.5, pillW, PILL_H, 1.8, 1.8, 'S');
+      doc.setLineWidth(0.2);
+      doc.roundedRect(px, y - PH_H / 2 - 0.3, pw, PH_H, 1.5, 1.5, 'S');
 
-      // Pill text (vertically centered)
       doc.setTextColor(...NAVY);
-      doc.text(text, px + PILL_PAD, y + 1);
-
-      px += pillW + PILL_GAP;
+      doc.text(txt, px + PP, y + 0.8);
+      px += pw + PG;
     });
 
-    y += PILL_H / 2 + SP.lg;
+    y += PH_H / 2 + 5;
   }
 
-  // ═════════════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════════════
   //  TARGET AUDIENCE
-  // ═════════════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════════════
 
-  drawSectionHeader('Target Audience');
-
+  sectionHeader('Target Audience');
   const targetText = getTargetText();
 
-  // Measure text to auto-size box
-  applyType(TYPE.value);
-  const targetLines = doc.splitTextToSize(targetText, CW - SP.xxl * 2);
-  const targetTextH = targetLines.length * LINE_H.value;
-  const targetBoxH  = SP.md * 2 + targetTextH + 2;
+  setType(doc, T.val);
+  const tLines = doc.splitTextToSize(targetText, CW - 40);
+  const tH = Math.max(tLines.length * LH.value, LH.value);
+  const boxH = 4 + tH + 4;
 
-  ensureSpace(targetBoxH + 4);
+  ensureSpace(boxH + 2);
   doc.setFillColor(...GREEN_BG);
-  doc.roundedRect(M.left, y, CW, targetBoxH, 2, 2, 'F');
+  doc.roundedRect(M.left, y, CW, boxH, 1.5, 1.5, 'F');
   doc.setDrawColor(...GREEN_BD);
-  doc.setLineWidth(0.3);
-  doc.roundedRect(M.left, y, CW, targetBoxH, 2, 2, 'S');
+  doc.setLineWidth(0.25);
+  doc.roundedRect(M.left, y, CW, boxH, 1.5, 1.5, 'S');
 
-  const tInnerY = y + SP.md + LINE_H.value;
-  applyType(TYPE.label);
-  doc.text('TARGET', M.left + SP.lg, tInnerY, { characterSpacing: TYPE.label.spacing });
+  const tcy = y + 4 + LH.value;
+  setType(doc, T.lbl);
+  doc.text('TARGET', M.left + 6, tcy, { characterSpacing: 0.15 });
+  setType(doc, T.val);
+  doc.text(tLines, M.left + 28, tcy);
 
-  applyType(TYPE.value);
-  doc.text(targetLines, M.left + SP.lg + 22, tInnerY);
+  y += boxH + 4;
 
-  y += targetBoxH + SP.md;
-
-  // ═════════════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════════════
   //  APPLICATION DETAILS
-  // ═════════════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════════════
 
-  drawSectionHeader('Application Details');
+  sectionHeader('Application Details');
 
-  const appFields = [];
-  if (job.application_start_date) {
-    appFields.push({ label: 'Start Date', value: fmtDate(job.application_start_date) });
-  }
-  if (job.application_deadline) {
-    appFields.push({ label: 'Deadline', value: fmtDate(job.application_deadline) });
-  }
-  if (appFields.length > 0) drawInfoCard(appFields);
+  const appF = [];
+  if (job.application_start_date) appF.push({ label: 'Start Date', value: fmtDate(job.application_start_date) });
+  if (job.application_deadline) appF.push({ label: 'Deadline', value: fmtDate(job.application_deadline) });
+  if (appF.length > 0) infoCard(appF);
 
-  // Application form URL
   if (job.application_form_url) {
-    ensureSpace(14);
-    applyType(TYPE.label);
-    doc.text('APPLICATION FORM URL', M.left + SP.xs, y, { characterSpacing: TYPE.label.spacing });
-    y += SP.sm + 2;
-
+    ensureSpace(10);
+    setType(doc, T.lbl);
+    doc.text('APPLICATION FORM URL', M.left + 1, y, { characterSpacing: 0.15 });
+    y += 3.5;
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8.5);
+    doc.setFontSize(7.5);
     doc.setTextColor(30, 80, 180);
-    const urlLines = doc.splitTextToSize(job.application_form_url, CW - SP.md);
-    doc.text(urlLines, M.left + SP.xs, y);
-    y += urlLines.length * LINE_H.body + SP.md;
+    const uLines = doc.splitTextToSize(job.application_form_url, CW - 4);
+    doc.text(uLines, M.left + 1, y);
+    y += uLines.length * LH.body + 3;
   }
 
-  // ── Status badge ──────────────────────────────────────────────────────
-  ensureSpace(16);
-  drawRule(y);
-  y += SP.lg;
+  // ── Status ────────────────────────────────────────────────────────────────
+  ensureSpace(10);
+  rule(y);
+  y += 5;
 
-  applyType(TYPE.label);
-  doc.text('STATUS', M.left + SP.xs, y, { characterSpacing: TYPE.label.spacing });
+  setType(doc, T.lbl);
+  doc.text('STATUS', M.left + 1, y, { characterSpacing: 0.15 });
 
-  const isActive   = job.is_active !== false;
-  const badgeText  = isActive ? 'Active' : 'Inactive';
-  const badgeColor = isActive ? [34, 139, 34] : [200, 50, 60];
+  const isActive  = job.is_active !== false;
+  const badgeTxt  = isActive ? 'Active' : 'Inactive';
+  const badgeClr  = isActive ? [34, 139, 34] : [200, 50, 60];
 
-  applyType(TYPE.small);
-  doc.setFontSize(7.5);
-  const badgeW = doc.getTextWidth(badgeText) + 6;
-  const badgeX = M.left + SP.xs + 20;
-
-  doc.setFillColor(...badgeColor);
-  doc.roundedRect(badgeX, y - 3.2, badgeW, 5.2, 1.5, 1.5, 'F');
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7.5);
+  doc.setFontSize(7);
+  const bw = doc.getTextWidth(badgeTxt) + 5;
+  const bx = M.left + 1 + 18;
+
+  doc.setFillColor(...badgeClr);
+  doc.roundedRect(bx, y - 2.8, bw, 4.6, 1.2, 1.2, 'F');
   doc.setTextColor(...WHITE);
-  doc.text(badgeText, badgeX + 3, y + 0.2);
+  doc.text(badgeTxt, bx + 2.5, y + 0.2);
 
-  // ═════════════════════════════════════════════════════════════════════════
-  //  FOOTER (applied to every page)
-  // ═════════════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  PAGE BORDER + FOOTER (every page)
+  // ═══════════════════════════════════════════════════════════════════════════
 
-  const totalPages = doc.internal.getNumberOfPages();
-  for (let i = 1; i <= totalPages; i++) {
+  const pages = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= pages; i++) {
     doc.setPage(i);
-    applyType(TYPE.footer);
-    drawRule(FOOTER_Y, LIGHT_LINE, 0.2);
-    doc.text('State Placement Cell (SPC) - Kerala Polytechnics', M.left, FOOTER_Y + 5);
-    doc.text(`Page ${i} of ${totalPages}`, PW - M.right, FOOTER_Y + 5, { align: 'right' });
+
+    // Thin black page border
+    doc.setDrawColor(...BLACK);
+    doc.setLineWidth(0.3);
+    doc.rect(BORDER, BORDER, PW - BORDER * 2, PH - BORDER * 2);
+
+    // Footer
+    setType(doc, T.ftr);
+    rule(FOOTER_Y, LIGHT_LINE, 0.15);
+    doc.text('State Placement Cell (SPC) - Kerala Polytechnics', M.left, FOOTER_Y + 3.5);
+    doc.text(`Page ${i} of ${pages}`, PW - M.right, FOOTER_Y + 3.5, { align: 'right' });
   }
 
-  // ═════════════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════════════
   //  SAVE
-  // ═════════════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════════════
 
   const safe = (s) => String(s || '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '');
-  const filename = `${safe(job.company_name)}_${safe(job.title || job.job_title || 'Details')}.pdf`;
-  doc.save(filename);
+  doc.save(`${safe(job.company_name)}_${safe(job.title || job.job_title || 'Details')}.pdf`);
 }

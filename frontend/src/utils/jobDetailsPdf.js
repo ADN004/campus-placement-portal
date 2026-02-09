@@ -6,8 +6,6 @@ const DARK_GRAY  = [55, 55, 55];
 const LABEL_GRAY = [120, 120, 120];
 const LIGHT_LINE = [210, 210, 210];
 const ACCENT_BG  = [246, 248, 252];
-const GREEN_BG   = [243, 250, 243];
-const GREEN_BD   = [195, 225, 195];
 const PILL_BG    = [232, 240, 252];
 const PILL_BD    = [185, 205, 235];
 const WHITE      = [255, 255, 255];
@@ -24,7 +22,7 @@ const FOOTER_Y = PH - BORDER - 7;                         // footer baseline
 const SAFE_BOT = FOOTER_Y - 5;                            // content ceiling
 
 // ─── Compact Line Heights ───────────────────────────────────────────────────
-const LH = { label: 3.2, value: 3.6, body: 3.6 };
+const LH = { label: 3.6, value: 3.6, body: 3.6 };
 
 // ─── Typography ─────────────────────────────────────────────────────────────
 const T = {
@@ -47,7 +45,7 @@ const setType = (doc, t) => {
 /**
  * Generate a compact professional A4 PDF for job/company details.
  */
-export function generateJobDetailsPDF(job, options = {}) {
+export function generateJobDetailsPDF(job) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   let y = M.top;
 
@@ -82,31 +80,6 @@ export function generateJobDetailsPDF(job, options = {}) {
     return /lpa$/i.test(s) ? s : `${s} LPA`;
   };
 
-  const getTargetText = () => {
-    const { regions = [], colleges = [] } = options;
-    let type = job.target_type;
-    if (type === 'specific') {
-      if (job.target_regions) type = 'region';
-      else if (job.target_colleges) type = 'college';
-      else return 'All Students';
-    }
-    if (type === 'region' && job.target_regions) {
-      let ids = job.target_regions;
-      if (typeof ids === 'string') try { ids = JSON.parse(ids); } catch { return 'N/A'; }
-      if (!Array.isArray(ids)) return 'N/A';
-      const n = regions.filter(r => ids.includes(r.id)).map(r => r.region_name || r.name);
-      return n.length > 0 ? n.join(', ') : ids.join(', ');
-    }
-    if (type === 'college' && job.target_colleges) {
-      let ids = job.target_colleges;
-      if (typeof ids === 'string') try { ids = JSON.parse(ids); } catch { return 'N/A'; }
-      if (!Array.isArray(ids)) return 'N/A';
-      const n = colleges.filter(c => ids.includes(c.id)).map(c => c.college_name || c.name);
-      return n.length > 0 ? n.join(', ') : ids.join(', ');
-    }
-    return 'All Students';
-  };
-
   // ─── Drawing Primitives ───────────────────────────────────────────────────
 
   /** Section header — only breaks page if truly no room for header + ~18mm content */
@@ -117,7 +90,7 @@ export function generateJobDetailsPDF(job, options = {}) {
     doc.text(title.toUpperCase(), M.left, y, { characterSpacing: 0.5 });
     y += 1.5;
     rule(y, NAVY, 0.6);
-    y += 4;                                 // tight gap after line
+    y += 6;                                 // breathing room after rule
   };
 
   /** Compact info card with equal columns */
@@ -125,7 +98,7 @@ export function generateJobDetailsPDF(job, options = {}) {
     const valid = fields.filter(f => f.value != null && f.value !== '');
     if (!valid.length) return;
 
-    const padX = 6, padY = 4;
+    const padX = 7, padY = 5;
     const innerW = CW - padX * 2;
     const colW = innerW / valid.length;
 
@@ -138,14 +111,14 @@ export function generateJobDetailsPDF(job, options = {}) {
       if (h > maxVH) maxVH = h;
     });
 
-    const cardH = padY + LH.label + 2 + maxVH + padY;
+    const cardH = padY + LH.label + 3 + maxVH + padY;
     ensureSpace(cardH + 1);
 
     doc.setFillColor(...bg);
     doc.roundedRect(M.left, y, CW, cardH, 1.5, 1.5, 'F');
 
     const lblY = y + padY + LH.label;
-    const valY = lblY + 2.5;
+    const valY = lblY + 3.5;
 
     valid.forEach((f, i) => {
       const cx = M.left + padX + i * colW;
@@ -177,13 +150,13 @@ export function generateJobDetailsPDF(job, options = {}) {
 
   const HDR = 34;
   doc.setFillColor(...NAVY);
-  doc.rect(0, 0, PW, HDR, 'F');
+  doc.rect(BORDER, BORDER, PW - BORDER * 2, HDR - BORDER, 'F');
 
   setType(doc, T.h1);
-  doc.text(job.company_name || 'Company', M.left, 14, { characterSpacing: 0.2 });
+  doc.text(job.company_name || 'Company', M.left, 15, { characterSpacing: 0.2 });
 
   setType(doc, T.h2);
-  doc.text(job.title || job.job_title || 'Job Position', M.left, 22, { characterSpacing: 0.1 });
+  doc.text(job.title || job.job_title || 'Job Position', M.left, 23, { characterSpacing: 0.1 });
 
   setType(doc, T.meta);
   doc.text(`Generated on ${fmtDate(new Date())}`, M.left, 30);
@@ -283,33 +256,6 @@ export function generateJobDetailsPDF(job, options = {}) {
 
     y += PH_H / 2 + 5;
   }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  //  TARGET AUDIENCE
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  sectionHeader('Target Audience');
-  const targetText = getTargetText();
-
-  setType(doc, T.val);
-  const tLines = doc.splitTextToSize(targetText, CW - 40);
-  const tH = Math.max(tLines.length * LH.value, LH.value);
-  const boxH = 4 + tH + 4;
-
-  ensureSpace(boxH + 2);
-  doc.setFillColor(...GREEN_BG);
-  doc.roundedRect(M.left, y, CW, boxH, 1.5, 1.5, 'F');
-  doc.setDrawColor(...GREEN_BD);
-  doc.setLineWidth(0.25);
-  doc.roundedRect(M.left, y, CW, boxH, 1.5, 1.5, 'S');
-
-  const tcy = y + 4 + LH.value;
-  setType(doc, T.lbl);
-  doc.text('TARGET', M.left + 6, tcy, { characterSpacing: 0.15 });
-  setType(doc, T.val);
-  doc.text(tLines, M.left + 28, tcy);
-
-  y += boxH + 4;
 
   // ═══════════════════════════════════════════════════════════════════════════
   //  APPLICATION DETAILS

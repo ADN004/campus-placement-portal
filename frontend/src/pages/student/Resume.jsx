@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { studentAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import {
@@ -9,10 +10,146 @@ import api from '../../services/api';
 import GradientOrb from '../../components/GradientOrb';
 import DashboardHeader from '../../components/DashboardHeader';
 import GlassCard from '../../components/GlassCard';
-import LoadingSpinner from '../../components/LoadingSpinner';
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0 },
+};
+
+function ResumeSkeleton() {
+  return (
+    <div className="animate-pulse">
+      {/* Header skeleton */}
+      <div className="mb-8">
+        <div className="h-8 w-48 bg-white/40 rounded-xl mb-2" />
+        <div className="h-4 w-72 bg-white/30 rounded-lg" />
+      </div>
+
+      {/* Action bar skeleton */}
+      <div className="bg-white/30 backdrop-blur-sm rounded-2xl border border-white/20 p-6 mb-6">
+        <div className="flex flex-wrap gap-4 justify-between items-center">
+          <div className="h-12 w-48 bg-white/40 rounded-xl" />
+          <div className="h-12 w-36 bg-white/40 rounded-xl" />
+        </div>
+        <div className="h-4 w-96 bg-white/30 rounded-lg mt-4" />
+      </div>
+
+      {/* Section cards skeleton */}
+      <div className="space-y-4">
+        {/* Career Objective */}
+        <div className="bg-white/30 backdrop-blur-sm rounded-2xl border border-white/20 p-6">
+          <div className="flex items-center justify-between p-4 bg-white/40 rounded-xl">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 bg-blue-200/50 rounded-lg" />
+              <div className="h-5 w-36 bg-white/50 rounded-lg" />
+            </div>
+            <div className="h-5 w-5 bg-white/40 rounded" />
+          </div>
+          <div className="mt-4 space-y-2">
+            <div className="h-4 w-full bg-white/30 rounded-lg" />
+            <div className="h-4 w-5/6 bg-white/30 rounded-lg" />
+            <div className="h-4 w-3/4 bg-white/30 rounded-lg" />
+          </div>
+        </div>
+
+        {/* Address */}
+        <div className="bg-white/30 backdrop-blur-sm rounded-2xl border border-white/20 p-6">
+          <div className="flex items-center justify-between p-4 bg-white/40 rounded-xl">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 bg-emerald-200/50 rounded-lg" />
+              <div className="h-5 w-24 bg-white/50 rounded-lg" />
+            </div>
+            <div className="h-5 w-5 bg-white/40 rounded" />
+          </div>
+          <div className="mt-4 space-y-2">
+            <div className="h-4 w-full bg-white/30 rounded-lg" />
+            <div className="h-4 w-2/3 bg-white/30 rounded-lg" />
+          </div>
+        </div>
+
+        {/* Skills */}
+        <div className="bg-white/30 backdrop-blur-sm rounded-2xl border border-white/20 p-6">
+          <div className="flex items-center justify-between p-4 bg-white/40 rounded-xl">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 bg-indigo-200/50 rounded-lg" />
+              <div className="h-5 w-20 bg-white/50 rounded-lg" />
+            </div>
+            <div className="h-5 w-5 bg-white/40 rounded" />
+          </div>
+          <div className="mt-4 space-y-4">
+            <div>
+              <div className="h-4 w-32 bg-white/40 rounded-lg mb-3" />
+              <div className="flex flex-wrap gap-2">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="h-8 w-20 bg-blue-100/50 rounded-full" />
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="h-4 w-28 bg-white/40 rounded-lg mb-3" />
+              <div className="flex flex-wrap gap-2">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="h-8 w-24 bg-green-100/50 rounded-full" />
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="h-4 w-36 bg-white/40 rounded-lg mb-3" />
+              <div className="flex flex-wrap gap-2">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="h-8 w-20 bg-purple-100/50 rounded-full" />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Projects */}
+        <div className="bg-white/30 backdrop-blur-sm rounded-2xl border border-white/20 p-6">
+          <div className="flex items-center justify-between p-4 bg-white/40 rounded-xl">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 bg-orange-200/50 rounded-lg" />
+              <div className="h-5 w-24 bg-white/50 rounded-lg" />
+            </div>
+            <div className="h-5 w-5 bg-white/40 rounded" />
+          </div>
+        </div>
+
+        {/* Work Experience */}
+        <div className="bg-white/30 backdrop-blur-sm rounded-2xl border border-white/20 p-6">
+          <div className="flex items-center justify-between p-4 bg-white/40 rounded-xl">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 bg-teal-200/50 rounded-lg" />
+              <div className="h-5 w-48 bg-white/50 rounded-lg" />
+            </div>
+            <div className="h-5 w-5 bg-white/40 rounded" />
+          </div>
+        </div>
+
+        {/* Certifications */}
+        <div className="bg-white/30 backdrop-blur-sm rounded-2xl border border-white/20 p-6">
+          <div className="flex items-center justify-between p-4 bg-white/40 rounded-xl">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 bg-yellow-200/50 rounded-lg" />
+              <div className="h-5 w-32 bg-white/50 rounded-lg" />
+            </div>
+            <div className="h-5 w-5 bg-white/40 rounded" />
+          </div>
+        </div>
+
+        {/* Declaration */}
+        <div className="bg-white/30 backdrop-blur-sm rounded-2xl border border-white/20 p-6">
+          <div className="h-5 w-28 bg-white/40 rounded-lg mb-4" />
+          <div className="h-4 w-full bg-white/30 rounded-lg" />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function StudentResume() {
   const [loading, setLoading] = useState(true);
+  const [showSkeleton, setShowSkeleton] = useState(true);
   const [saving, setSaving] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [editMode, setEditMode] = useState(false);
@@ -51,6 +188,16 @@ export default function StudentResume() {
     soft_skill: '',
     language: ''
   });
+
+  useEffect(() => {
+    const timer = setTimeout(() => setShowSkeleton(false), 900);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    document.body.style.overflow = showSkeleton ? 'hidden' : 'auto';
+    return () => { document.body.style.overflow = 'auto'; };
+  }, [showSkeleton]);
 
   useEffect(() => {
     fetchResume();
@@ -309,7 +456,7 @@ export default function StudentResume() {
     }));
   };
 
-  if (loading) return <LoadingSpinner />;
+  if (loading || showSkeleton) return <ResumeSkeleton />;
 
   const SectionHeader = ({ title, icon: Icon, section, color = 'blue' }) => (
     <button
@@ -333,648 +480,793 @@ export default function StudentResume() {
       <GradientOrb color="purple" position="center" delay="4s" />
 
       {/* Header */}
-      <div className="mb-8">
+      <motion.div
+        className="mb-8"
+        variants={fadeUp}
+        initial="hidden"
+        animate="visible"
+        transition={{ duration: 0.5, delay: 0 }}
+        style={{ willChange: 'transform' }}
+      >
         <DashboardHeader
           icon={FileText}
           title="My Resume"
           subtitle="Build and customize your professional resume"
         />
-      </div>
+      </motion.div>
 
       {/* Action Buttons */}
-      <GlassCard className="p-6 mb-6">
-        <div className="flex flex-wrap gap-4 justify-between items-center">
-          <div className="flex flex-wrap gap-3">
-            <button
-              onClick={handleDownload}
-              disabled={downloading || !canDownload}
-              className={`font-bold px-6 py-3 rounded-xl shadow-lg transition-all duration-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${canDownload ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:shadow-xl' : 'bg-gray-300 text-gray-500'}`}
-            >
-              <Download size={18} />
-              <span>{downloading ? 'Downloading...' : 'Download Resume'}</span>
-            </button>
-          </div>
-          <div className="flex gap-3">
-            {editMode ? (
-              <>
-                <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2 disabled:opacity-50"
-                >
-                  <Save size={18} />
-                  <span>{saving ? 'Saving...' : 'Save Changes'}</span>
-                </button>
-                <button
-                  onClick={() => {
-                    setEditMode(false);
-                    fetchResume();
-                  }}
-                  className="bg-gradient-to-r from-gray-600 to-gray-700 text-white font-bold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2"
-                >
-                  <X size={18} />
-                  <span>Cancel</span>
-                </button>
-              </>
-            ) : (
-              <button
-                onClick={() => setEditMode(true)}
-                className="bg-gradient-to-r from-orange-600 to-red-600 text-white font-bold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2"
+      <motion.div
+        variants={fadeUp}
+        initial="hidden"
+        animate="visible"
+        transition={{ duration: 0.5, delay: 0.1 }}
+        style={{ willChange: 'transform' }}
+      >
+        <GlassCard className="p-6 mb-6">
+          <div className="flex flex-wrap gap-4 justify-between items-center">
+            <div className="flex flex-wrap gap-3">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={handleDownload}
+                disabled={downloading || !canDownload}
+                className={`font-bold px-6 py-3 rounded-xl shadow-lg transition-all duration-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${canDownload ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:shadow-xl' : 'bg-gray-300 text-gray-500'}`}
               >
-                <Edit size={18} />
-                <span>Edit Resume</span>
-              </button>
-            )}
-          </div>
-        </div>
-        <p className="text-gray-600 mt-4 text-sm">
-          Your resume includes your profile data along with all the sections you've added below.
-        </p>
-        {!canDownload && (
-          <div className="mt-4 flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-            <AlertCircle size={18} className="text-amber-600 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-amber-800 text-sm font-bold">Complete these mandatory sections to enable download:</p>
-              <ul className="text-amber-700 text-sm mt-1 list-disc list-inside">
-                {getMissingSections().map(s => <li key={s}>{s}</li>)}
-              </ul>
+                <Download size={18} />
+                <span>{downloading ? 'Downloading...' : 'Download Resume'}</span>
+              </motion.button>
+            </div>
+            <div className="flex gap-3">
+              {editMode ? (
+                <>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2 disabled:opacity-50"
+                  >
+                    <Save size={18} />
+                    <span>{saving ? 'Saving...' : 'Save Changes'}</span>
+                  </motion.button>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => {
+                      setEditMode(false);
+                      fetchResume();
+                    }}
+                    className="bg-gradient-to-r from-gray-600 to-gray-700 text-white font-bold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2"
+                  >
+                    <X size={18} />
+                    <span>Cancel</span>
+                  </motion.button>
+                </>
+              ) : (
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setEditMode(true)}
+                  className="bg-gradient-to-r from-orange-600 to-red-600 text-white font-bold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2"
+                >
+                  <Edit size={18} />
+                  <span>Edit Resume</span>
+                </motion.button>
+              )}
             </div>
           </div>
-        )}
-      </GlassCard>
+          <p className="text-gray-600 mt-4 text-sm">
+            Your resume includes your profile data along with all the sections you've added below.
+          </p>
+          {!canDownload && (
+            <div className="mt-4 flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+              <AlertCircle size={18} className="text-amber-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-amber-800 text-sm font-bold">Complete these mandatory sections to enable download:</p>
+                <ul className="text-amber-700 text-sm mt-1 list-disc list-inside">
+                  {getMissingSections().map(s => <li key={s}>{s}</li>)}
+                </ul>
+              </div>
+            </div>
+          )}
+        </GlassCard>
+      </motion.div>
 
       <div className="space-y-4">
         {/* Career Objective */}
-        <GlassCard className="p-6">
-          <SectionHeader title="Career Objective" icon={Target} section="objective" color="blue" />
-          {expandedSections.objective && (
-            <div className="mt-4">
-              {editMode ? (
-                <textarea
-                  value={resumeData.career_objective}
-                  onChange={(e) => setResumeData(prev => ({ ...prev, career_objective: e.target.value }))}
-                  placeholder="Write a compelling career objective that highlights your goals and what you bring to the table..."
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all font-medium resize-none"
-                  rows={4}
-                />
-              ) : (
-                <p className="text-gray-700 leading-relaxed">
-                  {resumeData.career_objective || 'No career objective set. Click "Edit Resume" to add one.'}
-                </p>
-              )}
-            </div>
-          )}
-        </GlassCard>
+        <motion.div
+          variants={fadeUp}
+          initial="hidden"
+          animate="visible"
+          transition={{ duration: 0.5, delay: 0.2 }}
+          style={{ willChange: 'transform' }}
+        >
+          <GlassCard className="p-6">
+            <SectionHeader title="Career Objective" icon={Target} section="objective" color="blue" />
+            {expandedSections.objective && (
+              <div className="mt-4">
+                {editMode ? (
+                  <textarea
+                    value={resumeData.career_objective}
+                    onChange={(e) => setResumeData(prev => ({ ...prev, career_objective: e.target.value }))}
+                    placeholder="Write a compelling career objective that highlights your goals and what you bring to the table..."
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all font-medium resize-none"
+                    rows={4}
+                  />
+                ) : (
+                  <p className="text-gray-700 leading-relaxed">
+                    {resumeData.career_objective || 'No career objective set. Click "Edit Resume" to add one.'}
+                  </p>
+                )}
+              </div>
+            )}
+          </GlassCard>
+        </motion.div>
 
         {/* Address */}
-        <GlassCard className="p-6">
-          <SectionHeader title="Address" icon={MapPin} section="address" color="emerald" />
-          {expandedSections.address && (
-            <div className="mt-4">
-              {editMode ? (
-                <div>
-                  <textarea
-                    value={resumeData.address}
-                    onChange={(e) => setResumeData(prev => ({ ...prev, address: e.target.value }))}
-                    placeholder="Enter your complete address for the resume..."
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100 outline-none transition-all font-medium resize-none"
-                    rows={3}
-                  />
-                  {!resumeData.address && extendedProfileAddress && (
-                    <button
-                      onClick={() => setResumeData(prev => ({ ...prev, address: extendedProfileAddress }))}
-                      className="mt-2 text-sm text-emerald-600 hover:text-emerald-800 font-medium underline"
-                    >
-                      Use address from Extended Profile: "{extendedProfileAddress.substring(0, 60)}{extendedProfileAddress.length > 60 ? '...' : ''}"
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <div>
-                  <p className="text-gray-700 leading-relaxed">
-                    {resumeData.address || extendedProfileAddress || 'No address set. Click "Edit Resume" to add one.'}
-                  </p>
-                  {!resumeData.address && extendedProfileAddress && (
-                    <p className="text-xs text-gray-500 mt-1 italic">Using address from Extended Profile</p>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-        </GlassCard>
+        <motion.div
+          variants={fadeUp}
+          initial="hidden"
+          animate="visible"
+          transition={{ duration: 0.5, delay: 0.3 }}
+          style={{ willChange: 'transform' }}
+        >
+          <GlassCard className="p-6">
+            <SectionHeader title="Address" icon={MapPin} section="address" color="emerald" />
+            {expandedSections.address && (
+              <div className="mt-4">
+                {editMode ? (
+                  <div>
+                    <textarea
+                      value={resumeData.address}
+                      onChange={(e) => setResumeData(prev => ({ ...prev, address: e.target.value }))}
+                      placeholder="Enter your complete address for the resume..."
+                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100 outline-none transition-all font-medium resize-none"
+                      rows={3}
+                    />
+                    {!resumeData.address && extendedProfileAddress && (
+                      <button
+                        onClick={() => setResumeData(prev => ({ ...prev, address: extendedProfileAddress }))}
+                        className="mt-2 text-sm text-emerald-600 hover:text-emerald-800 font-medium underline"
+                      >
+                        Use address from Extended Profile: "{extendedProfileAddress.substring(0, 60)}{extendedProfileAddress.length > 60 ? '...' : ''}"
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-gray-700 leading-relaxed">
+                      {resumeData.address || extendedProfileAddress || 'No address set. Click "Edit Resume" to add one.'}
+                    </p>
+                    {!resumeData.address && extendedProfileAddress && (
+                      <p className="text-xs text-gray-500 mt-1 italic">Using address from Extended Profile</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </GlassCard>
+        </motion.div>
 
         {/* Skills */}
-        <GlassCard className="p-6">
-          <SectionHeader title="Skills" icon={Code} section="skills" color="indigo" />
-          {expandedSections.skills && (
-            <div className="mt-4 space-y-6">
-              {/* Technical Skills */}
-              <div>
-                <h4 className="font-bold text-gray-700 mb-3">Technical Skills</h4>
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {resumeData.technical_skills.map((skill, index) => (
-                    <span key={index} className="bg-blue-100 text-blue-800 px-3 py-1.5 rounded-full font-medium flex items-center gap-2">
-                      {skill}
-                      {editMode && (
-                        <button onClick={() => removeFromArray('technical_skills', index)} className="hover:text-red-600">
-                          <X size={14} />
-                        </button>
-                      )}
-                    </span>
-                  ))}
-                </div>
-                {editMode && (
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={tempInputs.technical_skill}
-                      onChange={(e) => setTempInputs(prev => ({ ...prev, technical_skill: e.target.value }))}
-                      placeholder="Add a technical skill (e.g., Python, React)"
-                      className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-xl focus:border-blue-500 outline-none"
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter') {
-                          addToArray('technical_skills', tempInputs.technical_skill);
-                          setTempInputs(prev => ({ ...prev, technical_skill: '' }));
-                        }
-                      }}
-                    />
-                    <button
-                      onClick={() => {
-                        addToArray('technical_skills', tempInputs.technical_skill);
-                        setTempInputs(prev => ({ ...prev, technical_skill: '' }));
-                      }}
-                      className="bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition-colors"
-                    >
-                      <Plus size={20} />
-                    </button>
+        <motion.div
+          variants={fadeUp}
+          initial="hidden"
+          animate="visible"
+          transition={{ duration: 0.5, delay: 0.4 }}
+          style={{ willChange: 'transform' }}
+        >
+          <GlassCard className="p-6">
+            <SectionHeader title="Skills" icon={Code} section="skills" color="indigo" />
+            {expandedSections.skills && (
+              <div className="mt-4 space-y-6">
+                {/* Technical Skills */}
+                <div>
+                  <h4 className="font-bold text-gray-700 mb-3">Technical Skills</h4>
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {resumeData.technical_skills.map((skill, index) => (
+                      <span key={index} className="bg-blue-100 text-blue-800 px-3 py-1.5 rounded-full font-medium flex items-center gap-2">
+                        {skill}
+                        {editMode && (
+                          <button onClick={() => removeFromArray('technical_skills', index)} className="hover:text-red-600">
+                            <X size={14} />
+                          </button>
+                        )}
+                      </span>
+                    ))}
                   </div>
-                )}
-              </div>
-
-              {/* Soft Skills */}
-              <div>
-                <h4 className="font-bold text-gray-700 mb-3">Soft Skills</h4>
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {resumeData.soft_skills.map((skill, index) => (
-                    <span key={index} className="bg-green-100 text-green-800 px-3 py-1.5 rounded-full font-medium flex items-center gap-2">
-                      {skill}
-                      {editMode && (
-                        <button onClick={() => removeFromArray('soft_skills', index)} className="hover:text-red-600">
-                          <X size={14} />
-                        </button>
-                      )}
-                    </span>
-                  ))}
-                </div>
-                {editMode && (
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={tempInputs.soft_skill}
-                      onChange={(e) => setTempInputs(prev => ({ ...prev, soft_skill: e.target.value }))}
-                      placeholder="Add a soft skill (e.g., Leadership, Communication)"
-                      className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-xl focus:border-green-500 outline-none"
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter') {
-                          addToArray('soft_skills', tempInputs.soft_skill);
-                          setTempInputs(prev => ({ ...prev, soft_skill: '' }));
-                        }
-                      }}
-                    />
-                    <button
-                      onClick={() => {
-                        addToArray('soft_skills', tempInputs.soft_skill);
-                        setTempInputs(prev => ({ ...prev, soft_skill: '' }));
-                      }}
-                      className="bg-green-600 text-white px-4 py-2 rounded-xl hover:bg-green-700 transition-colors"
-                    >
-                      <Plus size={20} />
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Languages */}
-              <div>
-                <h4 className="font-bold text-gray-700 mb-3">Languages Known</h4>
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {resumeData.languages_known.map((lang, index) => (
-                    <span key={index} className="bg-purple-100 text-purple-800 px-3 py-1.5 rounded-full font-medium flex items-center gap-2">
-                      {lang}
-                      {editMode && (
-                        <button onClick={() => removeFromArray('languages_known', index)} className="hover:text-red-600">
-                          <X size={14} />
-                        </button>
-                      )}
-                    </span>
-                  ))}
-                </div>
-                {editMode && (
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={tempInputs.language}
-                      onChange={(e) => setTempInputs(prev => ({ ...prev, language: e.target.value }))}
-                      placeholder="Add a language (e.g., English, Hindi, Malayalam)"
-                      className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-xl focus:border-purple-500 outline-none"
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter') {
-                          addToArray('languages_known', tempInputs.language);
-                          setTempInputs(prev => ({ ...prev, language: '' }));
-                        }
-                      }}
-                    />
-                    <button
-                      onClick={() => {
-                        addToArray('languages_known', tempInputs.language);
-                        setTempInputs(prev => ({ ...prev, language: '' }));
-                      }}
-                      className="bg-purple-600 text-white px-4 py-2 rounded-xl hover:bg-purple-700 transition-colors"
-                    >
-                      <Plus size={20} />
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </GlassCard>
-
-        {/* Projects */}
-        <GlassCard className="p-6">
-          <SectionHeader title="Projects" icon={BookOpen} section="projects" color="orange" />
-          {expandedSections.projects && (
-            <div className="mt-4 space-y-4">
-              {resumeData.projects.map((project, index) => (
-                <div key={index} className="bg-orange-50 p-4 rounded-xl border-2 border-orange-200">
-                  {editMode ? (
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center">
-                        <input
-                          type="text"
-                          value={project.title}
-                          onChange={(e) => updateProject(index, 'title', e.target.value)}
-                          placeholder="Project Title"
-                          className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-xl focus:border-orange-500 outline-none font-bold"
-                        />
-                        <button onClick={() => removeProject(index)} className="ml-2 text-red-600 hover:text-red-800">
-                          <Trash2 size={20} />
-                        </button>
-                      </div>
+                  {editMode && (
+                    <div className="flex gap-2">
                       <input
                         type="text"
-                        value={project.technologies}
-                        onChange={(e) => updateProject(index, 'technologies', e.target.value)}
-                        placeholder="Technologies used (e.g., React, Node.js, MongoDB)"
-                        className="w-full px-4 py-2 border-2 border-gray-300 rounded-xl focus:border-orange-500 outline-none"
+                        value={tempInputs.technical_skill}
+                        onChange={(e) => setTempInputs(prev => ({ ...prev, technical_skill: e.target.value }))}
+                        placeholder="Add a technical skill (e.g., Python, React)"
+                        className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-xl focus:border-blue-500 outline-none"
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter') {
+                            addToArray('technical_skills', tempInputs.technical_skill);
+                            setTempInputs(prev => ({ ...prev, technical_skill: '' }));
+                          }
+                        }}
                       />
-                      <textarea
-                        value={project.description}
-                        onChange={(e) => updateProject(index, 'description', e.target.value)}
-                        placeholder="Project description..."
-                        className="w-full px-4 py-2 border-2 border-gray-300 rounded-xl focus:border-orange-500 outline-none resize-none"
-                        rows={2}
-                      />
-                    </div>
-                  ) : (
-                    <div>
-                      <h4 className="font-bold text-gray-800">{project.title || 'Untitled Project'}</h4>
-                      {project.technologies && (
-                        <p className="text-sm text-orange-600 font-medium mt-1">{project.technologies}</p>
-                      )}
-                      {project.description && (
-                        <p className="text-gray-600 mt-2">{project.description}</p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))}
-              {editMode && (
-                <button
-                  onClick={addProject}
-                  className="w-full py-3 border-2 border-dashed border-orange-300 rounded-xl text-orange-600 font-bold hover:bg-orange-50 transition-colors flex items-center justify-center gap-2"
-                >
-                  <Plus size={20} />
-                  Add Project
-                </button>
-              )}
-              {!editMode && resumeData.projects.length === 0 && (
-                <p className="text-gray-500 text-center py-4">No projects added yet.</p>
-              )}
-            </div>
-          )}
-        </GlassCard>
-
-        {/* Work Experience */}
-        <GlassCard className="p-6">
-          <SectionHeader title="Work Experience / Internships" icon={Briefcase} section="experience" color="teal" />
-          {expandedSections.experience && (
-            <div className="mt-4 space-y-4">
-              {resumeData.work_experience.map((exp, index) => (
-                <div key={index} className="bg-teal-50 p-4 rounded-xl border-2 border-teal-200">
-                  {editMode ? (
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center">
-                        <input
-                          type="text"
-                          value={exp.role}
-                          onChange={(e) => updateExperience(index, 'role', e.target.value)}
-                          placeholder="Role/Position"
-                          className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-xl focus:border-teal-500 outline-none font-bold"
-                        />
-                        <button onClick={() => removeExperience(index)} className="ml-2 text-red-600 hover:text-red-800">
-                          <Trash2 size={20} />
-                        </button>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <input
-                          type="text"
-                          value={exp.company}
-                          onChange={(e) => updateExperience(index, 'company', e.target.value)}
-                          placeholder="Company Name"
-                          className="px-4 py-2 border-2 border-gray-300 rounded-xl focus:border-teal-500 outline-none"
-                        />
-                        <input
-                          type="text"
-                          value={exp.duration}
-                          onChange={(e) => updateExperience(index, 'duration', e.target.value)}
-                          placeholder="Duration (e.g., June 2025 - Aug 2025)"
-                          className="px-4 py-2 border-2 border-gray-300 rounded-xl focus:border-teal-500 outline-none"
-                        />
-                      </div>
-                      <textarea
-                        value={exp.description}
-                        onChange={(e) => updateExperience(index, 'description', e.target.value)}
-                        placeholder="Describe your role and responsibilities..."
-                        className="w-full px-4 py-2 border-2 border-gray-300 rounded-xl focus:border-teal-500 outline-none resize-none"
-                        rows={2}
-                      />
-                    </div>
-                  ) : (
-                    <div>
-                      <h4 className="font-bold text-gray-800">{exp.role || 'Role not specified'}</h4>
-                      <p className="text-sm text-teal-600 font-medium mt-1">
-                        {exp.company}{exp.duration && ` | ${exp.duration}`}
-                      </p>
-                      {exp.description && (
-                        <p className="text-gray-600 mt-2">{exp.description}</p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))}
-              {editMode && (
-                <button
-                  onClick={addExperience}
-                  className="w-full py-3 border-2 border-dashed border-teal-300 rounded-xl text-teal-600 font-bold hover:bg-teal-50 transition-colors flex items-center justify-center gap-2"
-                >
-                  <Plus size={20} />
-                  Add Work Experience / Internship
-                </button>
-              )}
-              {!editMode && resumeData.work_experience.length === 0 && (
-                <p className="text-gray-500 text-center py-4">No work experience added yet.</p>
-              )}
-            </div>
-          )}
-        </GlassCard>
-
-        {/* Certifications */}
-        <GlassCard className="p-6">
-          <SectionHeader title="Certifications" icon={Award} section="certifications" color="yellow" />
-          {expandedSections.certifications && (
-            <div className="mt-4 space-y-4">
-              {resumeData.certifications.map((cert, index) => (
-                <div key={index} className="bg-yellow-50 p-4 rounded-xl border-2 border-yellow-200">
-                  {editMode ? (
-                    <div className="flex gap-3 items-start">
-                      <div className="flex-1 grid grid-cols-3 gap-3">
-                        <input
-                          type="text"
-                          value={cert.name}
-                          onChange={(e) => updateCertification(index, 'name', e.target.value)}
-                          placeholder="Certification Name"
-                          className="col-span-2 px-4 py-2 border-2 border-gray-300 rounded-xl focus:border-yellow-500 outline-none"
-                        />
-                        <input
-                          type="text"
-                          value={cert.year}
-                          onChange={(e) => updateCertification(index, 'year', e.target.value)}
-                          placeholder="Year"
-                          className="px-4 py-2 border-2 border-gray-300 rounded-xl focus:border-yellow-500 outline-none"
-                        />
-                        <input
-                          type="text"
-                          value={cert.issuer}
-                          onChange={(e) => updateCertification(index, 'issuer', e.target.value)}
-                          placeholder="Issuing Organization"
-                          className="col-span-3 px-4 py-2 border-2 border-gray-300 rounded-xl focus:border-yellow-500 outline-none"
-                        />
-                      </div>
-                      <button onClick={() => removeCertification(index)} className="text-red-600 hover:text-red-800">
-                        <Trash2 size={20} />
+                      <button
+                        onClick={() => {
+                          addToArray('technical_skills', tempInputs.technical_skill);
+                          setTempInputs(prev => ({ ...prev, technical_skill: '' }));
+                        }}
+                        className="bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition-colors"
+                      >
+                        <Plus size={20} />
                       </button>
                     </div>
-                  ) : (
-                    <div>
-                      <h4 className="font-bold text-gray-800">{cert.name || 'Certification name not specified'}</h4>
-                      <p className="text-sm text-yellow-700 font-medium mt-1">
-                        {cert.issuer}{cert.year && ` (${cert.year})`}
-                      </p>
+                  )}
+                </div>
+
+                {/* Soft Skills */}
+                <div>
+                  <h4 className="font-bold text-gray-700 mb-3">Soft Skills</h4>
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {resumeData.soft_skills.map((skill, index) => (
+                      <span key={index} className="bg-green-100 text-green-800 px-3 py-1.5 rounded-full font-medium flex items-center gap-2">
+                        {skill}
+                        {editMode && (
+                          <button onClick={() => removeFromArray('soft_skills', index)} className="hover:text-red-600">
+                            <X size={14} />
+                          </button>
+                        )}
+                      </span>
+                    ))}
+                  </div>
+                  {editMode && (
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={tempInputs.soft_skill}
+                        onChange={(e) => setTempInputs(prev => ({ ...prev, soft_skill: e.target.value }))}
+                        placeholder="Add a soft skill (e.g., Leadership, Communication)"
+                        className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-xl focus:border-green-500 outline-none"
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter') {
+                            addToArray('soft_skills', tempInputs.soft_skill);
+                            setTempInputs(prev => ({ ...prev, soft_skill: '' }));
+                          }
+                        }}
+                      />
+                      <button
+                        onClick={() => {
+                          addToArray('soft_skills', tempInputs.soft_skill);
+                          setTempInputs(prev => ({ ...prev, soft_skill: '' }));
+                        }}
+                        className="bg-green-600 text-white px-4 py-2 rounded-xl hover:bg-green-700 transition-colors"
+                      >
+                        <Plus size={20} />
+                      </button>
                     </div>
                   )}
                 </div>
-              ))}
-              {editMode && (
-                <button
-                  onClick={addCertification}
-                  className="w-full py-3 border-2 border-dashed border-yellow-300 rounded-xl text-yellow-600 font-bold hover:bg-yellow-50 transition-colors flex items-center justify-center gap-2"
-                >
-                  <Plus size={20} />
-                  Add Certification
-                </button>
-              )}
-              {!editMode && resumeData.certifications.length === 0 && (
-                <p className="text-gray-500 text-center py-4">No certifications added yet.</p>
-              )}
-            </div>
-          )}
-        </GlassCard>
 
-        {/* Achievements */}
-        <GlassCard className="p-6">
-          <SectionHeader title="Achievements & Awards" icon={Award} section="achievements" color="pink" />
-          {expandedSections.achievements && (
-            <div className="mt-4 space-y-4">
-              {resumeData.achievements.map((ach, index) => (
-                <div key={index} className="bg-pink-50 p-4 rounded-xl border-2 border-pink-200">
-                  {editMode ? (
-                    <div className="flex gap-3 items-start">
-                      <div className="flex-1 space-y-3">
-                        <div className="flex gap-3">
+                {/* Languages */}
+                <div>
+                  <h4 className="font-bold text-gray-700 mb-3">Languages Known</h4>
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {resumeData.languages_known.map((lang, index) => (
+                      <span key={index} className="bg-purple-100 text-purple-800 px-3 py-1.5 rounded-full font-medium flex items-center gap-2">
+                        {lang}
+                        {editMode && (
+                          <button onClick={() => removeFromArray('languages_known', index)} className="hover:text-red-600">
+                            <X size={14} />
+                          </button>
+                        )}
+                      </span>
+                    ))}
+                  </div>
+                  {editMode && (
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={tempInputs.language}
+                        onChange={(e) => setTempInputs(prev => ({ ...prev, language: e.target.value }))}
+                        placeholder="Add a language (e.g., English, Hindi, Malayalam)"
+                        className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-xl focus:border-purple-500 outline-none"
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter') {
+                            addToArray('languages_known', tempInputs.language);
+                            setTempInputs(prev => ({ ...prev, language: '' }));
+                          }
+                        }}
+                      />
+                      <button
+                        onClick={() => {
+                          addToArray('languages_known', tempInputs.language);
+                          setTempInputs(prev => ({ ...prev, language: '' }));
+                        }}
+                        className="bg-purple-600 text-white px-4 py-2 rounded-xl hover:bg-purple-700 transition-colors"
+                      >
+                        <Plus size={20} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </GlassCard>
+        </motion.div>
+
+        {/* Projects */}
+        <motion.div
+          variants={fadeUp}
+          initial="hidden"
+          animate="visible"
+          transition={{ duration: 0.5, delay: 0.5 }}
+          style={{ willChange: 'transform' }}
+        >
+          <GlassCard className="p-6">
+            <SectionHeader title="Projects" icon={BookOpen} section="projects" color="orange" />
+            {expandedSections.projects && (
+              <div className="mt-4 space-y-4">
+                {resumeData.projects.map((project, index) => (
+                  <motion.div
+                    key={index}
+                    className="bg-orange-50 p-4 rounded-xl border-2 border-orange-200"
+                    whileHover={{ y: -2 }}
+                    transition={{ duration: 0.2 }}
+                    style={{ willChange: 'transform' }}
+                  >
+                    {editMode ? (
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center">
                           <input
                             type="text"
-                            value={ach.title}
-                            onChange={(e) => updateAchievement(index, 'title', e.target.value)}
-                            placeholder="Achievement Title"
-                            className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-xl focus:border-pink-500 outline-none"
+                            value={project.title}
+                            onChange={(e) => updateProject(index, 'title', e.target.value)}
+                            placeholder="Project Title"
+                            className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-xl focus:border-orange-500 outline-none font-bold"
                           />
-                          <input
-                            type="text"
-                            value={ach.year}
-                            onChange={(e) => updateAchievement(index, 'year', e.target.value)}
-                            placeholder="Year"
-                            className="w-24 px-4 py-2 border-2 border-gray-300 rounded-xl focus:border-pink-500 outline-none"
-                          />
+                          <button onClick={() => removeProject(index)} className="ml-2 text-red-600 hover:text-red-800">
+                            <Trash2 size={20} />
+                          </button>
                         </div>
+                        <input
+                          type="text"
+                          value={project.technologies}
+                          onChange={(e) => updateProject(index, 'technologies', e.target.value)}
+                          placeholder="Technologies used (e.g., React, Node.js, MongoDB)"
+                          className="w-full px-4 py-2 border-2 border-gray-300 rounded-xl focus:border-orange-500 outline-none"
+                        />
                         <textarea
-                          value={ach.description}
-                          onChange={(e) => updateAchievement(index, 'description', e.target.value)}
-                          placeholder="Description (optional)"
-                          className="w-full px-4 py-2 border-2 border-gray-300 rounded-xl focus:border-pink-500 outline-none resize-none"
+                          value={project.description}
+                          onChange={(e) => updateProject(index, 'description', e.target.value)}
+                          placeholder="Project description..."
+                          className="w-full px-4 py-2 border-2 border-gray-300 rounded-xl focus:border-orange-500 outline-none resize-none"
                           rows={2}
                         />
                       </div>
-                      <button onClick={() => removeAchievement(index)} className="text-red-600 hover:text-red-800">
-                        <Trash2 size={20} />
-                      </button>
-                    </div>
-                  ) : (
-                    <div>
-                      <h4 className="font-bold text-gray-800">{ach.title || 'Achievement not specified'}</h4>
-                      {ach.year && <p className="text-sm text-pink-600 font-medium mt-1">{ach.year}</p>}
-                      {ach.description && <p className="text-gray-600 mt-2">{ach.description}</p>}
-                    </div>
-                  )}
-                </div>
-              ))}
-              {editMode && (
-                <button
-                  onClick={addAchievement}
-                  className="w-full py-3 border-2 border-dashed border-pink-300 rounded-xl text-pink-600 font-bold hover:bg-pink-50 transition-colors flex items-center justify-center gap-2"
-                >
-                  <Plus size={20} />
-                  Add Achievement
-                </button>
-              )}
-              {!editMode && resumeData.achievements.length === 0 && (
-                <p className="text-gray-500 text-center py-4">No achievements added yet.</p>
-              )}
-            </div>
-          )}
-        </GlassCard>
+                    ) : (
+                      <div>
+                        <h4 className="font-bold text-gray-800">{project.title || 'Untitled Project'}</h4>
+                        {project.technologies && (
+                          <p className="text-sm text-orange-600 font-medium mt-1">{project.technologies}</p>
+                        )}
+                        {project.description && (
+                          <p className="text-gray-600 mt-2">{project.description}</p>
+                        )}
+                      </div>
+                    )}
+                  </motion.div>
+                ))}
+                {editMode && (
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={addProject}
+                    className="w-full py-3 border-2 border-dashed border-orange-300 rounded-xl text-orange-600 font-bold hover:bg-orange-50 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Plus size={20} />
+                    Add Project
+                  </motion.button>
+                )}
+                {!editMode && resumeData.projects.length === 0 && (
+                  <p className="text-gray-500 text-center py-4">No projects added yet.</p>
+                )}
+              </div>
+            )}
+          </GlassCard>
+        </motion.div>
 
-        {/* Extracurricular */}
-        <GlassCard className="p-6">
-          <SectionHeader title="Extracurricular Activities" icon={Users} section="extracurricular" color="cyan" />
-          {expandedSections.extracurricular && (
-            <div className="mt-4 space-y-3">
-              {resumeData.extracurricular_activities.map((activity, index) => (
-                <div key={index} className="flex gap-2">
-                  {editMode ? (
-                    <>
-                      <input
-                        type="text"
-                        value={activity}
-                        onChange={(e) => updateExtracurricular(index, e.target.value)}
-                        placeholder="Activity description"
-                        className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-xl focus:border-cyan-500 outline-none"
-                      />
-                      <button onClick={() => removeExtracurricular(index)} className="text-red-600 hover:text-red-800">
-                        <Trash2 size={20} />
-                      </button>
-                    </>
-                  ) : (
-                    <div className="flex items-center gap-2 bg-cyan-50 px-4 py-2 rounded-xl w-full">
-                      <Check className="text-cyan-600" size={18} />
-                      <span>{activity}</span>
-                    </div>
-                  )}
-                </div>
-              ))}
-              {editMode && (
-                <button
-                  onClick={addExtracurricular}
-                  className="w-full py-3 border-2 border-dashed border-cyan-300 rounded-xl text-cyan-600 font-bold hover:bg-cyan-50 transition-colors flex items-center justify-center gap-2"
-                >
-                  <Plus size={20} />
-                  Add Activity
-                </button>
-              )}
-              {!editMode && resumeData.extracurricular_activities.length === 0 && (
-                <p className="text-gray-500 text-center py-4">No activities added yet.</p>
-              )}
-            </div>
-          )}
-        </GlassCard>
-
-        {/* Custom Sections */}
-        <GlassCard className="p-6">
-          <SectionHeader title="Custom Sections" icon={FileText} section="custom" color="gray" />
-          {expandedSections.custom && (
-            <div className="mt-4 space-y-4">
-              {resumeData.custom_sections.map((section, index) => (
-                <div key={index} className="bg-gray-50 p-4 rounded-xl border-2 border-gray-200">
-                  {editMode ? (
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center">
-                        <input
-                          type="text"
-                          value={section.title}
-                          onChange={(e) => updateCustomSection(index, 'title', e.target.value)}
-                          placeholder="Section Title"
-                          className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-xl focus:border-gray-500 outline-none font-bold"
+        {/* Work Experience */}
+        <motion.div
+          variants={fadeUp}
+          initial="hidden"
+          animate="visible"
+          transition={{ duration: 0.5, delay: 0.6 }}
+          style={{ willChange: 'transform' }}
+        >
+          <GlassCard className="p-6">
+            <SectionHeader title="Work Experience / Internships" icon={Briefcase} section="experience" color="teal" />
+            {expandedSections.experience && (
+              <div className="mt-4 space-y-4">
+                {resumeData.work_experience.map((exp, index) => (
+                  <motion.div
+                    key={index}
+                    className="bg-teal-50 p-4 rounded-xl border-2 border-teal-200"
+                    whileHover={{ y: -2 }}
+                    transition={{ duration: 0.2 }}
+                    style={{ willChange: 'transform' }}
+                  >
+                    {editMode ? (
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center">
+                          <input
+                            type="text"
+                            value={exp.role}
+                            onChange={(e) => updateExperience(index, 'role', e.target.value)}
+                            placeholder="Role/Position"
+                            className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-xl focus:border-teal-500 outline-none font-bold"
+                          />
+                          <button onClick={() => removeExperience(index)} className="ml-2 text-red-600 hover:text-red-800">
+                            <Trash2 size={20} />
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <input
+                            type="text"
+                            value={exp.company}
+                            onChange={(e) => updateExperience(index, 'company', e.target.value)}
+                            placeholder="Company Name"
+                            className="px-4 py-2 border-2 border-gray-300 rounded-xl focus:border-teal-500 outline-none"
+                          />
+                          <input
+                            type="text"
+                            value={exp.duration}
+                            onChange={(e) => updateExperience(index, 'duration', e.target.value)}
+                            placeholder="Duration (e.g., June 2025 - Aug 2025)"
+                            className="px-4 py-2 border-2 border-gray-300 rounded-xl focus:border-teal-500 outline-none"
+                          />
+                        </div>
+                        <textarea
+                          value={exp.description}
+                          onChange={(e) => updateExperience(index, 'description', e.target.value)}
+                          placeholder="Describe your role and responsibilities..."
+                          className="w-full px-4 py-2 border-2 border-gray-300 rounded-xl focus:border-teal-500 outline-none resize-none"
+                          rows={2}
                         />
-                        <button onClick={() => removeCustomSection(index)} className="ml-2 text-red-600 hover:text-red-800">
+                      </div>
+                    ) : (
+                      <div>
+                        <h4 className="font-bold text-gray-800">{exp.role || 'Role not specified'}</h4>
+                        <p className="text-sm text-teal-600 font-medium mt-1">
+                          {exp.company}{exp.duration && ` | ${exp.duration}`}
+                        </p>
+                        {exp.description && (
+                          <p className="text-gray-600 mt-2">{exp.description}</p>
+                        )}
+                      </div>
+                    )}
+                  </motion.div>
+                ))}
+                {editMode && (
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={addExperience}
+                    className="w-full py-3 border-2 border-dashed border-teal-300 rounded-xl text-teal-600 font-bold hover:bg-teal-50 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Plus size={20} />
+                    Add Work Experience / Internship
+                  </motion.button>
+                )}
+                {!editMode && resumeData.work_experience.length === 0 && (
+                  <p className="text-gray-500 text-center py-4">No work experience added yet.</p>
+                )}
+              </div>
+            )}
+          </GlassCard>
+        </motion.div>
+
+        {/* Certifications */}
+        <motion.div
+          variants={fadeUp}
+          initial="hidden"
+          animate="visible"
+          transition={{ duration: 0.5, delay: 0.7 }}
+          style={{ willChange: 'transform' }}
+        >
+          <GlassCard className="p-6">
+            <SectionHeader title="Certifications" icon={Award} section="certifications" color="yellow" />
+            {expandedSections.certifications && (
+              <div className="mt-4 space-y-4">
+                {resumeData.certifications.map((cert, index) => (
+                  <motion.div
+                    key={index}
+                    className="bg-yellow-50 p-4 rounded-xl border-2 border-yellow-200"
+                    whileHover={{ y: -2 }}
+                    transition={{ duration: 0.2 }}
+                    style={{ willChange: 'transform' }}
+                  >
+                    {editMode ? (
+                      <div className="flex gap-3 items-start">
+                        <div className="flex-1 grid grid-cols-3 gap-3">
+                          <input
+                            type="text"
+                            value={cert.name}
+                            onChange={(e) => updateCertification(index, 'name', e.target.value)}
+                            placeholder="Certification Name"
+                            className="col-span-2 px-4 py-2 border-2 border-gray-300 rounded-xl focus:border-yellow-500 outline-none"
+                          />
+                          <input
+                            type="text"
+                            value={cert.year}
+                            onChange={(e) => updateCertification(index, 'year', e.target.value)}
+                            placeholder="Year"
+                            className="px-4 py-2 border-2 border-gray-300 rounded-xl focus:border-yellow-500 outline-none"
+                          />
+                          <input
+                            type="text"
+                            value={cert.issuer}
+                            onChange={(e) => updateCertification(index, 'issuer', e.target.value)}
+                            placeholder="Issuing Organization"
+                            className="col-span-3 px-4 py-2 border-2 border-gray-300 rounded-xl focus:border-yellow-500 outline-none"
+                          />
+                        </div>
+                        <button onClick={() => removeCertification(index)} className="text-red-600 hover:text-red-800">
                           <Trash2 size={20} />
                         </button>
                       </div>
-                      <textarea
-                        value={section.content}
-                        onChange={(e) => updateCustomSection(index, 'content', e.target.value)}
-                        placeholder="Section content..."
-                        className="w-full px-4 py-2 border-2 border-gray-300 rounded-xl focus:border-gray-500 outline-none resize-none"
-                        rows={3}
-                      />
-                    </div>
-                  ) : (
-                    <div>
-                      <h4 className="font-bold text-gray-800">{section.title || 'Untitled Section'}</h4>
-                      <p className="text-gray-600 mt-2 whitespace-pre-wrap">{section.content}</p>
-                    </div>
-                  )}
-                </div>
-              ))}
-              {editMode && (
-                <button
-                  onClick={addCustomSection}
-                  className="w-full py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-600 font-bold hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
-                >
-                  <Plus size={20} />
-                  Add Custom Section
-                </button>
-              )}
-              {!editMode && resumeData.custom_sections.length === 0 && (
-                <p className="text-gray-500 text-center py-4">No custom sections added yet.</p>
-              )}
-            </div>
-          )}
-        </GlassCard>
+                    ) : (
+                      <div>
+                        <h4 className="font-bold text-gray-800">{cert.name || 'Certification name not specified'}</h4>
+                        <p className="text-sm text-yellow-700 font-medium mt-1">
+                          {cert.issuer}{cert.year && ` (${cert.year})`}
+                        </p>
+                      </div>
+                    )}
+                  </motion.div>
+                ))}
+                {editMode && (
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={addCertification}
+                    className="w-full py-3 border-2 border-dashed border-yellow-300 rounded-xl text-yellow-600 font-bold hover:bg-yellow-50 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Plus size={20} />
+                    Add Certification
+                  </motion.button>
+                )}
+                {!editMode && resumeData.certifications.length === 0 && (
+                  <p className="text-gray-500 text-center py-4">No certifications added yet.</p>
+                )}
+              </div>
+            )}
+          </GlassCard>
+        </motion.div>
+
+        {/* Achievements */}
+        <motion.div
+          variants={fadeUp}
+          initial="hidden"
+          animate="visible"
+          transition={{ duration: 0.5, delay: 0.8 }}
+          style={{ willChange: 'transform' }}
+        >
+          <GlassCard className="p-6">
+            <SectionHeader title="Achievements & Awards" icon={Award} section="achievements" color="pink" />
+            {expandedSections.achievements && (
+              <div className="mt-4 space-y-4">
+                {resumeData.achievements.map((ach, index) => (
+                  <motion.div
+                    key={index}
+                    className="bg-pink-50 p-4 rounded-xl border-2 border-pink-200"
+                    whileHover={{ y: -2 }}
+                    transition={{ duration: 0.2 }}
+                    style={{ willChange: 'transform' }}
+                  >
+                    {editMode ? (
+                      <div className="flex gap-3 items-start">
+                        <div className="flex-1 space-y-3">
+                          <div className="flex gap-3">
+                            <input
+                              type="text"
+                              value={ach.title}
+                              onChange={(e) => updateAchievement(index, 'title', e.target.value)}
+                              placeholder="Achievement Title"
+                              className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-xl focus:border-pink-500 outline-none"
+                            />
+                            <input
+                              type="text"
+                              value={ach.year}
+                              onChange={(e) => updateAchievement(index, 'year', e.target.value)}
+                              placeholder="Year"
+                              className="w-24 px-4 py-2 border-2 border-gray-300 rounded-xl focus:border-pink-500 outline-none"
+                            />
+                          </div>
+                          <textarea
+                            value={ach.description}
+                            onChange={(e) => updateAchievement(index, 'description', e.target.value)}
+                            placeholder="Description (optional)"
+                            className="w-full px-4 py-2 border-2 border-gray-300 rounded-xl focus:border-pink-500 outline-none resize-none"
+                            rows={2}
+                          />
+                        </div>
+                        <button onClick={() => removeAchievement(index)} className="text-red-600 hover:text-red-800">
+                          <Trash2 size={20} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div>
+                        <h4 className="font-bold text-gray-800">{ach.title || 'Achievement not specified'}</h4>
+                        {ach.year && <p className="text-sm text-pink-600 font-medium mt-1">{ach.year}</p>}
+                        {ach.description && <p className="text-gray-600 mt-2">{ach.description}</p>}
+                      </div>
+                    )}
+                  </motion.div>
+                ))}
+                {editMode && (
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={addAchievement}
+                    className="w-full py-3 border-2 border-dashed border-pink-300 rounded-xl text-pink-600 font-bold hover:bg-pink-50 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Plus size={20} />
+                    Add Achievement
+                  </motion.button>
+                )}
+                {!editMode && resumeData.achievements.length === 0 && (
+                  <p className="text-gray-500 text-center py-4">No achievements added yet.</p>
+                )}
+              </div>
+            )}
+          </GlassCard>
+        </motion.div>
+
+        {/* Extracurricular */}
+        <motion.div
+          variants={fadeUp}
+          initial="hidden"
+          animate="visible"
+          transition={{ duration: 0.5, delay: 0.9 }}
+          style={{ willChange: 'transform' }}
+        >
+          <GlassCard className="p-6">
+            <SectionHeader title="Extracurricular Activities" icon={Users} section="extracurricular" color="cyan" />
+            {expandedSections.extracurricular && (
+              <div className="mt-4 space-y-3">
+                {resumeData.extracurricular_activities.map((activity, index) => (
+                  <div key={index} className="flex gap-2">
+                    {editMode ? (
+                      <>
+                        <input
+                          type="text"
+                          value={activity}
+                          onChange={(e) => updateExtracurricular(index, e.target.value)}
+                          placeholder="Activity description"
+                          className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-xl focus:border-cyan-500 outline-none"
+                        />
+                        <button onClick={() => removeExtracurricular(index)} className="text-red-600 hover:text-red-800">
+                          <Trash2 size={20} />
+                        </button>
+                      </>
+                    ) : (
+                      <div className="flex items-center gap-2 bg-cyan-50 px-4 py-2 rounded-xl w-full">
+                        <Check className="text-cyan-600" size={18} />
+                        <span>{activity}</span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {editMode && (
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={addExtracurricular}
+                    className="w-full py-3 border-2 border-dashed border-cyan-300 rounded-xl text-cyan-600 font-bold hover:bg-cyan-50 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Plus size={20} />
+                    Add Activity
+                  </motion.button>
+                )}
+                {!editMode && resumeData.extracurricular_activities.length === 0 && (
+                  <p className="text-gray-500 text-center py-4">No activities added yet.</p>
+                )}
+              </div>
+            )}
+          </GlassCard>
+        </motion.div>
+
+        {/* Custom Sections */}
+        <motion.div
+          variants={fadeUp}
+          initial="hidden"
+          animate="visible"
+          transition={{ duration: 0.5, delay: 1.0 }}
+          style={{ willChange: 'transform' }}
+        >
+          <GlassCard className="p-6">
+            <SectionHeader title="Custom Sections" icon={FileText} section="custom" color="gray" />
+            {expandedSections.custom && (
+              <div className="mt-4 space-y-4">
+                {resumeData.custom_sections.map((section, index) => (
+                  <motion.div
+                    key={index}
+                    className="bg-gray-50 p-4 rounded-xl border-2 border-gray-200"
+                    whileHover={{ y: -2 }}
+                    transition={{ duration: 0.2 }}
+                    style={{ willChange: 'transform' }}
+                  >
+                    {editMode ? (
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center">
+                          <input
+                            type="text"
+                            value={section.title}
+                            onChange={(e) => updateCustomSection(index, 'title', e.target.value)}
+                            placeholder="Section Title"
+                            className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-xl focus:border-gray-500 outline-none font-bold"
+                          />
+                          <button onClick={() => removeCustomSection(index)} className="ml-2 text-red-600 hover:text-red-800">
+                            <Trash2 size={20} />
+                          </button>
+                        </div>
+                        <textarea
+                          value={section.content}
+                          onChange={(e) => updateCustomSection(index, 'content', e.target.value)}
+                          placeholder="Section content..."
+                          className="w-full px-4 py-2 border-2 border-gray-300 rounded-xl focus:border-gray-500 outline-none resize-none"
+                          rows={3}
+                        />
+                      </div>
+                    ) : (
+                      <div>
+                        <h4 className="font-bold text-gray-800">{section.title || 'Untitled Section'}</h4>
+                        <p className="text-gray-600 mt-2 whitespace-pre-wrap">{section.content}</p>
+                      </div>
+                    )}
+                  </motion.div>
+                ))}
+                {editMode && (
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={addCustomSection}
+                    className="w-full py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-600 font-bold hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Plus size={20} />
+                    Add Custom Section
+                  </motion.button>
+                )}
+                {!editMode && resumeData.custom_sections.length === 0 && (
+                  <p className="text-gray-500 text-center py-4">No custom sections added yet.</p>
+                )}
+              </div>
+            )}
+          </GlassCard>
+        </motion.div>
 
         {/* Declaration */}
-        <GlassCard className="p-6">
-          <h3 className="text-lg font-bold text-gray-800 mb-4">Declaration</h3>
-          {editMode ? (
-            <textarea
-              value={resumeData.declaration_text}
-              onChange={(e) => setResumeData(prev => ({ ...prev, declaration_text: e.target.value }))}
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 outline-none resize-none"
-              rows={2}
-            />
-          ) : (
-            <p className="text-gray-700 italic">{resumeData.declaration_text}</p>
-          )}
-        </GlassCard>
+        <motion.div
+          variants={fadeUp}
+          initial="hidden"
+          animate="visible"
+          transition={{ duration: 0.5, delay: 1.1 }}
+          style={{ willChange: 'transform' }}
+        >
+          <GlassCard className="p-6">
+            <h3 className="text-lg font-bold text-gray-800 mb-4">Declaration</h3>
+            {editMode ? (
+              <textarea
+                value={resumeData.declaration_text}
+                onChange={(e) => setResumeData(prev => ({ ...prev, declaration_text: e.target.value }))}
+                className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 outline-none resize-none"
+                rows={2}
+              />
+            ) : (
+              <p className="text-gray-700 italic">{resumeData.declaration_text}</p>
+            )}
+          </GlassCard>
+        </motion.div>
       </div>
     </div>
   );

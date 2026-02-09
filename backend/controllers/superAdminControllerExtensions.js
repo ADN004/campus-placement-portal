@@ -1072,7 +1072,7 @@ export const exportStudentsByPRNRange = async (req, res) => {
 export const exportJobApplicants = async (req, res) => {
   try {
     const jobId = req.params.jobId;
-    const { format = 'excel', college_ids = [], branches = [], use_short_names = true } = req.body;
+    const { format = 'excel', college_ids = [], branches = [], use_short_names = true, exclude_already_placed = false } = req.body;
 
     // Build dynamic query based on filters
     let queryText = `
@@ -1108,6 +1108,16 @@ export const exportJobApplicants = async (req, res) => {
       paramCount++;
       queryText += ` AND s.branch = ANY($${paramCount})`;
       params.push(branches);
+    }
+
+    // Exclude already-placed students if requested
+    if (exclude_already_placed) {
+      queryText += ` AND NOT EXISTS (
+        SELECT 1 FROM job_applications ja_excl
+        WHERE ja_excl.student_id = s.id
+        AND ja_excl.application_status = 'selected'
+        AND ja_excl.job_id != ja.job_id
+      )`;
     }
 
     queryText += ` ORDER BY ja.applied_date DESC`;
@@ -1915,6 +1925,7 @@ export const enhancedExportJobApplicants = async (req, res) => {
       physically_handicapped,
       use_short_names = true,
       include_signature = false,
+      exclude_already_placed = false,
     } = req.body;
 
     // Build dynamic WHERE clauses
@@ -1998,6 +2009,15 @@ export const enhancedExportJobApplicants = async (req, res) => {
       whereConditions.push(`sep.physically_handicapped = $${paramIndex}`);
       params.push(physically_handicapped);
       paramIndex++;
+    }
+
+    if (exclude_already_placed) {
+      whereConditions.push(`NOT EXISTS (
+        SELECT 1 FROM job_applications ja_excl
+        WHERE ja_excl.student_id = s.id
+        AND ja_excl.application_status = 'selected'
+        AND ja_excl.job_id != ja.job_id
+      )`);
     }
 
     const whereClause = whereConditions.join(' AND ');

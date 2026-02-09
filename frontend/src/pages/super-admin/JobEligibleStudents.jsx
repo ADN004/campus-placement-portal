@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { superAdminAPI } from '../../services/api';
 import toast from 'react-hot-toast';
-import { Briefcase, Users, Download, Filter, ChevronDown, ChevronUp, Check, X, FileSpreadsheet, FileText, Eye, Calendar, Send, BarChart3, UserCheck, UserPlus } from 'lucide-react';
+import { Briefcase, Users, Download, Filter, ChevronDown, ChevronUp, Check, X, FileSpreadsheet, FileText, Eye, Calendar, Send, BarChart3, UserCheck, UserPlus, AlertTriangle } from 'lucide-react';
 import StatusBadge from '../../components/StatusBadge';
 import StudentDetailModal from '../../components/StudentDetailModal';
 import DriveScheduleModal from '../../components/DriveScheduleModal';
@@ -67,6 +67,7 @@ export default function JobEligibleStudents() {
   const [showPDFFieldSelector, setShowPDFFieldSelector] = useState(false);
   const [pdfExportType, setPdfExportType] = useState('basic'); // 'basic' or 'enhanced'
   const [showManualAddModal, setShowManualAddModal] = useState(false);
+  const [includePlacedInExport, setIncludePlacedInExport] = useState(false);
 
   useEffect(() => {
     fetchJobs();
@@ -448,6 +449,7 @@ export default function JobEligibleStudents() {
         format: 'pdf',
         pdf_fields: selectedFields,
         include_signature: includeSignature || false,
+        exclude_already_placed: !includePlacedInExport,
         college_ids: exportFilters.selectedColleges.length > 0 ? exportFilters.selectedColleges : undefined,
         branches: exportFilters.selectedBranches.length > 0 ? exportFilters.selectedBranches : undefined,
         application_statuses: pdfExportType === 'selected_only'
@@ -670,7 +672,7 @@ export default function JobEligibleStudents() {
                             className="fixed inset-0 bg-black/20 z-[100]"
                             onClick={() => setShowExportDropdown(false)}
                           ></div>
-                          <div className="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-lg border border-gray-200 z-[110]">
+                          <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-[110]">
                             <button
                               onClick={handleExport}
                               className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center space-x-3 transition-colors rounded-lg"
@@ -681,6 +683,24 @@ export default function JobEligibleStudents() {
                                 <div className="text-xs text-gray-500">Comprehensive report with field selection</div>
                               </div>
                             </button>
+                            {filteredStudents.some(s => s.is_already_placed) && (
+                              <div className="px-4 py-3 border-t border-gray-200 bg-amber-50 rounded-b-lg">
+                                <label className="flex items-center space-x-3 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={includePlacedInExport}
+                                    onChange={(e) => setIncludePlacedInExport(e.target.checked)}
+                                    className="w-4 h-4 rounded border-2 border-amber-400 text-amber-600 focus:ring-amber-500"
+                                  />
+                                  <div>
+                                    <div className="font-semibold text-amber-800 text-sm">Include already placed students</div>
+                                    <div className="text-xs text-amber-600">
+                                      {filteredStudents.filter(s => s.is_already_placed).length} student(s) already placed
+                                    </div>
+                                  </div>
+                                </label>
+                              </div>
+                            )}
                           </div>
                         </>
                       )}
@@ -942,7 +962,7 @@ export default function JobEligibleStudents() {
 
               {/* Placement Statistics */}
               {placementStats && (
-                <div className="mb-6 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                <div className="mb-6 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
                   <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
                     <div className="text-2xl font-bold text-blue-700">
                       {placementStats.overall.total_applications}
@@ -981,6 +1001,12 @@ export default function JobEligibleStudents() {
                       <div className="text-sm text-gray-600">Avg Package</div>
                     </div>
                   )}
+                  <div className="bg-amber-50 rounded-lg p-4 border border-amber-200">
+                    <div className="text-2xl font-bold text-amber-700">
+                      {filteredStudents.filter(s => s.is_already_placed).length}
+                    </div>
+                    <div className="text-sm text-gray-600">Already Placed</div>
+                  </div>
                 </div>
               )}
 
@@ -1128,14 +1154,14 @@ export default function JobEligibleStudents() {
                 </div>
               )}
 
-              {/* Job Applicants Table */}
+              {/* Job Applicants Table - Normal (non-placed) students only */}
               <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
                 <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-cyan-50 to-blue-50 flex items-center justify-between flex-wrap gap-3">
                   <h2 className="text-2xl font-bold flex items-center text-gray-900">
                     <div className="p-2 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl mr-3">
                       <Users className="text-white" size={20} />
                     </div>
-                    Job Applicants ({filteredStudents.length})
+                    Job Applicants ({filteredStudents.filter(s => !s.is_already_placed).length})
                   </h2>
                   <AutoRefreshIndicator
                     lastRefreshed={lastRefreshed}
@@ -1153,8 +1179,15 @@ export default function JobEligibleStudents() {
                         <th>
                           <input
                             type="checkbox"
-                            checked={selectedStudents.length === filteredStudents.length && filteredStudents.length > 0}
-                            onChange={handleSelectAll}
+                            checked={filteredStudents.filter(s => !s.is_already_placed).length > 0 && selectedStudents.length === filteredStudents.filter(s => !s.is_already_placed).length}
+                            onChange={() => {
+                              const normalStudents = filteredStudents.filter(s => !s.is_already_placed);
+                              if (selectedStudents.length === normalStudents.length) {
+                                setSelectedStudents([]);
+                              } else {
+                                setSelectedStudents(normalStudents.map(s => s.application_id));
+                              }
+                            }}
                             className="w-4 h-4"
                           />
                         </th>
@@ -1172,14 +1205,14 @@ export default function JobEligibleStudents() {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredStudents.length === 0 ? (
+                      {filteredStudents.filter(s => !s.is_already_placed).length === 0 ? (
                         <tr>
                           <td colSpan="12" className="text-center text-gray-500 py-8">
                             No students have applied to this job yet
                           </td>
                         </tr>
                       ) : (
-                        filteredStudents.map((student) => (
+                        filteredStudents.filter(s => !s.is_already_placed).map((student) => (
                           <tr key={student.id}>
                             <td>
                               <input
@@ -1229,6 +1262,83 @@ export default function JobEligibleStudents() {
                   </table>
                 </div>
               </div>
+
+              {/* Already Placed but Applied Students */}
+              {filteredStudents.filter(s => s.is_already_placed).length > 0 && (
+                <div className="mt-6 bg-white rounded-2xl shadow-lg overflow-hidden">
+                  <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-amber-50 to-orange-50 flex items-center justify-between flex-wrap gap-3">
+                    <h2 className="text-2xl font-bold flex items-center text-gray-900">
+                      <div className="p-2 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl mr-3">
+                        <AlertTriangle className="text-white" size={20} />
+                      </div>
+                      Already Placed but Applied ({filteredStudents.filter(s => s.is_already_placed).length})
+                    </h2>
+                    <p className="text-sm text-amber-700 font-medium">
+                      These students are already selected in another company
+                    </p>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="table">
+                      <thead className="bg-gradient-to-r from-amber-600 to-orange-600 text-white">
+                        <tr>
+                          <th className="text-white">PRN</th>
+                          <th className="text-white">Name</th>
+                          <th className="text-white">College</th>
+                          <th className="text-white">Branch</th>
+                          <th className="text-white">CGPA</th>
+                          <th className="text-white">Backlogs</th>
+                          <th className="text-white">Status</th>
+                          <th className="text-white">Already Placed At</th>
+                          <th className="text-white">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredStudents.filter(s => s.is_already_placed).map((student) => (
+                          <tr key={student.id} className="hover:bg-amber-50">
+                            <td className="font-mono font-semibold">{student.prn}</td>
+                            <td className="font-medium">{student.name}</td>
+                            <td className="text-sm">{student.college_name}</td>
+                            <td className="text-sm">{student.branch}</td>
+                            <td className="font-semibold text-green-600">{student.cgpa}</td>
+                            <td>
+                              {student.backlog_count > 0 ? (
+                                <span className="text-orange-600 font-semibold">{student.backlog_count}</span>
+                              ) : (
+                                <span className="text-green-600 font-semibold flex items-center">
+                                  <Check size={16} className="mr-1" /> 0
+                                </span>
+                              )}
+                            </td>
+                            <td>
+                              <StatusBadge status={student.application_status} />
+                            </td>
+                            <td>
+                              {student.previous_placements && student.previous_placements.map((p, i) => (
+                                <div key={i} className="text-sm">
+                                  <span className="font-bold text-amber-700">{p.company_name}</span>
+                                  {p.placement_package && (
+                                    <span className="text-gray-600 ml-1">({p.placement_package} LPA)</span>
+                                  )}
+                                </div>
+                              ))}
+                            </td>
+                            <td>
+                              <button
+                                onClick={() => handleViewStudentDetail(student)}
+                                className="btn btn-sm bg-amber-600 hover:bg-amber-700 text-white"
+                                title="View Details"
+                              >
+                                <Eye size={16} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
 
               {/* Selected Students Summary Section */}
               {filteredStudents.filter(s => s.application_status === 'selected').length > 0 && (

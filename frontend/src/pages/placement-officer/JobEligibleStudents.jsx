@@ -3,7 +3,7 @@ import { placementOfficerAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import {
   Briefcase, Users, Download, Filter, ChevronDown, ChevronUp, Check, FileSpreadsheet, FileText,
-  Eye, Calendar, Send, BarChart3, CheckCircle, Clock, XCircle, AlertCircle, UserCheck, DollarSign, UserPlus
+  Eye, Calendar, Send, BarChart3, CheckCircle, Clock, XCircle, AlertCircle, UserCheck, DollarSign, UserPlus, AlertTriangle
 } from 'lucide-react';
 import DashboardHeader from '../../components/DashboardHeader';
 import GlassCard from '../../components/GlassCard';
@@ -56,6 +56,7 @@ export default function JobEligibleStudents() {
   const [showPDFFieldSelector, setShowPDFFieldSelector] = useState(false);
   const [pdfExportType, setPdfExportType] = useState('basic'); // 'basic' or 'enhanced'
   const [showManualAddModal, setShowManualAddModal] = useState(false);
+  const [includePlacedInExport, setIncludePlacedInExport] = useState(false);
 
   // Advanced Filters (legacy)
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -403,7 +404,7 @@ export default function JobEligibleStudents() {
 
       const loadingToast = toast.loading(`Preparing ${format === 'pdf' ? 'PDF' : 'Excel'} export...`);
 
-      const response = await placementOfficerAPI.exportJobApplicants(selectedJob.id, format);
+      const response = await placementOfficerAPI.exportJobApplicants(selectedJob.id, format, !includePlacedInExport);
 
       const mimeType = format === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
       const fileExt = format === 'pdf' ? 'pdf' : 'xlsx';
@@ -453,6 +454,7 @@ export default function JobEligibleStudents() {
         format: 'pdf',
         pdf_fields: selectedFields,
         include_signature: includeSignature || false,
+        exclude_already_placed: !includePlacedInExport,
       };
 
       // Add enhanced filters if it's an enhanced export
@@ -481,7 +483,7 @@ export default function JobEligibleStudents() {
 
       const response = (pdfExportType === 'enhanced' || pdfExportType === 'selected_only')
         ? await placementOfficerAPI.enhancedExportJobApplicants(selectedJob.id, exportData)
-        : await placementOfficerAPI.exportJobApplicants(selectedJob.id, 'pdf', selectedFields);
+        : await placementOfficerAPI.exportJobApplicants(selectedJob.id, 'pdf', !includePlacedInExport);
 
       const blob = new Blob([response.data], { type: 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
@@ -588,7 +590,7 @@ export default function JobEligibleStudents() {
                 <BarChart3 className="mr-2 text-blue-600" size={24} />
                 Placement Statistics
               </h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
                 <GlassStatCard
                   title="Total Applications"
                   value={placementStats.total_applications || 0}
@@ -624,6 +626,12 @@ export default function JobEligibleStudents() {
                   value={placementStats.rejected || 0}
                   icon={XCircle}
                   gradient="from-red-500 to-red-600"
+                />
+                <GlassStatCard
+                  title="Already Placed"
+                  value={filteredStudents.filter(s => s.is_already_placed).length}
+                  icon={AlertTriangle}
+                  gradient="from-amber-500 to-orange-600"
                 />
               </div>
             </div>
@@ -773,6 +781,24 @@ export default function JobEligibleStudents() {
                           </div>
                         </button>
                       </div>
+                      {filteredStudents.some(s => s.is_already_placed) && (
+                        <div className="p-3 border-t border-gray-200 bg-amber-50">
+                          <label className="flex items-center space-x-3 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={includePlacedInExport}
+                              onChange={(e) => setIncludePlacedInExport(e.target.checked)}
+                              className="w-4 h-4 rounded border-2 border-amber-400 text-amber-600 focus:ring-amber-500"
+                            />
+                            <div>
+                              <div className="font-bold text-amber-800 text-sm">Include already placed students</div>
+                              <div className="text-xs text-amber-600">
+                                {filteredStudents.filter(s => s.is_already_placed).length} student(s) already placed in other companies
+                              </div>
+                            </div>
+                          </label>
+                        </div>
+                      )}
                     </GlassCard>
                   </>
                 )}
@@ -1012,14 +1038,14 @@ export default function JobEligibleStudents() {
             )}
           </div>
 
-          {/* Job Applicants Table */}
+          {/* Job Applicants Table - Normal (non-placed) students only */}
           <GlassCard variant="elevated" className="overflow-hidden p-0">
             <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 flex items-center justify-between flex-wrap gap-3">
               <h2 className="text-2xl font-bold text-gray-900 flex items-center">
                 <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-2 mr-3 shadow-lg">
                   <Users className="text-white" size={24} />
                 </div>
-                Job Applicants ({filteredStudents.length})
+                Job Applicants ({filteredStudents.filter(s => !s.is_already_placed).length})
               </h2>
               <AutoRefreshIndicator
                 lastRefreshed={lastRefreshed}
@@ -1037,8 +1063,14 @@ export default function JobEligibleStudents() {
                     <th className="px-6 py-4 text-left">
                       <input
                         type="checkbox"
-                        checked={filteredStudents.length > 0 && selectedStudents.length === filteredStudents.length}
-                        onChange={handleSelectAll}
+                        checked={filteredStudents.filter(s => !s.is_already_placed).length > 0 && selectedStudents.length === filteredStudents.filter(s => !s.is_already_placed).length}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedStudents(filteredStudents.filter(s => !s.is_already_placed).map(s => s.application_id));
+                          } else {
+                            setSelectedStudents([]);
+                          }
+                        }}
                         className="w-4 h-4 rounded border-2 border-white"
                       />
                     </th>
@@ -1059,14 +1091,14 @@ export default function JobEligibleStudents() {
                         <p className="text-gray-600 font-medium">Loading applicants...</p>
                       </td>
                     </tr>
-                  ) : filteredStudents.length === 0 ? (
+                  ) : filteredStudents.filter(s => !s.is_already_placed).length === 0 ? (
                     <tr>
                       <td colSpan="8" className="text-center text-gray-500 py-12 font-medium text-lg">
                         No students match the current filters
                       </td>
                     </tr>
                   ) : (
-                    filteredStudents.map((student, index) => (
+                    filteredStudents.filter(s => !s.is_already_placed).map((student, index) => (
                       <tr key={student.id} className={`border-b border-gray-200 hover:bg-blue-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
                         <td className="px-6 py-4">
                           <input
@@ -1126,6 +1158,99 @@ export default function JobEligibleStudents() {
               </table>
             </div>
           </GlassCard>
+
+          {/* Already Placed but Applied Students */}
+          {filteredStudents.filter(s => s.is_already_placed).length > 0 && (
+            <GlassCard variant="elevated" className="mt-6 overflow-hidden p-0">
+              <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-amber-50 to-orange-50 flex items-center justify-between flex-wrap gap-3">
+                <h2 className="text-2xl font-bold text-gray-900 flex items-center">
+                  <div className="bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl p-2 mr-3 shadow-lg">
+                    <AlertTriangle className="text-white" size={24} />
+                  </div>
+                  Already Placed but Applied ({filteredStudents.filter(s => s.is_already_placed).length})
+                </h2>
+                <p className="text-sm text-amber-700 font-medium">
+                  These students are already selected in another company
+                </p>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gradient-to-r from-amber-600 to-orange-600 text-white">
+                    <tr>
+                      <th className="px-6 py-4 text-left font-bold">PRN</th>
+                      <th className="px-6 py-4 text-left font-bold">Name</th>
+                      <th className="px-6 py-4 text-left font-bold">Branch</th>
+                      <th className="px-6 py-4 text-left font-bold">CGPA</th>
+                      <th className="px-6 py-4 text-left font-bold">Backlogs</th>
+                      <th className="px-6 py-4 text-left font-bold">Status</th>
+                      <th className="px-6 py-4 text-left font-bold">Already Placed At</th>
+                      <th className="px-6 py-4 text-left font-bold">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredStudents.filter(s => s.is_already_placed).map((student, index) => (
+                      <tr key={student.id} className={`border-b border-gray-200 hover:bg-amber-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-orange-50/30'}`}>
+                        <td className="px-6 py-4 font-mono font-bold text-gray-900">{student.prn}</td>
+                        <td className="px-6 py-4 font-bold text-gray-900">{student.name}</td>
+                        <td className="px-6 py-4 font-medium text-gray-700">{student.branch}</td>
+                        <td className="px-6 py-4 font-bold text-green-600 text-lg">{student.cgpa}</td>
+                        <td className="px-6 py-4">
+                          {student.backlog_count > 0 ? (
+                            <span className="text-orange-600 font-bold text-lg">{student.backlog_count}</span>
+                          ) : (
+                            <span className="text-green-600 font-bold flex items-center text-lg">
+                              <Check size={20} className="mr-1" /> 0
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          <StatusBadge status={student.application_status} />
+                        </td>
+                        <td className="px-6 py-4">
+                          {student.previous_placements && student.previous_placements.map((p, i) => (
+                            <div key={i} className="text-sm">
+                              <span className="font-bold text-amber-700">{p.company_name}</span>
+                              {p.placement_package && (
+                                <span className="text-gray-600 ml-1">({p.placement_package} LPA)</span>
+                              )}
+                            </div>
+                          ))}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => {
+                                setSelectedStudentId(student.id);
+                                setSelectedApplicationId(student.application_id);
+                                setShowStudentDetail(true);
+                              }}
+                              className="text-amber-600 hover:text-amber-800 transition-colors"
+                              title="View Details"
+                            >
+                              <Eye size={20} />
+                            </button>
+                            {student.application_status === 'selected' && (
+                              <button
+                                onClick={() => {
+                                  setSelectedApplication({ ...student, id: student.application_id });
+                                  setShowPlacementForm(true);
+                                }}
+                                className="text-green-600 hover:text-green-800 transition-colors"
+                                title="Add/Edit Placement Details"
+                              >
+                                <DollarSign size={20} />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </GlassCard>
+          )}
 
           {/* Selected Students Summary Section */}
           {filteredStudents.filter(s => s.application_status === 'selected').length > 0 && (

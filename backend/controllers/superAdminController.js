@@ -2347,7 +2347,24 @@ export const getJobApplicants = async (req, res) => {
         c.college_name,
         r.region_name,
         ja.id as application_id, ja.applied_date, ja.application_status,
-        j.job_title, j.company_name, j.min_cgpa, j.max_backlogs, j.allowed_branches
+        j.job_title, j.company_name, j.min_cgpa, j.max_backlogs, j.allowed_branches,
+        EXISTS (
+          SELECT 1 FROM job_applications ja_other
+          WHERE ja_other.student_id = s.id
+          AND ja_other.application_status = 'selected'
+          AND ja_other.job_id != ja.job_id
+        ) as is_already_placed,
+        (SELECT json_agg(json_build_object(
+          'job_title', j_placed.job_title,
+          'company_name', j_placed.company_name,
+          'placement_package', ja_placed.placement_package
+        ))
+        FROM job_applications ja_placed
+        JOIN jobs j_placed ON ja_placed.job_id = j_placed.id
+        WHERE ja_placed.student_id = s.id
+        AND ja_placed.application_status = 'selected'
+        AND ja_placed.job_id != ja.job_id
+        ) as previous_placements
       FROM students s
       JOIN job_applications ja ON s.id = ja.student_id
       JOIN jobs j ON ja.job_id = j.id

@@ -120,8 +120,8 @@ export const placementOfficerAPI = {
   getJobRequestRequirements: (jobRequestId) => API.get(`/placement-officer/job-requests/${jobRequestId}/requirements`),
   getJobs: () => API.get('/placement-officer/jobs'),
   getJobApplicants: (jobId) => API.get(`/placement-officer/jobs/${jobId}/applicants`),
-  exportJobApplicants: (jobId, format = 'excel') => API.get(`/placement-officer/jobs/${jobId}/applicants/export`, {
-    params: { format },
+  exportJobApplicants: (jobId, format = 'excel', excludeAlreadyPlaced = false) => API.get(`/placement-officer/jobs/${jobId}/applicants/export`, {
+    params: { format, exclude_already_placed: excludeAlreadyPlaced },
     responseType: 'blob'
   }),
 

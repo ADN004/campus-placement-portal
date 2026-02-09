@@ -648,6 +648,7 @@ export const exportJobApplicants = async (req, res) => {
     const jobId = req.params.jobId;
     const format = req.query.format || 'excel';
     const useShortNames = req.query.use_short_names !== 'false'; // Default to true
+    const excludeAlreadyPlaced = req.query.exclude_already_placed === 'true';
 
     // Get officer's college
     const officerResult = await query(
@@ -663,6 +664,16 @@ export const exportJobApplicants = async (req, res) => {
     }
 
     const collegeId = officerResult.rows[0].college_id;
+
+    // Build already-placed exclusion clause
+    const alreadyPlacedClause = excludeAlreadyPlaced
+      ? `AND NOT EXISTS (
+           SELECT 1 FROM job_applications ja_excl
+           WHERE ja_excl.student_id = s.id
+           AND ja_excl.application_status = 'selected'
+           AND ja_excl.job_id != ja.job_id
+         )`
+      : '';
 
     // Get job applicants from officer's college only
     const applicantsResult = await query(
@@ -681,6 +692,7 @@ export const exportJobApplicants = async (req, res) => {
          AND s.college_id = $2
          AND s.registration_status = 'approved'
          AND s.is_blacklisted = FALSE
+         ${alreadyPlacedClause}
        ORDER BY ja.applied_date DESC`,
       [jobId, collegeId]
     );
@@ -1665,6 +1677,7 @@ export const enhancedExportJobApplicants = async (req, res) => {
       physically_handicapped,
       use_short_names = true,
       include_signature = false,
+      exclude_already_placed = false,
     } = req.body;
 
     // Build dynamic WHERE clauses - COLLEGE SCOPED
@@ -1747,6 +1760,15 @@ export const enhancedExportJobApplicants = async (req, res) => {
       whereConditions.push(`sep.physically_handicapped = $${paramIndex}`);
       params.push(physically_handicapped);
       paramIndex++;
+    }
+
+    if (exclude_already_placed) {
+      whereConditions.push(`NOT EXISTS (
+        SELECT 1 FROM job_applications ja_excl
+        WHERE ja_excl.student_id = s.id
+        AND ja_excl.application_status = 'selected'
+        AND ja_excl.job_id != ja.job_id
+      )`);
     }
 
     const whereClause = whereConditions.join(' AND ');

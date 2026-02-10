@@ -20,6 +20,9 @@ import GlassCard from '../../components/GlassCard';
 import GlassStatCard from '../../components/GlassStatCard';
 import GlassButton from '../../components/GlassButton';
 import SectionHeader from '../../components/SectionHeader';
+import useSkeleton from '../../hooks/useSkeleton';
+import AnimatedSection from '../../components/animation/AnimatedSection';
+import FormPageSkeleton from '../../components/skeletons/FormPageSkeleton';
 
 export default function PlacementPoster() {
   const [colleges, setColleges] = useState([]);
@@ -28,6 +31,7 @@ export default function PlacementPoster() {
   const [multiSelectMode, setMultiSelectMode] = useState(false);
   const [stats, setStats] = useState(null);
   const [loadingColleges, setLoadingColleges] = useState(true);
+  const { showSkeleton } = useSkeleton(loadingColleges);
   const [loadingStats, setLoadingStats] = useState(false);
   const [generating, setGenerating] = useState(false);
 
@@ -193,16 +197,7 @@ export default function PlacementPoster() {
     }
   };
 
-  if (loadingColleges) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="spinner mb-4 mx-auto"></div>
-          <p className="text-gray-600 font-medium">Loading colleges...</p>
-        </div>
-      </div>
-    );
-  }
+  if (showSkeleton) return <FormPageSkeleton hasSidebar={false} />;
 
   const statCards = stats
     ? [
@@ -241,15 +236,18 @@ export default function PlacementPoster() {
   const hasLogo = stats && stats.college_logo_url !== null;
 
   return (
-    <div>
+    <div className="min-h-screen">
       {/* Header */}
-      <DashboardHeader
-        icon={FileImage}
-        title="Placement Poster Generator"
-        subtitle="Generate professional placement posters for any college"
-      />
+      <AnimatedSection delay={0}>
+        <DashboardHeader
+          icon={FileImage}
+          title="Placement Poster Generator"
+          subtitle="Generate professional placement posters for any college"
+        />
+      </AnimatedSection>
 
       {/* College Selection */}
+      <AnimatedSection delay={0.08}>
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
           <SectionHeader title="Select College(s)" icon={School} />
@@ -342,6 +340,7 @@ export default function PlacementPoster() {
           )}
         </GlassCard>
       </div>
+      </AnimatedSection>
 
       {/* Loading State */}
       {loadingStats && (
@@ -355,6 +354,7 @@ export default function PlacementPoster() {
 
       {/* Multi-College Generate Button (only in multi-select mode) */}
       {multiSelectMode && selectedColleges.length > 0 && (
+        <AnimatedSection delay={0.24}>
         <div className="mb-8">
           <GlassCard variant="elevated" className="p-8">
             <div className="flex flex-col md:flex-row items-center justify-between gap-6">
@@ -389,11 +389,14 @@ export default function PlacementPoster() {
             </div>
           </GlassCard>
         </div>
+        </AnimatedSection>
       )}
 
       {/* Statistics and Content (only show when college is selected and not loading in single mode) */}
       {!multiSelectMode && selectedCollege && !loadingStats && stats && (
         <>
+          {/* College Name Banner + Statistics Cards + Checklist + Company Breakdown */}
+          <AnimatedSection delay={0.16}>
           {/* College Name Banner */}
           <div className="mb-6">
             <GlassCard variant="elevated" className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50">
@@ -508,8 +511,10 @@ export default function PlacementPoster() {
               </GlassCard>
             </div>
           )}
+          </AnimatedSection>
 
           {/* Generate Button */}
+          <AnimatedSection delay={0.24}>
           <div className="mb-8">
             <GlassCard variant="elevated" className="p-8">
               <div className="flex flex-col md:flex-row items-center justify-between gap-6">
@@ -548,6 +553,7 @@ export default function PlacementPoster() {
               </div>
             </GlassCard>
           </div>
+          </AnimatedSection>
         </>
       )}
 

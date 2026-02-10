@@ -14,10 +14,14 @@ import {
   FileSpreadsheet,
   FileText,
 } from 'lucide-react';
+import useSkeleton from '../../hooks/useSkeleton';
+import AnimatedSection from '../../components/animation/AnimatedSection';
+import TablePageSkeleton from '../../components/skeletons/TablePageSkeleton';
 
 export default function ActivityLogs() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { showSkeleton } = useSkeleton(loading);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedLog, setSelectedLog] = useState(null);
   const [showExportDropdown, setShowExportDropdown] = useState(false);
@@ -237,12 +241,8 @@ export default function ActivityLogs() {
     ([key, value]) => value && key !== 'page' && key !== 'limit'
   ).length;
 
-  if (loading && filters.page === 1) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-      </div>
-    );
+  if (showSkeleton && filters.page === 1) {
+    return <TablePageSkeleton tableColumns={6} hasSearch={true} hasFilters={true} />;
   }
 
   return (
@@ -256,6 +256,7 @@ export default function ActivityLogs() {
 
       <div className="relative z-10">
         {/* Header Section with Gradient */}
+        <AnimatedSection delay={0}>
         <div className="relative overflow-hidden bg-gradient-to-br from-pink-500 via-rose-500 to-red-500 rounded-3xl shadow-2xl mb-8 p-10">
           <div className="absolute inset-0 bg-black opacity-10"></div>
           <div className="absolute inset-0">
@@ -300,6 +301,7 @@ export default function ActivityLogs() {
             </div>
           </div>
         </div>
+        </AnimatedSection>
 
         {/* Export Dropdown - Rendered outside the header to avoid overflow clipping */}
         {showExportDropdown && exportButtonRef && (
@@ -344,6 +346,7 @@ export default function ActivityLogs() {
         )}
 
         {/* Stats */}
+        <AnimatedSection delay={0}>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="group relative bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl hover:shadow-2xl transition-all duration-500 p-8 border border-white/50 overflow-hidden hover:scale-105 transform">
             <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-cyan-500/10 to-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
@@ -382,8 +385,10 @@ export default function ActivityLogs() {
             </div>
           </div>
         </div>
+        </AnimatedSection>
 
         {/* Filters */}
+        <AnimatedSection delay={0.08}>
         <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl hover:shadow-2xl transition-all duration-300 p-8 mb-8 border border-white/50">
           <div className="mb-6 flex items-center justify-between">
             <h3 className="text-2xl font-bold text-gray-900 flex items-center space-x-3">
@@ -496,8 +501,10 @@ export default function ActivityLogs() {
           </button>
         </div>
       </div>
+      </AnimatedSection>
 
       {/* Activity Logs Table */}
+      <AnimatedSection delay={0.16}>
       <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl overflow-hidden border border-white/50">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-100">
@@ -556,6 +563,7 @@ export default function ActivityLogs() {
         </div>
 
         {/* Pagination */}
+        <AnimatedSection delay={0.24}>
         {!loading && logs.length > 0 && (
           <div className="px-8 py-6 bg-gradient-to-r from-pink-50 to-rose-50 border-t-2 border-pink-200 flex items-center justify-between rounded-b-3xl">
             <div className="text-sm font-bold text-gray-700">
@@ -582,7 +590,9 @@ export default function ActivityLogs() {
             </div>
           </div>
         )}
+        </AnimatedSection>
       </div>
+      </AnimatedSection>
       </div>
 
       {/* Activity Details Modal */}

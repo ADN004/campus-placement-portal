@@ -24,6 +24,9 @@ import {
 } from 'lucide-react';
 import { KERALA_POLYTECHNIC_BRANCHES } from '../../constants/branches';
 import { generateJobDetailsPDF } from '../../utils/jobDetailsPdf';
+import useSkeleton from '../../hooks/useSkeleton';
+import AnimatedSection from '../../components/animation/AnimatedSection';
+import TablePageSkeleton from '../../components/skeletons/TablePageSkeleton';
 
 export default function ManageJobs() {
   const [activeTab, setActiveTab] = useState('all'); // 'all', 'pending', 'deleted'
@@ -31,6 +34,7 @@ export default function ManageJobs() {
   const [pendingRequests, setPendingRequests] = useState([]);
   const [deletedJobs, setDeletedJobs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { showSkeleton } = useSkeleton(loading);
   const [showJobModal, setShowJobModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedJob, setSelectedJob] = useState(null);
@@ -639,81 +643,80 @@ export default function ManageJobs() {
     return 'N/A';
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-      </div>
-    );
-  }
+  if (showSkeleton) return <TablePageSkeleton tableColumns={5} hasTabs={true} hasSearch={false} hasFilters={false} />;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 pb-8">
       {/* Header Section with Gradient */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 rounded-2xl shadow-2xl mb-8 p-8">
-        <div className="absolute inset-0 bg-black opacity-10"></div>
-        <div className="absolute inset-0 bg-grid-white/[0.05]"></div>
+      <AnimatedSection delay={0}>
+        <div className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 rounded-2xl shadow-2xl mb-8 p-8">
+          <div className="absolute inset-0 bg-black opacity-10"></div>
+          <div className="absolute inset-0 bg-grid-white/[0.05]"></div>
 
-        <div className="relative z-10 flex justify-between items-start">
-          <div className="flex items-center space-x-4">
-            <div className="p-4 bg-white/20 backdrop-blur-sm rounded-2xl">
-              <Building2 className="text-white" size={36} />
+          <div className="relative z-10 flex justify-between items-start">
+            <div className="flex items-center space-x-4">
+              <div className="p-4 bg-white/20 backdrop-blur-sm rounded-2xl">
+                <Building2 className="text-white" size={36} />
+              </div>
+              <div>
+                <h1 className="text-4xl font-bold text-white mb-2 tracking-tight">
+                  Manage Jobs
+                </h1>
+                <p className="text-blue-100 text-lg">
+                  Create, approve, and manage job postings across all colleges
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-4xl font-bold text-white mb-2 tracking-tight">
-                Manage Jobs
-              </h1>
-              <p className="text-blue-100 text-lg">
-                Create, approve, and manage job postings across all colleges
-              </p>
-            </div>
+            <button
+              onClick={handleCreateJob}
+              className="px-6 py-3 bg-white text-indigo-600 hover:bg-indigo-50 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 flex items-center space-x-2"
+            >
+              <Plus size={20} />
+              <span>Create Job</span>
+            </button>
           </div>
-          <button
-            onClick={handleCreateJob}
-            className="px-6 py-3 bg-white text-indigo-600 hover:bg-indigo-50 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 flex items-center space-x-2"
-          >
-            <Plus size={20} />
-            <span>Create Job</span>
-          </button>
         </div>
-      </div>
+      </AnimatedSection>
 
       {/* Tabs */}
-      <div className="mb-6 bg-white rounded-2xl shadow-lg p-2">
-        <nav className="flex space-x-2">
-          <button
-            onClick={() => setActiveTab('all')}
-            className={`flex-1 py-3 px-4 rounded-xl font-semibold text-sm transition-all duration-200 ${
-              activeTab === 'all'
-                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
-                : 'text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            All Jobs ({jobs.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('pending')}
-            className={`flex-1 py-3 px-4 rounded-xl font-semibold text-sm transition-all duration-200 ${
-              activeTab === 'pending'
-                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
-                : 'text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            Pending Approval ({pendingRequests.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('deleted')}
-            className={`flex-1 py-3 px-4 rounded-xl font-semibold text-sm transition-all duration-200 ${
-              activeTab === 'deleted'
-                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
-                : 'text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            Deleted History ({deletedJobs.length})
-          </button>
-        </nav>
-      </div>
+      <AnimatedSection delay={0.08}>
+        <div className="mb-6 bg-white rounded-2xl shadow-lg p-2">
+          <nav className="flex space-x-2">
+            <button
+              onClick={() => setActiveTab('all')}
+              className={`flex-1 py-3 px-4 rounded-xl font-semibold text-sm transition-all duration-200 ${
+                activeTab === 'all'
+                  ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              All Jobs ({jobs.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('pending')}
+              className={`flex-1 py-3 px-4 rounded-xl font-semibold text-sm transition-all duration-200 ${
+                activeTab === 'pending'
+                  ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              Pending Approval ({pendingRequests.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('deleted')}
+              className={`flex-1 py-3 px-4 rounded-xl font-semibold text-sm transition-all duration-200 ${
+                activeTab === 'deleted'
+                  ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              Deleted History ({deletedJobs.length})
+            </button>
+          </nav>
+        </div>
+      </AnimatedSection>
 
+      <AnimatedSection delay={0.16}>
       {/* All Jobs Tab */}
       {activeTab === 'all' && (
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
@@ -935,6 +938,7 @@ export default function ManageJobs() {
           </div>
         </div>
       )}
+      </AnimatedSection>
 
       {/* Job Create/Edit Modal */}
       {showJobModal && (

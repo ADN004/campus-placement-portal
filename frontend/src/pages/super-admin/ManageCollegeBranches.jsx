@@ -15,6 +15,9 @@ import {
   Check,
   GraduationCap,
 } from 'lucide-react';
+import useSkeleton from '../../hooks/useSkeleton';
+import AnimatedSection from '../../components/animation/AnimatedSection';
+import TablePageSkeleton from '../../components/skeletons/TablePageSkeleton';
 
 export default function ManageCollegeBranches() {
   const [colleges, setColleges] = useState([]);
@@ -22,6 +25,7 @@ export default function ManageCollegeBranches() {
   const [regions, setRegions] = useState([]);
   const [branchTemplates, setBranchTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { showSkeleton } = useSkeleton(loading);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRegion, setSelectedRegion] = useState('');
   const [editingCollege, setEditingCollege] = useState(null);
@@ -157,123 +161,122 @@ export default function ManageCollegeBranches() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
+  if (showSkeleton) return <TablePageSkeleton tableColumns={4} hasSearch={true} hasFilters={true} />;
 
   return (
-    <div className="space-y-6">
+    <div className="min-h-screen space-y-6">
       {/* Header */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <div className="flex items-center space-x-3 mb-6">
-          <div className="p-3 bg-blue-600 rounded-lg">
-            <GraduationCap className="h-6 w-6 text-white" />
+      <AnimatedSection delay={0}>
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="flex items-center space-x-3 mb-6">
+            <div className="p-3 bg-blue-600 rounded-lg">
+              <GraduationCap className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Manage College Branches</h1>
+              <p className="text-sm text-gray-600">
+                Configure branches for all 60 colleges across Kerala
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Manage College Branches</h1>
-            <p className="text-sm text-gray-600">
-              Configure branches for all 60 colleges across Kerala
-            </p>
+
+          {/* Filters */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search by college name or code..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            <div className="relative">
+              <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <select
+                value={selectedRegion}
+                onChange={(e) => setSelectedRegion(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none"
+              >
+                <option value="">All Regions</option>
+                {regions.map((region) => (
+                  <option key={region.id} value={region.id}>
+                    {region.region_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="text-sm text-gray-600 flex items-center justify-end">
+              <span className="font-medium">
+                {filteredColleges.length} of {colleges.length} colleges
+              </span>
+            </div>
           </div>
         </div>
-
-        {/* Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search by college name or code..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-
-          <div className="relative">
-            <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <select
-              value={selectedRegion}
-              onChange={(e) => setSelectedRegion(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none"
-            >
-              <option value="">All Regions</option>
-              {regions.map((region) => (
-                <option key={region.id} value={region.id}>
-                  {region.region_name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="text-sm text-gray-600 flex items-center justify-end">
-            <span className="font-medium">
-              {filteredColleges.length} of {colleges.length} colleges
-            </span>
-          </div>
-        </div>
-      </div>
+      </AnimatedSection>
 
       {/* Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Total Colleges</p>
-              <p className="text-2xl font-bold text-gray-900">{colleges.length}</p>
+      <AnimatedSection delay={0.08}>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Total Colleges</p>
+                <p className="text-2xl font-bold text-gray-900">{colleges.length}</p>
+              </div>
+              <Building2 className="h-10 w-10 text-blue-600" />
             </div>
-            <Building2 className="h-10 w-10 text-blue-600" />
           </div>
-        </div>
 
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">No Branches</p>
-              <p className="text-2xl font-bold text-red-600">
-                {colleges.filter((c) => getBranchCount(c) === 0).length}
-              </p>
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">No Branches</p>
+                <p className="text-2xl font-bold text-red-600">
+                  {colleges.filter((c) => getBranchCount(c) === 0).length}
+                </p>
+              </div>
+              <AlertCircle className="h-10 w-10 text-red-600" />
             </div>
-            <AlertCircle className="h-10 w-10 text-red-600" />
           </div>
-        </div>
 
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Few Branches (&lt;3)</p>
-              <p className="text-2xl font-bold text-yellow-600">
-                {colleges.filter((c) => {
-                  const count = getBranchCount(c);
-                  return count > 0 && count < 3;
-                }).length}
-              </p>
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Few Branches (&lt;3)</p>
+                <p className="text-2xl font-bold text-yellow-600">
+                  {colleges.filter((c) => {
+                    const count = getBranchCount(c);
+                    return count > 0 && count < 3;
+                  }).length}
+                </p>
+              </div>
+              <AlertCircle className="h-10 w-10 text-yellow-600" />
             </div>
-            <AlertCircle className="h-10 w-10 text-yellow-600" />
           </div>
-        </div>
 
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Fully Configured</p>
-              <p className="text-2xl font-bold text-green-600">
-                {colleges.filter((c) => getBranchCount(c) >= 3).length}
-              </p>
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Fully Configured</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {colleges.filter((c) => getBranchCount(c) >= 3).length}
+                </p>
+              </div>
+              <Check className="h-10 w-10 text-green-600" />
             </div>
-            <Check className="h-10 w-10 text-green-600" />
           </div>
         </div>
-      </div>
+      </AnimatedSection>
 
       {/* Colleges List */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
+      <AnimatedSection delay={0.16}>
+        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -357,9 +360,10 @@ export default function ManageCollegeBranches() {
                 );
               })}
             </tbody>
-          </table>
+            </table>
+          </div>
         </div>
-      </div>
+      </AnimatedSection>
 
       {/* Edit Branches Modal */}
       {showAddBranchModal && editingCollege && (

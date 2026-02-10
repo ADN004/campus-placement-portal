@@ -20,6 +20,9 @@ import {
   Upload,
   User,
 } from 'lucide-react';
+import useSkeleton from '../../hooks/useSkeleton';
+import AnimatedSection from '../../components/animation/AnimatedSection';
+import TablePageSkeleton from '../../components/skeletons/TablePageSkeleton';
 
 export default function ManagePlacementOfficers() {
   const [officers, setOfficers] = useState([]);
@@ -27,6 +30,7 @@ export default function ManagePlacementOfficers() {
   const [regions, setRegions] = useState([]);
   const [colleges, setColleges] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { showSkeleton } = useSkeleton(loading);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRegion, setSelectedRegion] = useState('');
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -244,13 +248,7 @@ export default function ManagePlacementOfficers() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-      </div>
-    );
-  }
+  if (showSkeleton) return <TablePageSkeleton tableColumns={6} hasSearch={true} hasFilters={true} />;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-rose-50 pb-8">
@@ -262,6 +260,7 @@ export default function ManagePlacementOfficers() {
       </div>
 
       <div className="relative z-10">
+        <AnimatedSection delay={0}>
         {/* Header Section with Gradient */}
         <div className="relative overflow-hidden bg-gradient-to-br from-purple-600 via-pink-600 to-rose-600 rounded-3xl shadow-2xl mb-8 p-10">
           <div className="absolute inset-0 bg-black opacity-10"></div>
@@ -337,7 +336,9 @@ export default function ManagePlacementOfficers() {
             </div>
           </div>
         </div>
+        </AnimatedSection>
 
+        <AnimatedSection delay={0.08}>
         {/* Filters */}
         <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl hover:shadow-2xl transition-all duration-300 p-8 mb-8 border border-white/50">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -421,7 +422,9 @@ export default function ManagePlacementOfficers() {
           </div>
         )}
       </div>
+        </AnimatedSection>
 
+        <AnimatedSection delay={0.16}>
         {/* Officers Table */}
         <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl overflow-hidden border border-white/50">
           <div className="overflow-x-auto">
@@ -526,6 +529,7 @@ export default function ManagePlacementOfficers() {
           </div>
         )}
         </div>
+        </AnimatedSection>
       </div>
 
     {/* Officer Details Modal */}

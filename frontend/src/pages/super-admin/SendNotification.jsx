@@ -4,12 +4,16 @@ import toast from 'react-hot-toast';
 import { Send, Bell, Users, Mail, Filter, CheckSquare, Square, Building2, Sparkles } from 'lucide-react';
 import DashboardHeader from '../../components/DashboardHeader';
 import GlassCard from '../../components/GlassCard';
+import useSkeleton from '../../hooks/useSkeleton';
+import AnimatedSection from '../../components/animation/AnimatedSection';
+import FormPageSkeleton from '../../components/skeletons/FormPageSkeleton';
 
 export default function SuperAdminSendNotification() {
   const [colleges, setColleges] = useState([]);
   const [branches, setBranches] = useState([]);
   const [recentNotifications, setRecentNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { showSkeleton } = useSkeleton(loading);
   const [sending, setSending] = useState(false);
   const [totalStudents, setTotalStudents] = useState(0);
 
@@ -222,27 +226,21 @@ export default function SuperAdminSendNotification() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600 font-medium">Loading notification system...</p>
-        </div>
-      </div>
-    );
-  }
+  if (showSkeleton) return <FormPageSkeleton hasSidebar={true} />;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
-      <DashboardHeader
-        title="Send Notification"
-        subtitle="Send important announcements to students across all colleges"
-        icon={Send}
-      />
+      <AnimatedSection delay={0}>
+        <DashboardHeader
+          title="Send Notification"
+          subtitle="Send important announcements to students across all colleges"
+          icon={Send}
+        />
+      </AnimatedSection>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <AnimatedSection delay={0.08}>
           <div className="lg:col-span-2">
             <GlassCard variant="elevated" className="p-8">
               <div className="flex items-center gap-3 mb-6">
@@ -528,8 +526,10 @@ export default function SuperAdminSendNotification() {
               </form>
             </GlassCard>
           </div>
+          </AnimatedSection>
 
           {/* Sidebar */}
+          <AnimatedSection delay={0.16}>
           <div className="lg:col-span-1 space-y-6">
             <GlassCard variant="elevated" className="p-6">
               <div className="flex items-center gap-2 mb-4">
@@ -584,6 +584,7 @@ export default function SuperAdminSendNotification() {
               </div>
             </GlassCard>
           </div>
+          </AnimatedSection>
         </div>
       </div>
     </div>

@@ -26,10 +26,15 @@ import SectionHeader from '../../components/SectionHeader';
 import GlassCard from '../../components/GlassCard';
 import useAutoRefresh from '../../hooks/useAutoRefresh';
 import AutoRefreshIndicator from '../../components/AutoRefreshIndicator';
+import useSkeleton from '../../hooks/useSkeleton';
+import AnimatedSection from '../../components/animation/AnimatedSection';
+import AnimatedCard from '../../components/animation/AnimatedCard';
+import DashboardSkeleton from '../../components/skeletons/DashboardSkeleton';
 
 export default function SuperAdminDashboard() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { showSkeleton } = useSkeleton(loading);
   const [adminNotifications, setAdminNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -120,16 +125,7 @@ export default function SuperAdminDashboard() {
     return date.toLocaleDateString('en-IN');
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="spinner mb-4 mx-auto"></div>
-          <p className="text-gray-600 font-medium">Loading dashboard...</p>
-        </div>
-      </div>
-    );
-  }
+  if (showSkeleton) return <DashboardSkeleton />;
 
   const statCards = [
     {
@@ -244,41 +240,44 @@ export default function SuperAdminDashboard() {
   ];
 
   return (
-    <div>
+    <div className="min-h-screen">
       {/* Dashboard Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3 mb-2">
-        <DashboardHeader
-          icon={LayoutDashboard}
-          title="Super Admin Dashboard"
-          subtitle="System-wide overview of State Placement Cell - Kerala Polytechnics"
-        />
-        <AutoRefreshIndicator
-          lastRefreshed={lastRefreshed}
-          autoRefreshEnabled={autoRefreshEnabled}
-          onToggle={toggleAutoRefresh}
-          onManualRefresh={manualRefresh}
-          refreshing={refreshing}
-        />
-      </div>
+      <AnimatedSection delay={0}>
+        <div className="flex items-center justify-between flex-wrap gap-3 mb-2">
+          <DashboardHeader
+            icon={LayoutDashboard}
+            title="Super Admin Dashboard"
+            subtitle="System-wide overview of State Placement Cell - Kerala Polytechnics"
+          />
+          <AutoRefreshIndicator
+            lastRefreshed={lastRefreshed}
+            autoRefreshEnabled={autoRefreshEnabled}
+            onToggle={toggleAutoRefresh}
+            onManualRefresh={manualRefresh}
+            refreshing={refreshing}
+          />
+        </div>
+      </AnimatedSection>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {statCards.map((stat, index) => (
-          <GlassStatCard
-            key={stat.title}
-            title={stat.title}
-            value={stat.value}
-            icon={stat.icon}
-            gradient={stat.gradient}
-            link={stat.link}
-            description={stat.description}
-            index={index}
-          />
+          <AnimatedCard key={stat.title} delay={0.08 + index * 0.04}>
+            <GlassStatCard
+              title={stat.title}
+              value={stat.value}
+              icon={stat.icon}
+              gradient={stat.gradient}
+              link={stat.link}
+              description={stat.description}
+              index={index}
+            />
+          </AnimatedCard>
         ))}
       </div>
 
       {/* Admin Notifications Section */}
-      <div className="mb-10">
+      <AnimatedSection delay={0.4} className="mb-10">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <div className="bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl p-2.5 shadow-lg">
@@ -380,20 +379,18 @@ export default function SuperAdminDashboard() {
             </div>
           )}
         </GlassCard>
-      </div>
+      </AnimatedSection>
 
       {/* Quick Actions */}
-      <div className="mb-10">
+      <AnimatedSection delay={0.48} className="mb-10">
         <SectionHeader title="Quick Actions" icon={Activity} />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {quickActions.map((action, index) => {
             const Icon = action.icon;
             return (
+              <AnimatedCard key={action.title} delay={0.48 + index * 0.04} enableTap>
               <Link
-                key={action.title}
                 to={action.link}
-                className="stagger-item"
-                style={{ animationDelay: `${index * 50}ms` }}
               >
                 <GlassCard variant="elevated" hover className="h-full p-6">
                   <div className="flex items-start space-x-4 mb-4">
@@ -415,21 +412,21 @@ export default function SuperAdminDashboard() {
                   </div>
                 </GlassCard>
               </Link>
+              </AnimatedCard>
             );
           })}
         </div>
-      </div>
+      </AnimatedSection>
 
       {/* Regional Distribution */}
-      <div className="mb-10">
+      <AnimatedSection delay={0.56} className="mb-10">
         <SectionHeader title="Regional Distribution" icon={MapPin} />
         <GlassCard variant="elevated" className="p-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-            {regions.slice(0, 3).map((region, index) => (
+            {regions.slice(0, 3).map((region) => (
               <div
                 key={region.name}
-                className={`bg-white rounded-2xl border border-gray-200 shadow-md p-6 hover:-translate-y-1 hover:shadow-xl transition-all duration-300 stagger-item`}
-                style={{ animationDelay: `${index * 50}ms` }}
+                className="bg-white rounded-2xl border border-gray-200 shadow-md p-6 hover:-translate-y-1 hover:shadow-xl transition-all duration-300"
               >
                 <div className={`inline-block px-3 py-1 rounded-full bg-${region.color}-100 border border-${region.color}-200 mb-3`}>
                   <span className={`text-xs font-bold text-${region.color}-700`}>{region.name}</span>
@@ -442,11 +439,10 @@ export default function SuperAdminDashboard() {
             ))}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {regions.slice(3).map((region, index) => (
+            {regions.slice(3).map((region) => (
               <div
                 key={region.name}
-                className={`bg-white rounded-2xl border border-gray-200 shadow-md p-6 hover:-translate-y-1 hover:shadow-xl transition-all duration-300 stagger-item`}
-                style={{ animationDelay: `${(index + 3) * 50}ms` }}
+                className="bg-white rounded-2xl border border-gray-200 shadow-md p-6 hover:-translate-y-1 hover:shadow-xl transition-all duration-300"
               >
                 <div className={`inline-block px-3 py-1 rounded-full bg-${region.color}-100 border border-${region.color}-200 mb-3`}>
                   <span className={`text-xs font-bold text-${region.color}-700`}>{region.name}</span>
@@ -459,9 +455,10 @@ export default function SuperAdminDashboard() {
             ))}
           </div>
         </GlassCard>
-      </div>
+      </AnimatedSection>
 
       {/* Super Admin Responsibilities */}
+      <AnimatedSection delay={0.64}>
       <GlassCard variant="elevated" className="p-8 bg-gradient-to-r from-blue-50 to-purple-50">
         <div className="flex items-start gap-4">
           <div className="p-4 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl shadow-lg">
@@ -500,6 +497,7 @@ export default function SuperAdminDashboard() {
           </div>
         </div>
       </GlassCard>
+      </AnimatedSection>
     </div>
   );
 }

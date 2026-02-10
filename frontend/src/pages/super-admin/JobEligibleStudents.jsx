@@ -11,6 +11,9 @@ import PDFFieldSelector from '../../components/PDFFieldSelector';
 import ManualStudentAdditionModal from '../../components/ManualStudentAdditionModal';
 import useAutoRefresh from '../../hooks/useAutoRefresh';
 import AutoRefreshIndicator from '../../components/AutoRefreshIndicator';
+import useSkeleton from '../../hooks/useSkeleton';
+import AnimatedSection from '../../components/animation/AnimatedSection';
+import TablePageSkeleton from '../../components/skeletons/TablePageSkeleton';
 
 export default function JobEligibleStudents() {
   const [jobs, setJobs] = useState([]);
@@ -20,6 +23,7 @@ export default function JobEligibleStudents() {
   const [selectedJob, setSelectedJob] = useState(null);
   const [filteredStudents, setFilteredStudents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { showSkeleton } = useSkeleton(loading);
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [showExportDropdown, setShowExportDropdown] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -528,72 +532,70 @@ export default function JobEligibleStudents() {
     return exportFilters.selectedColleges.length > 0 || exportFilters.selectedBranches.length > 0;
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-      </div>
-    );
-  }
+  if (showSkeleton) return <TablePageSkeleton tableColumns={6} hasSearch={false} hasFilters={true} />;
 
   return (
     <div className="min-h-screen pb-8">
       {/* Header Section with Gradient */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-cyan-600 via-blue-600 to-indigo-600 rounded-2xl shadow-2xl mb-8 p-8">
-        <div className="absolute inset-0 bg-black opacity-10"></div>
-        <div className="relative z-10">
-          <div className="flex items-center space-x-4">
-            <div className="p-4 bg-white/20 backdrop-blur-sm rounded-2xl">
-              <Users className="text-white" size={36} />
-            </div>
-            <div>
-              <h1 className="text-4xl font-bold text-white mb-2 tracking-tight">
-                Job Applicants
-              </h1>
-              <p className="text-cyan-100 text-lg">
-                View and download list of students who have applied to each job across all colleges
-              </p>
+      <AnimatedSection delay={0}>
+        <div className="relative overflow-hidden bg-gradient-to-br from-cyan-600 via-blue-600 to-indigo-600 rounded-2xl shadow-2xl mb-8 p-8">
+          <div className="absolute inset-0 bg-black opacity-10"></div>
+          <div className="relative z-10">
+            <div className="flex items-center space-x-4">
+              <div className="p-4 bg-white/20 backdrop-blur-sm rounded-2xl">
+                <Users className="text-white" size={36} />
+              </div>
+              <div>
+                <h1 className="text-4xl font-bold text-white mb-2 tracking-tight">
+                  Job Applicants
+                </h1>
+                <p className="text-cyan-100 text-lg">
+                  View and download list of students who have applied to each job across all colleges
+                </p>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </AnimatedSection>
 
       {/* Job Selection */}
-      <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
-        <h2 className="text-2xl font-bold mb-6 flex items-center text-gray-900">
-          <div className="p-2 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl mr-3">
-            <Briefcase className="text-white" size={20} />
+      <AnimatedSection delay={0.08}>
+        <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
+          <h2 className="text-2xl font-bold mb-6 flex items-center text-gray-900">
+            <div className="p-2 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl mr-3">
+              <Briefcase className="text-white" size={20} />
+            </div>
+            Select a Job
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {jobs.length === 0 ? (
+              <p className="text-gray-500 col-span-full">No active jobs available</p>
+            ) : (
+              jobs.map((job) => (
+                <button
+                  key={job.id}
+                  onClick={() => handleJobSelect(job)}
+                  className={`p-4 border-2 rounded-lg text-left transition-all ${
+                    selectedJob?.id === job.id
+                      ? 'border-primary-600 bg-primary-50'
+                      : 'border-gray-200 hover:border-primary-300'
+                  }`}
+                >
+                  <h3 className="font-semibold text-gray-900">{job.job_title}</h3>
+                  <p className="text-sm text-gray-600">{job.company_name}</p>
+                  <div className="mt-2 space-y-1 text-xs text-gray-500">
+                    {job.min_cgpa && <p>Min CGPA: {job.min_cgpa}</p>}
+                    {job.max_backlogs !== null && <p>Max Backlogs: {job.max_backlogs}</p>}
+                    <p className="text-primary-600 font-medium">
+                      Deadline: {new Date(job.application_deadline).toLocaleDateString('en-IN')}
+                    </p>
+                  </div>
+                </button>
+              ))
+            )}
           </div>
-          Select a Job
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {jobs.length === 0 ? (
-            <p className="text-gray-500 col-span-full">No active jobs available</p>
-          ) : (
-            jobs.map((job) => (
-              <button
-                key={job.id}
-                onClick={() => handleJobSelect(job)}
-                className={`p-4 border-2 rounded-lg text-left transition-all ${
-                  selectedJob?.id === job.id
-                    ? 'border-primary-600 bg-primary-50'
-                    : 'border-gray-200 hover:border-primary-300'
-                }`}
-              >
-                <h3 className="font-semibold text-gray-900">{job.job_title}</h3>
-                <p className="text-sm text-gray-600">{job.company_name}</p>
-                <div className="mt-2 space-y-1 text-xs text-gray-500">
-                  {job.min_cgpa && <p>Min CGPA: {job.min_cgpa}</p>}
-                  {job.max_backlogs !== null && <p>Max Backlogs: {job.max_backlogs}</p>}
-                  <p className="text-primary-600 font-medium">
-                    Deadline: {new Date(job.application_deadline).toLocaleDateString('en-IN')}
-                  </p>
-                </div>
-              </button>
-            ))
-          )}
         </div>
-      </div>
+      </AnimatedSection>
 
       {selectedJob && (
         <>
@@ -605,6 +607,7 @@ export default function JobEligibleStudents() {
           ) : (
             <>
               {/* Selected Job Info */}
+              <AnimatedSection delay={0.16}>
               <div className="card mb-6 bg-gradient-to-r from-primary-50 to-blue-50">
                 <div className="flex justify-between items-start">
                   <div>
@@ -784,8 +787,10 @@ export default function JobEligibleStudents() {
                   </div>
                 </div>
               )}
+              </AnimatedSection>
 
               {/* Advanced Filters */}
+              <AnimatedSection delay={0.24}>
               <div className="mb-6">
                 <button
                   onClick={() => {
@@ -959,8 +964,10 @@ export default function JobEligibleStudents() {
                   />
                 </div>
               )}
+              </AnimatedSection>
 
               {/* Placement Statistics */}
+              <AnimatedSection delay={0.32}>
               {placementStats && (
                 <div className="mb-6 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
                   <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
@@ -1459,6 +1466,7 @@ export default function JobEligibleStudents() {
                   </div>
                 </div>
               )}
+              </AnimatedSection>
             </>
           )}
         </>

@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { superAdminAPI } from '../../services/api';
-import LoadingSpinner from '../../components/LoadingSpinner';
 import toast from 'react-hot-toast';
+import useSkeleton from '../../hooks/useSkeleton';
+import AnimatedSection from '../../components/animation/AnimatedSection';
+import TablePageSkeleton from '../../components/skeletons/TablePageSkeleton';
 import {
   CheckCircle, XCircle, Briefcase, Building, MapPin, Calendar, User,
   DollarSign, Clock, GraduationCap, AlertCircle, FileText, Globe,
@@ -11,6 +13,7 @@ import {
 export default function ManageJobRequests() {
   const [jobRequests, setJobRequests] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { showSkeleton } = useSkeleton(loading);
   const [processing, setProcessing] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [showApproveModal, setShowApproveModal] = useState(false);
@@ -69,48 +72,53 @@ export default function ManageJobRequests() {
     }
   };
 
-  if (loading) return <LoadingSpinner />;
+  if (showSkeleton) return <TablePageSkeleton statCards={3} tableColumns={5} />;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-orange-50 to-amber-50 pb-8">
       {/* Header Section with Gradient */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-orange-500 via-amber-500 to-yellow-500 rounded-2xl shadow-2xl mb-8 p-8">
-        <div className="absolute inset-0 bg-black opacity-10"></div>
-        <div className="absolute inset-0 bg-grid-white/[0.05]"></div>
+      <AnimatedSection delay={0}>
+        <div className="relative overflow-hidden bg-gradient-to-br from-orange-500 via-amber-500 to-yellow-500 rounded-2xl shadow-2xl mb-8 p-8">
+          <div className="absolute inset-0 bg-black opacity-10"></div>
+          <div className="absolute inset-0 bg-grid-white/[0.05]"></div>
 
-        <div className="relative z-10">
-          <div className="flex items-center space-x-4">
-            <div className="p-4 bg-white/20 backdrop-blur-sm rounded-2xl">
-              <Briefcase className="text-white" size={36} />
-            </div>
-            <div>
-              <h1 className="text-4xl font-bold text-white mb-2 tracking-tight">
-                Pending Job Requests
-              </h1>
-              <p className="text-orange-100 text-lg">
-                Review and approve job posting requests from Placement Officers
-              </p>
+          <div className="relative z-10">
+            <div className="flex items-center space-x-4">
+              <div className="p-4 bg-white/20 backdrop-blur-sm rounded-2xl">
+                <Briefcase className="text-white" size={36} />
+              </div>
+              <div>
+                <h1 className="text-4xl font-bold text-white mb-2 tracking-tight">
+                  Pending Job Requests
+                </h1>
+                <p className="text-orange-100 text-lg">
+                  Review and approve job posting requests from Placement Officers
+                </p>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </AnimatedSection>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-shadow duration-300 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total Pending</p>
-              <p className="text-4xl font-bold text-orange-600 mt-2">{jobRequests.length}</p>
-            </div>
-            <div className="p-4 bg-gradient-to-br from-orange-400 to-amber-500 rounded-2xl shadow-lg">
-              <Briefcase className="text-white" size={28} />
+      <AnimatedSection delay={0.08}>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-shadow duration-300 p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Pending</p>
+                <p className="text-4xl font-bold text-orange-600 mt-2">{jobRequests.length}</p>
+              </div>
+              <div className="p-4 bg-gradient-to-br from-orange-400 to-amber-500 rounded-2xl shadow-lg">
+                <Briefcase className="text-white" size={28} />
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </AnimatedSection>
 
       {/* Job Requests List */}
+      <AnimatedSection delay={0.24}>
       {jobRequests.length === 0 ? (
         <div className="bg-white rounded-2xl shadow-lg text-center py-16">
           <div className="flex justify-center mb-4">
@@ -480,6 +488,7 @@ export default function ManageJobRequests() {
           ))}
         </div>
       )}
+      </AnimatedSection>
 
       {/* Approve Modal */}
       {showApproveModal && selectedRequest && (

@@ -7,10 +7,14 @@ import ChangePassword from '../../components/ChangePassword';
 import DashboardHeader from '../../components/DashboardHeader';
 import GlassCard from '../../components/GlassCard';
 import SectionHeader from '../../components/SectionHeader';
+import useSkeleton from '../../hooks/useSkeleton';
+import AnimatedSection from '../../components/animation/AnimatedSection';
+import ProfileSkeleton from '../../components/skeletons/ProfileSkeleton';
 
 export default function SuperAdminProfile() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
+  const { showSkeleton } = useSkeleton(loading);
   const [editMode, setEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
@@ -76,29 +80,22 @@ export default function SuperAdminProfile() {
     setEditMode(false);
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="spinner mb-4 mx-auto"></div>
-          <p className="text-gray-600 font-medium">Loading profile...</p>
-        </div>
-      </div>
-    );
-  }
+  if (showSkeleton) return <ProfileSkeleton />;
 
   return (
     <div className="min-h-screen pb-8">
       {/* Dashboard Header */}
-      <DashboardHeader
-        icon={User}
-        title="My Profile"
-        subtitle="View and manage your profile information"
-      />
+      <AnimatedSection delay={0}>
+        <DashboardHeader
+          icon={User}
+          title="My Profile"
+          subtitle="View and manage your profile information"
+        />
+      </AnimatedSection>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Profile Information Card */}
-        <div className="lg:col-span-2">
+        <AnimatedSection delay={0.08} className="lg:col-span-2">
           <GlassCard variant="elevated" className="p-8">
             <div className="flex justify-between items-center mb-6">
               <SectionHeader title="Profile Information" icon={User} />
@@ -193,11 +190,12 @@ export default function SuperAdminProfile() {
               </div>
             </form>
           </GlassCard>
-        </div>
+        </AnimatedSection>
 
         {/* Security & Info Sidebar */}
         <div className="space-y-6">
           {/* Security Card */}
+          <AnimatedSection delay={0.16}>
           <GlassCard variant="elevated" className="p-6">
             <SectionHeader title="Security" icon={Lock} />
             <div className="mt-4 space-y-4">
@@ -221,8 +219,10 @@ export default function SuperAdminProfile() {
               </button>
             </div>
           </GlassCard>
+          </AnimatedSection>
 
           {/* Account Info Card */}
+          <AnimatedSection delay={0.24}>
           <GlassCard variant="elevated" className="p-6">
             <SectionHeader title="Account Information" icon={Shield} />
             <div className="mt-4 space-y-3">
@@ -250,8 +250,10 @@ export default function SuperAdminProfile() {
               </div>
             </div>
           </GlassCard>
+          </AnimatedSection>
 
           {/* Admin Privileges Card */}
+          <AnimatedSection delay={0.32}>
           <GlassCard variant="elevated" className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200">
             <div className="flex items-center gap-2 mb-3">
               <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg p-2">
@@ -282,6 +284,7 @@ export default function SuperAdminProfile() {
               </li>
             </ul>
           </GlassCard>
+          </AnimatedSection>
         </div>
       </div>
 

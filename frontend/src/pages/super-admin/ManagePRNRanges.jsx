@@ -3,10 +3,14 @@ import { Link } from 'react-router-dom';
 import { superAdminAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import { Plus, Trash2, ToggleLeft, ToggleRight, AlertCircle, Eye, Download, ExternalLink, Edit2 } from 'lucide-react';
+import useSkeleton from '../../hooks/useSkeleton';
+import AnimatedSection from '../../components/animation/AnimatedSection';
+import TablePageSkeleton from '../../components/skeletons/TablePageSkeleton';
 
 export default function ManagePRNRanges() {
   const [ranges, setRanges] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { showSkeleton } = useSkeleton(loading);
   const [showAddRange, setShowAddRange] = useState(false);
   const [showAddSingle, setShowAddSingle] = useState(false);
   const [showDisableModal, setShowDisableModal] = useState(false);
@@ -218,13 +222,7 @@ export default function ManagePRNRanges() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-      </div>
-    );
-  }
+  if (showSkeleton) return <TablePageSkeleton tableColumns={5} hasSearch={false} hasFilters={false} />;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-teal-50 via-cyan-50 to-blue-50 pb-8">
@@ -237,6 +235,7 @@ export default function ManagePRNRanges() {
 
       <div className="relative z-10">
         {/* Header Section with Gradient */}
+        <AnimatedSection delay={0}>
         <div className="relative overflow-hidden bg-gradient-to-br from-teal-600 via-cyan-600 to-blue-600 rounded-3xl shadow-2xl mb-8 p-10">
           <div className="absolute inset-0 bg-black opacity-10"></div>
           <div className="absolute inset-0">
@@ -278,8 +277,10 @@ export default function ManagePRNRanges() {
             </div>
           </div>
         </div>
+        </AnimatedSection>
 
         {/* Info Alert */}
+        <AnimatedSection delay={0.08}>
         <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl p-8 mb-8 border-l-8 border-blue-500">
           <div className="flex items-start">
             <div className="p-4 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-2xl mr-5 shadow-lg">
@@ -294,6 +295,7 @@ export default function ManagePRNRanges() {
             </div>
           </div>
         </div>
+        </AnimatedSection>
 
       {/* Add Range Modal */}
       {showAddRange && (
@@ -433,6 +435,7 @@ export default function ManagePRNRanges() {
       )}
 
         {/* PRN Ranges Table */}
+        <AnimatedSection delay={0.16}>
         <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl overflow-hidden border border-white/50">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-100">
@@ -559,6 +562,7 @@ export default function ManagePRNRanges() {
             </table>
           </div>
         </div>
+        </AnimatedSection>
 
       {/* Disable PRN Range Modal */}
       {showDisableModal && selectedRange && (

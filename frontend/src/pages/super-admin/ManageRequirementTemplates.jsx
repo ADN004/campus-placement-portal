@@ -11,14 +11,17 @@ import {
   Settings,
   Copy,
 } from 'lucide-react';
-import LoadingSpinner from '../../components/LoadingSpinner';
 import toast from 'react-hot-toast';
+import useSkeleton from '../../hooks/useSkeleton';
+import AnimatedSection from '../../components/animation/AnimatedSection';
+import TablePageSkeleton from '../../components/skeletons/TablePageSkeleton';
 import { superAdminAPI } from '../../services/api';
 import KERALA_POLYTECHNIC_BRANCHES from '../../constants/branches';
 
 export default function ManageRequirementTemplates() {
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { showSkeleton } = useSkeleton(loading);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
@@ -71,59 +74,63 @@ export default function ManageRequirementTemplates() {
     }
   };
 
-  if (loading) return <LoadingSpinner />;
+  if (showSkeleton) return <TablePageSkeleton tableColumns={5} tableRows={5} hasSearch={false} hasFilters={false} />;
 
   return (
     <div className="min-h-screen pb-8">
       {/* Header Section with Gradient */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-purple-600 via-indigo-600 to-blue-600 rounded-2xl shadow-2xl mb-8 p-8">
-        <div className="absolute inset-0 bg-black opacity-10"></div>
-        <div className="relative z-10 flex justify-between items-start">
-          <div className="flex items-center space-x-4">
-            <div className="p-4 bg-white/20 backdrop-blur-sm rounded-2xl">
-              <Settings className="text-white" size={36} />
+      <AnimatedSection delay={0}>
+        <div className="relative overflow-hidden bg-gradient-to-br from-purple-600 via-indigo-600 to-blue-600 rounded-2xl shadow-2xl mb-8 p-8">
+          <div className="absolute inset-0 bg-black opacity-10"></div>
+          <div className="relative z-10 flex justify-between items-start">
+            <div className="flex items-center space-x-4">
+              <div className="p-4 bg-white/20 backdrop-blur-sm rounded-2xl">
+                <Settings className="text-white" size={36} />
+              </div>
+              <div>
+                <h1 className="text-4xl font-bold text-white mb-2 tracking-tight">
+                  Requirement Templates
+                </h1>
+                <p className="text-purple-100 text-lg">
+                  Manage company-specific requirement templates
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-4xl font-bold text-white mb-2 tracking-tight">
-                Requirement Templates
-              </h1>
-              <p className="text-purple-100 text-lg">
-                Manage company-specific requirement templates
-              </p>
-            </div>
+            <button
+              onClick={handleCreateTemplate}
+              className="px-6 py-3 bg-white text-indigo-600 hover:bg-indigo-50 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 flex items-center space-x-2"
+            >
+              <Plus size={20} />
+              <span>Create Template</span>
+            </button>
           </div>
-          <button
-            onClick={handleCreateTemplate}
-            className="px-6 py-3 bg-white text-indigo-600 hover:bg-indigo-50 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 flex items-center space-x-2"
-          >
-            <Plus size={20} />
-            <span>Create Template</span>
-          </button>
         </div>
-      </div>
+      </AnimatedSection>
 
       {/* Templates Grid */}
-      {templates.length === 0 ? (
-        <div className="bg-white rounded-2xl shadow-lg text-center py-16 px-8">
-          <Briefcase className="mx-auto mb-4 text-gray-300" size={64} />
-          <p className="text-gray-600 text-xl mb-6 font-semibold">No templates created yet</p>
-          <button onClick={handleCreateTemplate} className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200">
-            Create Your First Template
-          </button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {templates.map((template) => (
-            <TemplateCard
-              key={template.id}
-              template={template}
-              onEdit={handleEditTemplate}
-              onDelete={handleDeleteTemplate}
-              onView={handleViewTemplate}
-            />
-          ))}
-        </div>
-      )}
+      <AnimatedSection delay={0.08}>
+        {templates.length === 0 ? (
+          <div className="bg-white rounded-2xl shadow-lg text-center py-16 px-8">
+            <Briefcase className="mx-auto mb-4 text-gray-300" size={64} />
+            <p className="text-gray-600 text-xl mb-6 font-semibold">No templates created yet</p>
+            <button onClick={handleCreateTemplate} className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200">
+              Create Your First Template
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {templates.map((template) => (
+              <TemplateCard
+                key={template.id}
+                template={template}
+                onEdit={handleEditTemplate}
+                onDelete={handleDeleteTemplate}
+                onView={handleViewTemplate}
+              />
+            ))}
+          </div>
+        )}
+      </AnimatedSection>
 
       {/* Create/Edit Modal */}
       {(showCreateModal || showEditModal) && (

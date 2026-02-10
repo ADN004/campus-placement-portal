@@ -22,14 +22,17 @@ import {
   Unlock,
   GraduationCap,
 } from 'lucide-react';
-import LoadingSpinner from '../../components/LoadingSpinner';
 import toast from 'react-hot-toast';
+import useSkeleton from '../../hooks/useSkeleton';
+import AnimatedSection from '../../components/animation/AnimatedSection';
+import TablePageSkeleton from '../../components/skeletons/TablePageSkeleton';
 import { KERALA_POLYTECHNIC_BRANCHES } from '../../constants/branches';
 
 export default function ManageAllStudents() {
   const [searchParams] = useSearchParams();
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { showSkeleton } = useSkeleton(loading);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterRegion, setFilterRegion] = useState('');
   const [filterCollege, setFilterCollege] = useState('');
@@ -663,7 +666,7 @@ export default function ManageAllStudents() {
     }
   };
 
-  if (loading) return <LoadingSpinner />;
+  if (showSkeleton) return <TablePageSkeleton tableColumns={7} tableRows={10} hasSearch={true} hasFilters={true} />;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
@@ -676,6 +679,7 @@ export default function ManageAllStudents() {
 
       <div className="relative z-10">
         {/* Header Section with Gradient */}
+        <AnimatedSection delay={0}>
         <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 rounded-3xl shadow-2xl mb-8 p-10">
           <div className="absolute inset-0 bg-black opacity-10"></div>
           <div className="absolute inset-0">
@@ -724,8 +728,10 @@ export default function ManageAllStudents() {
           </div>
         </div>
       </div>
+        </AnimatedSection>
 
         {/* Filters */}
+        <AnimatedSection delay={0.08}>
         <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl hover:shadow-2xl transition-all duration-300 p-8 mb-8 border border-white/50">
           <div className="mb-6 flex items-center space-x-3">
             <div className="p-3 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl shadow-lg">
@@ -800,7 +806,9 @@ export default function ManageAllStudents() {
           </div>
         </div>
       </div>
+        </AnimatedSection>
 
+        <AnimatedSection delay={0.16}>
       {/* Advanced Filters */}
       <div className="mb-6">
         <button
@@ -1136,8 +1144,10 @@ export default function ManageAllStudents() {
             </div>
           </div>
         </div>
+        </AnimatedSection>
 
         {/* Students Table */}
+        <AnimatedSection delay={0.24}>
         <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl overflow-hidden border border-white/50">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-100">
@@ -1255,10 +1265,14 @@ export default function ManageAllStudents() {
             )}
           </tbody>
         </table>
+          </div>
+        </div>
+        </AnimatedSection>
 
+        <AnimatedSection delay={0.32}>
         {/* Pagination Controls */}
           {totalStudents > 0 && (
-            <div className="px-8 py-6 bg-gradient-to-r from-indigo-50 to-purple-50 border-t-2 border-indigo-200 flex items-center justify-between rounded-b-3xl">
+            <div className="px-8 py-6 bg-white/90 backdrop-blur-xl rounded-2xl shadow-lg border border-white/50 mt-4 flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-700">
                 Showing <span className="font-medium">{((currentPage - 1) * pageSize) + 1}</span> to{' '}
@@ -1322,7 +1336,7 @@ export default function ManageAllStudents() {
             )}
             </div>
           )}
-        </div>
+        </AnimatedSection>
       </div>
 
       {/* Student Details Modal */}
@@ -2143,7 +2157,6 @@ export default function ManageAllStudents() {
           </div>
         </div>
       )}
-      </div>
     </div>
   );
 }

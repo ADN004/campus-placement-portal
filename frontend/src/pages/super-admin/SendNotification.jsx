@@ -240,8 +240,7 @@ export default function SuperAdminSendNotification() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <AnimatedSection delay={0.08}>
-          <div className="lg:col-span-2">
+          <AnimatedSection delay={0.08} className="lg:col-span-2">
             <GlassCard variant="elevated" className="p-8">
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-lg">
@@ -525,12 +524,10 @@ export default function SuperAdminSendNotification() {
                 )}
               </form>
             </GlassCard>
-          </div>
           </AnimatedSection>
 
           {/* Sidebar */}
-          <AnimatedSection delay={0.16}>
-          <div className="lg:col-span-1 space-y-6">
+          <AnimatedSection delay={0.16} className="space-y-6">
             <GlassCard variant="elevated" className="p-6">
               <div className="flex items-center gap-2 mb-4">
                 <div className="p-2 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg">
@@ -583,7 +580,6 @@ export default function SuperAdminSendNotification() {
                 </div>
               </div>
             </GlassCard>
-          </div>
           </AnimatedSection>
         </div>
       </div>

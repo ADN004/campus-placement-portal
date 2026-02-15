@@ -20,4 +20,4 @@ COPY database/sync-password.sh /usr/local/bin/sync-password.sh
 RUN sed -i 's/\r$//' /usr/local/bin/sync-password.sh && chmod +x /usr/local/bin/sync-password.sh
 
 ENTRYPOINT ["sync-password.sh"]
-CMD ["postgres"]
+CMD ["postgres", "-c", "password_encryption=md5"]

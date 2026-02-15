@@ -25,6 +25,14 @@ services:
     image: ${DOCKERHUB_USERNAME}/spc-database:latest
     container_name: spc_postgres
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
     environment:
       POSTGRES_DB: ${DB_NAME:-campus_placement_portal}
       POSTGRES_USER: ${DB_USER:-postgres}
@@ -48,6 +56,14 @@ services:
     image: ${DOCKERHUB_USERNAME}/spc-backend:latest
     container_name: spc_backend
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
     depends_on:
       postgres:
         condition: service_healthy

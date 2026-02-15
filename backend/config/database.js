@@ -48,9 +48,10 @@ const pool = new Pool({
   database: process.env.DB_NAME || 'campus_placement_portal',
   user: process.env.DB_USER || 'postgres',
   password: process.env.DB_PASSWORD,
-  // Production-optimized pool settings for high concurrency
-  max: process.env.DB_POOL_MAX || (process.env.NODE_ENV === 'production' ? 100 : 20),
-  min: process.env.DB_POOL_MIN || (process.env.NODE_ENV === 'production' ? 20 : 2),
+  // Pool settings - keep small for single-server deployment
+  // PostgreSQL default max_connections=100, pool should be well under that
+  max: parseInt(process.env.DB_POOL_MAX) || (process.env.NODE_ENV === 'production' ? 20 : 10),
+  min: parseInt(process.env.DB_POOL_MIN) || (process.env.NODE_ENV === 'production' ? 2 : 1),
   idleTimeoutMillis: 30000,    // Close idle clients after 30 seconds
   connectionTimeoutMillis: 10000, // Wait up to 10s for connection
   // Performance and safety settings
@@ -71,7 +72,10 @@ const pool = new Pool({
  * Logs when a new client connects to the database
  */
 pool.on('connect', () => {
-  console.log('✅ Database connected successfully');
+  // Only log in development - this fires for every new pool connection
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('✅ Database connected successfully');
+  }
 });
 
 /**
@@ -80,8 +84,9 @@ pool.on('connect', () => {
  * This prevents the application from running with a broken database connection
  */
 pool.on('error', (err) => {
-  console.error('❌ Unexpected database error:', err);
-  process.exit(-1);
+  console.error('❌ Unexpected database pool error:', err.message);
+  // Don't crash - the pool will recover on its own.
+  // Crashing causes Docker restart loops that spike CPU.
 });
 
 // ============================================

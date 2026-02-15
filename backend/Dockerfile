@@ -72,5 +72,5 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
 # Use dumb-init to handle signals properly
 ENTRYPOINT ["dumb-init", "--"]
 
-# Start application
-CMD ["node", "server.js"]
+# Start application with memory limit to prevent runaway usage
+CMD ["node", "--max-old-space-size=384", "server.js"]

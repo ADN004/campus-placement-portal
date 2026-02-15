@@ -1678,54 +1678,45 @@ export const getActivityLogs = async (req, res) => {
 // @access  Private (Super Admin)
 export const getDashboard = async (req, res) => {
   try {
-    const totalStudents = await query(
-      'SELECT COUNT(*) as count FROM students s JOIN users u ON s.user_id = u.id WHERE u.is_active = TRUE'
-    );
-    const approvedStudents = await query(
-      "SELECT COUNT(*) as count FROM students s JOIN users u ON s.user_id = u.id WHERE u.is_active = TRUE AND s.registration_status = 'approved'"
-    );
-    const pendingStudents = await query(
-      "SELECT COUNT(*) as count FROM students s JOIN users u ON s.user_id = u.id WHERE u.is_active = TRUE AND s.registration_status = 'pending'"
-    );
-    const blacklistedStudents = await query(
-      'SELECT COUNT(*) as count FROM students s JOIN users u ON s.user_id = u.id WHERE u.is_active = TRUE AND s.is_blacklisted = TRUE'
-    );
-    const totalJobs = await query('SELECT COUNT(*) as count FROM jobs');
-    const activeJobs = await query(
-      'SELECT COUNT(*) as count FROM jobs WHERE is_active = TRUE'
-    );
-    const totalColleges = await query('SELECT COUNT(*) as count FROM colleges');
-    const totalOfficers = await query('SELECT COUNT(*) as count FROM placement_officers WHERE is_active = TRUE');
-    const activePrnRanges = await query('SELECT COUNT(*) as count FROM prn_ranges WHERE is_active = TRUE');
-    const pendingWhitelistRequests = await query(
-      "SELECT COUNT(*) as count FROM whitelist_requests WHERE status = 'pending'"
-    );
-    const recentActivitiesCount = await query(
-      'SELECT COUNT(*) as count FROM activity_logs WHERE created_at >= CURRENT_TIMESTAMP - INTERVAL \'7 days\''
-    );
+    // Single query to get all dashboard counts instead of 11 separate queries
+    const result = await query(`
+      SELECT
+        (SELECT COUNT(*) FROM students s JOIN users u ON s.user_id = u.id WHERE u.is_active = TRUE) as total_students,
+        (SELECT COUNT(*) FROM students s JOIN users u ON s.user_id = u.id WHERE u.is_active = TRUE AND s.registration_status = 'approved') as approved_students,
+        (SELECT COUNT(*) FROM students s JOIN users u ON s.user_id = u.id WHERE u.is_active = TRUE AND s.registration_status = 'pending') as pending_students,
+        (SELECT COUNT(*) FROM students s JOIN users u ON s.user_id = u.id WHERE u.is_active = TRUE AND s.is_blacklisted = TRUE) as blacklisted_students,
+        (SELECT COUNT(*) FROM jobs) as total_jobs,
+        (SELECT COUNT(*) FROM jobs WHERE is_active = TRUE) as active_jobs,
+        (SELECT COUNT(*) FROM colleges) as total_colleges,
+        (SELECT COUNT(*) FROM placement_officers WHERE is_active = TRUE) as total_officers,
+        (SELECT COUNT(*) FROM prn_ranges WHERE is_active = TRUE) as active_prn_ranges,
+        (SELECT COUNT(*) FROM whitelist_requests WHERE status = 'pending') as pending_whitelist_requests,
+        (SELECT COUNT(*) FROM activity_logs WHERE created_at >= CURRENT_TIMESTAMP - INTERVAL '7 days') as recent_activities_count
+    `);
+
+    const d = result.rows[0];
 
     res.status(200).json({
       success: true,
       data: {
-        // Snake case for frontend compatibility
-        total_students: parseInt(totalStudents.rows[0].count),
-        approved_students: parseInt(approvedStudents.rows[0].count),
-        pending_students: parseInt(pendingStudents.rows[0].count),
-        blacklisted_students: parseInt(blacklistedStudents.rows[0].count),
-        total_jobs: parseInt(totalJobs.rows[0].count),
-        active_jobs: parseInt(activeJobs.rows[0].count),
-        total_colleges: parseInt(totalColleges.rows[0].count),
-        total_officers: parseInt(totalOfficers.rows[0].count),
-        active_prn_ranges: parseInt(activePrnRanges.rows[0].count),
-        pending_whitelist_requests: parseInt(pendingWhitelistRequests.rows[0].count),
-        recent_activities_count: parseInt(recentActivitiesCount.rows[0].count),
-        // Also include camelCase for backward compatibility
-        totalStudents: parseInt(totalStudents.rows[0].count),
-        approvedStudents: parseInt(approvedStudents.rows[0].count),
-        pendingStudents: parseInt(pendingStudents.rows[0].count),
-        blacklistedStudents: parseInt(blacklistedStudents.rows[0].count),
-        activeJobs: parseInt(activeJobs.rows[0].count),
-        pendingWhitelistRequests: parseInt(pendingWhitelistRequests.rows[0].count),
+        total_students: parseInt(d.total_students),
+        approved_students: parseInt(d.approved_students),
+        pending_students: parseInt(d.pending_students),
+        blacklisted_students: parseInt(d.blacklisted_students),
+        total_jobs: parseInt(d.total_jobs),
+        active_jobs: parseInt(d.active_jobs),
+        total_colleges: parseInt(d.total_colleges),
+        total_officers: parseInt(d.total_officers),
+        active_prn_ranges: parseInt(d.active_prn_ranges),
+        pending_whitelist_requests: parseInt(d.pending_whitelist_requests),
+        recent_activities_count: parseInt(d.recent_activities_count),
+        // camelCase for backward compatibility
+        totalStudents: parseInt(d.total_students),
+        approvedStudents: parseInt(d.approved_students),
+        pendingStudents: parseInt(d.pending_students),
+        blacklistedStudents: parseInt(d.blacklisted_students),
+        activeJobs: parseInt(d.active_jobs),
+        pendingWhitelistRequests: parseInt(d.pending_whitelist_requests),
       },
     });
   } catch (error) {

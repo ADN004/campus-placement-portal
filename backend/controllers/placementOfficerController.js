@@ -284,52 +284,29 @@ export const getDashboard = async (req, res) => {
 
     const officer = officerResult.rows[0];
 
-    // Get total students count
-    const totalCount = await query(
-      `SELECT COUNT(*) as count FROM students s
-       JOIN users u ON s.user_id = u.id
-       WHERE s.college_id = $1 AND u.is_active = TRUE`,
+    // Single query to get all dashboard counts instead of 5 separate queries
+    const counts = await query(
+      `SELECT
+        (SELECT COUNT(*) FROM students s JOIN users u ON s.user_id = u.id WHERE s.college_id = $1 AND u.is_active = TRUE) as total_students,
+        (SELECT COUNT(*) FROM students s JOIN users u ON s.user_id = u.id WHERE s.college_id = $1 AND u.is_active = TRUE AND s.registration_status = 'pending') as pending_students,
+        (SELECT COUNT(*) FROM students s JOIN users u ON s.user_id = u.id WHERE s.college_id = $1 AND u.is_active = TRUE AND s.registration_status = 'approved') as approved_students,
+        (SELECT COUNT(*) FROM students s JOIN users u ON s.user_id = u.id WHERE s.college_id = $1 AND u.is_active = TRUE AND s.is_blacklisted = TRUE) as blacklisted_students,
+        (SELECT COUNT(*) FROM jobs WHERE is_active = TRUE AND application_deadline > CURRENT_TIMESTAMP) as active_jobs`,
       [officer.college_id]
     );
 
-    // Get students count by status
-    const pendingCount = await query(
-      `SELECT COUNT(*) as count FROM students s
-       JOIN users u ON s.user_id = u.id
-       WHERE s.college_id = $1 AND u.is_active = TRUE AND s.registration_status = 'pending'`,
-      [officer.college_id]
-    );
-
-    const approvedCount = await query(
-      `SELECT COUNT(*) as count FROM students s
-       JOIN users u ON s.user_id = u.id
-       WHERE s.college_id = $1 AND u.is_active = TRUE AND s.registration_status = 'approved'`,
-      [officer.college_id]
-    );
-
-    const blacklistedCount = await query(
-      `SELECT COUNT(*) as count FROM students s
-       JOIN users u ON s.user_id = u.id
-       WHERE s.college_id = $1 AND u.is_active = TRUE AND s.is_blacklisted = TRUE`,
-      [officer.college_id]
-    );
-
-    // Get active jobs count
-    const activeJobsCount = await query(
-      `SELECT COUNT(*) as count FROM jobs
-       WHERE is_active = TRUE AND application_deadline > CURRENT_TIMESTAMP`
-    );
+    const d = counts.rows[0];
 
     res.status(200).json({
       success: true,
       data: {
         college_name: officer.college_name,
         region_name: officer.region_name,
-        total_students: parseInt(totalCount.rows[0].count),
-        pending_students: parseInt(pendingCount.rows[0].count),
-        approved_students: parseInt(approvedCount.rows[0].count),
-        blacklisted_students: parseInt(blacklistedCount.rows[0].count),
-        active_jobs: parseInt(activeJobsCount.rows[0].count),
+        total_students: parseInt(d.total_students),
+        pending_students: parseInt(d.pending_students),
+        approved_students: parseInt(d.approved_students),
+        blacklisted_students: parseInt(d.blacklisted_students),
+        active_jobs: parseInt(d.active_jobs),
       },
     });
   } catch (error) {

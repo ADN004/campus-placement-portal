@@ -265,7 +265,7 @@ export default function JobEligibleStudents() {
   }, [selectedJob]);
 
   const { lastRefreshed, autoRefreshEnabled, toggleAutoRefresh, manualRefresh, refreshing } =
-    useAutoRefresh(silentRefresh, 30000, true);
+    useAutoRefresh(silentRefresh, 300000, true); // 5 min
 
   const applyEnhancedFilters = () => {
     if (!students.length) {

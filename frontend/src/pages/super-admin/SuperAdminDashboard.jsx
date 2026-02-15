@@ -85,7 +85,7 @@ export default function SuperAdminDashboard() {
   }, []);
 
   const { lastRefreshed, autoRefreshEnabled, toggleAutoRefresh, manualRefresh, refreshing } =
-    useAutoRefresh(silentRefresh, 60000, true);
+    useAutoRefresh(silentRefresh, 300000, true); // 5 min
 
   const handleMarkAsRead = async (id) => {
     try {

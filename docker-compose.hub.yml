@@ -40,8 +40,8 @@ services:
       POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "${DB_PORT:-5432}:5432"
+    # NO ports exposed — postgres is only accessible within the Docker network
+    # This prevents external attacks (crypto miners exploited the old exposed port)
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-campus_placement_portal}"]
       interval: 10s

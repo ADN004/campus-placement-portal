@@ -207,18 +207,18 @@ export default function JobEligibleStudents() {
       filtered = filtered.filter((s) => s.college_id === parseInt(advancedFilters.collegeId));
     }
 
-    // Sort: selected students first, then by other statuses
+    // Sort: college → branch → PRN (grouped by college first, then branch within college, then PRN order)
     filtered.sort((a, b) => {
-      const statusOrder = { 'selected': 0, 'shortlisted': 1, 'under_review': 2, 'submitted': 3, 'rejected': 4 };
-      const aOrder = statusOrder[a.application_status] ?? 999;
-      const bOrder = statusOrder[b.application_status] ?? 999;
+      // First sort by college name
+      const collegeCompare = (a.college_name || '').localeCompare(b.college_name || '');
+      if (collegeCompare !== 0) return collegeCompare;
 
-      if (aOrder !== bOrder) {
-        return aOrder - bOrder;
-      }
+      // Then by branch within same college
+      const branchCompare = (a.branch || '').localeCompare(b.branch || '');
+      if (branchCompare !== 0) return branchCompare;
 
-      // If same status, sort by CGPA descending
-      return parseFloat(b.cgpa || 0) - parseFloat(a.cgpa || 0);
+      // Then by PRN within same branch (ascending order)
+      return (a.prn || '').localeCompare(b.prn || '');
     });
 
     setFilteredStudents(filtered);
@@ -282,18 +282,18 @@ export default function JobEligibleStudents() {
       );
     }
 
-    // Sort: selected students first, then by other statuses
+    // Sort: college → branch → PRN (grouped by college first, then branch within college, then PRN order)
     filtered.sort((a, b) => {
-      const statusOrder = { 'selected': 0, 'shortlisted': 1, 'under_review': 2, 'submitted': 3, 'rejected': 4 };
-      const aOrder = statusOrder[a.application_status] ?? 999;
-      const bOrder = statusOrder[b.application_status] ?? 999;
+      // First sort by college name
+      const collegeCompare = (a.college_name || '').localeCompare(b.college_name || '');
+      if (collegeCompare !== 0) return collegeCompare;
 
-      if (aOrder !== bOrder) {
-        return aOrder - bOrder;
-      }
+      // Then by branch within same college
+      const branchCompare = (a.branch || '').localeCompare(b.branch || '');
+      if (branchCompare !== 0) return branchCompare;
 
-      // If same status, sort by CGPA descending
-      return parseFloat(b.cgpa || 0) - parseFloat(a.cgpa || 0);
+      // Then by PRN within same branch (ascending order)
+      return (a.prn || '').localeCompare(b.prn || '');
     });
 
     setFilteredStudents(filtered);

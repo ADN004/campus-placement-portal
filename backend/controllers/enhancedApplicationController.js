@@ -137,18 +137,69 @@ export const checkApplicationReadiness = async (req, res) => {
       };
     }
 
-    // If no requirements at all, student is ready to apply
-    if (!requirements.min_cgpa && requirements.max_backlogs === null && (!requirements.allowed_branches || requirements.allowed_branches.length === 0)) {
+    const missingFields = [];
+
+    // Check college/region targeting FIRST (blocking if student's college is not targeted)
+    if (job.target_type === 'college' && job.target_colleges) {
+      const targetColleges = (typeof job.target_colleges === 'string'
+        ? JSON.parse(job.target_colleges) : job.target_colleges).map(Number);
+      if (targetColleges.length > 0 && !targetColleges.includes(Number(student.college_id))) {
+        missingFields.push({
+          field: 'college_id', section: 'core', label: 'College',
+          message: 'This job is not available for your college',
+          blocking: true
+        });
+      }
+    }
+
+    if ((job.target_type === 'region' || job.target_type === 'specific') && job.target_regions) {
+      const targetRegions = (typeof job.target_regions === 'string'
+        ? JSON.parse(job.target_regions) : job.target_regions).map(Number);
+      if (targetRegions.length > 0 && !targetRegions.includes(Number(student.region_id))) {
+        // For 'specific', also check colleges
+        if (job.target_type === 'specific' && job.target_colleges) {
+          const targetColleges = (typeof job.target_colleges === 'string'
+            ? JSON.parse(job.target_colleges) : job.target_colleges).map(Number);
+          if (targetColleges.length > 0 && !targetColleges.includes(Number(student.college_id))) {
+            missingFields.push({
+              field: 'college_id', section: 'core', label: 'College/Region',
+              message: 'This job is not available for your college or region',
+              blocking: true
+            });
+          }
+        } else {
+          missingFields.push({
+            field: 'region_id', section: 'core', label: 'Region',
+            message: 'This job is not available for your region',
+            blocking: true
+          });
+        }
+      }
+    }
+
+    if (job.target_type === 'specific' && !job.target_regions && job.target_colleges) {
+      const targetColleges = (typeof job.target_colleges === 'string'
+        ? JSON.parse(job.target_colleges) : job.target_colleges).map(Number);
+      if (targetColleges.length > 0 && !targetColleges.includes(Number(student.college_id))) {
+        missingFields.push({
+          field: 'college_id', section: 'core', label: 'College',
+          message: 'This job is not available for your college',
+          blocking: true
+        });
+      }
+    }
+
+    // If no requirements at all and no targeting issues, student is ready to apply
+    if (missingFields.length === 0 && !requirements.min_cgpa && requirements.max_backlogs === null && (!requirements.allowed_branches || requirements.allowed_branches.length === 0)) {
       return res.json({
         success: true,
         ready_to_apply: true,
+        has_blocking_issues: false,
         missing_fields: [],
         custom_fields: [],
         message: 'You can apply for this job'
       });
     }
-
-    const missingFields = [];
 
     // Validate Tier 1 requirements using programme_cgpa instead of cgpa
     const studentCgpa = student.programme_cgpa || student.cgpa;

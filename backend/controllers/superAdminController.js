@@ -2364,7 +2364,7 @@ export const getJobApplicants = async (req, res) => {
       WHERE ja.job_id = $1
         AND s.registration_status = 'approved'
         AND s.is_blacklisted = FALSE
-      ORDER BY ja.applied_date DESC`,
+      ORDER BY c.college_name ASC, s.branch ASC, s.prn ASC`,
       [jobId]
     );
 
@@ -2511,8 +2511,9 @@ export const approveJobRequest = async (req, res) => {
         `INSERT INTO jobs
          (job_title, company_name, job_description, job_location, no_of_vacancies, salary_package,
           application_form_url, application_start_date, application_deadline, min_cgpa, max_backlogs, backlog_max_semester,
-          allowed_branches, target_type, target_regions, target_colleges, created_by, is_active)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, $8, $9, $10, $11, $12::jsonb, $13, $14::jsonb, $15::jsonb, $16, TRUE)
+          allowed_branches, target_type, target_regions, target_colleges, created_by, is_active,
+          placement_officer_id, source_job_request_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, $8, $9, $10, $11, $12::jsonb, $13, $14::jsonb, $15::jsonb, $16, TRUE, $17, $18)
          RETURNING *`,
         [
           jobRequest.job_title,
@@ -2531,6 +2532,8 @@ export const approveJobRequest = async (req, res) => {
           targetRegions ? JSON.stringify(targetRegions) : null,
           targetColleges ? JSON.stringify(targetColleges) : null,
           req.user.id,
+          jobRequest.placement_officer_id || null,
+          jobRequest.id,
         ]
       );
 

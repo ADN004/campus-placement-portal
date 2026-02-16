@@ -26,6 +26,7 @@ export default function JobEligibleStudents() {
   const [filteredStudents, setFilteredStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingStudents, setLoadingStudents] = useState(false);
+  const [isHost, setIsHost] = useState(false);
   const [showExportDropdown, setShowExportDropdown] = useState(false);
   const [exporting, setExporting] = useState(false);
 
@@ -105,6 +106,7 @@ export default function JobEligibleStudents() {
       setLoadingStudents(true);
       const response = await placementOfficerAPI.getJobApplicants(selectedJob.id);
       setStudents(response.data.data || []);
+      setIsHost(response.data.is_host || false);
     } catch (error) {
       toast.error('Failed to load job applicants');
       console.error('Failed to load applicants:', error);
@@ -143,6 +145,7 @@ export default function JobEligibleStudents() {
         placementOfficerAPI.getJobPlacementStats(selectedJob.id),
       ]);
       setStudents(applicantsRes.data.data || []);
+      setIsHost(applicantsRes.data.is_host || false);
       setPlacementStats(statsRes.data.data);
     } catch (e) {
       // Silently fail on auto-refresh
@@ -237,18 +240,18 @@ export default function JobEligibleStudents() {
       filtered = filtered.filter((s) => s.physically_handicapped === enhancedFilters.physicallyHandicapped);
     }
 
-    // Sort: selected students first, then by other statuses
+    // Sort: college → branch → PRN (grouped by college first, then branch within college, then PRN order)
     filtered.sort((a, b) => {
-      const statusOrder = { 'selected': 0, 'shortlisted': 1, 'under_review': 2, 'submitted': 3, 'rejected': 4 };
-      const aOrder = statusOrder[a.application_status] ?? 999;
-      const bOrder = statusOrder[b.application_status] ?? 999;
+      // First sort by college name
+      const collegeCompare = (a.college_name || '').localeCompare(b.college_name || '');
+      if (collegeCompare !== 0) return collegeCompare;
 
-      if (aOrder !== bOrder) {
-        return aOrder - bOrder;
-      }
+      // Then by branch within same college
+      const branchCompare = (a.branch || '').localeCompare(b.branch || '');
+      if (branchCompare !== 0) return branchCompare;
 
-      // If same status, sort by CGPA descending
-      return parseFloat(b.cgpa || 0) - parseFloat(a.cgpa || 0);
+      // Then by PRN within same branch (ascending order)
+      return (a.prn || '').localeCompare(b.prn || '');
     });
 
     setFilteredStudents(filtered);
@@ -526,7 +529,7 @@ export default function JobEligibleStudents() {
         <DashboardHeader
           icon={Briefcase}
           title="Job Applicants Management"
-          subtitle="View, manage, and track student applications for your college"
+          subtitle={isHost ? "View, manage, and track student applications across all colleges (Host)" : "View, manage, and track student applications for your college"}
         />
       </div>
 
@@ -1076,6 +1079,7 @@ export default function JobEligibleStudents() {
                     </th>
                     <th className="px-6 py-4 text-left font-bold">PRN</th>
                     <th className="px-6 py-4 text-left font-bold">Name</th>
+                    {isHost && <th className="px-6 py-4 text-left font-bold">College</th>}
                     <th className="px-6 py-4 text-left font-bold">Branch</th>
                     <th className="px-6 py-4 text-left font-bold">CGPA</th>
                     <th className="px-6 py-4 text-left font-bold">Backlogs</th>
@@ -1086,14 +1090,14 @@ export default function JobEligibleStudents() {
                 <tbody>
                   {loadingStudents ? (
                     <tr>
-                      <td colSpan="8" className="text-center py-12">
+                      <td colSpan={isHost ? 9 : 8} className="text-center py-12">
                         <div className="spinner mx-auto mb-4"></div>
                         <p className="text-gray-600 font-medium">Loading applicants...</p>
                       </td>
                     </tr>
                   ) : filteredStudents.filter(s => !s.is_already_placed).length === 0 ? (
                     <tr>
-                      <td colSpan="8" className="text-center text-gray-500 py-12 font-medium text-lg">
+                      <td colSpan={isHost ? 9 : 8} className="text-center text-gray-500 py-12 font-medium text-lg">
                         No students match the current filters
                       </td>
                     </tr>
@@ -1110,6 +1114,7 @@ export default function JobEligibleStudents() {
                         </td>
                         <td className="px-6 py-4 font-mono font-bold text-gray-900">{student.prn}</td>
                         <td className="px-6 py-4 font-bold text-gray-900">{student.name}</td>
+                        {isHost && <td className="px-6 py-4 font-medium text-indigo-700">{student.college_name}</td>}
                         <td className="px-6 py-4 font-medium text-gray-700">{student.branch}</td>
                         <td className="px-6 py-4 font-bold text-green-600 text-lg">{student.cgpa}</td>
                         <td className="px-6 py-4">
@@ -1180,6 +1185,7 @@ export default function JobEligibleStudents() {
                     <tr>
                       <th className="px-6 py-4 text-left font-bold">PRN</th>
                       <th className="px-6 py-4 text-left font-bold">Name</th>
+                      {isHost && <th className="px-6 py-4 text-left font-bold">College</th>}
                       <th className="px-6 py-4 text-left font-bold">Branch</th>
                       <th className="px-6 py-4 text-left font-bold">CGPA</th>
                       <th className="px-6 py-4 text-left font-bold">Backlogs</th>
@@ -1193,6 +1199,7 @@ export default function JobEligibleStudents() {
                       <tr key={student.id} className={`border-b border-gray-200 hover:bg-amber-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-orange-50/30'}`}>
                         <td className="px-6 py-4 font-mono font-bold text-gray-900">{student.prn}</td>
                         <td className="px-6 py-4 font-bold text-gray-900">{student.name}</td>
+                        {isHost && <td className="px-6 py-4 font-medium text-indigo-700">{student.college_name}</td>}
                         <td className="px-6 py-4 font-medium text-gray-700">{student.branch}</td>
                         <td className="px-6 py-4 font-bold text-green-600 text-lg">{student.cgpa}</td>
                         <td className="px-6 py-4">
@@ -1323,6 +1330,7 @@ export default function JobEligibleStudents() {
                     <tr>
                       <th className="px-6 py-4 text-left font-bold">PRN</th>
                       <th className="px-6 py-4 text-left font-bold">Name</th>
+                      {isHost && <th className="px-6 py-4 text-left font-bold">College</th>}
                       <th className="px-6 py-4 text-left font-bold">Branch</th>
                       <th className="px-6 py-4 text-left font-bold">CGPA</th>
                       <th className="px-6 py-4 text-left font-bold">Backlogs</th>
@@ -1337,6 +1345,7 @@ export default function JobEligibleStudents() {
                         <tr key={student.id} className={`border-b border-gray-200 hover:bg-green-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
                           <td className="px-6 py-4 font-mono font-bold text-gray-900">{student.prn}</td>
                           <td className="px-6 py-4 font-bold text-gray-900">{student.name}</td>
+                          {isHost && <td className="px-6 py-4 font-medium text-indigo-700">{student.college_name}</td>}
                           <td className="px-6 py-4 font-medium text-gray-700">{student.branch}</td>
                           <td className="px-6 py-4 font-bold text-green-600 text-lg">{student.cgpa}</td>
                           <td className="px-6 py-4">

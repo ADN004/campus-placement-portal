@@ -880,20 +880,41 @@ const checkJobEligibility = async (jobId, student) => {
     }
 
     // Check target type (region/college filtering)
-    if (job.target_type === 'region' && job.target_regions) {
-      const targetRegions = typeof job.target_regions === 'string'
+    // Use Number() coercion to avoid type mismatch between JSONB values and PostgreSQL integers
+    if ((job.target_type === 'region' || job.target_type === 'specific') && job.target_regions) {
+      const targetRegions = (typeof job.target_regions === 'string'
         ? JSON.parse(job.target_regions)
-        : job.target_regions;
-      if (targetRegions && targetRegions.length > 0 && !targetRegions.includes(student.region_id)) {
-        return { isEligible: false, reason: 'This job is not available for your region' };
+        : job.target_regions).map(Number);
+      if (targetRegions.length > 0 && !targetRegions.includes(Number(student.region_id))) {
+        // For 'specific' type, also check colleges before declaring ineligible
+        if (job.target_type !== 'specific' || !job.target_colleges) {
+          return { isEligible: false, reason: 'This job is not available for your region' };
+        }
+        // For 'specific', fall through to college check
+        const targetColleges = (typeof job.target_colleges === 'string'
+          ? JSON.parse(job.target_colleges)
+          : job.target_colleges).map(Number);
+        if (targetColleges.length > 0 && !targetColleges.includes(Number(student.college_id))) {
+          return { isEligible: false, reason: 'This job is not available for your college' };
+        }
       }
     }
 
     if (job.target_type === 'college' && job.target_colleges) {
-      const targetColleges = typeof job.target_colleges === 'string'
+      const targetColleges = (typeof job.target_colleges === 'string'
         ? JSON.parse(job.target_colleges)
-        : job.target_colleges;
-      if (targetColleges && targetColleges.length > 0 && !targetColleges.includes(student.college_id)) {
+        : job.target_colleges).map(Number);
+      if (targetColleges.length > 0 && !targetColleges.includes(Number(student.college_id))) {
+        return { isEligible: false, reason: 'This job is not available for your college' };
+      }
+    }
+
+    // For 'specific' type with only colleges (no regions), check colleges
+    if (job.target_type === 'specific' && !job.target_regions && job.target_colleges) {
+      const targetColleges = (typeof job.target_colleges === 'string'
+        ? JSON.parse(job.target_colleges)
+        : job.target_colleges).map(Number);
+      if (targetColleges.length > 0 && !targetColleges.includes(Number(student.college_id))) {
         return { isEligible: false, reason: 'This job is not available for your college' };
       }
     }

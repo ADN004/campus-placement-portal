@@ -1857,6 +1857,12 @@ export const createJobRequest = async (req, res) => {
     }
 
     // STANDARD FLOW: Create job request pending super admin approval
+    // Auto-include PO's own college in target_colleges so their students are always eligible
+    let finalTargetColleges = target_colleges && target_colleges.length > 0 ? [...target_colleges] : [];
+    if (!finalTargetColleges.map(Number).includes(Number(officer.college_id))) {
+      finalTargetColleges.push(officer.college_id);
+    }
+
     const jobRequestResult = await query(
       `INSERT INTO job_requests (
         placement_officer_id, college_id, job_title, company_name, job_description,
@@ -1882,7 +1888,7 @@ export const createJobRequest = async (req, res) => {
         allowed_branches && allowed_branches.length > 0 ? JSON.stringify(allowed_branches) : null,
         'specific',
         target_regions && target_regions.length > 0 ? JSON.stringify(target_regions) : null,
-        target_colleges && target_colleges.length > 0 ? JSON.stringify(target_colleges) : null,
+        finalTargetColleges.length > 0 ? JSON.stringify(finalTargetColleges) : null,
         'pending',
       ]
     );
@@ -1995,7 +2001,7 @@ export const getJobApplicants = async (req, res) => {
 
     // Get placement officer details
     const officerResult = await query(
-      'SELECT college_id FROM placement_officers WHERE user_id = $1',
+      'SELECT id, college_id FROM placement_officers WHERE user_id = $1',
       [req.user.id]
     );
 
@@ -2006,10 +2012,23 @@ export const getJobApplicants = async (req, res) => {
       });
     }
 
-    const collegeId = officerResult.rows[0].college_id;
+    const officer = officerResult.rows[0];
+    const collegeId = officer.college_id;
 
-    // Get students from officer's college who have applied to this job
-    // Including extended profile fields for filtering
+    // Check if this PO is the host (creator) of this job
+    const jobResult = await query(
+      'SELECT placement_officer_id, target_colleges FROM jobs WHERE id = $1',
+      [jobId]
+    );
+
+    const isHost = jobResult.rows.length > 0 && jobResult.rows[0].placement_officer_id === officer.id;
+
+    // Host PO sees all colleges' applicants; non-host PO sees only their own college
+    const collegeFilter = isHost ? '' : 'AND s.college_id = $2';
+    const queryParams = isHost ? [jobId] : [jobId, collegeId];
+
+    // Get students who have applied to this job
+    // Sorted by: college_name → branch → PRN (grouping same college, same branch, with PRN order)
     const applicantsResult = await query(
       `SELECT
         s.id, s.prn, s.student_name as name, s.email, s.mobile_number, s.branch,
@@ -2057,11 +2076,11 @@ export const getJobApplicants = async (req, res) => {
       LEFT JOIN colleges c ON s.college_id = c.id
       LEFT JOIN student_extended_profiles sep ON s.id = sep.student_id
       WHERE ja.job_id = $1
-        AND s.college_id = $2
+        ${collegeFilter}
         AND s.registration_status = 'approved'
         AND s.is_blacklisted = FALSE
-      ORDER BY ja.applied_date DESC`,
-      [jobId, collegeId]
+      ORDER BY c.college_name ASC, s.branch ASC, s.prn ASC`,
+      queryParams
     );
 
     // Parse allowed_branches if it's a string
@@ -2078,6 +2097,7 @@ export const getJobApplicants = async (req, res) => {
       success: true,
       count: applicants.length,
       data: applicants,
+      is_host: isHost,
     });
   } catch (error) {
     console.error('Get job applicants error:', error);

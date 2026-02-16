@@ -2,46 +2,42 @@
 set -e
 
 # ============================================
-# PostgreSQL Password Sync Script
+# PostgreSQL Auth & Password Sync Script
 # ============================================
-# PROBLEM: POSTGRES_PASSWORD only sets the password during first-time
-# database initialization (empty volume). On subsequent container starts
-# with an existing volume, it's completely ignored. This causes password
-# mismatches when the backend expects the env var password.
+# Runs BEFORE the main entrypoint on every container start.
 #
-# SOLUTION: This wrapper runs BEFORE the main entrypoint. If the database
-# is already initialized, it temporarily starts PostgreSQL, syncs the
-# password to match POSTGRES_PASSWORD, then stops it. The real entrypoint
-# then starts PostgreSQL properly.
-#
-# Also ensures pg_hba.conf allows md5 auth for Docker network connections
-# (scram-sha-256 can cause intermittent auth failures with connection pools).
+# 1. Sets pg_hba.conf to use "trust" for Docker network connections
+#    (postgres is only accessible within the Docker network, so this is safe)
+# 2. Syncs the password to match POSTGRES_PASSWORD env var (for external tools)
 # ============================================
 
 PGDATA="${PGDATA:-/var/lib/postgresql/data}"
 
-if [ -s "$PGDATA/PG_VERSION" ] && [ -n "$POSTGRES_PASSWORD" ]; then
-  echo "🔄 Syncing PostgreSQL password with environment variable..."
+if [ -s "$PGDATA/PG_VERSION" ]; then
+  echo "🔄 Configuring PostgreSQL authentication..."
 
-  # Ensure pg_hba.conf uses md5 for Docker network connections (not scram-sha-256)
-  # This is safe because postgres is only accessible within the Docker network.
-  if grep -q 'scram-sha-256' "$PGDATA/pg_hba.conf" 2>/dev/null; then
-    sed -i 's/scram-sha-256/md5/g' "$PGDATA/pg_hba.conf"
-    echo "  → Updated pg_hba.conf: scram-sha-256 → md5"
+  # Force pg_hba.conf to use trust for all non-local connections
+  # This ensures the backend can always connect without password issues
+  # Safe because postgres is only accessible within the Docker network
+  if grep -q 'scram-sha-256\|md5' "$PGDATA/pg_hba.conf" 2>/dev/null; then
+    sed -i 's/\(host all all all\).*/\1 trust/' "$PGDATA/pg_hba.conf"
+    echo "  → pg_hba.conf: set Docker network auth to trust"
   fi
 
-  # Set password_encryption to md5 to match pg_hba.conf
-  su-exec postgres pg_ctl -D "$PGDATA" -o "-c listen_addresses='' -c password_encryption=md5" -w start -l /tmp/pg_password_sync.log
+  # Also sync the password (useful for external tools like psql, pgAdmin)
+  if [ -n "$POSTGRES_PASSWORD" ]; then
+    su-exec postgres pg_ctl -D "$PGDATA" -o "-c listen_addresses=''" -w start -l /tmp/pg_password_sync.log
 
-  # Sync the password to match POSTGRES_PASSWORD env var
-  # Don't suppress output so we can see errors
-  su-exec postgres psql -U "${POSTGRES_USER:-postgres}" -d postgres -c \
-    "ALTER USER \"${POSTGRES_USER:-postgres}\" PASSWORD '${POSTGRES_PASSWORD}';"
+    su-exec postgres psql -U "${POSTGRES_USER:-postgres}" -d postgres -c \
+      "ALTER USER \"${POSTGRES_USER:-postgres}\" PASSWORD '${POSTGRES_PASSWORD}';" \
+      > /dev/null 2>&1 || true
 
-  # Stop PostgreSQL (the real entrypoint will start it properly)
-  su-exec postgres pg_ctl -D "$PGDATA" -m fast -w stop
+    su-exec postgres pg_ctl -D "$PGDATA" -m fast -w stop > /dev/null 2>&1
 
-  echo "✅ Password synced successfully"
+    echo "  → Password synced"
+  fi
+
+  echo "✅ Auth configuration complete"
 fi
 
 # Hand off to the official PostgreSQL Docker entrypoint

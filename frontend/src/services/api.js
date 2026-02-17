@@ -345,6 +345,10 @@ export const superAdminAPI = {
   getBacklogLockStatus: (collegeId) => API.get(`/super-admin/backlog-lock-status/${collegeId}`),
   unlockBacklog: (data) => API.post('/super-admin/backlog-unlock', data),
   lockBacklog: (data) => API.post('/super-admin/backlog-lock', data),
+
+  // Academic Year Reset
+  getResetPreview: () => API.get('/super-admin/academic-year-reset/preview'),
+  performAcademicYearReset: (data) => API.post('/super-admin/academic-year-reset/execute', data),
 };
 
 export default API;

@@ -97,6 +97,10 @@ import {
   downloadStudentResumeSA,
   getStudentResumeStatusSA,
 } from '../controllers/resumeController.js';
+import {
+  getResetPreview,
+  performAcademicYearReset,
+} from '../controllers/academicYearResetController.js';
 import { protect, authorize } from '../middleware/auth.js';
 import { exportLimiter } from '../middleware/rateLimiter.js';
 
@@ -231,6 +235,10 @@ router.get('/backlog-global-lock-status', getGlobalBacklogLockStatus);
 router.get('/backlog-lock-status/:collegeId', getBacklogLockStatusSA);
 router.post('/backlog-unlock', unlockBacklogSA);
 router.post('/backlog-lock', lockBacklogSA);
+
+// Academic Year Reset
+router.get('/academic-year-reset/preview', getResetPreview);
+router.post('/academic-year-reset/execute', performAcademicYearReset);
 
 // Admin Notifications (Auto-approved jobs, system alerts)
 router.get('/admin-notifications', getAdminNotifications);

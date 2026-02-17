@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { superAdminAPI } from '../../services/api';
 import toast from 'react-hot-toast';
-import { Plus, Trash2, ToggleLeft, ToggleRight, AlertCircle, Eye, Download, ExternalLink, Edit2 } from 'lucide-react';
+import { Plus, Trash2, ToggleLeft, ToggleRight, AlertCircle, Eye, Download, ExternalLink, Edit2, Filter } from 'lucide-react';
 import useSkeleton from '../../hooks/useSkeleton';
 import AnimatedSection from '../../components/animation/AnimatedSection';
 import TablePageSkeleton from '../../components/skeletons/TablePageSkeleton';
@@ -21,6 +21,7 @@ export default function ManagePRNRanges() {
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [exportingStudents, setExportingStudents] = useState(false);
   const [editingRange, setEditingRange] = useState(null);
+  const [yearFilter, setYearFilter] = useState('active');
   const [formData, setFormData] = useState({
     range_start: '',
     range_end: '',
@@ -224,6 +225,16 @@ export default function ManagePRNRanges() {
 
   if (showSkeleton) return <TablePageSkeleton tableColumns={5} hasSearch={false} hasFilters={false} />;
 
+  // Extract unique years from ranges for dropdown
+  const availableYears = [...new Set(ranges.map(r => r.year).filter(Boolean))].sort((a, b) => b - a);
+
+  // Filter ranges based on selected year filter
+  const filteredRanges = ranges.filter(range => {
+    if (yearFilter === 'active') return range.is_enabled;
+    if (yearFilter === 'all') return true;
+    return String(range.year) === yearFilter;
+  });
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-teal-50 via-cyan-50 to-blue-50 pb-8">
       {/* Animated Background Elements */}
@@ -295,6 +306,30 @@ export default function ManagePRNRanges() {
             </div>
           </div>
         </div>
+        </AnimatedSection>
+
+        {/* Year Filter */}
+        <AnimatedSection delay={0.12}>
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center space-x-3">
+              <Filter size={18} className="text-gray-500" />
+              <span className="text-sm font-semibold text-gray-600">View:</span>
+              <select
+                value={yearFilter}
+                onChange={(e) => setYearFilter(e.target.value)}
+                className="px-4 py-2 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-xl text-sm font-medium text-gray-700 focus:border-teal-500 focus:ring-2 focus:ring-teal-200 outline-none transition-all shadow-sm"
+              >
+                <option value="active">Active Ranges</option>
+                <option value="all">All Years</option>
+                {availableYears.map(year => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+            </div>
+            <p className="text-sm text-gray-500">
+              Showing <span className="font-bold text-gray-700">{filteredRanges.length}</span> of {ranges.length} range(s)
+            </p>
+          </div>
         </AnimatedSection>
 
       {/* Add Range Modal */}
@@ -452,15 +487,19 @@ export default function ManagePRNRanges() {
                 </tr>
               </thead>
               <tbody className="bg-white/50 divide-y divide-gray-100">
-                {ranges.length === 0 ? (
+                {filteredRanges.length === 0 ? (
                   <tr>
                     <td colSpan="8" className="text-center py-16">
                       <AlertCircle className="mx-auto mb-4 text-gray-300" size={64} />
-                      <p className="text-gray-500 text-lg font-semibold">No PRN ranges added yet. Add ranges to allow student registration.</p>
+                      <p className="text-gray-500 text-lg font-semibold">
+                        {yearFilter === 'active'
+                          ? 'No active PRN ranges. Add new ranges to start the academic year.'
+                          : 'No PRN ranges found for this filter.'}
+                      </p>
                     </td>
                   </tr>
                 ) : (
-                  ranges.map((range) => (
+                  filteredRanges.map((range) => (
                     <tr key={range.id} className="hover:bg-gradient-to-r hover:from-teal-50/50 hover:to-cyan-50/50 transition-all duration-200 group">
                       <td className="px-6 py-5">
                         <span className="px-3 py-1.5 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-full text-xs font-bold shadow-md">

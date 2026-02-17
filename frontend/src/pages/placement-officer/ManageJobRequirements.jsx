@@ -6,6 +6,9 @@ import JobRequirementsConfig from '../../components/JobRequirementsConfig';
 import { ArrowLeft, Briefcase, CheckCircle, Users, Loader, Settings } from 'lucide-react';
 import DashboardHeader from '../../components/DashboardHeader';
 import GlassCard from '../../components/GlassCard';
+import useSkeletonLoading from '../../hooks/useSkeletonLoading';
+import TablePageSkeleton from '../../components/skeletons/TablePageSkeleton';
+import AnimatedSection from '../../components/animation/AnimatedSection';
 
 const ManageJobRequirements = () => {
   const navigate = useNavigate();
@@ -14,6 +17,7 @@ const ManageJobRequirements = () => {
   const [loading, setLoading] = useState(true);
   const [eligibleCount, setEligibleCount] = useState(null);
   const [loadingCount, setLoadingCount] = useState(false);
+  const showSkeleton = useSkeletonLoading(loading);
 
   useEffect(() => {
     fetchApprovedJobs();
@@ -58,35 +62,31 @@ const ManageJobRequirements = () => {
     fetchEligibleCount(); // Refresh eligible count
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="spinner mb-4 mx-auto"></div>
-          <p className="text-gray-600 font-medium">Loading jobs...</p>
-        </div>
-      </div>
-    );
+  if (showSkeleton) {
+    return <TablePageSkeleton statCards={0} tableColumns={5} tableRows={6} hasSearch={false} hasFilters={false} />;
   }
 
   return (
     <div>
       {/* Header */}
-      <div className="mb-8">
-        <button
-          onClick={() => navigate('/placement-officer/my-job-requests')}
-          className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 font-bold mb-4 px-4 py-2 bg-blue-50 hover:bg-blue-100 rounded-xl transition-all transform hover:scale-105"
-        >
-          <ArrowLeft size={20} />
-          <span>Back to My Job Requests</span>
-        </button>
-        <DashboardHeader
-          icon={Settings}
-          title="Manage Job Requirements"
-          subtitle="Configure detailed requirements for your approved jobs"
-        />
-      </div>
+      <AnimatedSection delay={0}>
+        <div className="mb-8">
+          <button
+            onClick={() => navigate('/placement-officer/my-job-requests')}
+            className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 font-bold mb-4 px-4 py-2 bg-blue-50 hover:bg-blue-100 rounded-xl transition-all transform hover:scale-105"
+          >
+            <ArrowLeft size={20} />
+            <span>Back to My Job Requests</span>
+          </button>
+          <DashboardHeader
+            icon={Settings}
+            title="Manage Job Requirements"
+            subtitle="Configure detailed requirements for your approved jobs"
+          />
+        </div>
+      </AnimatedSection>
 
+      <AnimatedSection delay={0.1}>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Job List */}
         <div className="lg:col-span-1 space-y-6">
@@ -225,6 +225,7 @@ const ManageJobRequirements = () => {
           )}
         </div>
       </div>
+      </AnimatedSection>
     </div>
   );
 };

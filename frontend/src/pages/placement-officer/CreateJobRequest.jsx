@@ -25,6 +25,10 @@ import {
 import { KERALA_POLYTECHNIC_BRANCHES } from '../../constants/branches';
 import DashboardHeader from '../../components/DashboardHeader';
 import GlassCard from '../../components/GlassCard';
+import useSkeletonLoading from '../../hooks/useSkeletonLoading';
+import TablePageSkeleton from '../../components/skeletons/TablePageSkeleton';
+import AnimatedSection from '../../components/animation/AnimatedSection';
+import AnimatedCard from '../../components/animation/AnimatedCard';
 
 export default function CreateJobRequest() {
   const [requests, setRequests] = useState([]);
@@ -40,6 +44,8 @@ export default function CreateJobRequest() {
   const [collegesByRegion, setCollegesByRegion] = useState({}); // { regionId: [colleges] }
   const [loadingColleges, setLoadingColleges] = useState({});
   const [expandedRegions, setExpandedRegions] = useState({});
+
+  const showSkeleton = useSkeletonLoading(loading);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -453,149 +459,150 @@ export default function CreateJobRequest() {
     return badges[status] || <span className="w-fit bg-gray-100 text-gray-800 font-bold px-4 py-2 rounded-xl border-2 border-gray-200 flex items-center justify-center">{status}</span>;
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="spinner mb-4 mx-auto"></div>
-          <p className="text-gray-600 font-medium">Loading job requests...</p>
-        </div>
-      </div>
-    );
+  if (showSkeleton) {
+    return <TablePageSkeleton statCards={3} tableColumns={5} tableRows={6} hasSearch={false} hasFilters={false} />;
   }
 
   return (
     <div>
       {/* Header */}
-      <div className="mb-8 flex justify-between items-start">
-        <DashboardHeader
-          icon={Briefcase}
-          title="Job Requests"
-          subtitle="Submit job postings for Super Admin approval"
-        />
-        <button
-          onClick={handleCreateRequest}
-          className="bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 hover:from-green-700 hover:via-emerald-700 hover:to-teal-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 transition-all duration-200 flex items-center space-x-2"
-        >
-          <Plus size={20} />
-          <span>Create Job Request</span>
-        </button>
-      </div>
+      <AnimatedSection delay={0}>
+        <div className="mb-8 flex justify-between items-start">
+          <DashboardHeader
+            icon={Briefcase}
+            title="Job Requests"
+            subtitle="Submit job postings for Super Admin approval"
+          />
+          <button
+            onClick={handleCreateRequest}
+            className="bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 hover:from-green-700 hover:via-emerald-700 hover:to-teal-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 transition-all duration-200 flex items-center space-x-2"
+          >
+            <Plus size={20} />
+            <span>Create Job Request</span>
+          </button>
+        </div>
+      </AnimatedSection>
 
       {/* Info Alert */}
-      <GlassCard variant="elevated" className="p-6 mb-8 border-l-4 border-blue-500">
-        <div className="flex items-start gap-4">
-          <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-3 shadow-lg">
-            <AlertCircle className="text-white" size={28} />
-          </div>
-          <div className="flex-1">
-            <h3 className="font-bold text-gray-900 text-xl mb-2">How it works</h3>
-            <div className="space-y-2">
-              <p className="text-gray-700 font-medium flex items-center gap-2">
-                <Zap className="text-green-500" size={16} />
-                <strong>My College Only:</strong> Jobs are instantly published without approval (Super Admin is notified)
-              </p>
-              <p className="text-gray-700 font-medium flex items-center gap-2">
-                <Clock className="text-yellow-500" size={16} />
-                <strong>Multiple Colleges:</strong> Jobs require Super Admin approval before becoming visible
-              </p>
+      <AnimatedSection delay={0.1}>
+        <GlassCard variant="elevated" className="p-6 mb-8 border-l-4 border-blue-500">
+          <div className="flex items-start gap-4">
+            <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-3 shadow-lg">
+              <AlertCircle className="text-white" size={28} />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-bold text-gray-900 text-xl mb-2">How it works</h3>
+              <div className="space-y-2">
+                <p className="text-gray-700 font-medium flex items-center gap-2">
+                  <Zap className="text-green-500" size={16} />
+                  <strong>My College Only:</strong> Jobs are instantly published without approval (Super Admin is notified)
+                </p>
+                <p className="text-gray-700 font-medium flex items-center gap-2">
+                  <Clock className="text-yellow-500" size={16} />
+                  <strong>Multiple Colleges:</strong> Jobs require Super Admin approval before becoming visible
+                </p>
+              </div>
             </div>
           </div>
-        </div>
-      </GlassCard>
+        </GlassCard>
+      </AnimatedSection>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <GlassCard variant="elevated" className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-600 text-sm font-bold mb-2">Total Requests</p>
-              <p className="text-4xl font-bold text-gray-900">{requests.length}</p>
+      <AnimatedSection delay={0.2}>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <GlassCard variant="elevated" className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-600 text-sm font-bold mb-2">Total Requests</p>
+                <p className="text-4xl font-bold text-gray-900">{requests.length}</p>
+              </div>
+              <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-4 shadow-lg">
+                <FileText className="text-white" size={32} />
+              </div>
             </div>
-            <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-4 shadow-lg">
-              <FileText className="text-white" size={32} />
+          </GlassCard>
+          <GlassCard variant="elevated" className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-600 text-sm font-bold mb-2">Pending</p>
+                <p className="text-4xl font-bold text-yellow-600">
+                  {requests.filter((r) => r.status === 'pending').length}
+                </p>
+              </div>
+              <div className="bg-gradient-to-br from-yellow-500 to-orange-600 rounded-2xl p-4 shadow-lg">
+                <Clock className="text-white" size={32} />
+              </div>
             </div>
-          </div>
-        </GlassCard>
-        <GlassCard variant="elevated" className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-600 text-sm font-bold mb-2">Pending</p>
-              <p className="text-4xl font-bold text-yellow-600">
-                {requests.filter((r) => r.status === 'pending').length}
-              </p>
+          </GlassCard>
+          <GlassCard variant="elevated" className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-600 text-sm font-bold mb-2">Approved / Published</p>
+                <p className="text-4xl font-bold text-green-600">
+                  {requests.filter((r) => r.status === 'approved' || r.status === 'auto_approved').length}
+                </p>
+              </div>
+              <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl p-4 shadow-lg">
+                <CheckCircle className="text-white" size={32} />
+              </div>
             </div>
-            <div className="bg-gradient-to-br from-yellow-500 to-orange-600 rounded-2xl p-4 shadow-lg">
-              <Clock className="text-white" size={32} />
-            </div>
-          </div>
-        </GlassCard>
-        <GlassCard variant="elevated" className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-600 text-sm font-bold mb-2">Approved / Published</p>
-              <p className="text-4xl font-bold text-green-600">
-                {requests.filter((r) => r.status === 'approved' || r.status === 'auto_approved').length}
-              </p>
-            </div>
-            <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl p-4 shadow-lg">
-              <CheckCircle className="text-white" size={32} />
-            </div>
-          </div>
-        </GlassCard>
-      </div>
+          </GlassCard>
+        </div>
+      </AnimatedSection>
 
       {/* Requests Table */}
-      <GlassCard variant="elevated" className="overflow-hidden p-0">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
-              <tr>
-                <th className="px-6 py-4 text-left font-bold">Job Title</th>
-                <th className="px-6 py-4 text-left font-bold">Company</th>
-                <th className="px-6 py-4 text-left font-bold">Location</th>
-                <th className="px-6 py-4 text-left font-bold">Salary</th>
-                <th className="px-6 py-4 text-left font-bold">Deadline</th>
-                <th className="px-6 py-4 text-left font-bold">Status</th>
-                <th className="px-6 py-4 text-left font-bold">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {requests.length === 0 ? (
+      <AnimatedSection delay={0.3}>
+        <GlassCard variant="elevated" className="overflow-hidden p-0">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
                 <tr>
-                  <td colSpan="7" className="text-center text-gray-500 py-12">
-                    <Briefcase className="mx-auto text-gray-400 mb-4" size={64} />
-                    <p className="font-bold text-lg">No job requests yet</p>
-                    <p className="text-sm mt-2">Create your first job request to get started</p>
-                  </td>
+                  <th className="px-6 py-4 text-left font-bold">Job Title</th>
+                  <th className="px-6 py-4 text-left font-bold">Company</th>
+                  <th className="px-6 py-4 text-left font-bold">Location</th>
+                  <th className="px-6 py-4 text-left font-bold">Salary</th>
+                  <th className="px-6 py-4 text-left font-bold">Deadline</th>
+                  <th className="px-6 py-4 text-left font-bold">Status</th>
+                  <th className="px-6 py-4 text-left font-bold">Actions</th>
                 </tr>
-              ) : (
-                requests.map((request, index) => (
-                  <tr key={request.id} className={`hover:bg-blue-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                    <td className="px-6 py-4 font-bold text-gray-900">{request.job_title}</td>
-                    <td className="px-6 py-4 font-medium text-gray-700">{request.company_name}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{request.location || 'N/A'}</td>
-                    <td className="px-6 py-4 font-bold text-green-600">
-                      {request.salary_range ? `₹${request.salary_range} LPA` : 'Not specified'}
-                    </td>
-                    <td className="px-6 py-4 text-sm font-medium text-gray-700">{formatDate(request.application_deadline)}</td>
-                    <td className="px-6 py-4">{getStatusBadge(request.status, request.job_deleted)}</td>
-                    <td className="px-6 py-4">
-                      <button
-                        onClick={() => handleViewDetails(request)}
-                        className="p-2 text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded-xl transition-all transform hover:scale-110"
-                        title="View Details"
-                      >
-                        <Eye size={20} />
-                      </button>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {requests.length === 0 ? (
+                  <tr>
+                    <td colSpan="7" className="text-center text-gray-500 py-12">
+                      <Briefcase className="mx-auto text-gray-400 mb-4" size={64} />
+                      <p className="font-bold text-lg">No job requests yet</p>
+                      <p className="text-sm mt-2">Create your first job request to get started</p>
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </GlassCard>
+                ) : (
+                  requests.map((request, index) => (
+                    <tr key={request.id} className={`hover:bg-blue-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                      <td className="px-6 py-4 font-bold text-gray-900">{request.job_title}</td>
+                      <td className="px-6 py-4 font-medium text-gray-700">{request.company_name}</td>
+                      <td className="px-6 py-4 text-sm text-gray-600">{request.location || 'N/A'}</td>
+                      <td className="px-6 py-4 font-bold text-green-600">
+                        {request.salary_range ? `₹${request.salary_range} LPA` : 'Not specified'}
+                      </td>
+                      <td className="px-6 py-4 text-sm font-medium text-gray-700">{formatDate(request.application_deadline)}</td>
+                      <td className="px-6 py-4">{getStatusBadge(request.status, request.job_deleted)}</td>
+                      <td className="px-6 py-4">
+                        <button
+                          onClick={() => handleViewDetails(request)}
+                          className="p-2 text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded-xl transition-all transform hover:scale-110"
+                          title="View Details"
+                        >
+                          <Eye size={20} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </GlassCard>
+      </AnimatedSection>
 
       {/* Create Job Request Modal */}
       {showCreateModal && (

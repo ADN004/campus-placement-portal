@@ -4,6 +4,9 @@ import toast from 'react-hot-toast';
 import { Plus, Edit2, Trash2, Save, X, Lock, Hash, Calendar, BookOpen, Shield, Eye, Download, ToggleLeft, ToggleRight, AlertCircle, User } from 'lucide-react';
 import DashboardHeader from '../../components/DashboardHeader';
 import GlassCard from '../../components/GlassCard';
+import useSkeletonLoading from '../../hooks/useSkeletonLoading';
+import TablePageSkeleton from '../../components/skeletons/TablePageSkeleton';
+import AnimatedSection from '../../components/animation/AnimatedSection';
 
 export default function ManagePRNRanges() {
   const [prnRanges, setPrnRanges] = useState([]);
@@ -234,6 +237,8 @@ export default function ManagePRNRanges() {
     }
   };
 
+  const showSkeleton = useSkeletonLoading(loading);
+
   const handleExportRangeStudents = async () => {
     if (!selectedRange) return;
 
@@ -264,45 +269,41 @@ export default function ManagePRNRanges() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="spinner mb-4 mx-auto"></div>
-          <p className="text-gray-600 font-medium">Loading PRN ranges...</p>
-        </div>
-      </div>
-    );
+  if (showSkeleton) {
+    return <TablePageSkeleton statCards={0} tableColumns={8} tableRows={6} hasSearch={false} hasFilters={false} />;
   }
 
   return (
     <div>
       {/* Header */}
-      <div className="mb-8 flex justify-between items-start">
-        <DashboardHeader
-          icon={Hash}
-          title="Manage PRN Ranges"
-          subtitle="Define valid PRN ranges for student registration at your college"
-        />
-        <div className="flex space-x-3">
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 hover:from-green-700 hover:via-emerald-700 hover:to-teal-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 transition-all duration-200 flex items-center space-x-2"
-          >
-            <Plus size={20} />
-            <span>Add PRN Range</span>
-          </button>
-          <button
-            onClick={() => setShowAddSingleModal(true)}
-            className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:via-indigo-700 hover:to-purple-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 transition-all duration-200 flex items-center space-x-2"
-          >
-            <User size={20} />
-            <span>Add Single PRN</span>
-          </button>
+      <AnimatedSection delay={0}>
+        <div className="mb-8 flex justify-between items-start">
+          <DashboardHeader
+            icon={Hash}
+            title="Manage PRN Ranges"
+            subtitle="Define valid PRN ranges for student registration at your college"
+          />
+          <div className="flex space-x-3">
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 hover:from-green-700 hover:via-emerald-700 hover:to-teal-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 transition-all duration-200 flex items-center space-x-2"
+            >
+              <Plus size={20} />
+              <span>Add PRN Range</span>
+            </button>
+            <button
+              onClick={() => setShowAddSingleModal(true)}
+              className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:via-indigo-700 hover:to-purple-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 transition-all duration-200 flex items-center space-x-2"
+            >
+              <User size={20} />
+              <span>Add Single PRN</span>
+            </button>
+          </div>
         </div>
-      </div>
+      </AnimatedSection>
 
       {/* Info Box */}
+      <AnimatedSection delay={0.1}>
       <GlassCard variant="elevated" className="p-6 mb-8 border-l-4 border-blue-500">
         <div className="flex items-start gap-4">
           <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-3 shadow-lg">
@@ -331,8 +332,10 @@ export default function ManagePRNRanges() {
           </div>
         </div>
       </GlassCard>
+      </AnimatedSection>
 
       {/* PRN Ranges Table */}
+      <AnimatedSection delay={0.2}>
       <GlassCard variant="elevated" className="overflow-hidden p-0">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -473,6 +476,7 @@ export default function ManagePRNRanges() {
           </table>
         </div>
       </GlassCard>
+      </AnimatedSection>
 
       {/* Add/Edit Modal */}
       {showAddModal && (

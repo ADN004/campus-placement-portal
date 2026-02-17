@@ -6,6 +6,9 @@ import { Check, X, Ban, Shield, Eye, Search, Download, Filter, ChevronDown, Chev
 import DashboardHeader from '../../components/DashboardHeader';
 import GlassCard from '../../components/GlassCard';
 import { BRANCH_SHORT_NAMES } from '../../constants/branches';
+import useSkeletonLoading from '../../hooks/useSkeletonLoading';
+import TablePageSkeleton from '../../components/skeletons/TablePageSkeleton';
+import AnimatedSection from '../../components/animation/AnimatedSection';
 
 export default function ManageStudents() {
   const navigate = useNavigate();
@@ -918,20 +921,16 @@ export default function ManageStudents() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="spinner mb-4 mx-auto"></div>
-          <p className="text-gray-600 font-medium">Loading students...</p>
-        </div>
-      </div>
-    );
+  const showSkeleton = useSkeletonLoading(loading);
+
+  if (showSkeleton) {
+    return <TablePageSkeleton statCards={0} tableColumns={7} tableRows={10} hasTabs={true} hasSearch={true} hasFilters={true} />;
   }
 
   return (
     <div>
       {/* Header */}
+      <AnimatedSection delay={0}>
       <div className="mb-8 flex justify-between items-start">
         <DashboardHeader
           icon={Users}
@@ -1008,8 +1007,10 @@ export default function ManageStudents() {
           )}
         </div>
       </div>
+      </AnimatedSection>
 
       {/* CGPA Lock/Unlock Control */}
+      <AnimatedSection delay={0.1}>
       <GlassCard className="mb-6 p-4">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
@@ -1209,7 +1210,10 @@ export default function ManageStudents() {
         </div>
       )}
 
+      </AnimatedSection>
+
       {/* Filter Tabs */}
+      <AnimatedSection delay={0.2}>
       <div className="mb-6 flex flex-wrap gap-3">
         {[
           { key: 'all', label: 'All Students', gradient: 'from-blue-600 to-indigo-600' },
@@ -1501,6 +1505,8 @@ export default function ManageStudents() {
         )}
       </div>
 
+      </AnimatedSection>
+
       {/* Bulk Actions */}
       {getPendingStudentsInView().length > 0 && (
         <GlassCard variant="elevated" className="mb-6 p-6 border-2 border-blue-200 flex items-center justify-between">
@@ -1537,6 +1543,7 @@ export default function ManageStudents() {
       )}
 
       {/* Students Table */}
+      <AnimatedSection delay={0.3}>
       <GlassCard variant="elevated" className="overflow-hidden p-0">
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -1740,6 +1747,7 @@ export default function ManageStudents() {
             </div>
           )}
         </GlassCard>
+      </AnimatedSection>
 
       {/* Student Details Modal */}
       {showDetailsModal && selectedStudent && (

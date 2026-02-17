@@ -4,6 +4,9 @@ import toast from 'react-hot-toast';
 import { Send, Bell, Clock, Users, AlertCircle, Sparkles, Mail, Filter, CheckSquare, Square } from 'lucide-react';
 import DashboardHeader from '../../components/DashboardHeader';
 import GlassCard from '../../components/GlassCard';
+import useSkeletonLoading from '../../hooks/useSkeletonLoading';
+import FormPageSkeleton from '../../components/skeletons/FormPageSkeleton';
+import AnimatedSection from '../../components/animation/AnimatedSection';
 
 export default function SendNotification() {
   const [branches, setBranches] = useState([]);
@@ -171,28 +174,26 @@ export default function SendNotification() {
     return <Bell className="text-blue-600" size={20} />;
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="spinner mb-4 mx-auto"></div>
-          <p className="text-gray-600 font-medium">Loading...</p>
-        </div>
-      </div>
-    );
+  const showSkeleton = useSkeletonLoading(loading);
+
+  if (showSkeleton) {
+    return <FormPageSkeleton />;
   }
 
   return (
     <div>
       {/* Header */}
-      <DashboardHeader
-        icon={Mail}
-        title="Send Notification"
-        subtitle="Send important notifications and announcements to students in your college"
-      />
+      <AnimatedSection delay={0}>
+        <DashboardHeader
+          icon={Mail}
+          title="Send Notification"
+          subtitle="Send important notifications and announcements to students in your college"
+        />
+      </AnimatedSection>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Notification Form */}
+        <AnimatedSection delay={0.1}>
         <div className="lg:col-span-2">
           <GlassCard variant="elevated" className="p-8">
               <div className="flex items-center gap-3 mb-6">
@@ -422,8 +423,10 @@ export default function SendNotification() {
               </form>
             </GlassCard>
           </div>
+          </AnimatedSection>
 
           {/* Recent Notifications Sidebar */}
+          <AnimatedSection delay={0.2}>
           <div className="lg:col-span-1 space-y-6">
             <GlassCard variant="elevated" className="p-6">
               <div className="flex items-center gap-2 mb-4">
@@ -510,6 +513,7 @@ export default function SendNotification() {
               </div>
             </GlassCard>
           </div>
+          </AnimatedSection>
         </div>
       </div>
   );

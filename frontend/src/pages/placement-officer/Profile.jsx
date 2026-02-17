@@ -7,6 +7,9 @@ import ChangePassword from '../../components/ChangePassword';
 import DashboardHeader from '../../components/DashboardHeader';
 import GlassCard from '../../components/GlassCard';
 import CollegeLogoUpload from '../../components/CollegeLogoUpload';
+import useSkeletonLoading from '../../hooks/useSkeletonLoading';
+import ProfileSkeleton from '../../components/skeletons/ProfileSkeleton';
+import AnimatedSection from '../../components/animation/AnimatedSection';
 
 export default function PlacementOfficerProfile() {
   const { user } = useAuth();
@@ -22,6 +25,7 @@ export default function PlacementOfficerProfile() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [deletingPhoto, setDeletingPhoto] = useState(false);
   const fileInputRef = useRef(null);
+  const showSkeleton = useSkeletonLoading(loading);
 
   useEffect(() => {
     fetchProfile();
@@ -159,29 +163,25 @@ export default function PlacementOfficerProfile() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="spinner mb-4 mx-auto"></div>
-          <p className="text-gray-600 font-medium">Loading profile...</p>
-        </div>
-      </div>
-    );
+  if (showSkeleton) {
+    return <ProfileSkeleton />;
   }
 
   return (
     <div>
       {/* Header */}
+      <AnimatedSection delay={0}>
       <DashboardHeader
         icon={User}
         title="My Profile"
         subtitle="View and manage your profile information"
       />
+      </AnimatedSection>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Profile Card */}
-        <div className="lg:col-span-2">
+        <AnimatedSection delay={0.1} className="lg:col-span-2">
+        <div>
           <GlassCard variant="elevated" className="p-8">
               <div className="flex justify-between items-center mb-8">
                 <h2 className="text-2xl font-bold text-gray-900">Profile Information</h2>
@@ -364,8 +364,10 @@ export default function PlacementOfficerProfile() {
               </form>
             </GlassCard>
           </div>
+          </AnimatedSection>
 
           {/* Security Card */}
+          <AnimatedSection delay={0.2}>
           <div className="space-y-6">
             <GlassCard variant="elevated" className="p-8">
               <h2 className="text-2xl font-bold text-gray-900 mb-6">Security</h2>
@@ -447,6 +449,7 @@ export default function PlacementOfficerProfile() {
               </GlassCard>
             )}
           </div>
+          </AnimatedSection>
         </div>
 
       {/* Change Password Modal */}

@@ -20,11 +20,15 @@ import GlassCard from '../../components/GlassCard';
 import GlassStatCard from '../../components/GlassStatCard';
 import GlassButton from '../../components/GlassButton';
 import SectionHeader from '../../components/SectionHeader';
+import useSkeletonLoading from '../../hooks/useSkeletonLoading';
+import TablePageSkeleton from '../../components/skeletons/TablePageSkeleton';
+import AnimatedSection from '../../components/animation/AnimatedSection';
 
 export default function PlacementPoster() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const showSkeleton = useSkeletonLoading(loading);
 
   useEffect(() => {
     fetchStats(false);
@@ -96,15 +100,8 @@ export default function PlacementPoster() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="spinner mb-4 mx-auto"></div>
-          <p className="text-gray-600 font-medium">Loading placement statistics...</p>
-        </div>
-      </div>
-    );
+  if (showSkeleton) {
+    return <TablePageSkeleton />;
   }
 
   if (!stats) {
@@ -156,202 +153,214 @@ export default function PlacementPoster() {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <DashboardHeader
-          icon={FileImage}
-          title="Placement Poster Generator"
-          subtitle={`${stats.college_name} - Academic Year ${stats.placement_year_start}-${stats.placement_year_end}`}
-        />
-        <button
-          onClick={handleRefreshStats}
-          disabled={loading}
-          className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
-          <span>Refresh Stats</span>
-        </button>
-      </div>
+      <AnimatedSection delay={0}>
+        <div className="flex items-center justify-between mb-6">
+          <DashboardHeader
+            icon={FileImage}
+            title="Placement Poster Generator"
+            subtitle={`${stats.college_name} - Academic Year ${stats.placement_year_start}-${stats.placement_year_end}`}
+          />
+          <button
+            onClick={handleRefreshStats}
+            disabled={loading}
+            className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
+            <span>Refresh Stats</span>
+          </button>
+        </div>
+      </AnimatedSection>
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {statCards.map((stat, index) => (
-          <GlassStatCard
-            key={stat.title}
-            title={stat.title}
-            value={stat.value}
-            icon={stat.icon}
-            gradient={stat.gradient}
-            description={stat.description}
-            index={index}
-          />
-        ))}
-      </div>
+      <AnimatedSection delay={0.1}>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {statCards.map((stat, index) => (
+            <GlassStatCard
+              key={stat.title}
+              title={stat.title}
+              value={stat.value}
+              icon={stat.icon}
+              gradient={stat.gradient}
+              description={stat.description}
+              index={index}
+            />
+          ))}
+        </div>
+      </AnimatedSection>
 
       {/* Pre-Generation Checklist */}
-      <div className="mb-8">
-        <SectionHeader title="Pre-Generation Checklist" icon={CheckCircle} />
-        <GlassCard variant="elevated" className="p-6">
-          <div className="space-y-4">
-            <div className="flex items-start space-x-4 p-4 bg-white rounded-xl border-2 border-gray-200">
-              {hasLogo ? (
-                <CheckCircle className="text-green-600 flex-shrink-0 mt-1" size={24} />
-              ) : (
-                <XCircle className="text-red-600 flex-shrink-0 mt-1" size={24} />
-              )}
-              <div className="flex-1">
-                <h4 className="font-bold text-gray-900 mb-1">College Logo</h4>
-                <p className="text-sm text-gray-600 font-medium">
-                  {hasLogo
-                    ? 'College logo is available and will be included in the poster.'
-                    : 'College logo is not uploaded. Please upload your college logo from your Profile page.'}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start space-x-4 p-4 bg-white rounded-xl border-2 border-gray-200">
-              {isReady ? (
-                <CheckCircle className="text-green-600 flex-shrink-0 mt-1" size={24} />
-              ) : (
-                <XCircle className="text-red-600 flex-shrink-0 mt-1" size={24} />
-              )}
-              <div className="flex-1">
-                <h4 className="font-bold text-gray-900 mb-1">Placement Data</h4>
-                <p className="text-sm text-gray-600 font-medium">
-                  {isReady
-                    ? `${stats.total_students_placed} students placed across ${stats.total_companies} companies. Ready to generate poster.`
-                    : 'No placement data available. Mark students as "selected" in Job Applicants section to include them in the poster.'}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start space-x-4 p-4 bg-white rounded-xl border-2 border-gray-200">
-              <CheckCircle className="text-blue-600 flex-shrink-0 mt-1" size={24} />
-              <div className="flex-1">
-                <h4 className="font-bold text-gray-900 mb-1">Placement Year</h4>
-                <p className="text-sm text-gray-600 font-medium">
-                  Automatically determined from student joining dates: {stats.placement_year_start}-
-                  {stats.placement_year_end}
-                </p>
-              </div>
-            </div>
-          </div>
-        </GlassCard>
-      </div>
-
-      {/* Company-wise Breakdown */}
-      {stats.company_breakdown && stats.company_breakdown.length > 0 && (
+      <AnimatedSection delay={0.2}>
         <div className="mb-8">
-          <SectionHeader title="Company-wise Breakdown" icon={Briefcase} />
-          <GlassCard variant="elevated" className="overflow-hidden p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
-                  <tr>
-                    <th className="px-6 py-4 text-left font-bold">Company Name</th>
-                    <th className="px-6 py-4 text-left font-bold">Package (LPA)</th>
-                    <th className="px-6 py-4 text-left font-bold">Students Placed</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {stats.company_breakdown.map((company, index) => (
-                    <tr
-                      key={index}
-                      className={`border-b border-gray-200 hover:bg-blue-50 transition-colors ${
-                        index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                      }`}
-                    >
-                      <td className="px-6 py-4 font-bold text-gray-900">{company.company_name}</td>
-                      <td className="px-6 py-4 font-bold text-green-600 text-lg">{company.lpa}</td>
-                      <td className="px-6 py-4 font-bold text-blue-600 text-lg">
-                        {company.student_count}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          <SectionHeader title="Pre-Generation Checklist" icon={CheckCircle} />
+          <GlassCard variant="elevated" className="p-6">
+            <div className="space-y-4">
+              <div className="flex items-start space-x-4 p-4 bg-white rounded-xl border-2 border-gray-200">
+                {hasLogo ? (
+                  <CheckCircle className="text-green-600 flex-shrink-0 mt-1" size={24} />
+                ) : (
+                  <XCircle className="text-red-600 flex-shrink-0 mt-1" size={24} />
+                )}
+                <div className="flex-1">
+                  <h4 className="font-bold text-gray-900 mb-1">College Logo</h4>
+                  <p className="text-sm text-gray-600 font-medium">
+                    {hasLogo
+                      ? 'College logo is available and will be included in the poster.'
+                      : 'College logo is not uploaded. Please upload your college logo from your Profile page.'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start space-x-4 p-4 bg-white rounded-xl border-2 border-gray-200">
+                {isReady ? (
+                  <CheckCircle className="text-green-600 flex-shrink-0 mt-1" size={24} />
+                ) : (
+                  <XCircle className="text-red-600 flex-shrink-0 mt-1" size={24} />
+                )}
+                <div className="flex-1">
+                  <h4 className="font-bold text-gray-900 mb-1">Placement Data</h4>
+                  <p className="text-sm text-gray-600 font-medium">
+                    {isReady
+                      ? `${stats.total_students_placed} students placed across ${stats.total_companies} companies. Ready to generate poster.`
+                      : 'No placement data available. Mark students as "selected" in Job Applicants section to include them in the poster.'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start space-x-4 p-4 bg-white rounded-xl border-2 border-gray-200">
+                <CheckCircle className="text-blue-600 flex-shrink-0 mt-1" size={24} />
+                <div className="flex-1">
+                  <h4 className="font-bold text-gray-900 mb-1">Placement Year</h4>
+                  <p className="text-sm text-gray-600 font-medium">
+                    Automatically determined from student joining dates: {stats.placement_year_start}-
+                    {stats.placement_year_end}
+                  </p>
+                </div>
+              </div>
             </div>
           </GlassCard>
         </div>
+      </AnimatedSection>
+
+      {/* Company-wise Breakdown */}
+      {stats.company_breakdown && stats.company_breakdown.length > 0 && (
+        <AnimatedSection delay={0.3}>
+          <div className="mb-8">
+            <SectionHeader title="Company-wise Breakdown" icon={Briefcase} />
+            <GlassCard variant="elevated" className="overflow-hidden p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+                    <tr>
+                      <th className="px-6 py-4 text-left font-bold">Company Name</th>
+                      <th className="px-6 py-4 text-left font-bold">Package (LPA)</th>
+                      <th className="px-6 py-4 text-left font-bold">Students Placed</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stats.company_breakdown.map((company, index) => (
+                      <tr
+                        key={index}
+                        className={`border-b border-gray-200 hover:bg-blue-50 transition-colors ${
+                          index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                        }`}
+                      >
+                        <td className="px-6 py-4 font-bold text-gray-900">{company.company_name}</td>
+                        <td className="px-6 py-4 font-bold text-green-600 text-lg">{company.lpa}</td>
+                        <td className="px-6 py-4 font-bold text-blue-600 text-lg">
+                          {company.student_count}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </GlassCard>
+          </div>
+        </AnimatedSection>
       )}
 
       {/* Generate Button */}
-      <div className="mb-8">
-        <GlassCard variant="elevated" className="p-8">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex-1">
-              <h3 className="text-2xl font-bold text-gray-900 mb-2 flex items-center">
-                <FileImage className="mr-3 text-blue-600" size={28} />
-                Generate Placement Poster
-              </h3>
-              <p className="text-gray-600 font-medium">
-                Click the button below to generate a professional PDF poster showcasing your
-                college's placement achievements. The poster will include student photos, company
-                logos, and package details organized by company.
-              </p>
-              {!hasLogo && (
-                <div className="mt-4 flex items-start space-x-2 p-4 bg-red-50 border-2 border-red-200 rounded-xl">
-                  <AlertCircle className="text-red-600 flex-shrink-0 mt-1" size={20} />
-                  <p className="text-sm text-red-800 font-medium">
-                    College logo is required to generate the placement poster. Please upload your
-                    college logo from your Profile page before generating.
-                  </p>
-                </div>
-              )}
+      <AnimatedSection delay={0.4}>
+        <div className="mb-8">
+          <GlassCard variant="elevated" className="p-8">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+              <div className="flex-1">
+                <h3 className="text-2xl font-bold text-gray-900 mb-2 flex items-center">
+                  <FileImage className="mr-3 text-blue-600" size={28} />
+                  Generate Placement Poster
+                </h3>
+                <p className="text-gray-600 font-medium">
+                  Click the button below to generate a professional PDF poster showcasing your
+                  college's placement achievements. The poster will include student photos, company
+                  logos, and package details organized by company.
+                </p>
+                {!hasLogo && (
+                  <div className="mt-4 flex items-start space-x-2 p-4 bg-red-50 border-2 border-red-200 rounded-xl">
+                    <AlertCircle className="text-red-600 flex-shrink-0 mt-1" size={20} />
+                    <p className="text-sm text-red-800 font-medium">
+                      College logo is required to generate the placement poster. Please upload your
+                      college logo from your Profile page before generating.
+                    </p>
+                  </div>
+                )}
+              </div>
+              <div>
+                <GlassButton
+                  variant="primary"
+                  size="lg"
+                  icon={Download}
+                  onClick={handleGeneratePoster}
+                  disabled={!isReady || !hasLogo || generating}
+                  className="min-w-[200px]"
+                >
+                  {generating ? 'Generating...' : 'Generate Poster'}
+                </GlassButton>
+              </div>
             </div>
-            <div>
-              <GlassButton
-                variant="primary"
-                size="lg"
-                icon={Download}
-                onClick={handleGeneratePoster}
-                disabled={!isReady || !hasLogo || generating}
-                className="min-w-[200px]"
-              >
-                {generating ? 'Generating...' : 'Generate Poster'}
-              </GlassButton>
+          </GlassCard>
+        </div>
+      </AnimatedSection>
+
+      {/* Information Card */}
+      <AnimatedSection delay={0.5}>
+        <GlassCard variant="elevated" className="p-8 bg-gradient-to-r from-blue-50 to-indigo-50">
+          <div className="flex items-start gap-4">
+            <div className="p-4 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl shadow-lg">
+              <FileImage className="text-white" size={32} />
+            </div>
+            <div className="flex-1">
+              <h4 className="font-bold text-gray-800 text-2xl mb-4">About Placement Posters</h4>
+              <ul className="text-gray-700 space-y-3 font-medium">
+                <li className="flex items-start bg-white rounded-xl border border-gray-200 p-3 hover:shadow-md transition-all duration-300">
+                  <span className="mr-3 text-blue-600 text-xl">•</span>
+                  <span>
+                    The poster includes all students with "selected" status and non-zero placement
+                    packages
+                  </span>
+                </li>
+                <li className="flex items-start bg-white rounded-xl border border-gray-200 p-3 hover:shadow-md transition-all duration-300">
+                  <span className="mr-3 text-blue-600 text-xl">•</span>
+                  <span>Students are grouped by company and sorted by package (highest first)</span>
+                </li>
+                <li className="flex items-start bg-white rounded-xl border border-gray-200 p-3 hover:shadow-md transition-all duration-300">
+                  <span className="mr-3 text-blue-600 text-xl">•</span>
+                  <span>Each student appears with their photo, name, and branch</span>
+                </li>
+                <li className="flex items-start bg-white rounded-xl border border-gray-200 p-3 hover:shadow-md transition-all duration-300">
+                  <span className="mr-3 text-blue-600 text-xl">•</span>
+                  <span>The PDF is professionally formatted with your college branding</span>
+                </li>
+                <li className="flex items-start bg-white rounded-xl border border-gray-200 p-3 hover:shadow-md transition-all duration-300">
+                  <span className="mr-3 text-blue-600 text-xl">•</span>
+                  <span>
+                    Update placement details in "Job Eligible Students" section before generating
+                  </span>
+                </li>
+              </ul>
             </div>
           </div>
         </GlassCard>
-      </div>
-
-      {/* Information Card */}
-      <GlassCard variant="elevated" className="p-8 bg-gradient-to-r from-blue-50 to-indigo-50">
-        <div className="flex items-start gap-4">
-          <div className="p-4 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl shadow-lg">
-            <FileImage className="text-white" size={32} />
-          </div>
-          <div className="flex-1">
-            <h4 className="font-bold text-gray-800 text-2xl mb-4">About Placement Posters</h4>
-            <ul className="text-gray-700 space-y-3 font-medium">
-              <li className="flex items-start bg-white rounded-xl border border-gray-200 p-3 hover:shadow-md transition-all duration-300">
-                <span className="mr-3 text-blue-600 text-xl">•</span>
-                <span>
-                  The poster includes all students with "selected" status and non-zero placement
-                  packages
-                </span>
-              </li>
-              <li className="flex items-start bg-white rounded-xl border border-gray-200 p-3 hover:shadow-md transition-all duration-300">
-                <span className="mr-3 text-blue-600 text-xl">•</span>
-                <span>Students are grouped by company and sorted by package (highest first)</span>
-              </li>
-              <li className="flex items-start bg-white rounded-xl border border-gray-200 p-3 hover:shadow-md transition-all duration-300">
-                <span className="mr-3 text-blue-600 text-xl">•</span>
-                <span>Each student appears with their photo, name, and branch</span>
-              </li>
-              <li className="flex items-start bg-white rounded-xl border border-gray-200 p-3 hover:shadow-md transition-all duration-300">
-                <span className="mr-3 text-blue-600 text-xl">•</span>
-                <span>The PDF is professionally formatted with your college branding</span>
-              </li>
-              <li className="flex items-start bg-white rounded-xl border border-gray-200 p-3 hover:shadow-md transition-all duration-300">
-                <span className="mr-3 text-blue-600 text-xl">•</span>
-                <span>
-                  Update placement details in "Job Eligible Students" section before generating
-                </span>
-              </li>
-            </ul>
-          </div>
-        </div>
-      </GlassCard>
+      </AnimatedSection>
     </div>
   );
 }

@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { placementOfficerAPI } from '../../services/api';
-import LoadingSpinner from '../../components/LoadingSpinner';
 import toast from 'react-hot-toast';
+import useSkeletonLoading from '../../hooks/useSkeletonLoading';
+import TablePageSkeleton from '../../components/skeletons/TablePageSkeleton';
+import AnimatedSection from '../../components/animation/AnimatedSection';
 import { Briefcase, CheckCircle, XCircle, Clock, Plus, Calendar, Building2, IndianRupee, Download } from 'lucide-react';
 import { generateJobDetailsPDF } from '../../utils/jobDetailsPdf';
 import DashboardHeader from '../../components/DashboardHeader';
@@ -55,15 +57,20 @@ export default function MyJobRequests() {
     );
   };
 
-  if (loading) return <LoadingSpinner />;
+  const showSkeleton = useSkeletonLoading(loading);
 
   const pendingCount = jobRequests.filter((r) => r.status === 'pending').length;
   const approvedCount = jobRequests.filter((r) => r.status === 'approved').length;
   const rejectedCount = jobRequests.filter((r) => r.status === 'rejected').length;
 
+  if (showSkeleton) {
+    return <TablePageSkeleton statCards={4} tableColumns={4} tableRows={5} hasSearch={false} hasFilters={true} />;
+  }
+
   return (
     <div>
       {/* Header */}
+      <AnimatedSection delay={0}>
       <div className="mb-8 flex justify-between items-start">
         <DashboardHeader
           icon={Briefcase}
@@ -78,8 +85,10 @@ export default function MyJobRequests() {
           <span>New Job Request</span>
         </Link>
       </div>
+      </AnimatedSection>
 
       {/* Stats Grid */}
+      <AnimatedSection delay={0.1}>
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <GlassCard
           variant="elevated"
@@ -199,8 +208,10 @@ export default function MyJobRequests() {
           </button>
         </div>
       </GlassCard>
+      </AnimatedSection>
 
       {/* Job Requests List */}
+      <AnimatedSection delay={0.2}>
       {filteredRequests.length === 0 ? (
         <GlassCard variant="elevated" className="p-12 text-center">
           <Briefcase className="mx-auto text-gray-400 mb-4" size={64} />
@@ -324,6 +335,7 @@ export default function MyJobRequests() {
           ))}
         </div>
       )}
+      </AnimatedSection>
     </div>
   );
 }

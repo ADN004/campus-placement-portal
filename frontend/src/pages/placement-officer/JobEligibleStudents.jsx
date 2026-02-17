@@ -18,6 +18,9 @@ import ManualStudentAdditionModal from '../../components/ManualStudentAdditionMo
 import useAutoRefresh from '../../hooks/useAutoRefresh';
 import AutoRefreshIndicator from '../../components/AutoRefreshIndicator';
 import { generateJobDetailsPDF } from '../../utils/jobDetailsPdf';
+import useSkeletonLoading from '../../hooks/useSkeletonLoading';
+import TablePageSkeleton from '../../components/skeletons/TablePageSkeleton';
+import AnimatedSection from '../../components/animation/AnimatedSection';
 
 export default function JobEligibleStudents() {
   const [jobs, setJobs] = useState([]);
@@ -154,6 +157,8 @@ export default function JobEligibleStudents() {
 
   const { lastRefreshed, autoRefreshEnabled, toggleAutoRefresh, manualRefresh, refreshing } =
     useAutoRefresh(silentRefresh, 300000, true); // 5 min
+
+  const showSkeleton = useSkeletonLoading(loading);
 
   const filterEligibleStudents = () => {
     if (!selectedJob) {
@@ -511,81 +516,78 @@ export default function JobEligibleStudents() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="spinner mb-4 mx-auto"></div>
-          <p className="text-gray-600 font-medium">Loading jobs...</p>
-        </div>
-      </div>
-    );
+  if (showSkeleton) {
+    return <TablePageSkeleton statCards={0} tableColumns={8} tableRows={8} hasSearch={true} hasFilters={false} />;
   }
 
   return (
     <div>
       {/* Header */}
-      <div className="mb-8">
-        <DashboardHeader
-          icon={Briefcase}
-          title="Job Applicants Management"
-          subtitle={isHost ? "View, manage, and track student applications across all colleges (Host)" : "View, manage, and track student applications for your college"}
-        />
-      </div>
+      <AnimatedSection delay={0}>
+        <div className="mb-8">
+          <DashboardHeader
+            icon={Briefcase}
+            title="Job Applicants Management"
+            subtitle={isHost ? "View, manage, and track student applications across all colleges (Host)" : "View, manage, and track student applications for your college"}
+          />
+        </div>
+      </AnimatedSection>
 
       {/* Job Selection */}
-      <GlassCard variant="elevated" className="p-8 mb-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
-          <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-2 mr-3 shadow-lg">
-            <Briefcase className="text-white" size={20} />
-          </div>
-          Select a Job
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {jobs.length === 0 ? (
-            <p className="text-gray-500 col-span-full text-center py-8 font-medium">No active jobs available</p>
-          ) : (
-            jobs.map((job) => (
-              <div
-                key={job.id}
-                className={`relative p-6 border-2 rounded-2xl text-left transition-all duration-300 transform hover:scale-105 cursor-pointer ${
-                  selectedJob?.id === job.id
-                    ? 'border-blue-500 bg-gradient-to-br from-blue-50 to-indigo-50 shadow-xl'
-                    : 'border-gray-200 bg-white hover:border-blue-300 hover:shadow-lg'
-                }`}
-                onClick={() => setSelectedJob(job)}
-              >
-                <h3 className="font-bold text-gray-900 text-lg mb-2 pr-8">{job.job_title}</h3>
-                <p className="text-gray-700 font-medium mb-4">{job.company_name}</p>
-                <div className="space-y-2 text-sm font-medium">
-                  {job.min_cgpa && <p className="text-blue-600">Min CGPA: {job.min_cgpa}</p>}
-                  {job.max_backlogs !== null && <p className="text-orange-600">Max Backlogs: {job.max_backlogs}</p>}
-                  <p className="text-green-600 font-bold">
-                    Deadline: {new Date(job.application_deadline).toLocaleDateString('en-IN')}
-                  </p>
-                </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    generateJobDetailsPDF({
-                      ...job,
-                      title: job.job_title,
-                      description: job.job_description,
-                    });
-                  }}
-                  className="absolute top-4 right-4 p-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all shadow-sm hover:shadow-md"
-                  title="Download Job Details as PDF"
+      <AnimatedSection delay={0.1}>
+        <GlassCard variant="elevated" className="p-8 mb-6">
+          <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
+            <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-2 mr-3 shadow-lg">
+              <Briefcase className="text-white" size={20} />
+            </div>
+            Select a Job
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {jobs.length === 0 ? (
+              <p className="text-gray-500 col-span-full text-center py-8 font-medium">No active jobs available</p>
+            ) : (
+              jobs.map((job) => (
+                <div
+                  key={job.id}
+                  className={`relative p-6 border-2 rounded-2xl text-left transition-all duration-300 transform hover:scale-105 cursor-pointer ${
+                    selectedJob?.id === job.id
+                      ? 'border-blue-500 bg-gradient-to-br from-blue-50 to-indigo-50 shadow-xl'
+                      : 'border-gray-200 bg-white hover:border-blue-300 hover:shadow-lg'
+                  }`}
+                  onClick={() => setSelectedJob(job)}
                 >
-                  <Download size={14} />
-                </button>
-              </div>
-            ))
-          )}
-        </div>
-      </GlassCard>
+                  <h3 className="font-bold text-gray-900 text-lg mb-2 pr-8">{job.job_title}</h3>
+                  <p className="text-gray-700 font-medium mb-4">{job.company_name}</p>
+                  <div className="space-y-2 text-sm font-medium">
+                    {job.min_cgpa && <p className="text-blue-600">Min CGPA: {job.min_cgpa}</p>}
+                    {job.max_backlogs !== null && <p className="text-orange-600">Max Backlogs: {job.max_backlogs}</p>}
+                    <p className="text-green-600 font-bold">
+                      Deadline: {new Date(job.application_deadline).toLocaleDateString('en-IN')}
+                    </p>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      generateJobDetailsPDF({
+                        ...job,
+                        title: job.job_title,
+                        description: job.job_description,
+                      });
+                    }}
+                    className="absolute top-4 right-4 p-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all shadow-sm hover:shadow-md"
+                    title="Download Job Details as PDF"
+                  >
+                    <Download size={14} />
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        </GlassCard>
+      </AnimatedSection>
 
       {selectedJob && (
-        <>
+        <AnimatedSection delay={0.2}>
           {/* Placement Statistics */}
           {placementStats && (
             <div className="mb-6">
@@ -1392,7 +1394,7 @@ export default function JobEligibleStudents() {
               </div>
             </GlassCard>
           )}
-        </>
+        </AnimatedSection>
       )}
 
       {/* Modals */}

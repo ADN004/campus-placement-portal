@@ -193,8 +193,7 @@ export default function SendNotification() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Notification Form */}
-        <AnimatedSection delay={0.1}>
-        <div className="lg:col-span-2">
+        <AnimatedSection delay={0.1} className="lg:col-span-2">
           <GlassCard variant="elevated" className="p-8">
               <div className="flex items-center gap-3 mb-6">
                 <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl p-2.5">
@@ -422,12 +421,10 @@ export default function SendNotification() {
                 )}
               </form>
             </GlassCard>
-          </div>
           </AnimatedSection>
 
           {/* Recent Notifications Sidebar */}
-          <AnimatedSection delay={0.2}>
-          <div className="lg:col-span-1 space-y-6">
+          <AnimatedSection delay={0.2} className="lg:col-span-1 space-y-6">
             <GlassCard variant="elevated" className="p-6">
               <div className="flex items-center gap-2 mb-4">
                 <div className="bg-gradient-to-br from-orange-500 to-red-600 rounded-lg p-2">
@@ -512,7 +509,6 @@ export default function SendNotification() {
                 </div>
               </div>
             </GlassCard>
-          </div>
           </AnimatedSection>
         </div>
       </div>

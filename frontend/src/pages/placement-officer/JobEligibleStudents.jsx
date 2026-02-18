@@ -70,6 +70,7 @@ export default function JobEligibleStudents() {
   // College selection for host-job export
   const [allColleges, setAllColleges] = useState([]);
   const [exportCollegeIds, setExportCollegeIds] = useState([]);
+  const [showCollegeModal, setShowCollegeModal] = useState(false);
 
   // Advanced Filters (legacy)
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -812,7 +813,7 @@ export default function JobEligibleStudents() {
                       <div className="p-3 bg-gray-50 border-b border-gray-200">
                         <p className="text-sm font-bold text-gray-700">Export Options</p>
                       </div>
-                      {/* College selection for host POs */}
+                      {/* College selection for host POs — compact trigger */}
                       {isHost && (() => {
                         const targetIds = Array.isArray(selectedJob?.target_colleges)
                           ? selectedJob.target_colleges.map(Number)
@@ -821,31 +822,17 @@ export default function JobEligibleStudents() {
                         if (jobColleges.length <= 1) return null;
                         return (
                           <div className="px-4 py-3 border-b border-gray-200 bg-indigo-50">
-                            <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center justify-between">
                               <p className="text-xs font-bold text-indigo-700">Filter by College</p>
-                              <div className="flex gap-2">
-                                <button onClick={() => setExportCollegeIds([])} className={`text-xs font-bold ${exportCollegeIds.length === 0 ? 'text-indigo-600 underline' : 'text-gray-400 hover:text-indigo-600'}`}>All</button>
-                              </div>
+                              <button
+                                onClick={() => { setShowCollegeModal(true); setShowExportDropdown(false); }}
+                                className="text-xs bg-indigo-600 text-white px-2.5 py-1 rounded-lg font-bold hover:bg-indigo-700 transition-colors"
+                              >
+                                {exportCollegeIds.length === 0
+                                  ? `All ${jobColleges.length} colleges`
+                                  : `${exportCollegeIds.length} / ${jobColleges.length} selected`}
+                              </button>
                             </div>
-                            <div className="space-y-1">
-                              {jobColleges.map((college) => (
-                                <label key={college.id} className="flex items-center gap-2 cursor-pointer text-xs">
-                                  <input type="checkbox"
-                                    checked={exportCollegeIds.includes(Number(college.id))}
-                                    onChange={() => {
-                                      const id = Number(college.id);
-                                      setExportCollegeIds((prev) =>
-                                        prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-                                      );
-                                    }}
-                                    className="rounded text-indigo-600" />
-                                  <span className="font-medium text-gray-800">{college.college_name}</span>
-                                </label>
-                              ))}
-                            </div>
-                            {exportCollegeIds.length > 0 && (
-                              <p className="text-xs text-indigo-600 font-bold mt-1">{exportCollegeIds.length} selected</p>
-                            )}
                           </div>
                         );
                       })()}
@@ -1558,6 +1545,76 @@ export default function JobEligibleStudents() {
         api={placementOfficerAPI}
         userRole="placement-officer"
       />
+
+      {/* College Selection Modal for host PO export */}
+      {showCollegeModal && selectedJob && (() => {
+        const targetIds = Array.isArray(selectedJob?.target_colleges)
+          ? selectedJob.target_colleges.map(Number)
+          : [];
+        const jobColleges = allColleges.filter((c) => targetIds.includes(Number(c.id)));
+        return (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+              <div className="border-b border-gray-200 px-6 py-4 flex justify-between items-center rounded-t-2xl">
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">Select Colleges for Export</h2>
+                  <p className="text-xs text-gray-500 mt-0.5">Leave all unchecked to export from all colleges</p>
+                </div>
+                <button onClick={() => setShowCollegeModal(false)} className="text-gray-400 hover:text-gray-600">
+                  <XCircle size={22} />
+                </button>
+              </div>
+              <div className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm font-bold text-gray-700">{jobColleges.length} colleges in this drive</span>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setExportCollegeIds(jobColleges.map((c) => Number(c.id)))}
+                      className="text-xs text-indigo-600 font-bold hover:underline"
+                    >Select All</button>
+                    <span className="text-gray-300">|</span>
+                    <button
+                      onClick={() => setExportCollegeIds([])}
+                      className="text-xs text-gray-500 font-bold hover:underline"
+                    >Clear</button>
+                  </div>
+                </div>
+                <div className="max-h-72 overflow-y-auto border border-gray-200 rounded-xl divide-y divide-gray-100">
+                  {jobColleges.map((college) => (
+                    <label key={college.id} className="flex items-center gap-3 px-4 py-3 hover:bg-indigo-50 cursor-pointer transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={exportCollegeIds.includes(Number(college.id))}
+                        onChange={() => {
+                          const id = Number(college.id);
+                          setExportCollegeIds((prev) =>
+                            prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+                          );
+                        }}
+                        className="w-4 h-4 rounded text-indigo-600"
+                      />
+                      <span className="text-sm font-medium text-gray-800">{college.college_name}</span>
+                    </label>
+                  ))}
+                </div>
+                {exportCollegeIds.length > 0 && (
+                  <p className="text-xs text-indigo-600 font-bold mt-2">{exportCollegeIds.length} college(s) selected</p>
+                )}
+              </div>
+              <div className="border-t border-gray-200 px-6 py-4 flex justify-end gap-3">
+                <button
+                  onClick={() => { setExportCollegeIds([]); setShowCollegeModal(false); }}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 text-sm"
+                >Reset & Close</button>
+                <button
+                  onClick={() => setShowCollegeModal(false)}
+                  className="px-5 py-2 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors text-sm"
+                >Apply</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Edit Job Modal (host POs only) */}
       {showEditJobModal && (

@@ -2046,7 +2046,7 @@ export const enhancedExportJobApplicants = async (req, res) => {
        LEFT JOIN regions r ON s.region_id = r.id
        LEFT JOIN student_extended_profiles sep ON s.id = sep.student_id
        WHERE ${whereClause}
-       ORDER BY ja.applied_date DESC`,
+       ORDER BY s.branch ASC, s.prn ASC`,
       params
     );
 
@@ -2282,16 +2282,46 @@ export const enhancedExportJobApplicants = async (req, res) => {
       drawHeaderRow(currentY);
       currentY += 20;
 
+      // Helper: format a single cell value
+      const getFormattedValue = (applicant, field) => {
+        let value = applicant[field];
+        if (field === 'date_of_birth' && value) {
+          return new Date(value).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' });
+        } else if (field === 'branch' && use_short_names && value) {
+          return BRANCH_SHORT_NAMES[value] || value;
+        } else if (field.startsWith('has_') && typeof value === 'boolean') {
+          return value ? 'Yes' : 'No';
+        } else if (value === null || value === undefined) {
+          return '-';
+        }
+        return String(value);
+      };
+
+      // Helper: calculate dynamic row height to prevent text overflow
+      const calcRowHeight = (applicant, fields, minHeight = 15) => {
+        const fontSize = 8;
+        let maxLines = 1;
+        fields.forEach(field => {
+          const cellContentWidth = (fieldMap[field]?.width || 60) - 10;
+          const val = getFormattedValue(applicant, field);
+          // ~5px per char at fontSize 8 (conservative for uppercase/wide chars)
+          const charsPerLine = Math.max(1, Math.floor(cellContentWidth / 5));
+          const lines = Math.ceil(val.length / charsPerLine);
+          if (lines > maxLines) maxLines = lines;
+        });
+        return Math.max(minHeight, maxLines * (fontSize + 4) + 4);
+      };
+
       // Draw table rows
       doc.fontSize(8).font('Helvetica');
       applicants.forEach((applicant) => {
-        // Check if we need a new page
-        if (currentY > doc.page.height - 50) {
-          doc.addPage();
-          drawPageBorder(); // Draw border on new page
-          currentY = 50;
+        const rowHeight = calcRowHeight(applicant, selectedFields);
 
-          // Redraw header on new page
+        // Check if we need a new page
+        if (currentY + rowHeight > doc.page.height - 50) {
+          doc.addPage();
+          drawPageBorder();
+          currentY = 50;
           drawHeaderRow(currentY);
           currentY += 20;
           doc.fontSize(8).font('Helvetica');
@@ -2299,31 +2329,20 @@ export const enhancedExportJobApplicants = async (req, res) => {
 
         let currentX = startX;
         selectedFields.forEach(field => {
-          let value = applicant[field];
-
-          // Format values
-          if (field === 'date_of_birth' && value) {
-            value = new Date(value).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' });
-          } else if (field === 'branch' && use_short_names && value) {
-            value = BRANCH_SHORT_NAMES[value] || value;
-          } else if (field.startsWith('has_') && typeof value === 'boolean') {
-            value = value ? 'Yes' : 'No';
-          } else if (value === null || value === undefined) {
-            value = '-';
-          }
-
-          doc.rect(currentX, currentY, fieldMap[field].width, 15).stroke();
-          doc.text(String(value), currentX + 5, currentY + 3, {
+          const value = getFormattedValue(applicant, field);
+          doc.rect(currentX, currentY, fieldMap[field].width, rowHeight).stroke();
+          doc.fontSize(8).font('Helvetica').text(value, currentX + 5, currentY + 3, {
             width: fieldMap[field].width - 10,
-            align: 'left'
+            align: 'left',
+            lineBreak: true,
           });
           currentX += fieldMap[field].width;
         });
         // Signature cell (empty for student to sign)
         if (include_signature) {
-          doc.rect(currentX, currentY, signatureWidth, 15).stroke();
+          doc.rect(currentX, currentY, signatureWidth, rowHeight).stroke();
         }
-        currentY += 15;
+        currentY += rowHeight;
       });
 
       // Add branch legend if using short names and branch field is included

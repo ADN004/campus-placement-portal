@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { superAdminAPI } from '../../services/api';
+import { superAdminAPI, commonAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import { Briefcase, Users, Download, Filter, ChevronDown, ChevronUp, Check, X, FileSpreadsheet, FileText, Eye, Calendar, Send, BarChart3, UserCheck, UserPlus, AlertTriangle } from 'lucide-react';
 import StatusBadge from '../../components/StatusBadge';
@@ -19,7 +19,7 @@ export default function JobEligibleStudents() {
   const [jobs, setJobs] = useState([]);
   const [students, setStudents] = useState([]);
   const [colleges, setColleges] = useState([]);
-  const [branches, setBranches] = useState([]);
+  const [exportRegions, setExportRegions] = useState([]);
   const [selectedJob, setSelectedJob] = useState(null);
   const [filteredStudents, setFilteredStudents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -30,7 +30,7 @@ export default function JobEligibleStudents() {
   const [showExportFilters, setShowExportFilters] = useState(false);
   const [exportFilters, setExportFilters] = useState({
     selectedColleges: [],
-    selectedBranches: [],
+    selectedRegion: '',
   });
 
   // Advanced Filters
@@ -76,7 +76,7 @@ export default function JobEligibleStudents() {
   useEffect(() => {
     fetchJobs();
     fetchColleges();
-    fetchBranches();
+    fetchExportRegions();
   }, []);
 
   useEffect(() => {
@@ -119,30 +119,19 @@ export default function JobEligibleStudents() {
 
   const fetchColleges = async () => {
     try {
-      const response = await superAdminAPI.getPlacementOfficers();
-      // Extract unique colleges
-      const uniqueColleges = [];
-      const collegeMap = new Map();
-      response.data.data.forEach((officer) => {
-        if (!collegeMap.has(officer.college_id)) {
-          collegeMap.set(officer.college_id, {
-            id: officer.college_id,
-            name: officer.college_name,
-          });
-        }
-      });
-      setColleges(Array.from(collegeMap.values()));
+      const response = await commonAPI.getColleges();
+      setColleges(response.data.data || []);
     } catch (error) {
       console.error('Failed to load colleges:', error);
     }
   };
 
-  const fetchBranches = async () => {
+  const fetchExportRegions = async () => {
     try {
-      const response = await superAdminAPI.getNormalizedBranches();
-      setBranches(response.data.data || []);
+      const response = await commonAPI.getRegions();
+      setExportRegions(response.data.data || []);
     } catch (error) {
-      console.error('Failed to load branches:', error);
+      console.error('Failed to load regions:', error);
     }
   };
 
@@ -455,7 +444,6 @@ export default function JobEligibleStudents() {
         include_signature: includeSignature || false,
         exclude_already_placed: !includePlacedInExport,
         college_ids: exportFilters.selectedColleges.length > 0 ? exportFilters.selectedColleges : undefined,
-        branches: exportFilters.selectedBranches.length > 0 ? exportFilters.selectedBranches : undefined,
         application_statuses: pdfExportType === 'selected_only'
           ? ['selected']
           : (enhancedFilters.applicationStatuses.length > 0 ? enhancedFilters.applicationStatuses : undefined),
@@ -509,27 +497,30 @@ export default function JobEligibleStudents() {
     });
   };
 
-  const toggleBranchSelection = (branch) => {
-    setExportFilters((prev) => {
-      const isSelected = prev.selectedBranches.includes(branch);
-      return {
-        ...prev,
-        selectedBranches: isSelected
-          ? prev.selectedBranches.filter((b) => b !== branch)
-          : [...prev.selectedBranches, branch],
-      };
-    });
+  const handleRegionSelect = (regionId) => {
+    if (!regionId) {
+      setExportFilters((prev) => ({ ...prev, selectedRegion: '', selectedColleges: [] }));
+      return;
+    }
+    const regionColleges = colleges
+      .filter((c) => String(c.region_id) === String(regionId))
+      .map((c) => c.id);
+    setExportFilters((prev) => ({
+      ...prev,
+      selectedRegion: regionId,
+      selectedColleges: regionColleges,
+    }));
   };
 
   const clearExportFilters = () => {
     setExportFilters({
       selectedColleges: [],
-      selectedBranches: [],
+      selectedRegion: '',
     });
   };
 
   const hasExportFilters = () => {
-    return exportFilters.selectedColleges.length > 0 || exportFilters.selectedBranches.length > 0;
+    return exportFilters.selectedColleges.length > 0 || !!exportFilters.selectedRegion;
   };
 
   if (showSkeleton) return <TablePageSkeleton tableColumns={6} hasSearch={false} hasFilters={true} />;
@@ -638,7 +629,7 @@ export default function JobEligibleStudents() {
                       <span>Export Filters</span>
                       {hasExportFilters() && (
                         <span className="bg-primary-600 text-white px-2 py-0.5 text-xs rounded-full">
-                          {exportFilters.selectedColleges.length + exportFilters.selectedBranches.length}
+                          {exportFilters.selectedColleges.length + (exportFilters.selectedRegion ? 1 : 0)}
                         </span>
                       )}
                     </button>
@@ -733,10 +724,43 @@ export default function JobEligibleStudents() {
                   </p>
 
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Region Filter */}
+                    <div>
+                      <label className="label font-semibold mb-3">Filter by Region</label>
+                      <select
+                        value={exportFilters.selectedRegion}
+                        onChange={(e) => handleRegionSelect(e.target.value)}
+                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none bg-white text-sm"
+                      >
+                        <option value="">— All Regions —</option>
+                        {exportRegions.map((r) => (
+                          <option key={r.id} value={r.id}>{r.region_name}</option>
+                        ))}
+                      </select>
+                      {exportFilters.selectedRegion && (
+                        <p className="text-xs text-primary-600 mt-2">
+                          {exportFilters.selectedColleges.length} college(s) auto-selected from this region
+                        </p>
+                      )}
+                    </div>
+
                     {/* College Filter */}
                     <div>
-                      <label className="label font-semibold mb-3">Filter by Colleges</label>
-                      <div className="space-y-2 max-h-60 overflow-y-auto border border-gray-300 rounded-lg p-3 bg-white">
+                      <div className="flex items-center justify-between mb-3">
+                        <label className="label font-semibold">Filter by Colleges</label>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setExportFilters((prev) => ({ ...prev, selectedColleges: colleges.map((c) => c.id) }))}
+                            className="text-xs text-primary-600 font-bold hover:underline"
+                          >All</button>
+                          <span className="text-gray-300">|</span>
+                          <button
+                            onClick={() => setExportFilters((prev) => ({ ...prev, selectedColleges: [], selectedRegion: '' }))}
+                            className="text-xs text-gray-500 font-bold hover:underline"
+                          >None</button>
+                        </div>
+                      </div>
+                      <div className="space-y-1 max-h-60 overflow-y-auto border border-gray-300 rounded-lg p-3 bg-white">
                         {colleges.map((college) => (
                           <label
                             key={college.id}
@@ -748,39 +772,13 @@ export default function JobEligibleStudents() {
                               onChange={() => toggleCollegeSelection(college.id)}
                               className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500"
                             />
-                            <span className="text-sm text-gray-700">{college.name}</span>
+                            <span className="text-sm text-gray-700">{college.college_name}</span>
                           </label>
                         ))}
                       </div>
                       {exportFilters.selectedColleges.length > 0 && (
                         <p className="text-xs text-primary-600 mt-2">
                           {exportFilters.selectedColleges.length} college(s) selected
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Branch Filter */}
-                    <div>
-                      <label className="label font-semibold mb-3">Filter by Branches</label>
-                      <div className="space-y-2 max-h-60 overflow-y-auto border border-gray-300 rounded-lg p-3 bg-white">
-                        {branches.map((branch) => (
-                          <label
-                            key={branch.id}
-                            className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded cursor-pointer"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={exportFilters.selectedBranches.includes(branch.normalized_name)}
-                              onChange={() => toggleBranchSelection(branch.normalized_name)}
-                              className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500"
-                            />
-                            <span className="text-sm text-gray-700">{branch.branch_name}</span>
-                          </label>
-                        ))}
-                      </div>
-                      {exportFilters.selectedBranches.length > 0 && (
-                        <p className="text-xs text-primary-600 mt-2">
-                          {exportFilters.selectedBranches.length} branch(es) selected
                         </p>
                       )}
                     </div>

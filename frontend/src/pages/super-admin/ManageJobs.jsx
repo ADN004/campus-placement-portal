@@ -95,6 +95,7 @@ export default function ManageJobs() {
         fetchJobs(),
         fetchPendingRequests(),
         fetchRegions(),
+        fetchColleges(),
         fetchDeletedJobs(),
         fetchTemplates(),
       ]);

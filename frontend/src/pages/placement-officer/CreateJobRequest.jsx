@@ -800,7 +800,7 @@ export default function CreateJobRequest() {
                       }}
                     >
                       <option value="no_restriction">No Restriction</option>
-                      <option value="no_backlogs">No Backlogs (Strict)</option>
+                      <option value="no_backlogs">0 Backlogs Allowed</option>
                       <option value="limited">Allow Limited Backlogs</option>
                     </select>
                   </div>

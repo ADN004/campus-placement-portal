@@ -211,7 +211,7 @@ const JobRequirementsConfig = ({ jobId, onRequirementsSaved, initialData = null 
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
             >
               <option value="no_restriction">No Restriction</option>
-              <option value="no_backlogs">No Backlogs (Strict)</option>
+              <option value="no_backlogs">0 Backlogs Allowed</option>
               <option value="limited">Allow Limited Backlogs</option>
             </select>
           </div>

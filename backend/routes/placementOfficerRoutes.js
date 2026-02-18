@@ -13,6 +13,7 @@ import {
   sendNotification,
   exportStudents,
   getJobs,
+  updateJob,
   createJobRequest,
   getJobRequests,
   getJobApplicants,
@@ -89,6 +90,7 @@ router.post('/students/:id/whitelist-request', requestWhitelist);
 router.get('/branches', getBranchesForNotifications); // Get branches for notifications
 router.post('/send-notification', sendNotification);
 router.get('/jobs', getJobs);
+router.put('/jobs/:id', updateJob);
 router.get('/jobs/:jobId/applicants', getJobApplicants);
 router.get('/jobs/:jobId/applicants/export', exportJobApplicants);
 router.post('/job-requests', createJobRequest);

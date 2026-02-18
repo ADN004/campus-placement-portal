@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import { placementOfficerAPI } from '../../services/api';
+import { placementOfficerAPI, commonAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import {
   Briefcase, Users, Download, Filter, ChevronDown, ChevronUp, Check, FileSpreadsheet, FileText,
-  Eye, Calendar, Send, BarChart3, CheckCircle, Clock, XCircle, AlertCircle, UserCheck, DollarSign, UserPlus, AlertTriangle
+  Eye, Calendar, Send, BarChart3, CheckCircle, Clock, XCircle, AlertCircle, UserCheck, DollarSign, UserPlus, AlertTriangle, Edit
 } from 'lucide-react';
 import DashboardHeader from '../../components/DashboardHeader';
 import GlassCard from '../../components/GlassCard';
@@ -62,6 +62,15 @@ export default function JobEligibleStudents() {
   const [showManualAddModal, setShowManualAddModal] = useState(false);
   const [includePlacedInExport, setIncludePlacedInExport] = useState(false);
 
+  // Edit Job modal state (host POs only)
+  const [showEditJobModal, setShowEditJobModal] = useState(false);
+  const [editJobData, setEditJobData] = useState({});
+  const [editJobLoading, setEditJobLoading] = useState(false);
+
+  // College selection for host-job export
+  const [allColleges, setAllColleges] = useState([]);
+  const [exportCollegeIds, setExportCollegeIds] = useState([]);
+
   // Advanced Filters (legacy)
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [advancedFilters, setAdvancedFilters] = useState({
@@ -74,6 +83,7 @@ export default function JobEligibleStudents() {
 
   useEffect(() => {
     fetchJobs();
+    commonAPI.getColleges().then((res) => setAllColleges(res.data.data || [])).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -400,6 +410,26 @@ export default function JobEligibleStudents() {
     }
   };
 
+  const handleEditJobSave = async () => {
+    try {
+      setEditJobLoading(true);
+      await placementOfficerAPI.updateJob(selectedJob.id, editJobData);
+      toast.success('Job updated successfully');
+      setShowEditJobModal(false);
+      // Refresh jobs list and update selectedJob
+      const response = await placementOfficerAPI.getJobs();
+      const activeJobs = response.data.data.filter((job) => job.is_active);
+      setJobs(activeJobs);
+      const updated = activeJobs.find((j) => j.id === selectedJob.id);
+      if (updated) setSelectedJob(updated);
+    } catch (error) {
+      console.error('Edit job error:', error);
+      toast.error(error.response?.data?.message || 'Failed to update job');
+    } finally {
+      setEditJobLoading(false);
+    }
+  };
+
   const handleExport = async (format) => {
     if (filteredStudents.length === 0) {
       toast.error('No applicants to export');
@@ -412,7 +442,15 @@ export default function JobEligibleStudents() {
 
       const loadingToast = toast.loading(`Preparing ${format === 'pdf' ? 'PDF' : 'Excel'} export...`);
 
-      const response = await placementOfficerAPI.exportJobApplicants(selectedJob.id, format, !includePlacedInExport);
+      // Host POs with college selection use enhanced export to support college_ids
+      const useEnhanced = isHost && exportCollegeIds.length > 0;
+      const response = useEnhanced
+        ? await placementOfficerAPI.enhancedExportJobApplicants(selectedJob.id, {
+            format,
+            college_ids: exportCollegeIds,
+            exclude_already_placed: !includePlacedInExport,
+          })
+        : await placementOfficerAPI.exportJobApplicants(selectedJob.id, format, !includePlacedInExport);
 
       const mimeType = format === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
       const fileExt = format === 'pdf' ? 'pdf' : 'xlsx';
@@ -463,6 +501,7 @@ export default function JobEligibleStudents() {
         pdf_fields: selectedFields,
         include_signature: includeSignature || false,
         exclude_already_placed: !includePlacedInExport,
+        college_ids: isHost && exportCollegeIds.length > 0 ? exportCollegeIds : [],
       };
 
       // Add enhanced filters if it's an enhanced export
@@ -716,7 +755,36 @@ export default function JobEligibleStudents() {
                   )}
                 </div>
               </div>
-              <div className="relative w-full sm:w-auto sm:ml-6">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto sm:ml-6">
+                {isHost && (
+                  <button
+                    onClick={() => {
+                      setEditJobData({
+                        title: selectedJob.job_title,
+                        company_name: selectedJob.company_name,
+                        description: selectedJob.job_description,
+                        location: selectedJob.job_location,
+                        salary_package: selectedJob.salary_package || '',
+                        no_of_vacancies: selectedJob.no_of_vacancies || '',
+                        application_deadline: selectedJob.application_deadline
+                          ? new Date(selectedJob.application_deadline).toISOString().split('T')[0]
+                          : '',
+                        application_form_url: selectedJob.application_form_url || '',
+                        min_cgpa: selectedJob.min_cgpa || '',
+                        max_backlogs: selectedJob.max_backlogs !== null && selectedJob.max_backlogs !== undefined ? String(selectedJob.max_backlogs) : '',
+                        allowed_backlog_semesters: Array.isArray(selectedJob.allowed_backlog_semesters) ? selectedJob.allowed_backlog_semesters.map(Number) : [],
+                        allowed_branches: Array.isArray(selectedJob.allowed_branches) ? selectedJob.allowed_branches : [],
+                      });
+                      setShowEditJobModal(true);
+                    }}
+                    className="w-full sm:w-auto bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold px-5 py-3 rounded-xl shadow-lg hover:shadow-xl hover:from-indigo-600 hover:to-purple-700 transition-all duration-200 flex items-center justify-center space-x-2"
+                    title="Edit Job"
+                  >
+                    <Edit size={18} />
+                    <span>Edit Job</span>
+                  </button>
+                )}
+              <div className="relative w-full sm:w-auto">
                 <button
                   onClick={() => {
                     setShowExportDropdown(!showExportDropdown);
@@ -744,6 +812,43 @@ export default function JobEligibleStudents() {
                       <div className="p-3 bg-gray-50 border-b border-gray-200">
                         <p className="text-sm font-bold text-gray-700">Export Options</p>
                       </div>
+                      {/* College selection for host POs */}
+                      {isHost && (() => {
+                        const targetIds = Array.isArray(selectedJob?.target_colleges)
+                          ? selectedJob.target_colleges.map(Number)
+                          : [];
+                        const jobColleges = allColleges.filter((c) => targetIds.includes(Number(c.id)));
+                        if (jobColleges.length <= 1) return null;
+                        return (
+                          <div className="px-4 py-3 border-b border-gray-200 bg-indigo-50">
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="text-xs font-bold text-indigo-700">Filter by College</p>
+                              <div className="flex gap-2">
+                                <button onClick={() => setExportCollegeIds([])} className={`text-xs font-bold ${exportCollegeIds.length === 0 ? 'text-indigo-600 underline' : 'text-gray-400 hover:text-indigo-600'}`}>All</button>
+                              </div>
+                            </div>
+                            <div className="space-y-1">
+                              {jobColleges.map((college) => (
+                                <label key={college.id} className="flex items-center gap-2 cursor-pointer text-xs">
+                                  <input type="checkbox"
+                                    checked={exportCollegeIds.includes(Number(college.id))}
+                                    onChange={() => {
+                                      const id = Number(college.id);
+                                      setExportCollegeIds((prev) =>
+                                        prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+                                      );
+                                    }}
+                                    className="rounded text-indigo-600" />
+                                  <span className="font-medium text-gray-800">{college.college_name}</span>
+                                </label>
+                              ))}
+                            </div>
+                            {exportCollegeIds.length > 0 && (
+                              <p className="text-xs text-indigo-600 font-bold mt-1">{exportCollegeIds.length} selected</p>
+                            )}
+                          </div>
+                        );
+                      })()}
                       <div className="p-2">
                         <p className="text-xs font-semibold text-gray-500 px-4 py-2">Basic Export</p>
                         <button
@@ -807,6 +912,7 @@ export default function JobEligibleStudents() {
                     </GlassCard>
                   </>
                 )}
+              </div>
               </div>
             </div>
           </GlassCard>
@@ -1452,6 +1558,106 @@ export default function JobEligibleStudents() {
         api={placementOfficerAPI}
         userRole="placement-officer"
       />
+
+      {/* Edit Job Modal (host POs only) */}
+      {showEditJobModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center rounded-t-2xl">
+              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <Edit size={20} className="text-indigo-600" />
+                Edit Job
+              </h2>
+              <button onClick={() => setShowEditJobModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                <XCircle size={24} />
+              </button>
+            </div>
+            <div className="p-6 space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Job Title *</label>
+                  <input type="text" value={editJobData.title || ''} onChange={(e) => setEditJobData({ ...editJobData, title: e.target.value })}
+                    className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all font-medium" />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Company Name *</label>
+                  <input type="text" value={editJobData.company_name || ''} onChange={(e) => setEditJobData({ ...editJobData, company_name: e.target.value })}
+                    className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all font-medium" />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Location</label>
+                  <input type="text" value={editJobData.location || ''} onChange={(e) => setEditJobData({ ...editJobData, location: e.target.value })}
+                    className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all font-medium" />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Salary Package</label>
+                  <input type="text" value={editJobData.salary_package || ''} onChange={(e) => setEditJobData({ ...editJobData, salary_package: e.target.value })}
+                    placeholder="e.g., 6 LPA" className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all font-medium" />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">No. of Vacancies</label>
+                  <input type="number" min="1" value={editJobData.no_of_vacancies || ''} onChange={(e) => setEditJobData({ ...editJobData, no_of_vacancies: e.target.value })}
+                    className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all font-medium" />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Application Deadline *</label>
+                  <input type="date" value={editJobData.application_deadline || ''} onChange={(e) => setEditJobData({ ...editJobData, application_deadline: e.target.value })}
+                    className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all font-medium" />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Min CGPA</label>
+                  <input type="number" step="0.01" min="0" max="10" value={editJobData.min_cgpa || ''} onChange={(e) => setEditJobData({ ...editJobData, min_cgpa: e.target.value })}
+                    placeholder="e.g., 6.5" className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all font-medium" />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Max Backlogs Allowed</label>
+                  <input type="number" min="0" value={editJobData.max_backlogs || ''} onChange={(e) => setEditJobData({ ...editJobData, max_backlogs: e.target.value })}
+                    className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all font-medium" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Application Form URL</label>
+                <input type="url" value={editJobData.application_form_url || ''} onChange={(e) => setEditJobData({ ...editJobData, application_form_url: e.target.value })}
+                  placeholder="https://..." className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all font-medium" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Job Description *</label>
+                <textarea rows={4} value={editJobData.description || ''} onChange={(e) => setEditJobData({ ...editJobData, description: e.target.value })}
+                  className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all font-medium resize-none" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">
+                  Allowed Backlog Semesters <span className="text-gray-400 font-normal">(leave unchecked = any semester)</span>
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {[1, 2, 3, 4, 5, 6].map((sem) => (
+                    <label key={sem} className="flex items-center gap-2 cursor-pointer px-3 py-2 border-2 border-gray-300 rounded-lg hover:bg-indigo-50 transition-colors">
+                      <input type="checkbox"
+                        checked={(editJobData.allowed_backlog_semesters || []).includes(sem)}
+                        onChange={() => {
+                          const current = editJobData.allowed_backlog_semesters || [];
+                          const updated = current.includes(sem) ? current.filter((s) => s !== sem) : [...current, sem].sort((a, b) => a - b);
+                          setEditJobData({ ...editJobData, allowed_backlog_semesters: updated });
+                        }}
+                        className="rounded text-indigo-600" />
+                      <span className="text-sm font-medium">Sem {sem}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="sticky bottom-0 bg-white border-t border-gray-200 px-6 py-4 flex justify-end gap-3 rounded-b-2xl">
+              <button onClick={() => setShowEditJobModal(false)} className="px-5 py-2.5 border-2 border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition-colors">
+                Cancel
+              </button>
+              <button onClick={handleEditJobSave} disabled={editJobLoading}
+                className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
+                {editJobLoading ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

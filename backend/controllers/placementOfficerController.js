@@ -1946,22 +1946,18 @@ export const getJobRequests = async (req, res) => {
 
     const officer = officerResult.rows[0];
 
-    // Get job requests with job existence check
+    // Get job requests with job existence check and live deadline from jobs table
     const jobRequestsResult = await query(
       `SELECT jr.*,
               reviewer.email as reviewed_by_email,
+              COALESCE(j.application_deadline, jr.application_deadline) as application_deadline,
+              j.id as linked_job_id,
               CASE
-                WHEN jr.status = 'approved' THEN
-                  EXISTS(
-                    SELECT 1 FROM jobs j
-                    WHERE j.job_title = jr.job_title
-                    AND j.company_name = jr.company_name
-                    AND j.created_at >= jr.reviewed_date
-                    AND j.created_at <= jr.reviewed_date + INTERVAL '5 minutes'
-                  )
+                WHEN jr.status IN ('approved', 'auto_approved') THEN (j.id IS NOT NULL)
                 ELSE NULL
               END as job_exists
        FROM job_requests jr
+       LEFT JOIN jobs j ON j.source_job_request_id = jr.id
        LEFT JOIN users reviewer ON jr.reviewed_by = reviewer.id
        WHERE jr.placement_officer_id = $1
        ORDER BY jr.created_at DESC`,
@@ -1995,6 +1991,87 @@ export const getJobRequests = async (req, res) => {
       message: 'Error fetching job requests',
       error: error.message,
     });
+  }
+};
+
+// @desc    Update a job created by this placement officer
+// @route   PUT /api/placement-officer/jobs/:id
+// @access  Private (Placement Officer - own jobs only)
+export const updateJob = async (req, res) => {
+  try {
+    const { id: jobId } = req.params;
+
+    // Get officer details
+    const officerResult = await query(
+      'SELECT id FROM placement_officers WHERE user_id = $1',
+      [req.user.id]
+    );
+    if (officerResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Placement officer profile not found' });
+    }
+    const officer = officerResult.rows[0];
+
+    // Ownership check
+    const jobCheck = await query('SELECT placement_officer_id FROM jobs WHERE id = $1', [jobId]);
+    if (jobCheck.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Job not found' });
+    }
+    if (jobCheck.rows[0].placement_officer_id !== officer.id) {
+      return res.status(403).json({ success: false, message: 'You can only edit jobs you created' });
+    }
+
+    const {
+      title,
+      company_name,
+      description,
+      location,
+      no_of_vacancies,
+      salary_package,
+      application_form_url,
+      application_deadline,
+      min_cgpa,
+      max_backlogs,
+      allowed_backlog_semesters,
+      allowed_branches,
+    } = req.body;
+
+    const updates = [];
+    const values = [];
+    let paramCount = 1;
+
+    if (title !== undefined) { updates.push(`job_title = $${paramCount}`); values.push(title); paramCount++; }
+    if (company_name !== undefined) { updates.push(`company_name = $${paramCount}`); values.push(company_name); paramCount++; }
+    if (description !== undefined) { updates.push(`job_description = $${paramCount}`); values.push(description); paramCount++; }
+    if (location !== undefined) { updates.push(`job_location = $${paramCount}`); values.push(location); paramCount++; }
+    if (no_of_vacancies !== undefined) { updates.push(`no_of_vacancies = $${paramCount}`); values.push(no_of_vacancies); paramCount++; }
+    if (salary_package !== undefined) { updates.push(`salary_package = $${paramCount}`); values.push(salary_package); paramCount++; }
+    if (application_form_url !== undefined) { updates.push(`application_form_url = $${paramCount}`); values.push(application_form_url); paramCount++; }
+    if (application_deadline !== undefined) { updates.push(`application_deadline = $${paramCount}`); values.push(application_deadline); paramCount++; }
+    if (min_cgpa !== undefined) { updates.push(`min_cgpa = $${paramCount}`); values.push(min_cgpa || null); paramCount++; }
+    if (max_backlogs !== undefined) { updates.push(`max_backlogs = $${paramCount}`); values.push(max_backlogs !== '' ? max_backlogs : null); paramCount++; }
+    if (allowed_backlog_semesters !== undefined) { updates.push(`allowed_backlog_semesters = $${paramCount}::jsonb`); values.push(JSON.stringify(allowed_backlog_semesters || [])); paramCount++; }
+    if (allowed_branches !== undefined) { updates.push(`allowed_branches = $${paramCount}`); values.push(JSON.stringify(allowed_branches || [])); paramCount++; }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ success: false, message: 'No fields provided to update' });
+    }
+
+    updates.push(`updated_at = CURRENT_TIMESTAMP`);
+    values.push(jobId);
+
+    const result = await query(
+      `UPDATE jobs SET ${updates.join(', ')} WHERE id = $${paramCount} RETURNING *`,
+      values
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Job updated successfully',
+      data: result.rows[0],
+    });
+  } catch (error) {
+    console.error('PO updateJob error:', error);
+    res.status(500).json({ success: false, message: 'Error updating job', error: error.message });
   }
 };
 

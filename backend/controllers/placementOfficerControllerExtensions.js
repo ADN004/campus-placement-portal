@@ -1663,6 +1663,7 @@ export const enhancedExportJobApplicants = async (req, res) => {
     const {
       format = 'excel',
       pdf_fields = [],
+      college_ids = [],
       branches = [],
       application_statuses = [],
       sslc_min,
@@ -1680,15 +1681,43 @@ export const enhancedExportJobApplicants = async (req, res) => {
       exclude_already_placed = false,
     } = req.body;
 
-    // Build dynamic WHERE clauses - COLLEGE SCOPED
+    // Check if this PO is the host (creator) of this job
+    const officerResult = await query(
+      'SELECT id FROM placement_officers WHERE user_id = $1',
+      [req.user.id]
+    );
+    const officerId = officerResult.rows.length > 0 ? officerResult.rows[0].id : null;
+    const jobResult = await query(
+      'SELECT placement_officer_id, target_colleges FROM jobs WHERE id = $1',
+      [jobId]
+    );
+    const job = jobResult.rows[0];
+    const isHost = job && officerId && job.placement_officer_id === officerId;
+
+    // Build dynamic WHERE clauses
     let whereConditions = [
       'ja.job_id = $1',
-      's.college_id = $2',
       's.registration_status = \'approved\'',
       's.is_blacklisted = FALSE'
     ];
-    let params = [jobId, collegeId];
-    let paramIndex = 3;
+    let params = [jobId];
+    let paramIndex = 2;
+
+    // College scoping: host POs can filter by selected colleges; non-hosts restricted to own college
+    if (isHost && college_ids && college_ids.length > 0) {
+      const targetColleges = Array.isArray(job.target_colleges) ? job.target_colleges.map(Number) : [];
+      const validIds = college_ids.map(Number).filter((id) => targetColleges.length === 0 || targetColleges.includes(id));
+      if (validIds.length > 0) {
+        whereConditions.push(`s.college_id = ANY($${paramIndex})`);
+        params.push(validIds);
+        paramIndex++;
+      }
+    } else if (!isHost) {
+      whereConditions.push(`s.college_id = $${paramIndex}`);
+      params.push(collegeId);
+      paramIndex++;
+    }
+    // isHost with no college_ids = all target colleges, no college restriction needed
 
     if (branches && branches.length > 0) {
       whereConditions.push(`s.branch = ANY($${paramIndex})`);

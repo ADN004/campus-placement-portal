@@ -640,6 +640,10 @@ CREATE INDEX idx_job_requests_college ON job_requests(college_id);
 CREATE INDEX idx_job_requests_status ON job_requests(status);
 CREATE INDEX idx_job_requests_created ON job_requests(created_at DESC);
 
+-- FK constraint for source_job_request_id in jobs (defined here after job_requests exists)
+ALTER TABLE jobs ADD CONSTRAINT fk_jobs_source_job_request
+  FOREIGN KEY (source_job_request_id) REFERENCES job_requests(id) ON DELETE SET NULL;
+
 -- ============================================
 -- 20. JOB REQUEST REQUIREMENT TEMPLATES TABLE
 -- ============================================

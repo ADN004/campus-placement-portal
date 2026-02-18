@@ -47,6 +47,15 @@ export default function ManageJobs() {
   const [selectedTemplate, setSelectedTemplate] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
 
+  // Export Applicants modal state
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportTargetJob, setExportTargetJob] = useState(null);
+  const [exportScope, setExportScope] = useState('all'); // 'all' | 'region' | 'colleges'
+  const [exportSelectedRegion, setExportSelectedRegion] = useState('');
+  const [exportSelectedColleges, setExportSelectedColleges] = useState([]);
+  const [exportFormat, setExportFormat] = useState('excel');
+  const [exporting, setExporting] = useState(false);
+
   const [formData, setFormData] = useState({
     title: '',
     company_name: '',
@@ -487,6 +496,47 @@ export default function ManageJobs() {
     }
   };
 
+  const handleSAExport = async () => {
+    try {
+      setExporting(true);
+      let college_ids = [];
+      if (exportScope === 'region') {
+        college_ids = colleges.filter((c) => String(c.region_id) === String(exportSelectedRegion)).map((c) => c.id);
+      } else if (exportScope === 'colleges') {
+        college_ids = exportSelectedColleges;
+      }
+
+      const loadingToast = toast.loading(`Preparing ${exportFormat === 'pdf' ? 'PDF' : 'Excel'} export...`);
+      const response = await superAdminAPI.enhancedExportJobApplicants(exportTargetJob.id, {
+        format: exportFormat,
+        college_ids,
+      });
+
+      const mimeType = exportFormat === 'pdf'
+        ? 'application/pdf'
+        : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      const fileExt = exportFormat === 'pdf' ? 'pdf' : 'xlsx';
+      const scopeLabel = exportScope === 'all' ? 'all' : exportScope === 'region' ? `region_${exportSelectedRegion}` : 'selected_colleges';
+      const blob = new Blob([response.data], { type: mimeType });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `applicants_${exportTargetJob.job_title.replace(/\s+/g, '_')}_${scopeLabel}_${Date.now()}.${fileExt}`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.dismiss(loadingToast);
+      toast.success('Export downloaded successfully');
+      setShowExportModal(false);
+    } catch (error) {
+      console.error('SA export error:', error);
+      toast.error('Failed to export applicants');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const handleApproveRequest = async (requestId) => {
     if (!window.confirm('Are you sure you want to approve this job request?')) {
       return;
@@ -787,6 +837,20 @@ export default function ManageJobs() {
                             ) : (
                               <ToggleLeft size={18} />
                             )}
+                          </button>
+                          <button
+                            onClick={() => {
+                              setExportTargetJob(job);
+                              setExportScope('all');
+                              setExportSelectedRegion('');
+                              setExportSelectedColleges([]);
+                              setExportFormat('excel');
+                              setShowExportModal(true);
+                            }}
+                            className="text-purple-600 hover:text-purple-800"
+                            title="Export Applicants"
+                          >
+                            <Users size={18} />
                           </button>
                           <button
                             onClick={() => handleOpenDeleteModal(job)}
@@ -1695,6 +1759,122 @@ export default function ManageJobs() {
                   Cancel
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Export Applicants Modal */}
+      {showExportModal && exportTargetJob && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+            <div className="border-b border-gray-200 px-6 py-4 flex justify-between items-center rounded-t-2xl">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">Export Applicants</h2>
+                <p className="text-sm text-gray-500 mt-0.5 font-medium">{exportTargetJob.job_title} — {exportTargetJob.company_name}</p>
+              </div>
+              <button onClick={() => setShowExportModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                <XCircle size={24} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Scope */}
+              <div>
+                <p className="text-sm font-bold text-gray-700 mb-3">Export Scope</p>
+                <div className="space-y-2">
+                  {[
+                    { value: 'all', label: 'All Colleges', desc: 'Export applicants from every college' },
+                    { value: 'region', label: 'By Region', desc: 'All colleges in a selected region' },
+                    { value: 'colleges', label: 'Select Colleges', desc: 'Choose specific colleges via checkboxes' },
+                  ].map((opt) => (
+                    <label key={opt.value} className={`flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer transition-colors ${exportScope === opt.value ? 'border-purple-500 bg-purple-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                      <input type="radio" name="exportScope" value={opt.value} checked={exportScope === opt.value}
+                        onChange={(e) => { setExportScope(e.target.value); setExportSelectedRegion(''); setExportSelectedColleges([]); }}
+                        className="mt-0.5 text-purple-600" />
+                      <div>
+                        <div className="font-bold text-gray-900 text-sm">{opt.label}</div>
+                        <div className="text-xs text-gray-500">{opt.desc}</div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Region dropdown */}
+              {exportScope === 'region' && (
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Select Region</label>
+                  <select value={exportSelectedRegion} onChange={(e) => setExportSelectedRegion(e.target.value)}
+                    className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-purple-100 focus:border-purple-500 outline-none transition-all font-medium bg-white">
+                    <option value="">— Choose a region —</option>
+                    {regions.map((r) => (
+                      <option key={r.id} value={r.id}>{r.region_name}</option>
+                    ))}
+                  </select>
+                  {exportSelectedRegion && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      {colleges.filter((c) => String(c.region_id) === String(exportSelectedRegion)).length} college(s) in this region
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* College checkboxes */}
+              {exportScope === 'colleges' && (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-sm font-bold text-gray-700">Select Colleges</label>
+                    <div className="flex gap-2">
+                      <button onClick={() => setExportSelectedColleges(colleges.map((c) => c.id))} className="text-xs text-purple-600 font-bold hover:underline">All</button>
+                      <span className="text-gray-300">|</span>
+                      <button onClick={() => setExportSelectedColleges([])} className="text-xs text-gray-500 font-bold hover:underline">None</button>
+                    </div>
+                  </div>
+                  <div className="max-h-48 overflow-y-auto border-2 border-gray-200 rounded-xl divide-y divide-gray-100">
+                    {colleges.map((college) => (
+                      <label key={college.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-purple-50 cursor-pointer transition-colors">
+                        <input type="checkbox"
+                          checked={exportSelectedColleges.includes(college.id)}
+                          onChange={() => {
+                            setExportSelectedColleges((prev) =>
+                              prev.includes(college.id) ? prev.filter((id) => id !== college.id) : [...prev, college.id]
+                            );
+                          }}
+                          className="rounded text-purple-600" />
+                        <span className="text-sm font-medium text-gray-800">{college.college_name}</span>
+                      </label>
+                    ))}
+                  </div>
+                  {exportSelectedColleges.length > 0 && (
+                    <p className="text-xs text-purple-600 font-bold mt-1">{exportSelectedColleges.length} college(s) selected</p>
+                  )}
+                </div>
+              )}
+
+              {/* Format */}
+              <div>
+                <p className="text-sm font-bold text-gray-700 mb-2">Format</p>
+                <div className="flex gap-3">
+                  {[{ value: 'excel', label: 'Excel (.xlsx)', color: 'green' }, { value: 'pdf', label: 'PDF', color: 'red' }].map((f) => (
+                    <button key={f.value} onClick={() => setExportFormat(f.value)}
+                      className={`flex-1 py-2.5 rounded-xl border-2 font-bold text-sm transition-all ${exportFormat === f.value ? `border-${f.color}-500 bg-${f.color}-50 text-${f.color}-700` : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}>
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-gray-200 px-6 py-4 flex justify-end gap-3 rounded-b-2xl">
+              <button onClick={() => setShowExportModal(false)} className="px-5 py-2.5 border-2 border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition-colors">
+                Cancel
+              </button>
+              <button onClick={handleSAExport} disabled={exporting || (exportScope === 'region' && !exportSelectedRegion) || (exportScope === 'colleges' && exportSelectedColleges.length === 0)}
+                className="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold rounded-xl hover:from-purple-700 hover:to-indigo-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
+                <Download size={16} />
+                {exporting ? 'Exporting...' : 'Export'}
+              </button>
             </div>
           </div>
         </div>

@@ -107,7 +107,7 @@ export const checkApplicationReadiness = async (req, res) => {
 
     // Get job details for fallback
     const jobResult = await query(
-      `SELECT id, job_title, company_name, min_cgpa, max_backlogs, backlog_max_semester, allowed_branches
+      `SELECT id, job_title, company_name, min_cgpa, max_backlogs, backlog_max_semester, allowed_backlog_semesters, allowed_branches
        FROM jobs
        WHERE id = $1 AND is_active = TRUE`,
       [jobId]
@@ -222,13 +222,33 @@ export const checkApplicationReadiness = async (req, res) => {
       student.backlogs_sem5 || 0, student.backlogs_sem6 || 0,
     ];
     const totalBacklogs = semBacklogs.reduce((a, b) => a + b, 0);
-    const backlogMaxSem = requirements.backlog_max_semester || null;
 
     if (requirements.max_backlogs !== null && requirements.max_backlogs !== undefined) {
       let backlogFailed = false;
       let backlogMessage = '';
 
-      if (backlogMaxSem) {
+      const allowedSems = Array.isArray(requirements.allowed_backlog_semesters)
+        ? requirements.allowed_backlog_semesters.map(Number).filter(n => n >= 1 && n <= 6)
+        : [];
+
+      if (allowedSems.length > 0) {
+        // New: specific semester whitelist
+        const nonAllowed = [1, 2, 3, 4, 5, 6].filter(s => !allowedSems.includes(s));
+        const backlogsInNonAllowed = nonAllowed.reduce((sum, s) => sum + (semBacklogs[s - 1] || 0), 0);
+        if (backlogsInNonAllowed > 0) {
+          const badSems = nonAllowed.filter(s => semBacklogs[s - 1] > 0);
+          backlogFailed = true;
+          backlogMessage = `You have backlogs in Semester(s) ${badSems.join(', ')} which are not permitted. Only Semester(s) ${allowedSems.join(', ')} are allowed`;
+        } else {
+          const backlogsInAllowed = allowedSems.reduce((sum, s) => sum + (semBacklogs[s - 1] || 0), 0);
+          if (backlogsInAllowed > requirements.max_backlogs) {
+            backlogFailed = true;
+            backlogMessage = `Maximum ${requirements.max_backlogs} backlogs allowed in Semester(s) ${allowedSems.join(', ')}. You have ${backlogsInAllowed}`;
+          }
+        }
+      } else if (requirements.backlog_max_semester) {
+        // Legacy: range-based
+        const backlogMaxSem = requirements.backlog_max_semester;
         const withinRange = semBacklogs.slice(0, backlogMaxSem).reduce((a, b) => a + b, 0);
         const afterRange = semBacklogs.slice(backlogMaxSem).reduce((a, b) => a + b, 0);
         if (afterRange > 0) {

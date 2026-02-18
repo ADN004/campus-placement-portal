@@ -826,14 +826,30 @@ const checkJobEligibility = async (jobId, student) => {
       ];
       const totalBacklogs = semBacklogs.reduce((a, b) => a + b, 0);
 
-      if (job.backlog_max_semester) {
-        // Semester-restricted check: backlogs within range must be <= max, and zero after range
+      const allowedSems = Array.isArray(job.allowed_backlog_semesters)
+        ? job.allowed_backlog_semesters.map(Number).filter(n => n >= 1 && n <= 6)
+        : [];
+
+      if (allowedSems.length > 0) {
+        // New: specific semester whitelist
+        const nonAllowed = [1, 2, 3, 4, 5, 6].filter(s => !allowedSems.includes(s));
+        const backlogsInNonAllowed = nonAllowed.reduce((sum, s) => sum + (semBacklogs[s - 1] || 0), 0);
+        if (backlogsInNonAllowed > 0) {
+          const badSems = nonAllowed.filter(s => semBacklogs[s - 1] > 0);
+          return { isEligible: false, reason: `You have backlogs in Semester(s) ${badSems.join(', ')} which are not permitted. Only Semester(s) ${allowedSems.join(', ')} are allowed` };
+        }
+        const backlogsInAllowed = allowedSems.reduce((sum, s) => sum + (semBacklogs[s - 1] || 0), 0);
+        if (backlogsInAllowed > parseInt(job.max_backlogs)) {
+          return { isEligible: false, reason: `You have ${backlogsInAllowed} backlogs in allowed semesters (${allowedSems.join(', ')}), maximum allowed is ${job.max_backlogs}` };
+        }
+      } else if (job.backlog_max_semester) {
+        // Legacy: range-based check
         const withinRange = semBacklogs.slice(0, job.backlog_max_semester).reduce((a, b) => a + b, 0);
         const afterRange = semBacklogs.slice(job.backlog_max_semester).reduce((a, b) => a + b, 0);
-        if (withinRange > parseInt(job.max_backlogs) || afterRange > 0) {
-          if (afterRange > 0) {
-            return { isEligible: false, reason: `You have backlogs in semesters after Sem ${job.backlog_max_semester}. Only backlogs within Sem 1-${job.backlog_max_semester} are allowed` };
-          }
+        if (afterRange > 0) {
+          return { isEligible: false, reason: `You have backlogs in semesters after Sem ${job.backlog_max_semester}. Only backlogs within Sem 1-${job.backlog_max_semester} are allowed` };
+        }
+        if (withinRange > parseInt(job.max_backlogs)) {
           return { isEligible: false, reason: `You have ${withinRange} backlogs within Sem 1-${job.backlog_max_semester}, maximum allowed is ${job.max_backlogs}` };
         }
       } else {

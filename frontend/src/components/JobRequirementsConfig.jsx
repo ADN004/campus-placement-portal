@@ -20,8 +20,8 @@ const JobRequirementsConfig = ({ jobId, onRequirementsSaved, initialData = null 
   const [requirements, setRequirements] = useState({
     min_cgpa: initialData?.min_cgpa || '',
     max_backlogs: initialData?.max_backlogs !== null && initialData?.max_backlogs !== undefined ? String(initialData.max_backlogs) : '',
-    backlog_max_semester: initialData?.backlog_max_semester ? String(initialData.backlog_max_semester) : '',
     backlog_policy: initialData?.max_backlogs === null || initialData?.max_backlogs === undefined ? 'no_restriction' : initialData?.max_backlogs === 0 ? 'no_backlogs' : 'limited',
+    allowed_backlog_semesters: Array.isArray(initialData?.allowed_backlog_semesters) ? initialData.allowed_backlog_semesters.map(Number) : [],
     allowed_branches: initialData?.allowed_branches || [],
     requires_academic_extended: initialData?.requires_academic_extended || false,
     requires_physical_details: initialData?.requires_physical_details || false,
@@ -62,8 +62,8 @@ const JobRequirementsConfig = ({ jobId, onRequirementsSaved, initialData = null 
         setRequirements({
           min_cgpa: template.min_cgpa || '',
           max_backlogs: template.max_backlogs !== null && template.max_backlogs !== undefined ? String(template.max_backlogs) : '',
-          backlog_max_semester: template.backlog_max_semester ? String(template.backlog_max_semester) : '',
           backlog_policy: template.max_backlogs === null || template.max_backlogs === undefined ? 'no_restriction' : template.max_backlogs === 0 ? 'no_backlogs' : 'limited',
+          allowed_backlog_semesters: Array.isArray(template.allowed_backlog_semesters) ? template.allowed_backlog_semesters.map(Number) : [],
           allowed_branches: template.allowed_branches || [],
           requires_academic_extended: template.requires_academic_extended || false,
           requires_physical_details: template.requires_physical_details || false,
@@ -201,11 +201,11 @@ const JobRequirementsConfig = ({ jobId, onRequirementsSaved, initialData = null 
               onChange={(e) => {
                 const policy = e.target.value;
                 if (policy === 'no_restriction') {
-                  setRequirements({ ...requirements, backlog_policy: policy, max_backlogs: '', backlog_max_semester: '' });
+                  setRequirements({ ...requirements, backlog_policy: policy, max_backlogs: '', allowed_backlog_semesters: [] });
                 } else if (policy === 'no_backlogs') {
-                  setRequirements({ ...requirements, backlog_policy: policy, max_backlogs: '0', backlog_max_semester: '' });
+                  setRequirements({ ...requirements, backlog_policy: policy, max_backlogs: '0', allowed_backlog_semesters: [] });
                 } else {
-                  setRequirements({ ...requirements, backlog_policy: policy, max_backlogs: requirements.max_backlogs || '1', backlog_max_semester: '' });
+                  setRequirements({ ...requirements, backlog_policy: policy, max_backlogs: requirements.max_backlogs || '1', allowed_backlog_semesters: [] });
                 }
               }}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -217,7 +217,7 @@ const JobRequirementsConfig = ({ jobId, onRequirementsSaved, initialData = null 
           </div>
         </div>
         {requirements.backlog_policy === 'limited' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+          <div className="mt-4 space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Maximum Backlogs Allowed
@@ -234,18 +234,25 @@ const JobRequirementsConfig = ({ jobId, onRequirementsSaved, initialData = null 
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Backlogs Must Be Within
+                Allowed Backlog Semesters <span className="text-xs font-normal text-gray-500">(leave all unchecked = any semester allowed)</span>
               </label>
-              <select
-                value={requirements.backlog_max_semester}
-                onChange={(e) => setRequirements({ ...requirements, backlog_max_semester: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Any Semester</option>
+              <div className="flex flex-wrap gap-2">
                 {[1, 2, 3, 4, 5, 6].map(sem => (
-                  <option key={sem} value={String(sem)}>Up to Semester {sem}</option>
+                  <label key={sem} className="flex items-center gap-2 cursor-pointer px-3 py-2 border border-gray-300 rounded-lg hover:bg-blue-50">
+                    <input
+                      type="checkbox"
+                      checked={requirements.allowed_backlog_semesters.includes(sem)}
+                      onChange={() => {
+                        const current = requirements.allowed_backlog_semesters;
+                        const updated = current.includes(sem) ? current.filter(s => s !== sem) : [...current, sem].sort((a, b) => a - b);
+                        setRequirements({ ...requirements, allowed_backlog_semesters: updated });
+                      }}
+                      className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                    />
+                    <span className="text-sm font-medium">Sem {sem}</span>
+                  </label>
                 ))}
-              </select>
+              </div>
             </div>
           </div>
         )

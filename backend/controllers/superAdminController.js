@@ -952,6 +952,7 @@ export const createJob = async (req, res) => {
       min_cgpa,
       max_backlogs,
       backlog_max_semester,
+      allowed_backlog_semesters,
       allowed_branches,
       target_type,
       target_regions,
@@ -976,9 +977,9 @@ export const createJob = async (req, res) => {
       const jobResult = await client.query(
         `INSERT INTO jobs
          (job_title, company_name, job_description, job_location, no_of_vacancies, salary_package,
-          application_form_url, application_start_date, application_deadline, min_cgpa, max_backlogs, backlog_max_semester, allowed_branches,
+          application_form_url, application_start_date, application_deadline, min_cgpa, max_backlogs, backlog_max_semester, allowed_backlog_semesters, allowed_branches,
           target_type, target_regions, target_colleges, created_by, is_active)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, $8, $9, $10, $11, $12, $13, $14, $15, $16, TRUE)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, $8, $9, $10, $11, $12::jsonb, $13, $14, $15, $16, $17, TRUE)
          RETURNING *`,
         [
           title,
@@ -992,6 +993,7 @@ export const createJob = async (req, res) => {
           min_cgpa || null,
           max_backlogs !== undefined && max_backlogs !== '' ? max_backlogs : null,
           backlog_max_semester || null,
+          JSON.stringify(allowed_backlog_semesters && allowed_backlog_semesters.length > 0 ? allowed_backlog_semesters : []),
           allowed_branches ? (typeof allowed_branches === 'string' ? allowed_branches : JSON.stringify(allowed_branches)) : null,
           target_type || 'all',
           target_regions ? (typeof target_regions === 'string' ? target_regions : JSON.stringify(target_regions)) : null,
@@ -1097,6 +1099,7 @@ export const updateJob = async (req, res) => {
       min_cgpa,
       max_backlogs,
       backlog_max_semester,
+      allowed_backlog_semesters,
       allowed_branches,
       target_type,
       target_regions,
@@ -1152,6 +1155,10 @@ export const updateJob = async (req, res) => {
     if (backlog_max_semester !== undefined) {
       updates.push(`backlog_max_semester = $${paramCount++}`);
       values.push(backlog_max_semester || null);
+    }
+    if (allowed_backlog_semesters !== undefined) {
+      updates.push(`allowed_backlog_semesters = $${paramCount++}::jsonb`);
+      values.push(JSON.stringify(allowed_backlog_semesters && allowed_backlog_semesters.length > 0 ? allowed_backlog_semesters : []));
     }
     if (allowed_branches !== undefined) {
       updates.push(`allowed_branches = $${paramCount++}`);
@@ -2510,10 +2517,10 @@ export const approveJobRequest = async (req, res) => {
       const jobResult = await client.query(
         `INSERT INTO jobs
          (job_title, company_name, job_description, job_location, no_of_vacancies, salary_package,
-          application_form_url, application_start_date, application_deadline, min_cgpa, max_backlogs, backlog_max_semester,
+          application_form_url, application_start_date, application_deadline, min_cgpa, max_backlogs, backlog_max_semester, allowed_backlog_semesters,
           allowed_branches, target_type, target_regions, target_colleges, created_by, is_active,
           placement_officer_id, source_job_request_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, $8, $9, $10, $11, $12::jsonb, $13, $14::jsonb, $15::jsonb, $16, TRUE, $17, $18)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, $8, $9, $10, $11, $12::jsonb, $13::jsonb, $14, $15::jsonb, $16::jsonb, $17, TRUE, $18, $19)
          RETURNING *`,
         [
           jobRequest.job_title,
@@ -2527,6 +2534,7 @@ export const approveJobRequest = async (req, res) => {
           jobRequest.min_cgpa || null,
           jobRequest.max_backlogs !== null && jobRequest.max_backlogs !== undefined ? jobRequest.max_backlogs : null,
           jobRequest.backlog_max_semester || null,
+          JSON.stringify(jobRequest.allowed_backlog_semesters && jobRequest.allowed_backlog_semesters.length > 0 ? jobRequest.allowed_backlog_semesters : []),
           jobRequest.allowed_branches ? JSON.stringify(jobRequest.allowed_branches) : null,
           targetType,
           targetRegions ? JSON.stringify(targetRegions) : null,
@@ -2547,17 +2555,18 @@ export const approveJobRequest = async (req, res) => {
         const requirements = requirementsResult.rows[0];
         await client.query(
           `INSERT INTO job_requirement_templates (
-            job_id, min_cgpa, max_backlogs, backlog_max_semester, allowed_branches,
+            job_id, min_cgpa, max_backlogs, backlog_max_semester, allowed_backlog_semesters, allowed_branches,
             requires_academic_extended, requires_physical_details,
             requires_family_details, requires_personal_details,
             requires_document_verification, requires_education_preferences,
             specific_field_requirements, custom_fields
-          ) VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9, $10, $11, $12::jsonb, $13::jsonb)`,
+          ) VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7, $8, $9, $10, $11, $12, $13::jsonb, $14::jsonb)`,
           [
             jobResult.rows[0].id,
             requirements.min_cgpa,
             requirements.max_backlogs,
             requirements.backlog_max_semester || null,
+            JSON.stringify(requirements.allowed_backlog_semesters && requirements.allowed_backlog_semesters.length > 0 ? requirements.allowed_backlog_semesters : []),
             requirements.allowed_branches ? JSON.stringify(requirements.allowed_branches) : null,
             requirements.requires_academic_extended,
             requirements.requires_physical_details,

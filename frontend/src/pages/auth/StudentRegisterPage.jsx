@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { commonAPI } from '../../services/api';
-import { UserPlus, CheckCircle, XCircle, Upload, X } from 'lucide-react';
+import { UserPlus, CheckCircle, XCircle, Upload, X, Mail, ShieldCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { BRANCH_SHORT_NAMES } from '../../constants/branches';
 
@@ -14,6 +14,7 @@ export default function StudentRegisterPage() {
   const [prnValid, setPrnValid] = useState(null);
   const [prnChecking, setPrnChecking] = useState(false);
   const [photoPreview, setPhotoPreview] = useState(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const [formData, setFormData] = useState({
     prn: '',
@@ -135,9 +136,9 @@ export default function StudentRegisterPage() {
     return age;
   };
 
-  // Calculate programme CGPA from non-zero semesters (supports lateral entry students)
-  const calculateProgrammeCGPA = (sem1, sem2, sem3, sem4) => {
-    const semesters = [sem1, sem2, sem3, sem4].filter(val => val && !isNaN(parseFloat(val)) && parseFloat(val) > 0);
+  // Calculate programme CGPA from all non-zero filled semesters (supports lateral entry students)
+  const calculateProgrammeCGPA = (sem1, sem2, sem3, sem4, sem5, sem6) => {
+    const semesters = [sem1, sem2, sem3, sem4, sem5, sem6].filter(val => val && !isNaN(parseFloat(val)) && parseFloat(val) > 0);
     if (semesters.length === 0) return '';
     const sum = semesters.reduce((acc, val) => acc + parseFloat(val), 0);
     return (sum / semesters.length).toFixed(2);
@@ -186,13 +187,15 @@ export default function StudentRegisterPage() {
         updated.age = calculateAge(value);
       }
 
-      // Auto-calculate programme CGPA when sem1-4 changes
-      if (['cgpa_sem1', 'cgpa_sem2', 'cgpa_sem3', 'cgpa_sem4'].includes(name)) {
+      // Auto-calculate programme CGPA when any semester SGPA changes
+      if (['cgpa_sem1', 'cgpa_sem2', 'cgpa_sem3', 'cgpa_sem4', 'cgpa_sem5', 'cgpa_sem6'].includes(name)) {
         updated.programme_cgpa = calculateProgrammeCGPA(
           name === 'cgpa_sem1' ? value : prev.cgpa_sem1,
           name === 'cgpa_sem2' ? value : prev.cgpa_sem2,
           name === 'cgpa_sem3' ? value : prev.cgpa_sem3,
-          name === 'cgpa_sem4' ? value : prev.cgpa_sem4
+          name === 'cgpa_sem4' ? value : prev.cgpa_sem4,
+          name === 'cgpa_sem5' ? value : prev.cgpa_sem5,
+          name === 'cgpa_sem6' ? value : prev.cgpa_sem6
         );
       }
 
@@ -231,14 +234,44 @@ export default function StudentRegisterPage() {
     setLoading(false);
 
     if (result.success) {
-      setTimeout(() => {
-        navigate('/login');
-      }, 2000);
+      setShowSuccessModal(true);
     }
+  };
+
+  const handleSuccessModalClose = () => {
+    setShowSuccessModal(false);
+    navigate('/login');
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 py-12 px-4 relative overflow-hidden">
+      {/* Registration Success Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center animate-in fade-in zoom-in duration-300">
+            <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-5">
+              <ShieldCheck className="text-green-600" size={32} />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-3">Registration Successful!</h2>
+            <p className="text-gray-600 mb-2">
+              Your account has been created and is now pending approval from your college's Placement Officer.
+            </p>
+            <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-6 text-left">
+              <Mail className="text-blue-500 flex-shrink-0 mt-0.5" size={18} />
+              <p className="text-sm text-blue-800">
+                Once approved, you will receive an email with a verification link to activate your account. Please ensure you have access to the email address you provided.
+              </p>
+            </div>
+            <button
+              onClick={handleSuccessModalClose}
+              className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white font-semibold py-3 px-6 rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-200 shadow-lg hover:shadow-xl"
+            >
+              OK, Got it
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Enhanced Animated Background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"></div>
@@ -436,12 +469,17 @@ export default function StudentRegisterPage() {
                     id="email"
                     type="email"
                     name="email"
+                    autoComplete="email"
+                    inputMode="email"
                     value={formData.email}
                     onChange={handleChange}
                     placeholder="your.email@example.com"
                     className="input"
                     required
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Please ensure this is your active email — your verification link will be sent here.
+                  </p>
                 </div>
 
                 {/* Mobile Number */}
@@ -593,10 +631,10 @@ export default function StudentRegisterPage() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Semester 1 CGPA */}
+                {/* Semester 1 SGPA */}
                 <div>
                   <label htmlFor="cgpa_sem1" className="label">
-                    Semester 1 CGPA *
+                    Semester 1 SGPA *
                   </label>
                   <input
                     id="cgpa_sem1"
@@ -613,10 +651,10 @@ export default function StudentRegisterPage() {
                   />
                 </div>
 
-                {/* Semester 2 CGPA */}
+                {/* Semester 2 SGPA */}
                 <div>
                   <label htmlFor="cgpa_sem2" className="label">
-                    Semester 2 CGPA *
+                    Semester 2 SGPA *
                   </label>
                   <input
                     id="cgpa_sem2"
@@ -633,10 +671,10 @@ export default function StudentRegisterPage() {
                   />
                 </div>
 
-                {/* Semester 3 CGPA */}
+                {/* Semester 3 SGPA */}
                 <div>
                   <label htmlFor="cgpa_sem3" className="label">
-                    Semester 3 CGPA *
+                    Semester 3 SGPA *
                   </label>
                   <input
                     id="cgpa_sem3"
@@ -653,10 +691,10 @@ export default function StudentRegisterPage() {
                   />
                 </div>
 
-                {/* Semester 4 CGPA */}
+                {/* Semester 4 SGPA */}
                 <div>
                   <label htmlFor="cgpa_sem4" className="label">
-                    Semester 4 CGPA *
+                    Semester 4 SGPA *
                   </label>
                   <input
                     id="cgpa_sem4"
@@ -673,10 +711,10 @@ export default function StudentRegisterPage() {
                   />
                 </div>
 
-                {/* Semester 5 CGPA */}
+                {/* Semester 5 SGPA */}
                 <div>
                   <label htmlFor="cgpa_sem5" className="label">
-                    Semester 5 CGPA
+                    Semester 5 SGPA
                   </label>
                   <input
                     id="cgpa_sem5"
@@ -692,10 +730,10 @@ export default function StudentRegisterPage() {
                   />
                 </div>
 
-                {/* Semester 6 CGPA */}
+                {/* Semester 6 SGPA */}
                 <div>
                   <label htmlFor="cgpa_sem6" className="label">
-                    Semester 6 CGPA
+                    Semester 6 SGPA
                   </label>
                   <input
                     id="cgpa_sem6"

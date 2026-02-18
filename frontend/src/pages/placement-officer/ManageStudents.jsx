@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { placementOfficerAPI } from '../../services/api';
 import toast from 'react-hot-toast';
@@ -17,6 +17,7 @@ export default function ManageStudents() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusCounts, setStatusCounts] = useState({
     all: 0,
     pending: 0,
@@ -133,9 +134,17 @@ export default function ManageStudents() {
     }
   };
 
+  // Debounce search input (400ms delay)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   useEffect(() => {
     fetchStudents();
-  }, [currentPage, pageSize, activeTab, searchQuery, advancedFilters, filterDocuments, filterDistricts]);
+  }, [currentPage, pageSize, activeTab, debouncedSearch, advancedFilters, filterDocuments, filterDistricts]);
 
   const fetchCollegeBranches = async () => {
     try {
@@ -151,7 +160,7 @@ export default function ManageStudents() {
       setCurrentPage(1);
     }
     setSelectedStudents([]);
-  }, [activeTab, searchQuery, advancedFilters, filterDocuments, filterDistricts]);
+  }, [activeTab, debouncedSearch, advancedFilters, filterDocuments, filterDistricts]);
 
   const fetchCgpaLockStatus = async () => {
     try {
@@ -259,8 +268,8 @@ export default function ManageStudents() {
         params.status = activeTab;
       }
 
-      if (searchQuery.trim()) {
-        params.search = searchQuery.trim();
+      if (debouncedSearch.trim()) {
+        params.search = debouncedSearch.trim();
       }
 
       if (advancedFilters.cgpaMin) {

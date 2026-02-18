@@ -106,12 +106,12 @@ const StudentDetailModal = ({ isOpen, onClose, studentId, applicationId, userRol
                   <DetailRow label="Region" value={student.region_name} />
                   <DetailRow label="Branch" value={student.branch} />
                   <DetailRow label="Programme CGPA" value={student.programme_cgpa} />
-                  <DetailRow label="Semester 1 CGPA" value={student.cgpa_sem1} />
-                  <DetailRow label="Semester 2 CGPA" value={student.cgpa_sem2} />
-                  <DetailRow label="Semester 3 CGPA" value={student.cgpa_sem3} />
-                  <DetailRow label="Semester 4 CGPA" value={student.cgpa_sem4} />
-                  <DetailRow label="Semester 5 CGPA" value={student.cgpa_sem5} />
-                  <DetailRow label="Semester 6 CGPA" value={student.cgpa_sem6} />
+                  <DetailRow label="Semester 1 SGPA" value={student.cgpa_sem1} />
+                  <DetailRow label="Semester 2 SGPA" value={student.cgpa_sem2} />
+                  <DetailRow label="Semester 3 SGPA" value={student.cgpa_sem3} />
+                  <DetailRow label="Semester 4 SGPA" value={student.cgpa_sem4} />
+                  <DetailRow label="Semester 5 SGPA" value={student.cgpa_sem5} />
+                  <DetailRow label="Semester 6 SGPA" value={student.cgpa_sem6} />
                   <DetailRow label="Backlogs" value={student.backlog_count || '0'} />
                   {student.backlog_details && (
                     <div className="md:col-span-2">

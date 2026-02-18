@@ -126,10 +126,10 @@ export default function PlacementPoster() {
     },
     {
       title: 'Companies',
-      value: stats.total_companies || 0,
+      value: stats.recruiting_companies || stats.total_companies || 0,
       icon: Building2,
       gradient: 'from-blue-500 to-indigo-600',
-      description: 'Recruiting companies',
+      description: `Recruiting companies${stats.total_companies ? ` (${stats.total_companies} placed)` : ''}`,
     },
     {
       title: 'Highest Package',

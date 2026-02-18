@@ -2349,7 +2349,25 @@ export const getPlacementPosterStats = async (req, res) => {
 
     const companiesResult = await query(companiesQuery, [collegeId]);
 
-    console.log(`✅ [PLACEMENT POSTER STATS] ${stats.total_students_placed} students placed across ${stats.total_companies} companies`);
+    // Count recruiting companies (active jobs available for this college)
+    const recruitingQuery = `
+      SELECT COUNT(DISTINCT j.company_name) as recruiting_companies
+      FROM jobs j
+      WHERE j.is_active = TRUE
+        AND j.is_deleted = FALSE
+        AND (
+          j.target_type = 'all'
+          OR (j.target_type = 'college' AND j.target_colleges @> to_jsonb($1::int))
+          OR (j.target_type = 'specific' AND j.target_colleges @> to_jsonb($1::int))
+          OR (j.target_type = 'region' AND j.target_regions @> (
+            SELECT to_jsonb(c.region_id) FROM colleges c WHERE c.id = $1
+          ))
+        )
+    `;
+    const recruitingResult = await query(recruitingQuery, [collegeId]);
+    const recruitingCompanies = parseInt(recruitingResult.rows[0].recruiting_companies) || 0;
+
+    console.log(`✅ [PLACEMENT POSTER STATS] ${stats.total_students_placed} students placed across ${stats.total_companies} companies, ${recruitingCompanies} recruiting`);
 
     // Log activity
     await logActivity(
@@ -2369,6 +2387,7 @@ export const getPlacementPosterStats = async (req, res) => {
         college_logo_url: logoUrl,
         total_students_placed: parseInt(stats.total_students_placed) || 0,
         total_companies: parseInt(stats.total_companies) || 0,
+        recruiting_companies: recruitingCompanies,
         highest_package: parseFloat(stats.highest_package) || 0,
         average_package: Math.round((parseFloat(stats.average_package) || 0) * 100) / 100, // Round to 2 decimals
         placement_year_start: parseInt(stats.start_year) || new Date().getFullYear(),

@@ -71,7 +71,6 @@ export const AuthProvider = ({ children }) => {
   const registerStudent = async (data) => {
     try {
       const response = await authAPI.registerStudent(data);
-      toast.success(response.data.message || 'Registration successful!');
       return { success: true };
     } catch (error) {
       const message = error.response?.data?.message || 'Registration failed';

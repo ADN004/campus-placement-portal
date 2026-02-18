@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { superAdminAPI, commonAPI } from '../../services/api';
 import {
@@ -34,6 +34,7 @@ export default function ManageAllStudents() {
   const [loading, setLoading] = useState(true);
   const { showSkeleton } = useSkeleton(loading);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filterRegion, setFilterRegion] = useState('');
   const [filterCollege, setFilterCollege] = useState('');
   const [filterStatus, setFilterStatus] = useState(searchParams.get('filter') || '');
@@ -138,18 +139,26 @@ export default function ManageAllStudents() {
     initializeData();
   }, []);
 
+  // Debounce search input (400ms delay)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   useEffect(() => {
     if (regions.length > 0 && colleges.length > 0) {
       fetchStudents();
     }
-  }, [currentPage, pageSize, regions, colleges, filterRegion, filterCollege, filterStatus, filterBranch, searchQuery, advancedFilters, dobFrom, dobTo, heightMin, heightMax, weightMin, weightMax, filterDocuments, filterDistricts]);
+  }, [currentPage, pageSize, regions, colleges, filterRegion, filterCollege, filterStatus, filterBranch, debouncedSearch, advancedFilters, dobFrom, dobTo, heightMin, heightMax, weightMin, weightMax, filterDocuments, filterDistricts]);
 
   // Reset to page 1 when filters change
   useEffect(() => {
     if (currentPage !== 1) {
       setCurrentPage(1);
     }
-  }, [filterRegion, filterCollege, filterStatus, filterBranch, searchQuery, advancedFilters, dobFrom, dobTo, heightMin, heightMax, weightMin, weightMax, filterDocuments, filterDistricts]);
+  }, [filterRegion, filterCollege, filterStatus, filterBranch, debouncedSearch, advancedFilters, dobFrom, dobTo, heightMin, heightMax, weightMin, weightMax, filterDocuments, filterDistricts]);
 
   // Fetch branches when college is selected
   useEffect(() => {
@@ -293,7 +302,7 @@ export default function ManageAllStudents() {
       });
 
       if (filterStatus) params.append('status', filterStatus);
-      if (searchQuery) params.append('search', searchQuery);
+      if (debouncedSearch) params.append('search', debouncedSearch);
 
       const selectedRegion = regions.find(r => r.region_name === filterRegion);
       if (selectedRegion) params.append('region_id', selectedRegion.id);

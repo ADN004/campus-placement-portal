@@ -537,7 +537,7 @@ export default function StudentProfile() {
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                       {[1, 2, 3, 4, 5, 6].map(sem => (
                         <div key={sem}>
-                          <label className="block text-sm font-bold text-gray-700 mb-2">Semester {sem} CGPA</label>
+                          <label className="block text-sm font-bold text-gray-700 mb-2">Semester {sem} SGPA</label>
                           {editMode && !(cgpaLocked && profile?.registration_status === 'approved') ? (
                             <input
                               type="number"

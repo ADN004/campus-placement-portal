@@ -1508,8 +1508,8 @@ export default function JobEligibleStudents() {
       <DriveScheduleModal
         isOpen={showDriveModal}
         onClose={() => setShowDriveModal(false)}
-        onSubmit={handleDriveSubmit}
-        initialData={driveData}
+        onSave={handleDriveSubmit}
+        existingDrive={driveData}
         jobTitle={selectedJob?.job_title}
       />
 

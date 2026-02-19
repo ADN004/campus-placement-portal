@@ -10,15 +10,19 @@ const DriveScheduleModal = ({ isOpen, onClose, onSave, existingDrive, jobTitle }
   });
 
   useEffect(() => {
-    if (existingDrive) {
-      setFormData({
-        drive_date: existingDrive.drive_date ? existingDrive.drive_date.split('T')[0] : '',
-        drive_time: existingDrive.drive_time || '',
-        drive_location: existingDrive.drive_location || '',
-        additional_instructions: existingDrive.additional_instructions || '',
-      });
+    if (isOpen) {
+      if (existingDrive) {
+        setFormData({
+          drive_date: existingDrive.drive_date ? existingDrive.drive_date.split('T')[0] : '',
+          drive_time: existingDrive.drive_time || '',
+          drive_location: existingDrive.drive_location || '',
+          additional_instructions: existingDrive.additional_instructions || '',
+        });
+      } else {
+        setFormData({ drive_date: '', drive_time: '', drive_location: '', additional_instructions: '' });
+      }
     }
-  }, [existingDrive]);
+  }, [isOpen, existingDrive]);
 
   const handleSubmit = (e) => {
     e.preventDefault();

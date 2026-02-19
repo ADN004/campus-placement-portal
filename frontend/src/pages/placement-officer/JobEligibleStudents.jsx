@@ -491,7 +491,7 @@ export default function JobEligibleStudents() {
     setShowExportDropdown(false);
   };
 
-  const handlePDFExportWithFields = async ({ fields: selectedFields, includeSignature }) => {
+  const handlePDFExportWithFields = async ({ fields: selectedFields, includeSignature, headerLine1, headerLine2 }) => {
     try {
       setExporting(true);
       setShowPDFFieldSelector(false);
@@ -501,6 +501,8 @@ export default function JobEligibleStudents() {
         format: 'pdf',
         pdf_fields: selectedFields,
         include_signature: includeSignature || false,
+        header_line1: headerLine1 || '',
+        header_line2: headerLine2 || null,
         exclude_already_placed: !includePlacedInExport,
         college_ids: isHost && exportCollegeIds.length > 0 ? exportCollegeIds : [],
       };

@@ -1679,6 +1679,8 @@ export const enhancedExportJobApplicants = async (req, res) => {
       use_short_names = true,
       include_signature = false,
       exclude_already_placed = false,
+      header_line1,
+      header_line2,
     } = req.body;
 
     // Check if this PO is the host (creator) of this job
@@ -1849,361 +1851,17 @@ export const enhancedExportJobApplicants = async (req, res) => {
 
     // Handle PDF export with custom fields
     if (format === 'pdf') {
-      const { default: PDFDocument } = await import('pdfkit');
-
-      // Determine which fields to include
-      const fieldMap = {
-        prn: { label: 'PRN', width: 70 },
-        student_name: { label: 'Name', width: 100 },
-        email: { label: 'Email', width: 120 },
-        mobile_number: { label: 'Mobile', width: 80 },
-        branch: { label: 'Branch', width: 80 },
-        programme_cgpa: { label: 'CGPA', width: 50 },
-        backlog_count: { label: 'Backlogs', width: 60 },
-        application_status: { label: 'Status', width: 70 },
-        date_of_birth: { label: 'DOB', width: 70 },
-        gender: { label: 'Gender', width: 50 },
-        sslc_marks: { label: 'SSLC %', width: 50 },
-        twelfth_marks: { label: '12th %', width: 50 },
-        district: { label: 'District', width: 80 },
-        has_passport: { label: 'Passport', width: 60 },
-        has_aadhar_card: { label: 'Aadhar', width: 60 },
-        has_driving_license: { label: 'DL', width: 50 },
-        has_pan_card: { label: 'PAN', width: 50 },
-        height_cm: { label: 'Height', width: 50 },
-        weight_kg: { label: 'Weight', width: 50 },
-      };
-
       const selectedFields = pdf_fields.length > 0
-        ? pdf_fields.filter(field => fieldMap[field])
+        ? pdf_fields
         : ['prn', 'student_name', 'branch', 'programme_cgpa', 'application_status'];
 
-      // Signature column config
-      const signatureWidth = include_signature ? 70 : 0;
+      // Normalize field aliases so PDF generator can find data by key
+      const normalizedApplicants = applicants.map(a => ({
+        ...a,
+        cgpa: a.programme_cgpa,
+        mobile: a.mobile_number,
+      }));
 
-      // Determine orientation based on number of selected fields
-      // Portrait: <= 6 fields, Landscape: > 6 fields
-      const totalCols = selectedFields.length + (include_signature ? 1 : 0);
-      const layout = totalCols <= 6 ? 'portrait' : 'landscape';
-      const pageMargin = 25;
-
-      const doc = new PDFDocument({
-        margin: pageMargin,
-        size: 'A4',
-        layout: layout
-      });
-
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader(
-        'Content-Disposition',
-        `attachment; filename=job_applicants_${jobTitle.replace(/\s+/g, '_')}_${Date.now()}.pdf`
-      );
-
-      doc.pipe(res);
-
-      // Function to draw border on current page
-      const drawPageBorder = () => {
-        doc.save();
-        doc.strokeColor('#000000')
-           .lineWidth(2)
-           .rect(pageMargin, pageMargin, doc.page.width - (2 * pageMargin), doc.page.height - (2 * pageMargin))
-           .stroke();
-        doc.restore();
-      };
-
-      // Draw border on first page
-      drawPageBorder();
-
-      // Title (start at y=40 for proper spacing from top border at 25)
-      doc.fontSize(16).font('Helvetica-Bold').text(`Job Applicants - ${jobTitle}`, 0, 40, { width: doc.page.width, align: 'center' });
-      doc.fontSize(12).font('Helvetica').text(`Company: ${companyName}`, 0, 60, { width: doc.page.width, align: 'center' });
-      doc.fontSize(10).text(`Total Applicants: ${applicants.length}`, 0, 77, { width: doc.page.width, align: 'center' });
-      doc.moveDown();
-
-      // Calculate table positioning with proper margins
-      const availableWidth = doc.page.width - (2 * pageMargin);
-      const tableWidth = selectedFields.reduce((sum, field) => sum + (fieldMap[field]?.width || 60), 0) + signatureWidth;
-
-      // Use left alignment with margin if table is too wide, otherwise center
-      const startX = tableWidth > availableWidth ? pageMargin : (doc.page.width - tableWidth) / 2;
-      let currentY = doc.y + 10; // Add spacing after header
-
-      // Helper: draw header row (fields + optional signature)
-      const drawHeaderRow = (y) => {
-        let x = startX;
-        doc.fontSize(9).font('Helvetica-Bold');
-        selectedFields.forEach(field => {
-          doc.rect(x, y, fieldMap[field].width, 20).stroke();
-          doc.text(fieldMap[field].label, x + 5, y + 5, {
-            width: fieldMap[field].width - 10,
-            align: 'left'
-          });
-          x += fieldMap[field].width;
-        });
-        if (include_signature) {
-          doc.rect(x, y, signatureWidth, 20).fillAndStroke('#F3F4F6', '#000000');
-          doc.fillColor('#000000').text('Signature', x + 5, y + 5, {
-            width: signatureWidth - 10,
-            align: 'center'
-          });
-        }
-      };
-
-      // Draw table header
-      drawHeaderRow(currentY);
-      currentY += 20;
-
-      // Helper: format a single cell value
-      const getFormattedValue = (applicant, field) => {
-        let value = applicant[field];
-        if (field === 'date_of_birth' && value) {
-          return new Date(value).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' });
-        } else if (field === 'branch' && use_short_names && value) {
-          return BRANCH_SHORT_NAMES[value] || value;
-        } else if (field.startsWith('has_') && typeof value === 'boolean') {
-          return value ? 'Yes' : 'No';
-        } else if (value === null || value === undefined) {
-          return '-';
-        }
-        return String(value);
-      };
-
-      // Helper: calculate dynamic row height to prevent text overflow
-      const calcRowHeight = (applicant, fields, minHeight = 15) => {
-        const fontSize = 8;
-        let maxLines = 1;
-        fields.forEach(field => {
-          const cellContentWidth = (fieldMap[field]?.width || 60) - 10;
-          const val = getFormattedValue(applicant, field);
-          const charsPerLine = Math.max(1, Math.floor(cellContentWidth / 5));
-          const lines = Math.ceil(val.length / charsPerLine);
-          if (lines > maxLines) maxLines = lines;
-        });
-        return Math.max(minHeight, maxLines * (fontSize + 4) + 4);
-      };
-
-      // Draw table rows
-      doc.fontSize(8).font('Helvetica');
-      applicants.forEach((applicant) => {
-        const rowHeight = calcRowHeight(applicant, selectedFields);
-
-        // Check if we need a new page
-        if (currentY + rowHeight > doc.page.height - 50) {
-          doc.addPage();
-          drawPageBorder();
-          currentY = 50;
-          drawHeaderRow(currentY);
-          currentY += 20;
-          doc.fontSize(8).font('Helvetica');
-        }
-
-        let currentX = startX;
-        selectedFields.forEach(field => {
-          const value = getFormattedValue(applicant, field);
-          doc.rect(currentX, currentY, fieldMap[field].width, rowHeight).stroke();
-          doc.fontSize(8).font('Helvetica').text(value, currentX + 5, currentY + 3, {
-            width: fieldMap[field].width - 10,
-            align: 'left',
-            lineBreak: true,
-          });
-          currentX += fieldMap[field].width;
-        });
-        // Signature cell (empty for student to sign)
-        if (include_signature) {
-          doc.rect(currentX, currentY, signatureWidth, rowHeight).stroke();
-        }
-        currentY += rowHeight;
-      });
-
-      // Add branch legend if using short names and branch field is included
-      if (use_short_names && selectedFields.includes('branch')) {
-        const uniqueBranches = [...new Set(applicants.map(a => a.branch).filter(Boolean))];
-
-        if (uniqueBranches.length > 0) {
-          // Add a new page for the legend - maintain the same orientation
-          doc.addPage({
-            margin: pageMargin,
-            size: 'A4',
-            layout: layout
-          });
-
-          // Draw border on legend page
-          drawPageBorder();
-
-          let currentY = 40;
-
-          // Draw title
-          doc.fontSize(16)
-             .font('Helvetica-Bold')
-             .fillColor('black')
-             .text('BRANCH CODE REFERENCE', 0, currentY, {
-               width: doc.page.width,
-               align: 'center'
-             });
-          currentY += 35;
-
-          // Sort branches alphabetically
-          const sortedBranches = [...uniqueBranches].sort();
-
-          // Calculate layout (single or two-column)
-          const numBranches = sortedBranches.length;
-          const numColumns = numBranches > 12 ? 2 : 1;
-
-          if (numColumns === 1) {
-            // Single column layout
-            const tableWidth = 450;
-            const startX = (doc.page.width - tableWidth) / 2;
-            const colWidths = { shortName: 100, fullName: 350 };
-            const headerHeight = 30;
-            const rowHeight = 25;
-
-            // Draw headers
-            doc.lineWidth(1).strokeColor('#4B5563');
-            doc.rect(startX, currentY, colWidths.shortName, headerHeight)
-               .fillAndStroke('#4B5563', '#4B5563');
-            doc.rect(startX + colWidths.shortName, currentY, colWidths.fullName, headerHeight)
-               .fillAndStroke('#4B5563', '#4B5563');
-
-            doc.fontSize(10).font('Helvetica-Bold').fillColor('white');
-            doc.text('Code', startX + 2, currentY + 10, {
-              width: colWidths.shortName - 4,
-              align: 'center'
-            });
-            doc.text('Branch Name', startX + colWidths.shortName + 2, currentY + 10, {
-              width: colWidths.fullName - 4,
-              align: 'center'
-            });
-
-            currentY += headerHeight;
-
-            // Draw rows
-            doc.lineWidth(0.5).strokeColor('#E5E7EB');
-            sortedBranches.forEach((branch, index) => {
-              const shortName = BRANCH_SHORT_NAMES[branch] || branch;
-              const fillColor = index % 2 === 0 ? '#F9FAFB' : 'white';
-
-              doc.rect(startX, currentY, colWidths.shortName, rowHeight)
-                 .fillAndStroke(fillColor, '#E5E7EB');
-              doc.rect(startX + colWidths.shortName, currentY, colWidths.fullName, rowHeight)
-                 .fillAndStroke(fillColor, '#E5E7EB');
-
-              doc.fontSize(9).font('Helvetica-Bold').fillColor('black');
-              doc.text(shortName, startX + 2, currentY + 8, {
-                width: colWidths.shortName - 4,
-                align: 'center'
-              });
-
-              doc.font('Helvetica');
-              doc.text(branch, startX + colWidths.shortName + 2, currentY + 8, {
-                width: colWidths.fullName - 4,
-                align: 'left'
-              });
-
-              currentY += rowHeight;
-            });
-          } else {
-            // Two column layout
-            const tableWidth = 720;
-            const startX = (doc.page.width - tableWidth) / 2;
-            const columnWidth = tableWidth / 2;
-            const colWidths = { shortName: 70, fullName: columnWidth - 70 };
-            const midpoint = Math.ceil(sortedBranches.length / 2);
-            const leftBranches = sortedBranches.slice(0, midpoint);
-            const rightBranches = sortedBranches.slice(midpoint);
-            const headerHeight = 30;
-            const rowHeight = 25;
-
-            doc.lineWidth(1).strokeColor('#4B5563');
-
-            // Draw headers for both columns
-            for (let col = 0; col < 2; col++) {
-              const colStartX = startX + (col * columnWidth);
-              doc.rect(colStartX, currentY, colWidths.shortName, headerHeight)
-                 .fillAndStroke('#4B5563', '#4B5563');
-              doc.rect(colStartX + colWidths.shortName, currentY, colWidths.fullName, headerHeight)
-                 .fillAndStroke('#4B5563', '#4B5563');
-
-              doc.fontSize(9).font('Helvetica-Bold').fillColor('white');
-              doc.text('Code', colStartX + 2, currentY + 10, {
-                width: colWidths.shortName - 4,
-                align: 'center'
-              });
-              doc.text('Branch Name', colStartX + colWidths.shortName + 2, currentY + 10, {
-                width: colWidths.fullName - 4,
-                align: 'center'
-              });
-            }
-
-            currentY += headerHeight;
-
-            // Draw rows for both columns
-            doc.lineWidth(0.5).strokeColor('#E5E7EB');
-            const maxRows = Math.max(leftBranches.length, rightBranches.length);
-
-            for (let row = 0; row < maxRows; row++) {
-              // Left column
-              if (row < leftBranches.length) {
-                const branch = leftBranches[row];
-                const shortName = BRANCH_SHORT_NAMES[branch] || branch;
-                const fillColor = row % 2 === 0 ? '#F9FAFB' : 'white';
-                const colStartX = startX;
-
-                doc.rect(colStartX, currentY, colWidths.shortName, rowHeight)
-                   .fillAndStroke(fillColor, '#E5E7EB');
-                doc.rect(colStartX + colWidths.shortName, currentY, colWidths.fullName, rowHeight)
-                   .fillAndStroke(fillColor, '#E5E7EB');
-
-                doc.fontSize(8).font('Helvetica-Bold').fillColor('black');
-                doc.text(shortName, colStartX + 2, currentY + 8, {
-                  width: colWidths.shortName - 4,
-                  align: 'center'
-                });
-
-                doc.font('Helvetica');
-                doc.text(branch, colStartX + colWidths.shortName + 2, currentY + 8, {
-                  width: colWidths.fullName - 4,
-                  align: 'left',
-                  lineBreak: false,
-                  ellipsis: true
-                });
-              }
-
-              // Right column
-              if (row < rightBranches.length) {
-                const branch = rightBranches[row];
-                const shortName = BRANCH_SHORT_NAMES[branch] || branch;
-                const fillColor = row % 2 === 0 ? '#F9FAFB' : 'white';
-                const colStartX = startX + columnWidth;
-
-                doc.rect(colStartX, currentY, colWidths.shortName, rowHeight)
-                   .fillAndStroke(fillColor, '#E5E7EB');
-                doc.rect(colStartX + colWidths.shortName, currentY, colWidths.fullName, rowHeight)
-                   .fillAndStroke(fillColor, '#E5E7EB');
-
-                doc.fontSize(8).font('Helvetica-Bold').fillColor('black');
-                doc.text(shortName, colStartX + 2, currentY + 8, {
-                  width: colWidths.shortName - 4,
-                  align: 'center'
-                });
-
-                doc.font('Helvetica');
-                doc.text(branch, colStartX + colWidths.shortName + 2, currentY + 8, {
-                  width: colWidths.fullName - 4,
-                  align: 'left',
-                  lineBreak: false,
-                  ellipsis: true
-                });
-              }
-
-              currentY += rowHeight;
-            }
-          }
-        }
-      }
-
-      doc.end();
-
-      // Log activity
       await logActivity(
         req.user.id,
         'EXPORT_JOB_APPLICANTS',
@@ -2214,7 +1872,13 @@ export const enhancedExportJobApplicants = async (req, res) => {
         req
       );
 
-      return;
+      return generateStudentPDF(normalizedApplicants, {
+        selectedFields,
+        headerLine1: header_line1 || jobTitle,
+        headerLine2: header_line2 || null,
+        includeSignature: include_signature === true,
+        useShortNames: use_short_names === true,
+      }, res);
     }
 
     // Generate Excel file

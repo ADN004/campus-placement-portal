@@ -20,6 +20,7 @@ const fieldDisplayNames = {
   prn: 'PRN',
   student_name: 'Student Name',
   email: 'Email ID',
+  mobile: 'Mobile',
   mobile_number: 'Mobile No',
   branch: 'Branch',
   college_name: 'College',
@@ -34,7 +35,7 @@ const fieldDisplayNames = {
   sslc_marks: 'SSLC %',
   twelfth_marks: '12th %',
   complete_address: 'Address',
-  programme_cgpa: 'Programme CGPA',
+  programme_cgpa: 'CGPA',
   cgpa: 'CGPA',
   cgpa_sem1: 'Sem 1 CGPA',
   cgpa_sem2: 'Sem 2 CGPA',
@@ -46,7 +47,10 @@ const fieldDisplayNames = {
   backlog_details: 'Backlog Details',
   has_driving_license: 'Driving License',
   has_pan_card: 'PAN Card',
-  registration_status: 'Status',
+  has_aadhar_card: 'Aadhar',
+  has_passport: 'Passport',
+  application_status: 'Status',
+  registration_status: 'Reg. Status',
   is_blacklisted: 'Blacklisted',
   blacklist_reason: 'Blacklist Reason',
 };
@@ -200,13 +204,38 @@ const calculateColumnWidths = (fields, pageWidth, hasSignature, hasSlNo, useShor
  * @param {Object} options - Header options
  */
 const drawHeader = (doc, options) => {
-  const { collegeName, companyName, driveDate } = options;
+  const { collegeName, companyName, driveDate, headerLine1, headerLine2 } = options;
   const pageWidth = doc.page.width;
-  const centerX = pageWidth / 2;
   let currentY = 65; // Start at 65 to give proper spacing from top border at 50
 
-  // Professional header format similar to sample image
-  // Line 1: College name (always show if provided)
+  // New-style header: two free-form lines (like Cadence PDF)
+  if (headerLine1) {
+    doc.fontSize(16)
+       .font('Helvetica-Bold')
+       .fillColor('black')
+       .text(headerLine1, 0, currentY, {
+         width: pageWidth,
+         align: 'center',
+         lineBreak: false
+       });
+    currentY += 22;
+
+    if (headerLine2) {
+      doc.fontSize(11)
+         .font('Helvetica')
+         .fillColor('black')
+         .text(headerLine2, 0, currentY, {
+           width: pageWidth,
+           align: 'center',
+           lineBreak: false
+         });
+      currentY += 16;
+    }
+
+    return currentY + 10;
+  }
+
+  // Legacy-style header (for student registration exports)
   if (collegeName) {
     doc.fontSize(16)
        .font('Helvetica-Bold')
@@ -219,7 +248,6 @@ const drawHeader = (doc, options) => {
     currentY += 22;
   }
 
-  // Line 2: Placement drive details (if company or date provided)
   if (companyName || driveDate) {
     let driveText = 'PLACEMENT DRIVE';
 
@@ -241,7 +269,6 @@ const drawHeader = (doc, options) => {
        });
     currentY += 18;
 
-    // Line 3: "REGISTRATION LIST" subtitle (only when drive details present)
     doc.fontSize(14)
        .font('Helvetica-Bold')
        .fillColor('black')
@@ -252,7 +279,6 @@ const drawHeader = (doc, options) => {
        });
     currentY += 20;
   } else if (collegeName) {
-    // If no drive details but college name exists, add a simple title
     doc.fontSize(14)
        .font('Helvetica-Bold')
        .fillColor('black')
@@ -264,7 +290,7 @@ const drawHeader = (doc, options) => {
     currentY += 20;
   }
 
-  return currentY + 10; // Return Y position for table start
+  return currentY + 10;
 };
 
 /**
@@ -715,6 +741,8 @@ export const generateStudentPDF = async (students, options, res) => {
       collegeName,
       companyName,
       driveDate,
+      headerLine1,
+      headerLine2,
       includeSignature = false,
       separateColleges = false,
       useShortNames = false
@@ -787,12 +815,51 @@ export const generateStudentPDF = async (students, options, res) => {
       console.log(`Table width (${Math.round(totalWidth)}) fits within page width (${Math.round(pageWidth)})`);
     }
 
-    // Draw header (skip college name if separating colleges, as it will be shown in merged cells)
-    let currentY = drawHeader(doc, {
-      collegeName: separateColleges ? null : collegeName,
-      companyName,
-      driveDate
-    });
+    // Draw header
+    let currentY;
+    if (headerLine1) {
+      // Cadence style: draw title/subtitle as bordered merged table rows
+      const startY = 65;
+
+      // Title row (Line 1) — bold, larger font
+      const titleRowHeight = 36;
+      doc.rect(margin, startY, totalWidth, titleRowHeight)
+         .fillAndStroke('#FFFFFF', '#000000');
+      doc.fontSize(14)
+         .font('Helvetica-Bold')
+         .fillColor('#000000')
+         .text(headerLine1, margin, startY + 11, {
+           width: totalWidth,
+           align: 'center',
+           lineBreak: false
+         });
+      currentY = startY + titleRowHeight;
+
+      if (headerLine2) {
+        // Subtitle row (Line 2)
+        const subtitleRowHeight = 26;
+        doc.rect(margin, currentY, totalWidth, subtitleRowHeight)
+           .fillAndStroke('#FFFFFF', '#000000');
+        doc.fontSize(10)
+           .font('Helvetica')
+           .fillColor('#000000')
+           .text(headerLine2, margin, currentY + 8, {
+             width: totalWidth,
+             align: 'center',
+             lineBreak: false
+           });
+        currentY = currentY + subtitleRowHeight;
+      }
+    } else {
+      // Legacy path: plain-text header above table
+      currentY = drawHeader(doc, {
+        collegeName: separateColleges ? null : collegeName,
+        companyName,
+        driveDate,
+        headerLine1,
+        headerLine2,
+      });
+    }
 
     // Draw table headers only if not separating colleges
     // (If separating colleges, headers will be drawn for each college section)

@@ -1,25 +1,29 @@
-import React, { useState } from 'react';
-import { FileText, X, Check, PenLine } from 'lucide-react';
+import { useState } from 'react';
+import { FileText, X, Check, PenLine, Building2 } from 'lucide-react';
 
 const PDFFieldSelector = ({ onExport, onClose, applicantCount, exportType = 'enhanced' }) => {
+  const [headerLine1, setHeaderLine1] = useState('');
+  const [headerLine2, setHeaderLine2] = useState('');
   const [selectedFields, setSelectedFields] = useState([
     'prn',
     'student_name',
     'branch',
-    'cgpa',
+    'programme_cgpa',
     'application_status'
   ]);
-  const [includeSignature, setIncludeSignature] = useState(false);
+  const [includeSignature, setIncludeSignature] = useState(true);
 
   const availableFields = [
     { key: 'prn', label: 'PRN' },
     { key: 'student_name', label: 'Student Name' },
-    { key: 'email', label: 'Email' },
-    { key: 'mobile', label: 'Mobile' },
+    { key: 'college_name', label: 'College' },
+    { key: 'region_name', label: 'Region' },
     { key: 'branch', label: 'Branch' },
-    { key: 'cgpa', label: 'CGPA' },
+    { key: 'programme_cgpa', label: 'CGPA' },
     { key: 'backlog_count', label: 'Backlogs' },
     { key: 'application_status', label: 'Status' },
+    { key: 'email', label: 'Email' },
+    { key: 'mobile', label: 'Mobile' },
     { key: 'date_of_birth', label: 'DOB' },
     { key: 'gender', label: 'Gender' },
     { key: 'sslc_marks', label: 'SSLC %' },
@@ -50,18 +54,31 @@ const PDFFieldSelector = ({ onExport, onClose, applicantCount, exportType = 'enh
   };
 
   const handleExport = () => {
+    if (!headerLine1.trim()) {
+      alert('Please enter a title for the PDF header (Line 1)');
+      return;
+    }
     if (selectedFields.length === 0) {
       alert('Please select at least one field to export');
       return;
     }
-    onExport({ fields: selectedFields, includeSignature });
+    onExport({
+      fields: selectedFields,
+      includeSignature,
+      headerLine1: headerLine1.trim(),
+      headerLine2: headerLine2.trim() || null,
+    });
   };
+
+  const headerColor = exportType === 'selected_only'
+    ? 'bg-gradient-to-r from-green-600 to-emerald-600'
+    : 'bg-gradient-to-r from-purple-600 to-indigo-600';
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className={`${exportType === 'selected_only' ? 'bg-gradient-to-r from-green-600 to-emerald-600' : 'bg-gradient-to-r from-purple-600 to-indigo-600'} text-white p-6 flex items-center justify-between`}>
+        <div className={`${headerColor} text-white p-6 flex items-center justify-between`}>
           <div className="flex items-center space-x-3">
             {exportType === 'selected_only' ? <Check size={24} /> : <FileText size={24} />}
             <div>
@@ -83,71 +100,108 @@ const PDFFieldSelector = ({ onExport, onClose, applicantCount, exportType = 'enh
           </button>
         </div>
 
-        {/* Quick Actions */}
-        <div className="p-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
-          <div className="text-sm text-gray-600">
-            <span className="font-semibold text-indigo-600">{selectedFields.length}</span> of {availableFields.length} fields selected
+        {/* Scrollable content */}
+        <div className="flex-1 overflow-y-auto">
+          {/* PDF Header Configuration */}
+          <div className="p-6 border-b border-gray-200 bg-amber-50">
+            <div className="flex items-center gap-2 mb-4">
+              <Building2 size={18} className="text-amber-700" />
+              <span className="font-semibold text-amber-900 text-sm">PDF Header</span>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Line 1 — Title <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={headerLine1}
+                  onChange={e => setHeaderLine1(e.target.value)}
+                  placeholder="e.g. Cadence Design Systems, Bangalore 2026"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Line 2 — Subtitle <span className="text-gray-400">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={headerLine2}
+                  onChange={e => setHeaderLine2(e.target.value)}
+                  placeholder="e.g. Placement Drive at GPC Palakkad on 06-02-2026"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                />
+              </div>
+            </div>
           </div>
-          <div className="flex space-x-2">
-            <button
-              onClick={selectAll}
-              className="px-3 py-1.5 text-xs font-medium bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition-colors"
-            >
-              Select All
-            </button>
-            <button
-              onClick={selectNone}
-              className="px-3 py-1.5 text-xs font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-            >
-              Clear All
-            </button>
-          </div>
-        </div>
 
-        {/* Field Selection Grid */}
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            {availableFields.map((field) => (
+          {/* Quick Actions */}
+          <div className="px-6 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+            <div className="text-sm text-gray-600">
+              <span className="font-semibold text-indigo-600">{selectedFields.length}</span> of {availableFields.length} fields selected
+            </div>
+            <div className="flex space-x-2">
               <button
-                key={field.key}
-                onClick={() => toggleField(field.key)}
-                className={`p-3 rounded-lg border-2 transition-all text-left flex items-center justify-between ${
-                  selectedFields.includes(field.key)
-                    ? 'border-indigo-500 bg-indigo-50 text-indigo-900'
+                onClick={selectAll}
+                className="px-3 py-1.5 text-xs font-medium bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition-colors"
+              >
+                Select All
+              </button>
+              <button
+                onClick={selectNone}
+                className="px-3 py-1.5 text-xs font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Clear All
+              </button>
+            </div>
+          </div>
+
+          {/* Field Selection Grid */}
+          <div className="p-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {availableFields.map((field) => (
+                <button
+                  key={field.key}
+                  onClick={() => toggleField(field.key)}
+                  className={`p-3 rounded-lg border-2 transition-all text-left flex items-center justify-between ${
+                    selectedFields.includes(field.key)
+                      ? 'border-indigo-500 bg-indigo-50 text-indigo-900'
+                      : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <span className="font-medium text-sm">{field.label}</span>
+                  {selectedFields.includes(field.key) && (
+                    <Check size={16} className="text-indigo-600" />
+                  )}
+                </button>
+              ))}
+            </div>
+
+            {/* Signature Toggle */}
+            <div className="mt-5 pt-4 border-t border-gray-200">
+              <button
+                onClick={() => setIncludeSignature(!includeSignature)}
+                className={`w-full p-4 rounded-xl border-2 transition-all flex items-center justify-between ${
+                  includeSignature
+                    ? 'border-amber-500 bg-amber-50 text-amber-900'
                     : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
                 }`}
               >
-                <span className="font-medium text-sm">{field.label}</span>
-                {selectedFields.includes(field.key) && (
-                  <Check size={16} className="text-indigo-600" />
-                )}
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-lg ${includeSignature ? 'bg-amber-200' : 'bg-gray-100'}`}>
+                    <PenLine size={18} className={includeSignature ? 'text-amber-700' : 'text-gray-500'} />
+                  </div>
+                  <div className="text-left">
+                    <span className="font-semibold text-sm block">Include Signature Column</span>
+                    <span className="text-xs text-gray-500">Adds an empty signature column for students to sign</span>
+                  </div>
+                </div>
+                <div className={`w-11 h-6 rounded-full transition-colors relative ${includeSignature ? 'bg-amber-500' : 'bg-gray-300'}`}>
+                  <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${includeSignature ? 'translate-x-5' : 'translate-x-0.5'}`}></div>
+                </div>
               </button>
-            ))}
-          </div>
-
-          {/* Signature Toggle */}
-          <div className="mt-5 pt-4 border-t border-gray-200">
-            <button
-              onClick={() => setIncludeSignature(!includeSignature)}
-              className={`w-full p-4 rounded-xl border-2 transition-all flex items-center justify-between ${
-                includeSignature
-                  ? 'border-amber-500 bg-amber-50 text-amber-900'
-                  : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg ${includeSignature ? 'bg-amber-200' : 'bg-gray-100'}`}>
-                  <PenLine size={18} className={includeSignature ? 'text-amber-700' : 'text-gray-500'} />
-                </div>
-                <div className="text-left">
-                  <span className="font-semibold text-sm block">Include Signature Column</span>
-                  <span className="text-xs text-gray-500">Adds an empty signature column for students to sign</span>
-                </div>
-              </div>
-              <div className={`w-11 h-6 rounded-full transition-colors relative ${includeSignature ? 'bg-amber-500' : 'bg-gray-300'}`}>
-                <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${includeSignature ? 'translate-x-5' : 'translate-x-0.5'}`}></div>
-              </div>
-            </button>
+            </div>
           </div>
         </div>
 
@@ -161,7 +215,7 @@ const PDFFieldSelector = ({ onExport, onClose, applicantCount, exportType = 'enh
           </button>
           <button
             onClick={handleExport}
-            disabled={selectedFields.length === 0}
+            disabled={selectedFields.length === 0 || !headerLine1.trim()}
             className="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
           >
             <FileText size={18} />

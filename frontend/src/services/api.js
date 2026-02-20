@@ -136,6 +136,7 @@ export const placementOfficerAPI = {
   createOrUpdateJobDrive: (jobId, data) => API.post(`/placement-officer/jobs/${jobId}/drive`, data),
   getJobDrive: (jobId) => API.get(`/placement-officer/jobs/${jobId}/drive`),
   enhancedExportJobApplicants: (jobId, data) => API.post(`/placement-officer/jobs/${jobId}/applicants/enhanced-export`, data, { responseType: 'blob' }),
+  exportEligibleNotApplied: (jobId, format = 'pdf') => API.get(`/placement-officer/jobs/${jobId}/eligible-not-applied/export`, { params: { format }, responseType: 'blob' }),
 
   // PRN Range Management
   getPRNRanges: () => API.get('/placement-officer/prn-ranges'),

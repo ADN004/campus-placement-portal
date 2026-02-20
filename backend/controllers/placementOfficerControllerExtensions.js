@@ -838,6 +838,282 @@ export const exportJobApplicants = async (req, res) => {
 };
 
 // ========================================
+// EXPORT ELIGIBLE-BUT-NOT-APPLIED STUDENTS
+// ========================================
+
+// @desc    Export eligible students who haven't applied for a job yet (college-wise)
+// @route   GET /api/placement-officer/jobs/:jobId/eligible-not-applied/export
+// @access  Private (Placement Officer)
+export const exportEligibleNotApplied = async (req, res) => {
+  try {
+    const jobId = req.params.jobId;
+    const format = req.query.format || 'pdf';
+
+    // Get officer's college
+    const officerResult = await query(
+      'SELECT po.college_id, po.is_host_po FROM placement_officers po WHERE po.user_id = $1',
+      [req.user.id]
+    );
+
+    if (officerResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Placement officer profile not found' });
+    }
+
+    const { college_id: officerCollegeId, is_host_po: isHostPO } = officerResult.rows[0];
+
+    // Fetch job details to build eligibility criteria
+    const jobResult = await query('SELECT * FROM jobs WHERE id = $1 AND is_deleted = FALSE', [jobId]);
+    if (jobResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Job not found' });
+    }
+    const job = jobResult.rows[0];
+
+    // Build dynamic eligibility WHERE clauses
+    const params = [jobId];
+    const whereClauses = [
+      `s.registration_status = 'approved'`,
+      `s.is_blacklisted = FALSE`,
+      `ja.id IS NULL`, // not applied
+    ];
+
+    // College scoping: non-host PO sees only their college
+    if (!isHostPO) {
+      params.push(officerCollegeId);
+      whereClauses.push(`s.college_id = $${params.length}`);
+    }
+
+    // CGPA check
+    if (job.min_cgpa !== null && job.min_cgpa !== undefined) {
+      params.push(parseFloat(job.min_cgpa));
+      whereClauses.push(`s.programme_cgpa >= $${params.length}`);
+    }
+
+    // Branch check
+    if (job.allowed_branches && Array.isArray(job.allowed_branches) && job.allowed_branches.length > 0) {
+      params.push(JSON.stringify(job.allowed_branches));
+      whereClauses.push(`s.branch = ANY(SELECT jsonb_array_elements_text($${params.length}::jsonb))`);
+    }
+
+    // Height check
+    if (job.min_height !== null && job.min_height !== undefined) {
+      params.push(parseInt(job.min_height));
+      whereClauses.push(`(s.height IS NULL OR s.height >= $${params.length})`);
+    }
+    if (job.max_height !== null && job.max_height !== undefined) {
+      params.push(parseInt(job.max_height));
+      whereClauses.push(`(s.height IS NULL OR s.height <= $${params.length})`);
+    }
+
+    // Weight check
+    if (job.min_weight !== null && job.min_weight !== undefined) {
+      params.push(parseFloat(job.min_weight));
+      whereClauses.push(`(s.weight IS NULL OR s.weight >= $${params.length})`);
+    }
+    if (job.max_weight !== null && job.max_weight !== undefined) {
+      params.push(parseFloat(job.max_weight));
+      whereClauses.push(`(s.weight <= $${params.length})`);
+    }
+
+    // Backlog checks (3 modes mirroring checkJobEligibility)
+    if (job.max_backlogs !== null && job.max_backlogs !== undefined) {
+      const maxBacklogs = parseInt(job.max_backlogs);
+      const allowedSems = Array.isArray(job.allowed_backlog_semesters)
+        ? job.allowed_backlog_semesters.map(Number).filter(n => n >= 1 && n <= 6)
+        : [];
+
+      if (allowedSems.length > 0) {
+        const nonAllowedSems = [1, 2, 3, 4, 5, 6].filter(s => !allowedSems.includes(s));
+        if (nonAllowedSems.length > 0) {
+          const nonAllowedSum = nonAllowedSems.map(s => `COALESCE(s.backlogs_sem${s}, 0)`).join(' + ');
+          whereClauses.push(`(${nonAllowedSum}) = 0`);
+        }
+        const allowedSum = allowedSems.map(s => `COALESCE(s.backlogs_sem${s}, 0)`).join(' + ');
+        params.push(maxBacklogs);
+        whereClauses.push(`(${allowedSum}) <= $${params.length}`);
+      } else if (job.backlog_max_semester) {
+        const rangeEnd = parseInt(job.backlog_max_semester);
+        const afterRangeSems = [];
+        for (let s = rangeEnd + 1; s <= 6; s++) afterRangeSems.push(s);
+        if (afterRangeSems.length > 0) {
+          const afterSum = afterRangeSems.map(s => `COALESCE(s.backlogs_sem${s}, 0)`).join(' + ');
+          whereClauses.push(`(${afterSum}) = 0`);
+        }
+        const withinSum = Array.from({ length: rangeEnd }, (_, i) => `COALESCE(s.backlogs_sem${i + 1}, 0)`).join(' + ');
+        params.push(maxBacklogs);
+        whereClauses.push(`(${withinSum}) <= $${params.length}`);
+      } else {
+        const totalSum = [1, 2, 3, 4, 5, 6].map(s => `COALESCE(s.backlogs_sem${s}, 0)`).join(' + ');
+        params.push(maxBacklogs);
+        whereClauses.push(`(${totalSum}) <= $${params.length}`);
+      }
+    }
+
+    // Target type / college-region targeting
+    if (job.target_type === 'college' && job.target_colleges && job.target_colleges.length > 0) {
+      params.push(JSON.stringify(job.target_colleges));
+      whereClauses.push(`s.college_id = ANY(SELECT (jsonb_array_elements($${params.length}::jsonb))::int)`);
+    } else if (job.target_type === 'region' && job.target_regions && job.target_regions.length > 0) {
+      params.push(JSON.stringify(job.target_regions));
+      whereClauses.push(`s.region_id = ANY(SELECT (jsonb_array_elements($${params.length}::jsonb))::int)`);
+    } else if (job.target_type === 'specific') {
+      const hasRegions = job.target_regions && job.target_regions.length > 0;
+      const hasColleges = job.target_colleges && job.target_colleges.length > 0;
+      if (hasRegions && hasColleges) {
+        params.push(JSON.stringify(job.target_regions));
+        const rIdx = params.length;
+        params.push(JSON.stringify(job.target_colleges));
+        const cIdx = params.length;
+        whereClauses.push(
+          `(s.region_id = ANY(SELECT (jsonb_array_elements($${rIdx}::jsonb))::int) OR s.college_id = ANY(SELECT (jsonb_array_elements($${cIdx}::jsonb))::int))`
+        );
+      } else if (hasColleges) {
+        params.push(JSON.stringify(job.target_colleges));
+        whereClauses.push(`s.college_id = ANY(SELECT (jsonb_array_elements($${params.length}::jsonb))::int)`);
+      } else if (hasRegions) {
+        params.push(JSON.stringify(job.target_regions));
+        whereClauses.push(`s.region_id = ANY(SELECT (jsonb_array_elements($${params.length}::jsonb))::int)`);
+      }
+    }
+
+    const whereSQL = whereClauses.join(' AND ');
+
+    const studentsResult = await query(
+      `SELECT s.id, s.prn, s.student_name AS name, s.email, s.mobile_number,
+              s.branch, s.programme_cgpa, s.backlog_count, s.date_of_birth,
+              c.college_name,
+              ep.height_cm, ep.weight_kg, ep.sslc_marks, ep.twelfth_marks
+       FROM students s
+       LEFT JOIN colleges c ON s.college_id = c.id
+       LEFT JOIN student_extended_profiles ep ON s.id = ep.student_id
+       LEFT JOIN job_applications ja ON ja.job_id = $1 AND ja.student_id = s.id
+       WHERE ${whereSQL}
+       ORDER BY c.college_name ASC, s.branch ASC, s.prn ASC`,
+      params
+    );
+
+    const students = studentsResult.rows;
+
+    if (students.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No eligible students who have not applied yet',
+      });
+    }
+
+    const jobTitle = job.job_title;
+    const companyName = job.company_name;
+    const safeTitle = jobTitle.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
+
+    // ── PDF export ─────────────────────────────────────────────────────────────
+    if (format === 'pdf') {
+      const { generateJobApplicantsPDF } = await import('../utils/pdfGenerator.js');
+
+      await logActivity(
+        req.user.id,
+        'EXPORT_ELIGIBLE_NOT_APPLIED',
+        `Exported ${students.length} eligible-not-applied students as PDF for job: ${jobTitle} (${companyName})`,
+        'job',
+        jobId,
+        { count: students.length, format: 'pdf', company: companyName },
+        req
+      );
+
+      return await generateJobApplicantsPDF(
+        students,
+        { jobTitle, companyName, isSuperAdmin: isHostPO, useShortNames: true },
+        res
+      );
+    }
+
+    // ── Excel export ────────────────────────────────────────────────────────────
+    const workbook = new ExcelJS.Workbook();
+
+    const headerStyle = {
+      font: { bold: true, color: { argb: 'FFFFFFFF' } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F7A5C' } },
+      alignment: { horizontal: 'center' },
+    };
+
+    const colDefs = [
+      { header: 'PRN', key: 'prn', width: 16 },
+      { header: 'Name', key: 'name', width: 28 },
+      { header: 'Branch', key: 'branch', width: 14 },
+      { header: 'CGPA', key: 'programme_cgpa', width: 8 },
+      { header: 'Backlogs', key: 'backlog_count', width: 10 },
+      { header: 'Mobile', key: 'mobile_number', width: 14 },
+      { header: 'Email', key: 'email', width: 32 },
+    ];
+
+    const addSheetRows = (ws, rows) => {
+      ws.columns = colDefs;
+      const headerRow = ws.getRow(1);
+      Object.keys(headerStyle).forEach(k => { headerRow[k] = headerStyle[k]; });
+      headerRow.commit();
+      rows.forEach(r => ws.addRow({
+        prn: r.prn,
+        name: r.name,
+        branch: BRANCH_SHORT_NAMES[r.branch] || r.branch,
+        programme_cgpa: r.programme_cgpa,
+        backlog_count: r.backlog_count,
+        mobile_number: r.mobile_number,
+        email: r.email,
+      }));
+    };
+
+    if (isHostPO) {
+      const byCollege = {};
+      students.forEach(s => {
+        const key = s.college_name || 'Unknown';
+        if (!byCollege[key]) byCollege[key] = [];
+        byCollege[key].push(s);
+      });
+
+      for (const [collegeName, rows] of Object.entries(byCollege)) {
+        const sheetName = collegeName.replace(/[*?:/\\[\]]/g, '').substring(0, 31);
+        addSheetRows(workbook.addWorksheet(sheetName), rows);
+      }
+
+      // Summary sheet
+      const summary = workbook.addWorksheet('Summary');
+      summary.columns = [
+        { header: 'College', key: 'college', width: 40 },
+        { header: 'Eligible Not Applied', key: 'count', width: 22 },
+      ];
+      const summaryHeader = summary.getRow(1);
+      Object.keys(headerStyle).forEach(k => { summaryHeader[k] = headerStyle[k]; });
+      summaryHeader.commit();
+      Object.entries(byCollege).forEach(([col, rows]) => {
+        summary.addRow({ college: col, count: rows.length });
+      });
+      summary.addRow({ college: 'TOTAL', count: students.length });
+      summary.lastRow.font = { bold: true };
+    } else {
+      addSheetRows(workbook.addWorksheet('Eligible Not Applied'), students);
+    }
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=eligible_not_applied_${safeTitle}_${Date.now()}.xlsx`);
+    await workbook.xlsx.write(res);
+    res.end();
+
+    await logActivity(
+      req.user.id,
+      'EXPORT_ELIGIBLE_NOT_APPLIED',
+      `Exported ${students.length} eligible-not-applied students as Excel for job: ${jobTitle} (${companyName})`,
+      'job',
+      jobId,
+      { count: students.length, format: 'excel', company: companyName },
+      req
+    );
+  } catch (error) {
+    console.error('Export eligible-not-applied error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, message: 'Error exporting eligible students', error: error.message });
+    }
+  }
+};
+
+// ========================================
 // JOB REQUEST REQUIREMENTS FUNCTIONS
 // ========================================
 

@@ -48,6 +48,7 @@ import {
   deleteCollegeLogo,
   manuallyAddStudentToJob,
   validateStudentForManualAddition,
+  exportEligibleNotApplied,
   getCgpaLockStatusPO,
   unlockCgpaPO,
   lockCgpaPO,
@@ -112,6 +113,7 @@ router.get('/jobs/:jobId/placement-stats', getJobPlacementStats);
 router.post('/jobs/:jobId/drive', createOrUpdateJobDrive);
 router.get('/jobs/:jobId/drive', getJobDrive);
 router.post('/jobs/:jobId/applicants/enhanced-export', enhancedExportJobApplicants);
+router.get('/jobs/:jobId/eligible-not-applied/export', exportEligibleNotApplied);
 
 // College Branch Management Routes
 router.get('/college-branches', getOwnCollegeBranches);

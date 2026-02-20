@@ -137,6 +137,11 @@ export const checkApplicationReadiness = async (req, res) => {
       };
     }
 
+    // Always use jobs.allowed_branches as the authoritative source for branch eligibility.
+    // job_requirement_templates.allowed_branches is NOT updated when a job is edited,
+    // so it can be stale after branch changes.
+    requirements.allowed_branches = job.allowed_branches;
+
     const missingFields = [];
 
     // Check college/region targeting FIRST (blocking if student's college is not targeted)
@@ -710,6 +715,13 @@ export const submitEnhancedApplication = async (req, res) => {
           backlog_max_semester: jobCriteria.backlog_max_semester,
           allowed_branches: jobCriteria.allowed_branches
         };
+      }
+
+      // Always use jobs.allowed_branches as the authoritative source for branch eligibility.
+      // job_requirement_templates.allowed_branches is NOT updated when a job is edited,
+      // so it can be stale after branch changes.
+      if (requirements && jobCriteria) {
+        requirements.allowed_branches = jobCriteria.allowed_branches;
       }
 
       if (requirements) {

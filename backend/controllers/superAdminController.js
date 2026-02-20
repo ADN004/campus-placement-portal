@@ -1201,6 +1201,17 @@ export const updateJob = async (req, res) => {
       });
     }
 
+    // Sync allowed_branches to job_requirement_templates if it was changed
+    if (allowed_branches !== undefined) {
+      const branchValue = allowed_branches
+        ? (typeof allowed_branches === 'string' ? allowed_branches : JSON.stringify(allowed_branches))
+        : '[]';
+      await query(
+        `UPDATE job_requirement_templates SET allowed_branches = $1, updated_at = CURRENT_TIMESTAMP WHERE job_id = $2`,
+        [branchValue, jobId]
+      );
+    }
+
     // Convert JSONB fields to strings for response
     const updatedJob = {
       ...result.rows[0],

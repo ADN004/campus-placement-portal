@@ -2064,6 +2064,14 @@ export const updateJob = async (req, res) => {
       values
     );
 
+    // Sync allowed_branches to job_requirement_templates if it was changed
+    if (allowed_branches !== undefined) {
+      await query(
+        `UPDATE job_requirement_templates SET allowed_branches = $1, updated_at = CURRENT_TIMESTAMP WHERE job_id = $2`,
+        [JSON.stringify(allowed_branches || []), jobId]
+      );
+    }
+
     res.status(200).json({
       success: true,
       message: 'Job updated successfully',

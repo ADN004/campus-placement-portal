@@ -849,9 +849,9 @@ export const exportEligibleNotApplied = async (req, res) => {
     const jobId = req.params.jobId;
     const format = req.query.format || 'pdf';
 
-    // Get officer's college
+    // Get officer's id and college
     const officerResult = await query(
-      'SELECT po.college_id, po.is_host_po FROM placement_officers po WHERE po.user_id = $1',
+      'SELECT po.id, po.college_id FROM placement_officers po WHERE po.user_id = $1',
       [req.user.id]
     );
 
@@ -859,7 +859,7 @@ export const exportEligibleNotApplied = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Placement officer profile not found' });
     }
 
-    const { college_id: officerCollegeId, is_host_po: isHostPO } = officerResult.rows[0];
+    const { id: officerId, college_id: officerCollegeId } = officerResult.rows[0];
 
     // Fetch job details to build eligibility criteria
     const jobResult = await query('SELECT * FROM jobs WHERE id = $1 AND is_deleted = FALSE', [jobId]);
@@ -867,6 +867,9 @@ export const exportEligibleNotApplied = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Job not found' });
     }
     const job = jobResult.rows[0];
+
+    // Host PO = the officer who created/owns this job (same logic as getJobApplicants)
+    const isHostPO = job.placement_officer_id === officerId;
 
     // Build dynamic eligibility WHERE clauses
     const params = [jobId];

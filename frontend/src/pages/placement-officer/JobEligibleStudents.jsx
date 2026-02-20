@@ -21,6 +21,7 @@ import { generateJobDetailsPDF } from '../../utils/jobDetailsPdf';
 import useSkeletonLoading from '../../hooks/useSkeletonLoading';
 import TablePageSkeleton from '../../components/skeletons/TablePageSkeleton';
 import AnimatedSection from '../../components/animation/AnimatedSection';
+import { KERALA_POLYTECHNIC_BRANCHES } from '../../constants/branches';
 
 export default function JobEligibleStudents() {
   const [jobs, setJobs] = useState([]);
@@ -1703,6 +1704,35 @@ export default function JobEligibleStudents() {
                     </label>
                   ))}
                 </div>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">
+                  Allowed Branches <span className="text-red-500">*</span>
+                </label>
+                <div className="border-2 border-gray-300 rounded-xl p-4 max-h-48 overflow-y-auto">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    {KERALA_POLYTECHNIC_BRANCHES.map((branch) => (
+                      <label key={branch} className="flex items-center gap-2 cursor-pointer hover:bg-indigo-50 px-2 py-1 rounded-lg transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={(editJobData.allowed_branches || []).includes(branch)}
+                          onChange={() => {
+                            const current = editJobData.allowed_branches || [];
+                            const updated = current.includes(branch)
+                              ? current.filter((b) => b !== branch)
+                              : [...current, branch];
+                            setEditJobData({ ...editJobData, allowed_branches: updated });
+                          }}
+                          className="rounded text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span className="text-sm font-medium">{branch}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                {(editJobData.allowed_branches || []).length === 0 && (
+                  <p className="text-xs text-red-500 mt-1">Please select at least one branch.</p>
+                )}
               </div>
             </div>
             <div className="sticky bottom-0 bg-white border-t border-gray-200 px-6 py-4 flex justify-end gap-3 rounded-b-2xl">

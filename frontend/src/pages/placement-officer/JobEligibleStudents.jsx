@@ -560,7 +560,7 @@ export default function JobEligibleStudents() {
     }
   };
 
-  const handleExportEligibleNotApplied = async (format = 'pdf') => {
+  const handleExportEligibleNotApplied = async () => {
     if (!selectedJob) {
       toast.error('Please select a job first');
       return;
@@ -568,17 +568,13 @@ export default function JobEligibleStudents() {
     try {
       setExporting(true);
       setShowExportModal(false);
-      const loadingToast = toast.loading(`Preparing ${format === 'pdf' ? 'PDF' : 'Excel'} export of not-applied students...`);
-      const response = await placementOfficerAPI.exportEligibleNotApplied(selectedJob.id, format);
-      const mimeType = format === 'pdf'
-        ? 'application/pdf'
-        : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-      const ext = format === 'pdf' ? 'pdf' : 'xlsx';
-      const blob = new Blob([response.data], { type: mimeType });
+      const loadingToast = toast.loading('Preparing PDF export of not-applied students...');
+      const response = await placementOfficerAPI.exportEligibleNotApplied(selectedJob.id);
+      const blob = new Blob([response.data], { type: 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `eligible_not_applied_${selectedJob.job_title.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.${ext}`);
+      link.setAttribute('download', `eligible_not_applied_${selectedJob.job_title.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -1636,7 +1632,7 @@ export default function JobEligibleStudents() {
               {/* Not-Applied Students */}
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-2 pt-3 pb-0.5">Not-Applied Students</p>
               <button
-                onClick={() => handleExportEligibleNotApplied('pdf')}
+                onClick={() => handleExportEligibleNotApplied()}
                 className="w-full px-4 py-3 text-left hover:bg-teal-50 flex items-center space-x-3 transition-colors rounded-xl"
               >
                 <div className="bg-gradient-to-br from-teal-500 to-emerald-600 rounded-xl p-2.5 shadow-md flex-shrink-0">
@@ -1645,18 +1641,6 @@ export default function JobEligibleStudents() {
                 <div>
                   <div className="font-bold text-gray-900 text-sm">Not-Applied — PDF</div>
                   <div className="text-xs text-gray-500">Eligible students who haven&apos;t applied yet{isHost ? ', all colleges' : ''}</div>
-                </div>
-              </button>
-              <button
-                onClick={() => handleExportEligibleNotApplied('excel')}
-                className="w-full px-4 py-3 text-left hover:bg-teal-50 flex items-center space-x-3 transition-colors rounded-xl"
-              >
-                <div className="bg-gradient-to-br from-teal-400 to-cyan-600 rounded-xl p-2.5 shadow-md flex-shrink-0">
-                  <FileSpreadsheet size={18} className="text-white" />
-                </div>
-                <div>
-                  <div className="font-bold text-gray-900 text-sm">Not-Applied — Excel</div>
-                  <div className="text-xs text-gray-500">{isHost ? 'College-wise sheets' : 'Spreadsheet format'}</div>
                 </div>
               </button>
 

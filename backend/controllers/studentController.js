@@ -816,8 +816,9 @@ const checkJobEligibility = async (jobId, student) => {
     const requirements = requirementsResult.rows.length > 0 ? requirementsResult.rows[0] : null;
 
     // Check CGPA requirement
-    if (job.min_cgpa && student.cgpa && parseFloat(student.cgpa) < parseFloat(job.min_cgpa)) {
-      return { isEligible: false, reason: `Your CGPA (${student.cgpa}) is below the minimum requirement (${job.min_cgpa})` };
+    const studentCgpa = student.programme_cgpa || student.cgpa;
+    if (job.min_cgpa && studentCgpa && parseFloat(studentCgpa) < parseFloat(job.min_cgpa)) {
+      return { isEligible: false, reason: `Your CGPA (${studentCgpa}) is below the minimum requirement (${job.min_cgpa})` };
     }
 
     // Check backlog requirement using per-semester data

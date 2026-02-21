@@ -847,7 +847,6 @@ export const exportJobApplicants = async (req, res) => {
 export const exportEligibleNotApplied = async (req, res) => {
   try {
     const jobId = req.params.jobId;
-    const format = req.query.format || 'pdf';
 
     // Get officer's id and college
     const officerResult = await query(
@@ -1010,105 +1009,20 @@ export const exportEligibleNotApplied = async (req, res) => {
 
     const jobTitle = job.job_title;
     const companyName = job.company_name;
-    const safeTitle = jobTitle.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
 
-    // ── PDF export ─────────────────────────────────────────────────────────────
-    if (format === 'pdf') {
-      const { generateEligibleNotAppliedPDF } = await import('../utils/pdfGenerator.js');
-
-      await logActivity(
-        req.user.id,
-        'EXPORT_ELIGIBLE_NOT_APPLIED',
-        `Exported ${students.length} eligible-not-applied students as PDF for job: ${jobTitle} (${companyName})`,
-        'job',
-        jobId,
-        { count: students.length, format: 'pdf', company: companyName },
-        req
-      );
-
-      return await generateEligibleNotAppliedPDF(students, { jobTitle, companyName }, res);
-    }
-
-    // ── Excel export ────────────────────────────────────────────────────────────
-    const workbook = new ExcelJS.Workbook();
-
-    const headerStyle = {
-      font: { bold: true, color: { argb: 'FFFFFFFF' } },
-      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F7A5C' } },
-      alignment: { horizontal: 'center' },
-    };
-
-    const colDefs = [
-      { header: 'PRN', key: 'prn', width: 16 },
-      { header: 'Name', key: 'name', width: 28 },
-      { header: 'Branch', key: 'branch', width: 14 },
-      { header: 'CGPA', key: 'programme_cgpa', width: 8 },
-      { header: 'Backlogs', key: 'backlog_count', width: 10 },
-      { header: 'Mobile', key: 'mobile_number', width: 14 },
-      { header: 'Email', key: 'email', width: 32 },
-    ];
-
-    const addSheetRows = (ws, rows) => {
-      ws.columns = colDefs;
-      const headerRow = ws.getRow(1);
-      Object.keys(headerStyle).forEach(k => { headerRow[k] = headerStyle[k]; });
-      headerRow.commit();
-      rows.forEach(r => ws.addRow({
-        prn: r.prn,
-        name: r.name,
-        branch: BRANCH_SHORT_NAMES[r.branch] || r.branch,
-        programme_cgpa: r.programme_cgpa,
-        backlog_count: r.backlog_count,
-        mobile_number: r.mobile_number,
-        email: r.email,
-      }));
-    };
-
-    if (isHostPO) {
-      const byCollege = {};
-      students.forEach(s => {
-        const key = s.college_name || 'Unknown';
-        if (!byCollege[key]) byCollege[key] = [];
-        byCollege[key].push(s);
-      });
-
-      for (const [collegeName, rows] of Object.entries(byCollege)) {
-        const sheetName = collegeName.replace(/[*?:/\\[\]]/g, '').substring(0, 31);
-        addSheetRows(workbook.addWorksheet(sheetName), rows);
-      }
-
-      // Summary sheet
-      const summary = workbook.addWorksheet('Summary');
-      summary.columns = [
-        { header: 'College', key: 'college', width: 40 },
-        { header: 'Eligible Not Applied', key: 'count', width: 22 },
-      ];
-      const summaryHeader = summary.getRow(1);
-      Object.keys(headerStyle).forEach(k => { summaryHeader[k] = headerStyle[k]; });
-      summaryHeader.commit();
-      Object.entries(byCollege).forEach(([col, rows]) => {
-        summary.addRow({ college: col, count: rows.length });
-      });
-      summary.addRow({ college: 'TOTAL', count: students.length });
-      summary.lastRow.font = { bold: true };
-    } else {
-      addSheetRows(workbook.addWorksheet('Eligible Not Applied'), students);
-    }
-
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=eligible_not_applied_${safeTitle}_${Date.now()}.xlsx`);
-    await workbook.xlsx.write(res);
-    res.end();
+    const { generateEligibleNotAppliedPDF } = await import('../utils/pdfGenerator.js');
 
     await logActivity(
       req.user.id,
       'EXPORT_ELIGIBLE_NOT_APPLIED',
-      `Exported ${students.length} eligible-not-applied students as Excel for job: ${jobTitle} (${companyName})`,
+      `Exported ${students.length} eligible-not-applied students as PDF for job: ${jobTitle} (${companyName})`,
       'job',
       jobId,
-      { count: students.length, format: 'excel', company: companyName },
+      { count: students.length, company: companyName },
       req
     );
+
+    return await generateEligibleNotAppliedPDF(students, { jobTitle, companyName }, res);
   } catch (error) {
     console.error('Export eligible-not-applied error:', error);
     if (!res.headersSent) {

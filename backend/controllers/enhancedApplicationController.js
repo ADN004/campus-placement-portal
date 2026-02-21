@@ -73,6 +73,8 @@ export const checkApplicationReadiness = async (req, res) => {
         s.registration_status, s.is_blacklisted, s.student_name, s.age, s.gender,
         s.height, s.weight, s.complete_address, s.cgpa_sem1, s.cgpa_sem2, s.cgpa_sem3,
         s.cgpa_sem4, s.cgpa_sem5, s.cgpa_sem6, s.branch, s.has_driving_license,
+        s.backlogs_sem1, s.backlogs_sem2, s.backlogs_sem3,
+        s.backlogs_sem4, s.backlogs_sem5, s.backlogs_sem6,
         s.has_pan_card, s.photo_url, s.email_verified,
         ep.sslc_marks, ep.sslc_year, ep.sslc_board, ep.twelfth_marks, ep.twelfth_year,
         ep.twelfth_board, ep.height_cm, ep.weight_kg, ep.physically_handicapped,

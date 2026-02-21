@@ -1544,6 +1544,165 @@ export const generatePRNRangeStudentsPDF = async (students, options, res) => {
  * @param {Object} options - PDF generation options
  * @param {Response} res - Express response object
  */
+/**
+ * Simple, clean PDF for eligible-but-not-applied students.
+ * Columns: Sl No | PRN | Name | College | Branch | CGPA
+ */
+export const generateEligibleNotAppliedPDF = async (students, options, res) => {
+  const buffers = [];
+  let doc;
+  try {
+    const { jobTitle = 'Job', companyName = '' } = options;
+
+    const PAGE_W = 595.28;
+    const PAGE_H = 841.89;
+    const MARGIN = 30;
+    const CONTENT_W = PAGE_W - MARGIN * 2;
+
+    // Column definitions — total = 535pt
+    const cols = [
+      { key: 'sl_no',          label: 'Sl No',   w: 30,  align: 'center' },
+      { key: 'prn',            label: 'PRN',     w: 85,  align: 'left'   },
+      { key: 'student_name',   label: 'Name',    w: 140, align: 'left'   },
+      { key: 'college_name',   label: 'College', w: 160, align: 'left'   },
+      { key: 'branch',         label: 'Branch',  w: 70,  align: 'left'   },
+      { key: 'programme_cgpa', label: 'CGPA',    w: 50,  align: 'center' },
+    ];
+
+    const ROW_H        = 18;
+    const TH_H         = 22;
+    const DARK_BLUE    = '#1e3a8a';
+    const MID_BLUE     = '#1e40af';
+    const ALT_ROW      = '#f0f4ff';
+    const TEXT_DARK    = '#1f2937';
+    const TEXT_GRAY    = '#6b7280';
+    const BORDER_COLOR = '#cbd5e1';
+
+    doc = new PDFDocument({
+      size: 'A4',
+      layout: 'portrait',
+      margins: { top: MARGIN, bottom: MARGIN, left: MARGIN, right: MARGIN },
+      bufferPages: true,
+      autoFirstPage: true,
+    });
+
+    doc.on('data', buffers.push.bind(buffers));
+    doc.on('end', () => {
+      const pdfData = Buffer.concat(buffers);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Length', pdfData.length);
+      const fname = `eligible_not_applied_${(jobTitle).replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '')}_${Date.now()}.pdf`;
+      res.setHeader('Content-Disposition', `attachment; filename=${fname}`);
+      res.send(pdfData);
+    });
+
+    // ── helpers ───────────────────────────────────────────────────
+    const drawPageHeader = (isFirstPage) => {
+      let y = MARGIN;
+      if (isFirstPage) {
+        doc.rect(MARGIN, y, CONTENT_W, 26).fill(DARK_BLUE);
+        doc.fillColor('#ffffff').fontSize(12).font('Helvetica-Bold')
+          .text('ELIGIBLE STUDENTS — NOT YET APPLIED', MARGIN, y + 7, { width: CONTENT_W, align: 'center' });
+        y += 28;
+
+        doc.fillColor(MID_BLUE).fontSize(10).font('Helvetica-Bold')
+          .text(`${jobTitle}  ·  ${companyName}`, MARGIN, y + 2, { width: CONTENT_W, align: 'center' });
+        y += 16;
+
+        const genDate = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+        doc.fillColor(TEXT_GRAY).fontSize(8).font('Helvetica')
+          .text(`Total eligible (not yet applied): ${students.length}   |   Generated: ${genDate}`, MARGIN, y, { width: CONTENT_W, align: 'center' });
+        y += 14;
+
+        doc.moveTo(MARGIN, y).lineTo(MARGIN + CONTENT_W, y).lineWidth(0.5).strokeColor(BORDER_COLOR).stroke();
+        y += 8;
+      } else {
+        doc.fillColor(TEXT_GRAY).fontSize(8).font('Helvetica-Italic')
+          .text(`${jobTitle} — Eligible students (continued)`, MARGIN, y + 4, { width: CONTENT_W });
+        y += 18;
+      }
+      return y;
+    };
+
+    const drawTableHeader = (y) => {
+      let x = MARGIN;
+      cols.forEach(col => {
+        doc.rect(x, y, col.w, TH_H).fill(MID_BLUE);
+        doc.fillColor('#ffffff').fontSize(7.5).font('Helvetica-Bold')
+          .text(col.label, x + 4, y + (TH_H - 7.5) / 2 + 1, { width: col.w - 8, lineBreak: false, align: col.align });
+        x += col.w;
+      });
+      // outer right border
+      doc.moveTo(x, y).lineTo(x, y + TH_H).lineWidth(0.4).strokeColor(BORDER_COLOR).stroke();
+      return y + TH_H;
+    };
+
+    // ── render ────────────────────────────────────────────────────
+    let y = drawPageHeader(true);
+    y = drawTableHeader(y);
+
+    const bottomLimit = PAGE_H - MARGIN;
+
+    students.forEach((student, idx) => {
+      if (y + ROW_H > bottomLimit) {
+        doc.addPage();
+        y = drawPageHeader(false);
+        y = drawTableHeader(y);
+      }
+
+      // alternating row background
+      if (idx % 2 === 1) {
+        doc.rect(MARGIN, y, CONTENT_W, ROW_H).fill(ALT_ROW);
+      }
+
+      const branchShort = BRANCH_SHORT_NAMES[student.branch] || student.branch || '-';
+      const values = {
+        sl_no:          String(idx + 1),
+        prn:            student.prn || '-',
+        student_name:   student.student_name || student.name || '-',
+        college_name:   student.college_name || '-',
+        branch:         branchShort,
+        programme_cgpa: student.programme_cgpa != null
+          ? parseFloat(student.programme_cgpa).toFixed(2) : '-',
+      };
+
+      let x = MARGIN;
+      cols.forEach(col => {
+        const cellText = String(values[col.key] ?? '-');
+        doc.fillColor(TEXT_DARK).fontSize(7.5).font('Helvetica')
+          .text(cellText, x + 4, y + (ROW_H - 7.5) / 2 + 1, {
+            width: col.w - 8,
+            lineBreak: false,
+            align: col.align,
+          });
+        // right column border
+        doc.moveTo(x + col.w, y).lineTo(x + col.w, y + ROW_H)
+          .lineWidth(0.3).strokeColor(BORDER_COLOR).stroke();
+        x += col.w;
+      });
+
+      // left outer border + row bottom border
+      doc.moveTo(MARGIN, y).lineTo(MARGIN, y + ROW_H).lineWidth(0.3).strokeColor(BORDER_COLOR).stroke();
+      doc.moveTo(MARGIN, y + ROW_H).lineTo(MARGIN + CONTENT_W, y + ROW_H)
+        .lineWidth(0.3).strokeColor(BORDER_COLOR).stroke();
+
+      y += ROW_H;
+    });
+
+    // footer
+    y += 10;
+    doc.moveTo(MARGIN, y).lineTo(MARGIN + CONTENT_W, y).lineWidth(0.5).strokeColor(BORDER_COLOR).stroke();
+    doc.fillColor(TEXT_GRAY).fontSize(7).font('Helvetica-Italic')
+      .text('State Placement Cell — Kerala Polytechnics', MARGIN, y + 4, { width: CONTENT_W, align: 'center' });
+
+    doc.end();
+  } catch (err) {
+    console.error('generateEligibleNotAppliedPDF error:', err);
+    if (doc && !res.headersSent) doc.end();
+    if (!res.headersSent) res.status(500).json({ error: 'Failed to generate PDF' });
+  }
+};
+
 export const generateJobApplicantsPDF = async (applicants, options, res) => {
   const buffers = [];
   let doc;

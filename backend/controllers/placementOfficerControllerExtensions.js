@@ -981,13 +981,10 @@ export const exportEligibleNotApplied = async (req, res) => {
     const whereSQL = whereClauses.join(' AND ');
 
     const studentsResult = await query(
-      `SELECT s.id, s.prn, s.student_name AS name, s.email, s.mobile_number,
-              s.branch, s.programme_cgpa, s.backlog_count, s.date_of_birth,
-              c.college_name,
-              ep.height_cm, ep.weight_kg, ep.sslc_marks, ep.twelfth_marks
+      `SELECT s.id, s.prn, s.student_name, s.branch, s.programme_cgpa,
+              c.college_name
        FROM students s
        LEFT JOIN colleges c ON s.college_id = c.id
-       LEFT JOIN student_extended_profiles ep ON s.id = ep.student_id
        LEFT JOIN job_applications ja ON ja.job_id = $1 AND ja.student_id = s.id
        WHERE ${whereSQL}
        ORDER BY c.college_name ASC, s.branch ASC, s.prn ASC`,
@@ -1009,7 +1006,7 @@ export const exportEligibleNotApplied = async (req, res) => {
 
     // ── PDF export ─────────────────────────────────────────────────────────────
     if (format === 'pdf') {
-      const { generateJobApplicantsPDF } = await import('../utils/pdfGenerator.js');
+      const { generateEligibleNotAppliedPDF } = await import('../utils/pdfGenerator.js');
 
       await logActivity(
         req.user.id,
@@ -1021,11 +1018,7 @@ export const exportEligibleNotApplied = async (req, res) => {
         req
       );
 
-      return await generateJobApplicantsPDF(
-        students,
-        { jobTitle, companyName, isSuperAdmin: isHostPO, useShortNames: true },
-        res
-      );
+      return await generateEligibleNotAppliedPDF(students, { jobTitle, companyName }, res);
     }
 
     // ── Excel export ────────────────────────────────────────────────────────────

@@ -891,10 +891,17 @@ export const exportEligibleNotApplied = async (req, res) => {
       whereClauses.push(`s.programme_cgpa >= $${params.length}`);
     }
 
-    // Branch check
+    // Branch check — normalize '&' vs 'and' since jobs store canonical form
+    // ("Electrical and Electronics Engineering") but students.branch may use '&'
     if (job.allowed_branches && Array.isArray(job.allowed_branches) && job.allowed_branches.length > 0) {
-      params.push(JSON.stringify(job.allowed_branches));
-      whereClauses.push(`s.branch = ANY(SELECT jsonb_array_elements_text($${params.length}::jsonb))`);
+      const normalizedBranches = [];
+      for (const b of job.allowed_branches) {
+        normalizedBranches.push(b);
+        if (/ and /i.test(b)) normalizedBranches.push(b.replace(/ and /gi, ' & '));
+        else if (/ & /.test(b)) normalizedBranches.push(b.replace(/ & /g, ' and '));
+      }
+      params.push(normalizedBranches);
+      whereClauses.push(`s.branch = ANY($${params.length})`);
     }
 
     // Height check

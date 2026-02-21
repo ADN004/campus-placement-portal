@@ -1565,9 +1565,9 @@ export const generateEligibleNotAppliedPDF = async (students, options, res) => {
       { key: 'sl_no',          label: 'Sl No',   w: 28,  align: 'center' },
       { key: 'prn',            label: 'PRN',     w: 78,  align: 'left'   },
       { key: 'student_name',   label: 'Name',    w: 135, align: 'left'   },
-      { key: 'college_name',   label: 'College', w: 152, align: 'left'   },
-      { key: 'region_name',    label: 'Region',  w: 58,  align: 'left'   },
-      { key: 'branch',         label: 'Branch',  w: 49,  align: 'left'   },
+      { key: 'college_name',   label: 'College', w: 145, align: 'left'   },
+      { key: 'region_name',    label: 'Region',  w: 72,  align: 'left'   },
+      { key: 'branch',         label: 'Branch',  w: 42,  align: 'center' },
       { key: 'programme_cgpa', label: 'CGPA',    w: 35,  align: 'center' },
     ];
 

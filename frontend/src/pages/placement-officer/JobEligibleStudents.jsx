@@ -31,7 +31,7 @@ export default function JobEligibleStudents() {
   const [loading, setLoading] = useState(true);
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [isHost, setIsHost] = useState(false);
-  const [showExportDropdown, setShowExportDropdown] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
   const [exporting, setExporting] = useState(false);
 
   // Enhanced Features State
@@ -440,7 +440,7 @@ export default function JobEligibleStudents() {
 
     try {
       setExporting(true);
-      setShowExportDropdown(false);
+      setShowExportModal(false);
 
       const loadingToast = toast.loading(`Preparing ${format === 'pdf' ? 'PDF' : 'Excel'} export...`);
 
@@ -489,7 +489,7 @@ export default function JobEligibleStudents() {
     // Enhanced export only supports PDF with field selector
     setPdfExportType('enhanced');
     setShowPDFFieldSelector(true);
-    setShowExportDropdown(false);
+    setShowExportModal(false);
   };
 
   const handlePDFExportWithFields = async ({ fields: selectedFields, includeSignature, headerLine1, headerLine2 }) => {
@@ -566,7 +566,7 @@ export default function JobEligibleStudents() {
     }
     try {
       setExporting(true);
-      setShowExportDropdown(false);
+      setShowExportModal(false);
       const loadingToast = toast.loading(`Preparing ${format === 'pdf' ? 'PDF' : 'Excel'} export of not-applied students...`);
       const response = await placementOfficerAPI.exportEligibleNotApplied(selectedJob.id, format);
       const mimeType = format === 'pdf'
@@ -825,148 +825,18 @@ export default function JobEligibleStudents() {
                     <span>Edit Job</span>
                   </button>
                 )}
-              <div className="relative w-full sm:w-auto">
-                <button
+              <button
                   onClick={() => {
-                    setShowExportDropdown(!showExportDropdown);
-                    // Close filter panels when export opens
-                    if (!showExportDropdown) {
-                      setShowEnhancedFilters(false);
-                      setShowAdvancedFilters(false);
-                    }
+                    setShowExportModal(true);
+                    setShowEnhancedFilters(false);
+                    setShowAdvancedFilters(false);
                   }}
                   disabled={filteredStudents.length === 0 || exporting}
                   className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 transform hover:scale-105 active:scale-95 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Download size={18} />
                   <span>{exporting ? 'Exporting...' : 'Export'}</span>
-                  <ChevronDown size={16} className={`transition-transform ${showExportDropdown ? 'rotate-180' : ''}`} />
                 </button>
-
-                {showExportDropdown && !exporting && (
-                  <>
-                    <div
-                      className="fixed inset-0 bg-black/20 z-[100]"
-                      onClick={() => setShowExportDropdown(false)}
-                    ></div>
-                    <GlassCard className="absolute right-0 sm:right-0 left-0 sm:left-auto mt-2 w-full sm:w-80 z-[110] overflow-hidden p-0 shadow-2xl border-2 border-gray-200">
-                      <div className="p-3 bg-gray-50 border-b border-gray-200">
-                        <p className="text-sm font-bold text-gray-700">Export Options</p>
-                      </div>
-                      {/* College selection for host POs — compact trigger */}
-                      {isHost && (() => {
-                        const targetIds = Array.isArray(selectedJob?.target_colleges)
-                          ? selectedJob.target_colleges.map(Number)
-                          : [];
-                        const jobColleges = allColleges.filter((c) => targetIds.includes(Number(c.id)));
-                        if (jobColleges.length <= 1) return null;
-                        return (
-                          <div className="px-4 py-3 border-b border-gray-200 bg-indigo-50">
-                            <div className="flex items-center justify-between">
-                              <p className="text-xs font-bold text-indigo-700">Filter by College</p>
-                              <button
-                                onClick={() => { setShowCollegeModal(true); setShowExportDropdown(false); }}
-                                className="text-xs bg-indigo-600 text-white px-2.5 py-1 rounded-lg font-bold hover:bg-indigo-700 transition-colors"
-                              >
-                                {exportCollegeIds.length === 0
-                                  ? `All ${jobColleges.length} colleges`
-                                  : `${exportCollegeIds.length} / ${jobColleges.length} selected`}
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })()}
-                      <div className="p-2">
-                        <p className="text-xs font-semibold text-gray-500 px-4 py-2">Basic Export</p>
-                        <button
-                          onClick={() => handleExport('excel')}
-                          className="w-full px-4 py-3 text-left hover:bg-blue-50 flex items-center space-x-3 transition-colors rounded-lg"
-                        >
-                          <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl p-2 shadow-lg">
-                            <FileSpreadsheet size={18} className="text-white" />
-                          </div>
-                          <div>
-                            <div className="font-bold text-gray-900 text-sm">Export as Excel</div>
-                            <div className="text-xs text-gray-600">Basic applicant list</div>
-                          </div>
-                        </button>
-                        <button
-                          onClick={() => handleExport('pdf')}
-                          className="w-full px-4 py-3 text-left hover:bg-blue-50 flex items-center space-x-3 transition-colors rounded-lg"
-                        >
-                          <div className="bg-gradient-to-br from-red-500 to-rose-600 rounded-xl p-2 shadow-lg">
-                            <FileText size={18} className="text-white" />
-                          </div>
-                          <div>
-                            <div className="font-bold text-gray-900 text-sm">Export as PDF</div>
-                            <div className="text-xs text-gray-600">Basic report format</div>
-                          </div>
-                        </button>
-                      </div>
-                      <div className="p-2 border-t border-gray-200">
-                        <p className="text-xs font-semibold text-gray-500 px-4 py-2">Enhanced Export (with filters)</p>
-                        <button
-                          onClick={handleEnhancedExport}
-                          className="w-full px-4 py-3 text-left hover:bg-blue-50 flex items-center space-x-3 transition-colors rounded-lg"
-                        >
-                          <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-2 shadow-lg">
-                            <FileText size={18} className="text-white" />
-                          </div>
-                          <div>
-                            <div className="font-bold text-gray-900 text-sm">Enhanced PDF</div>
-                            <div className="text-xs text-gray-600">Comprehensive report with field selection</div>
-                          </div>
-                        </button>
-                      </div>
-                      <div className="p-2 border-t border-gray-200">
-                        <p className="text-xs font-semibold text-gray-500 px-4 py-2">Not-Applied Students</p>
-                        <button
-                          onClick={() => handleExportEligibleNotApplied('pdf')}
-                          className="w-full px-4 py-3 text-left hover:bg-teal-50 flex items-center space-x-3 transition-colors rounded-lg"
-                        >
-                          <div className="bg-gradient-to-br from-teal-500 to-emerald-600 rounded-xl p-2 shadow-lg">
-                            <FileText size={18} className="text-white" />
-                          </div>
-                          <div>
-                            <div className="font-bold text-gray-900 text-sm">Not-Applied — PDF</div>
-                            <div className="text-xs text-gray-600">Eligible students who haven&apos;t applied yet{isHost ? ', all colleges' : ''}</div>
-                          </div>
-                        </button>
-                        <button
-                          onClick={() => handleExportEligibleNotApplied('excel')}
-                          className="w-full px-4 py-3 text-left hover:bg-teal-50 flex items-center space-x-3 transition-colors rounded-lg"
-                        >
-                          <div className="bg-gradient-to-br from-teal-400 to-cyan-600 rounded-xl p-2 shadow-lg">
-                            <FileSpreadsheet size={18} className="text-white" />
-                          </div>
-                          <div>
-                            <div className="font-bold text-gray-900 text-sm">Not-Applied — Excel</div>
-                            <div className="text-xs text-gray-600">{isHost ? 'College-wise sheets' : 'Spreadsheet format'}</div>
-                          </div>
-                        </button>
-                      </div>
-                      {filteredStudents.some(s => s.is_already_placed) && (
-                        <div className="p-3 border-t border-gray-200 bg-amber-50">
-                          <label className="flex items-center space-x-3 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={includePlacedInExport}
-                              onChange={(e) => setIncludePlacedInExport(e.target.checked)}
-                              className="w-4 h-4 rounded border-2 border-amber-400 text-amber-600 focus:ring-amber-500"
-                            />
-                            <div>
-                              <div className="font-bold text-amber-800 text-sm">Include already placed students</div>
-                              <div className="text-xs text-amber-600">
-                                {filteredStudents.filter(s => s.is_already_placed).length} student(s) already placed in other companies
-                              </div>
-                            </div>
-                          </label>
-                        </div>
-                      )}
-                    </GlassCard>
-                  </>
-                )}
-              </div>
               </div>
             </div>
           </GlassCard>
@@ -1065,13 +935,7 @@ export default function JobEligibleStudents() {
           {/* Enhanced Filters */}
           <div className="mb-6">
             <button
-              onClick={() => {
-                setShowEnhancedFilters(!showEnhancedFilters);
-                // Close export dropdown when filters open
-                if (!showEnhancedFilters) {
-                  setShowExportDropdown(false);
-                }
-              }}
+              onClick={() => setShowEnhancedFilters(!showEnhancedFilters)}
               className="bg-white text-gray-900 font-bold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 active:scale-95 flex items-center space-x-2 border-2 border-gray-200 hover:border-blue-300 w-full sm:w-auto"
             >
               <Filter size={18} />
@@ -1108,13 +972,7 @@ export default function JobEligibleStudents() {
           {/* Advanced Filters (Legacy) */}
           <div className="mb-6">
             <button
-              onClick={() => {
-                setShowAdvancedFilters(!showAdvancedFilters);
-                // Close export dropdown when filters open
-                if (!showAdvancedFilters) {
-                  setShowExportDropdown(false);
-                }
-              }}
+              onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
               className="bg-white text-gray-900 font-bold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 active:scale-95 flex items-center space-x-2 border-2 border-gray-200 hover:border-blue-300"
             >
               <Filter size={18} />
@@ -1682,6 +1540,158 @@ export default function JobEligibleStudents() {
           </div>
         );
       })()}
+
+      {/* Export Options Modal */}
+      {showExportModal && !exporting && (
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[150] flex items-center justify-center p-4"
+          onClick={() => setShowExportModal(false)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+              <div className="flex items-center gap-3">
+                <div className="bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl p-2 shadow-md">
+                  <Download size={18} className="text-white" />
+                </div>
+                <h2 className="text-lg font-bold text-gray-900">Export Options</h2>
+              </div>
+              <button
+                onClick={() => setShowExportModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <XCircle size={22} />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-1 max-h-[70vh] overflow-y-auto">
+              {/* College filter for host POs */}
+              {isHost && (() => {
+                const targetIds = Array.isArray(selectedJob?.target_colleges)
+                  ? selectedJob.target_colleges.map(Number)
+                  : [];
+                const jobColleges = allColleges.filter((c) => targetIds.includes(Number(c.id)));
+                if (jobColleges.length <= 1) return null;
+                return (
+                  <div className="mb-3 px-3 py-3 bg-indigo-50 rounded-xl border border-indigo-100 flex items-center justify-between">
+                    <p className="text-xs font-bold text-indigo-700">Filter by College</p>
+                    <button
+                      onClick={() => { setShowCollegeModal(true); setShowExportModal(false); }}
+                      className="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-indigo-700 transition-colors"
+                    >
+                      {exportCollegeIds.length === 0
+                        ? `All ${jobColleges.length} colleges`
+                        : `${exportCollegeIds.length} / ${jobColleges.length} selected`}
+                    </button>
+                  </div>
+                );
+              })()}
+
+              {/* Basic Export */}
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-2 pt-1 pb-0.5">Basic Export</p>
+              <button
+                onClick={() => handleExport('excel')}
+                className="w-full px-4 py-3 text-left hover:bg-green-50 flex items-center space-x-3 transition-colors rounded-xl"
+              >
+                <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl p-2.5 shadow-md flex-shrink-0">
+                  <FileSpreadsheet size={18} className="text-white" />
+                </div>
+                <div>
+                  <div className="font-bold text-gray-900 text-sm">Export as Excel</div>
+                  <div className="text-xs text-gray-500">Basic applicant list</div>
+                </div>
+              </button>
+              <button
+                onClick={() => handleExport('pdf')}
+                className="w-full px-4 py-3 text-left hover:bg-red-50 flex items-center space-x-3 transition-colors rounded-xl"
+              >
+                <div className="bg-gradient-to-br from-red-500 to-rose-600 rounded-xl p-2.5 shadow-md flex-shrink-0">
+                  <FileText size={18} className="text-white" />
+                </div>
+                <div>
+                  <div className="font-bold text-gray-900 text-sm">Export as PDF</div>
+                  <div className="text-xs text-gray-500">Basic report format</div>
+                </div>
+              </button>
+
+              {/* Enhanced Export */}
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-2 pt-3 pb-0.5">Enhanced Export</p>
+              <button
+                onClick={handleEnhancedExport}
+                className="w-full px-4 py-3 text-left hover:bg-purple-50 flex items-center space-x-3 transition-colors rounded-xl"
+              >
+                <div className="bg-gradient-to-br from-purple-500 to-purple-700 rounded-xl p-2.5 shadow-md flex-shrink-0">
+                  <FileText size={18} className="text-white" />
+                </div>
+                <div>
+                  <div className="font-bold text-gray-900 text-sm">Enhanced PDF</div>
+                  <div className="text-xs text-gray-500">Comprehensive report with field selection</div>
+                </div>
+              </button>
+
+              {/* Not-Applied Students */}
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-2 pt-3 pb-0.5">Not-Applied Students</p>
+              <button
+                onClick={() => handleExportEligibleNotApplied('pdf')}
+                className="w-full px-4 py-3 text-left hover:bg-teal-50 flex items-center space-x-3 transition-colors rounded-xl"
+              >
+                <div className="bg-gradient-to-br from-teal-500 to-emerald-600 rounded-xl p-2.5 shadow-md flex-shrink-0">
+                  <FileText size={18} className="text-white" />
+                </div>
+                <div>
+                  <div className="font-bold text-gray-900 text-sm">Not-Applied — PDF</div>
+                  <div className="text-xs text-gray-500">Eligible students who haven&apos;t applied yet{isHost ? ', all colleges' : ''}</div>
+                </div>
+              </button>
+              <button
+                onClick={() => handleExportEligibleNotApplied('excel')}
+                className="w-full px-4 py-3 text-left hover:bg-teal-50 flex items-center space-x-3 transition-colors rounded-xl"
+              >
+                <div className="bg-gradient-to-br from-teal-400 to-cyan-600 rounded-xl p-2.5 shadow-md flex-shrink-0">
+                  <FileSpreadsheet size={18} className="text-white" />
+                </div>
+                <div>
+                  <div className="font-bold text-gray-900 text-sm">Not-Applied — Excel</div>
+                  <div className="text-xs text-gray-500">{isHost ? 'College-wise sheets' : 'Spreadsheet format'}</div>
+                </div>
+              </button>
+
+              {/* Include placed students toggle */}
+              {filteredStudents.some(s => s.is_already_placed) && (
+                <div className="mt-3 px-3 py-3 bg-amber-50 rounded-xl border border-amber-200">
+                  <label className="flex items-center space-x-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={includePlacedInExport}
+                      onChange={(e) => setIncludePlacedInExport(e.target.checked)}
+                      className="w-4 h-4 rounded border-2 border-amber-400 text-amber-600 focus:ring-amber-500"
+                    />
+                    <div>
+                      <div className="font-bold text-amber-800 text-sm">Include already placed students</div>
+                      <div className="text-xs text-amber-600">
+                        {filteredStudents.filter(s => s.is_already_placed).length} student(s) already placed in other companies
+                      </div>
+                    </div>
+                  </label>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-3 border-t border-gray-100 bg-gray-50 flex justify-end">
+              <button
+                onClick={() => setShowExportModal(false)}
+                className="px-4 py-2 text-sm font-bold text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded-xl transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit Job Modal (host POs only) */}
       {showEditJobModal && (

@@ -982,12 +982,13 @@ export const exportEligibleNotApplied = async (req, res) => {
 
     const studentsResult = await query(
       `SELECT s.id, s.prn, s.student_name, s.branch, s.programme_cgpa,
-              c.college_name
+              c.college_name, r.region_name
        FROM students s
        LEFT JOIN colleges c ON s.college_id = c.id
+       LEFT JOIN regions r ON c.region_id = r.id
        LEFT JOIN job_applications ja ON ja.job_id = $1 AND ja.student_id = s.id
        WHERE ${whereSQL}
-       ORDER BY c.college_name ASC, s.branch ASC, s.prn ASC`,
+       ORDER BY r.region_name ASC, c.college_name ASC, s.branch ASC, s.prn ASC`,
       params
     );
 

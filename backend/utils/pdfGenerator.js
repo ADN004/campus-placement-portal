@@ -1546,7 +1546,7 @@ export const generatePRNRangeStudentsPDF = async (students, options, res) => {
  */
 /**
  * Simple, clean PDF for eligible-but-not-applied students.
- * Columns: Sl No | PRN | Name | College | Branch | CGPA
+ * Columns: Sl No | PRN | Name | College | Region | Branch | CGPA
  */
 export const generateEligibleNotAppliedPDF = async (students, options, res) => {
   const buffers = [];
@@ -1557,16 +1557,17 @@ export const generateEligibleNotAppliedPDF = async (students, options, res) => {
     const PAGE_W = 595.28;
     const PAGE_H = 841.89;
     const MARGIN = 30;
-    const CONTENT_W = PAGE_W - MARGIN * 2;
+    const CONTENT_W = PAGE_W - MARGIN * 2; // 535pt
 
-    // Column definitions — total = 535pt
+    // Column definitions — widths sum to 535pt
     const cols = [
-      { key: 'sl_no',          label: 'Sl No',   w: 30,  align: 'center' },
-      { key: 'prn',            label: 'PRN',     w: 85,  align: 'left'   },
-      { key: 'student_name',   label: 'Name',    w: 140, align: 'left'   },
-      { key: 'college_name',   label: 'College', w: 160, align: 'left'   },
-      { key: 'branch',         label: 'Branch',  w: 70,  align: 'left'   },
-      { key: 'programme_cgpa', label: 'CGPA',    w: 50,  align: 'center' },
+      { key: 'sl_no',          label: 'Sl No',   w: 28,  align: 'center' },
+      { key: 'prn',            label: 'PRN',     w: 78,  align: 'left'   },
+      { key: 'student_name',   label: 'Name',    w: 130, align: 'left'   },
+      { key: 'college_name',   label: 'College', w: 130, align: 'left'   },
+      { key: 'region_name',    label: 'Region',  w: 72,  align: 'left'   },
+      { key: 'branch',         label: 'Branch',  w: 62,  align: 'left'   },
+      { key: 'programme_cgpa', label: 'CGPA',    w: 35,  align: 'center' },
     ];
 
     const ROW_H        = 18;
@@ -1617,7 +1618,7 @@ export const generateEligibleNotAppliedPDF = async (students, options, res) => {
         doc.moveTo(MARGIN, y).lineTo(MARGIN + CONTENT_W, y).lineWidth(0.5).strokeColor(BORDER_COLOR).stroke();
         y += 8;
       } else {
-        doc.fillColor(TEXT_GRAY).fontSize(8).font('Helvetica-Italic')
+        doc.fillColor(TEXT_GRAY).fontSize(8).font('Helvetica-Oblique')
           .text(`${jobTitle} — Eligible students (continued)`, MARGIN, y + 4, { width: CONTENT_W });
         y += 18;
       }
@@ -1661,6 +1662,7 @@ export const generateEligibleNotAppliedPDF = async (students, options, res) => {
         prn:            student.prn || '-',
         student_name:   student.student_name || student.name || '-',
         college_name:   student.college_name || '-',
+        region_name:    student.region_name || '-',
         branch:         branchShort,
         programme_cgpa: student.programme_cgpa != null
           ? parseFloat(student.programme_cgpa).toFixed(2) : '-',
@@ -1692,7 +1694,7 @@ export const generateEligibleNotAppliedPDF = async (students, options, res) => {
     // footer
     y += 10;
     doc.moveTo(MARGIN, y).lineTo(MARGIN + CONTENT_W, y).lineWidth(0.5).strokeColor(BORDER_COLOR).stroke();
-    doc.fillColor(TEXT_GRAY).fontSize(7).font('Helvetica-Italic')
+    doc.fillColor(TEXT_GRAY).fontSize(7).font('Helvetica-Oblique')
       .text('State Placement Cell — Kerala Polytechnics', MARGIN, y + 4, { width: CONTENT_W, align: 'center' });
 
     doc.end();

@@ -10,6 +10,9 @@
 
 import { query, transaction } from '../config/database.js';
 
+// Normalize branch name for comparison: lowercase, & → and, collapse spaces
+const normalizeBranch = (b) => b?.toLowerCase().replace(/&/g, 'and').replace(/\s+/g, ' ').trim() || '';
+
 /**
  * Helper function to determine section for a specific field
  */
@@ -284,7 +287,9 @@ export const checkApplicationReadiness = async (req, res) => {
     }
 
     if (requirements.allowed_branches && requirements.allowed_branches.length > 0) {
-      if (!requirements.allowed_branches.includes(student.branch)) {
+      const studentBranchNorm = normalizeBranch(student.branch);
+      const branchMatch = requirements.allowed_branches.some(b => normalizeBranch(b) === studentBranchNorm);
+      if (!branchMatch) {
         missingFields.push({
           field: 'branch',
           section: 'core',
@@ -758,7 +763,9 @@ export const submitEnhancedApplication = async (req, res) => {
         }
 
         if (requirements.allowed_branches && requirements.allowed_branches.length > 0) {
-          if (!requirements.allowed_branches.includes(student.branch)) {
+          const studentBranchNorm = normalizeBranch(student.branch);
+          const branchMatch = requirements.allowed_branches.some(b => normalizeBranch(b) === studentBranchNorm);
+          if (!branchMatch) {
             meetsRequirements = false;
             validationErrors.push('Branch not eligible');
           }

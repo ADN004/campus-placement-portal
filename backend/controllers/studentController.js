@@ -782,6 +782,9 @@ export const updateProfile = async (req, res) => {
   }
 };
 
+// Normalize branch name for comparison: lowercase, & → and, collapse spaces
+const normalizeBranch = (b) => b?.toLowerCase().replace(/&/g, 'and').replace(/\s+/g, ' ').trim() || '';
+
 // Helper function to check job eligibility
 const checkJobEligibility = async (jobId, student) => {
   try {
@@ -890,8 +893,12 @@ const checkJobEligibility = async (jobId, student) => {
       const allowedBranches = typeof job.allowed_branches === 'string'
         ? JSON.parse(job.allowed_branches)
         : job.allowed_branches;
-      if (allowedBranches && allowedBranches.length > 0 && !allowedBranches.includes(student.branch)) {
-        return { isEligible: false, reason: `Your branch (${student.branch}) is not in the allowed list: ${allowedBranches.join(', ')}` };
+      if (allowedBranches && allowedBranches.length > 0) {
+        const studentBranchNorm = normalizeBranch(student.branch);
+        const isMatch = allowedBranches.some(b => normalizeBranch(b) === studentBranchNorm);
+        if (!isMatch) {
+          return { isEligible: false, reason: `Your branch (${student.branch}) is not in the allowed list: ${allowedBranches.join(', ')}` };
+        }
       }
     }
 

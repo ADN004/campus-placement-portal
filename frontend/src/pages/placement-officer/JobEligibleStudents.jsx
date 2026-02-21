@@ -90,6 +90,7 @@ export default function JobEligibleStudents() {
 
   useEffect(() => {
     if (selectedJob) {
+      setStudents([]);
       fetchJobApplicants();
       fetchDriveSchedule();
       fetchPlacementStats();

@@ -1560,13 +1560,14 @@ export const generateEligibleNotAppliedPDF = async (students, options, res) => {
     const CONTENT_W = PAGE_W - MARGIN * 2; // 535pt
 
     // Column definitions — widths sum to 535pt
+    // Region is stripped to short form (CENTRAL, NORTH, etc.) so 58pt is enough
     const cols = [
       { key: 'sl_no',          label: 'Sl No',   w: 28,  align: 'center' },
       { key: 'prn',            label: 'PRN',     w: 78,  align: 'left'   },
-      { key: 'student_name',   label: 'Name',    w: 130, align: 'left'   },
-      { key: 'college_name',   label: 'College', w: 130, align: 'left'   },
-      { key: 'region_name',    label: 'Region',  w: 72,  align: 'left'   },
-      { key: 'branch',         label: 'Branch',  w: 62,  align: 'left'   },
+      { key: 'student_name',   label: 'Name',    w: 135, align: 'left'   },
+      { key: 'college_name',   label: 'College', w: 152, align: 'left'   },
+      { key: 'region_name',    label: 'Region',  w: 58,  align: 'left'   },
+      { key: 'branch',         label: 'Branch',  w: 49,  align: 'left'   },
       { key: 'programme_cgpa', label: 'CGPA',    w: 35,  align: 'center' },
     ];
 
@@ -1662,7 +1663,9 @@ export const generateEligibleNotAppliedPDF = async (students, options, res) => {
         prn:            student.prn || '-',
         student_name:   student.student_name || student.name || '-',
         college_name:   student.college_name || '-',
-        region_name:    student.region_name || '-',
+        region_name:    student.region_name
+          ? student.region_name.replace(/\s*REGION\s*$/i, '').trim() || '-'
+          : '-',
         branch:         branchShort,
         programme_cgpa: student.programme_cgpa != null
           ? parseFloat(student.programme_cgpa).toFixed(2) : '-',

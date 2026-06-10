@@ -2216,8 +2216,8 @@ export const getPlacementPosterStats = async (req, res) => {
       SELECT
         COUNT(DISTINCT ja.student_id) as total_students_placed,
         COUNT(DISTINCT j.company_name) as total_companies,
-        COALESCE(MAX(CAST(j.salary_package AS DECIMAL)), 0) as highest_package,
-        COALESCE(AVG(CAST(j.salary_package AS DECIMAL)), 0) as average_package,
+        COALESCE(MAX(CAST(substring(j.salary_package from '(\\d+\\.?\\d*)') AS DECIMAL)), 0) as highest_package,
+        COALESCE(AVG(CAST(substring(j.salary_package from '(\\d+\\.?\\d*)') AS DECIMAL)), 0) as average_package,
         EXTRACT(YEAR FROM MIN(COALESCE(ja.joining_date, CURRENT_DATE))) as start_year,
         EXTRACT(YEAR FROM MAX(COALESCE(ja.joining_date, CURRENT_DATE))) as end_year
       FROM job_applications ja
@@ -2249,7 +2249,7 @@ export const getPlacementPosterStats = async (req, res) => {
         AND j.salary_package IS NOT NULL
         AND j.salary_package != ''
       GROUP BY j.company_name, j.salary_package
-      ORDER BY CAST(j.salary_package AS DECIMAL) DESC, j.company_name ASC
+      ORDER BY CAST(substring(j.salary_package from '(\\d+\\.?\\d*)') AS DECIMAL) DESC, j.company_name ASC
     `;
 
     const companiesResult = await query(companiesQuery, [collegeId]);
@@ -2365,7 +2365,7 @@ export const generatePlacementPoster = async (req, res) => {
         s.email,
         s.mobile_number,
         j.company_name,
-        CAST(j.salary_package AS DECIMAL) as lpa,
+        CAST(substring(j.salary_package from '(\\d+\\.?\\d*)') AS DECIMAL) as lpa,
         ja.joining_date,
         ja.placement_location
       FROM job_applications ja
@@ -2376,7 +2376,7 @@ export const generatePlacementPoster = async (req, res) => {
         AND j.salary_package != ''
         AND s.college_id = $1
         AND s.is_blacklisted = FALSE
-      ORDER BY CAST(j.salary_package AS DECIMAL) DESC, s.student_name ASC
+      ORDER BY CAST(substring(j.salary_package from '(\\d+\\.?\\d*)') AS DECIMAL) DESC, s.student_name ASC
     `;
 
     const placementsResult = await query(placementsQuery, [collegeId]);

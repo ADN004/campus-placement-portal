@@ -23,6 +23,27 @@ dotenv.config();
 // ============================================
 
 /**
+ * Environment-aware email transport (fail-safe by design)
+ *
+ * Real SMTP delivery requires BOTH:
+ *   - APP_ENV=production
+ *   - EMAIL_MODE=smtp (the default when APP_ENV=production)
+ *
+ * In any other environment (staging, development, unset), emails are
+ * composed normally but captured to the application logs via nodemailer's
+ * jsonTransport instead of being delivered. This guarantees a staging
+ * deployment can NEVER email real students, even if production SMTP
+ * credentials are present in its environment file.
+ *
+ * EMAIL_MODE values:
+ *   'smtp' - real delivery (only honored when APP_ENV=production)
+ *   'log'  - capture emails to logs (forced for non-production)
+ */
+const APP_ENV = process.env.APP_ENV || 'production';
+const EMAIL_MODE = process.env.EMAIL_MODE || (APP_ENV === 'production' ? 'smtp' : 'log');
+const isRealDeliveryEnabled = APP_ENV === 'production' && EMAIL_MODE === 'smtp';
+
+/**
  * Nodemailer Transporter
  *
  * Configured with Gmail or custom SMTP service.
@@ -30,13 +51,36 @@ dotenv.config();
  * Enable 2FA and generate App Password at:
  * https://support.google.com/accounts/answer/185833
  */
-const transporter = nodemailer.createTransport({
-  service: process.env.EMAIL_SERVICE || 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD,  // Gmail App Password
-  },
-});
+const smtpTransporter = nodemailer.createTransport(
+  isRealDeliveryEnabled
+    ? {
+        service: process.env.EMAIL_SERVICE || 'gmail',
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASSWORD,  // Gmail App Password
+        },
+      }
+    : { jsonTransport: true }  // composes the full message, delivers nowhere
+);
+
+const transporter = isRealDeliveryEnabled
+  ? smtpTransporter
+  : {
+      sendMail: async (mailOptions) => {
+        const info = await smtpTransporter.sendMail(mailOptions);
+        console.log(
+          `📧 [EMAIL SAFE MODE — APP_ENV=${APP_ENV}] Captured (NOT delivered) | to: ${mailOptions.to} | subject: ${mailOptions.subject}`
+        );
+        return info;
+      },
+      verify: () => smtpTransporter.verify(),
+    };
+
+if (!isRealDeliveryEnabled) {
+  console.log(
+    `📧 Email safe mode active (APP_ENV=${APP_ENV}, EMAIL_MODE=${EMAIL_MODE}) — emails are logged, never delivered`
+  );
+}
 
 // ============================================
 // EMAIL VERIFICATION

@@ -3,6 +3,7 @@
 .env.local
 .env.production
 .env.development
+.env.staging
 
 # Dependencies
 node_modules/
@@ -37,9 +38,11 @@ uploads/
 *.pdf
 *.xlsx
 
-# Database dumps
+# Database dumps & deployment records
 *.sql.gz
 *.dump
+backups/
+deploy-history.log
 
 # Docker
 .dockerignore
@@ -57,6 +60,7 @@ coverage/
 guides/
 *.md
 !README.md
+!docs/*.md
 
 # Claude Code configuration (optional - keep if you want to share)
 # .claude/

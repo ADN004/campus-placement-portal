@@ -5,6 +5,7 @@ import { useAuth } from './context/AuthContext';
 // Shared Components (loaded eagerly - needed on every page)
 import Layout from './components/Layout';
 import LoadingSpinner from './components/LoadingSpinner';
+import StagingBanner from './components/StagingBanner';
 
 // Auth Pages (lazy loaded)
 const RoleSelectionPage = lazy(() => import('./pages/auth/RoleSelectionPage'));
@@ -65,6 +66,7 @@ function App() {
 
   return (
     <Router>
+      <StagingBanner />
       <Suspense fallback={<LoadingSpinner />}>
       <Routes>
         {/* Public Routes */}

@@ -5,7 +5,7 @@
 # No source code is needed - just this file and a .env file.
 #
 # SETUP:
-#   1. Create a .env file (see below for required variables)
+#   1. Create a .env file (see .env.docker.example for all variables)
 #   2. Run: docker compose -f docker-compose.hub.yml up -d
 #   3. Wait ~30 seconds for all services to start
 #   4. Seed the database:
@@ -14,22 +14,28 @@
 #
 # REQUIRED .env variables:
 #   DOCKERHUB_USERNAME=your_dockerhub_username
+#   IMAGE_TAG=main-a1b2c3d   (an immutable tag from the CI build - see Actions job summary)
 #   DB_PASSWORD=postgres
 #   JWT_SECRET=any_long_random_string_minimum_64_characters
+#
+# MULTI-ENVIRONMENT (staging + production on one host):
+#   This same file serves both environments. Each environment gets its own
+#   directory (or compose project via -p) and its own env file that sets
+#   IMAGE_TAG, CONTAINER_PREFIX, ports, APP_ENV, etc. See docs/STAGING.md.
 #
 # ============================================
 
 services:
   # PostgreSQL Database (with schema pre-loaded)
   postgres:
-    image: ${DOCKERHUB_USERNAME}/spc-database:latest
-    container_name: spc_postgres
+    image: ${DOCKERHUB_USERNAME}/spc-database:${IMAGE_TAG:?Set IMAGE_TAG in .env to an immutable tag, e.g. main-a1b2c3d}
+    container_name: ${CONTAINER_PREFIX:-spc}_postgres
     restart: unless-stopped
     deploy:
       resources:
         limits:
-          memory: 512M
-          cpus: '1.0'
+          memory: ${POSTGRES_MEM_LIMIT:-512M}
+          cpus: '${POSTGRES_CPU_LIMIT:-1.0}'
         reservations:
           memory: 256M
           cpus: '0.25'
@@ -53,14 +59,14 @@ services:
 
   # Backend API
   backend:
-    image: ${DOCKERHUB_USERNAME}/spc-backend:latest
-    container_name: spc_backend
+    image: ${DOCKERHUB_USERNAME}/spc-backend:${IMAGE_TAG:?Set IMAGE_TAG in .env to an immutable tag, e.g. main-a1b2c3d}
+    container_name: ${CONTAINER_PREFIX:-spc}_backend
     restart: unless-stopped
     deploy:
       resources:
         limits:
-          memory: 512M
-          cpus: '1.0'
+          memory: ${BACKEND_MEM_LIMIT:-512M}
+          cpus: '${BACKEND_CPU_LIMIT:-1.0}'
         reservations:
           memory: 256M
           cpus: '0.25'
@@ -69,6 +75,11 @@ services:
         condition: service_healthy
     environment:
       NODE_ENV: production
+      # APP_ENV drives environment-aware safety behavior (email safe mode, guards).
+      # 'production' = real behavior. Anything else (e.g. 'staging') forces email
+      # capture-to-logs regardless of SMTP credentials. See backend/config/emailService.js
+      APP_ENV: ${APP_ENV:-production}
+      EMAIL_MODE: ${EMAIL_MODE:-}
       PORT: 5000
       DB_HOST: postgres
       DB_PORT: 5432
@@ -92,6 +103,9 @@ services:
       CREATE_SUPER_ADMIN: ${CREATE_SUPER_ADMIN:-false}
       SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:-}
       SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD:-}
+      # Staging only: password applied to all non-admin accounts by the
+      # post-refresh sanitizer (scripts/sanitizeStagingDb.js)
+      STAGING_SANITIZE_PASSWORD: ${STAGING_SANITIZE_PASSWORD:-}
     ports:
       - "${BACKEND_PORT:-5000}:5000"
     volumes:
@@ -108,8 +122,8 @@ services:
 
   # Frontend (Nginx + React)
   frontend:
-    image: ${DOCKERHUB_USERNAME}/spc-frontend:latest
-    container_name: spc_frontend
+    image: ${DOCKERHUB_USERNAME}/spc-frontend:${IMAGE_TAG:?Set IMAGE_TAG in .env to an immutable tag, e.g. main-a1b2c3d}
+    container_name: ${CONTAINER_PREFIX:-spc}_frontend
     restart: unless-stopped
     depends_on:
       backend:

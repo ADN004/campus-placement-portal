@@ -1,0 +1,66 @@
+name: Docker Hub Image Retention
+
+# Count-based retention for immutable image tags:
+#   - keep the newest 15 main-* tags per repository
+#   - keep the newest 10 staging-* tags per repository
+#   - moving tags (latest, staging) are never touched
+#
+# Count-based (not age-based) so a quiet month can never delete the
+# only rollback candidates. The currently deployed tag is always among
+# the newest tags, so a running deployment can never be stranded.
+
+on:
+  schedule:
+    - cron: '0 3 * * 0' # weekly, Sunday 03:00 UTC
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+
+    env:
+      KEEP_MAIN: 15
+      KEEP_STAGING: 10
+      REPOS: spc-database spc-backend spc-frontend
+
+    steps:
+      - name: Clean up old immutable tags
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          # Docker Hub API JWT (the registry login token does not work for the tags API)
+          HUB_JWT=$(curl -fsS -H "Content-Type: application/json" \
+            -d "{\"username\": \"${DOCKERHUB_USERNAME}\", \"password\": \"${DOCKERHUB_TOKEN}\"}" \
+            https://hub.docker.com/v2/users/login/ | jq -r .token)
+
+          cleanup_prefix() {
+            local repo="$1" prefix="$2" keep="$3"
+
+            # All tags with this prefix, newest first (paginated, 100/page covers years of builds)
+            local tags
+            tags=$(curl -fsS -H "Authorization: JWT ${HUB_JWT}" \
+              "https://hub.docker.com/v2/repositories/${DOCKERHUB_USERNAME}/${repo}/tags/?page_size=100&ordering=-last_updated" \
+              | jq -r --arg p "${prefix}-" '.results[].name | select(startswith($p))')
+
+            local stale
+            stale=$(echo "${tags}" | tail -n +$((keep + 1)) || true)
+
+            if [ -z "${stale}" ]; then
+              echo "${repo}: nothing to delete for ${prefix}-* (keeping ${keep})"
+              return
+            fi
+
+            for tag in ${stale}; do
+              echo "${repo}: deleting ${tag}"
+              curl -fsS -X DELETE -H "Authorization: JWT ${HUB_JWT}" \
+                "https://hub.docker.com/v2/repositories/${DOCKERHUB_USERNAME}/${repo}/tags/${tag}/"
+            done
+          }
+
+          for repo in ${REPOS}; do
+            cleanup_prefix "${repo}" "main" "${KEEP_MAIN}"
+            cleanup_prefix "${repo}" "staging" "${KEEP_STAGING}"
+          done

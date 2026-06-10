@@ -33,6 +33,10 @@ COPY . .
 ARG VITE_API_URL
 ENV VITE_API_URL=${VITE_API_URL}
 
+# Environment identity baked into the build (staging builds show a UI banner)
+ARG VITE_APP_ENV=production
+ENV VITE_APP_ENV=${VITE_APP_ENV}
+
 # Build the application with optimizations
 RUN npm run build \
     && ls -la dist

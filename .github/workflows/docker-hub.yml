@@ -1,8 +1,16 @@
 name: Build and Push to Docker Hub
 
+# Branch-based build strategy:
+#   push to develop -> staging images  (tags: staging-<sha>, staging)
+#   push to main    -> production images (tags: main-<sha>, latest)
+#
+# Deployment is ALWAYS done by pinning the immutable <branch>-<sha> tag
+# in the server's .env file (IMAGE_TAG=...). The moving tags (staging,
+# latest) are convenience pointers only and are never deployed directly.
+
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
 
 jobs:
   build-and-push:
@@ -11,6 +19,20 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Compute image tags
+        id: meta
+        run: |
+          SHORT_SHA="${GITHUB_SHA::7}"
+          if [ "${GITHUB_REF_NAME}" = "main" ]; then
+            echo "immutable_tag=main-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+            echo "moving_tag=latest" >> "$GITHUB_OUTPUT"
+            echo "app_env=production" >> "$GITHUB_OUTPUT"
+          else
+            echo "immutable_tag=staging-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+            echo "moving_tag=staging" >> "$GITHUB_OUTPUT"
+            echo "app_env=staging" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -24,7 +46,9 @@ jobs:
           context: .
           file: database/Dockerfile
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/spc-database:latest
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/spc-database:${{ steps.meta.outputs.immutable_tag }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/spc-database:${{ steps.meta.outputs.moving_tag }}
 
       - name: Build and push backend image
         uses: docker/build-push-action@v6
@@ -32,7 +56,9 @@ jobs:
           context: .
           file: backend/Dockerfile
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/spc-backend:latest
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/spc-backend:${{ steps.meta.outputs.immutable_tag }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/spc-backend:${{ steps.meta.outputs.moving_tag }}
 
       - name: Build and push frontend image
         uses: docker/build-push-action@v6
@@ -40,5 +66,33 @@ jobs:
           context: ./frontend
           file: frontend/Dockerfile
           push: true
-          build-args: VITE_API_URL=/api
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/spc-frontend:latest
+          build-args: |
+            VITE_API_URL=/api
+            VITE_APP_ENV=${{ steps.meta.outputs.app_env }}
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/spc-frontend:${{ steps.meta.outputs.immutable_tag }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/spc-frontend:${{ steps.meta.outputs.moving_tag }}
+
+      - name: Write deployment tag to job summary
+        run: |
+          {
+            echo "## Images published"
+            echo ""
+            echo "| Image | Immutable tag (deploy this) | Moving tag |"
+            echo "|---|---|---|"
+            echo "| spc-database | \`${{ steps.meta.outputs.immutable_tag }}\` | \`${{ steps.meta.outputs.moving_tag }}\` |"
+            echo "| spc-backend | \`${{ steps.meta.outputs.immutable_tag }}\` | \`${{ steps.meta.outputs.moving_tag }}\` |"
+            echo "| spc-frontend | \`${{ steps.meta.outputs.immutable_tag }}\` | \`${{ steps.meta.outputs.moving_tag }}\` |"
+            echo ""
+            if [ "${GITHUB_REF_NAME}" = "main" ]; then
+              echo "Deploy to **production** with:"
+              echo '```'
+              echo "make hub-deploy TAG=${{ steps.meta.outputs.immutable_tag }}"
+              echo '```'
+            else
+              echo "Deploy to **staging** with:"
+              echo '```'
+              echo "make staging-deploy TAG=${{ steps.meta.outputs.immutable_tag }}"
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

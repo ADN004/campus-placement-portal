@@ -101,6 +101,7 @@ import {
   getResetPreview,
   performAcademicYearReset,
 } from '../controllers/academicYearResetController.js';
+import { downloadDatabaseBackup } from '../controllers/backupController.js';
 import { protect, authorize } from '../middleware/auth.js';
 import { exportLimiter } from '../middleware/rateLimiter.js';
 
@@ -239,6 +240,9 @@ router.post('/backlog-lock', lockBacklogSA);
 // Academic Year Reset
 router.get('/academic-year-reset/preview', getResetPreview);
 router.post('/academic-year-reset/execute', performAcademicYearReset);
+
+// Database Backup
+router.get('/database/backup/download', downloadDatabaseBackup);
 
 // Admin Notifications (Auto-approved jobs, system alerts)
 router.get('/admin-notifications', getAdminNotifications);

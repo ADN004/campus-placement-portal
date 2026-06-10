@@ -54,6 +54,7 @@ const SuperAdminManageCollegeBranches = lazy(() => import('./pages/super-admin/M
 const SuperAdminSendNotification = lazy(() => import('./pages/super-admin/SendNotification'));
 const SuperAdminPlacementPoster = lazy(() => import('./pages/super-admin/PlacementPoster'));
 const AcademicYearReset = lazy(() => import('./pages/super-admin/AcademicYearReset'));
+const DatabaseBackup = lazy(() => import('./pages/super-admin/DatabaseBackup'));
 
 function App() {
   const { user, loading } = useAuth();
@@ -126,6 +127,7 @@ function App() {
                 <Route path="/super-admin/placement-poster" element={<SuperAdminPlacementPoster />} />
                 <Route path="/super-admin/college-branches" element={<SuperAdminManageCollegeBranches />} />
                 <Route path="/super-admin/academic-year-reset" element={<AcademicYearReset />} />
+                <Route path="/super-admin/database-backup" element={<DatabaseBackup />} />
                 <Route path="/super-admin/profile" element={<SuperAdminProfile />} />
               </>
             )}

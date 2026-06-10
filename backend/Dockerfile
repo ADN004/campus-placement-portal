@@ -33,8 +33,8 @@ RUN if [ -f package-lock.json ]; then \
 # Stage 2: Production Image
 FROM node:18-alpine
 
-# Install dumb-init
-RUN apk add --no-cache dumb-init
+# Install dumb-init and postgresql-client (provides pg_dump for database backups)
+RUN apk add --no-cache dumb-init postgresql-client
 
 # Create app user for security (don't run as root)
 RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001

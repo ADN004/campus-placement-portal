@@ -191,6 +191,27 @@ hub-db-backup: ## Backup Hub database to ./backups folder
 	$(DOCKER_COMPOSE) -f $(COMPOSE_HUB_FILE) exec postgres pg_dump -U postgres campus_placement_portal > backups/hub_backup_$$(date +%Y%m%d_%H%M%S).sql
 	@echo "Backup saved to backups/ folder"
 
+hub-db-restore: ## Restore Hub database from backup (usage: make hub-db-restore FILE=backups/file.sql)
+	@if [ -z "$(FILE)" ]; then \
+		echo "Usage: make hub-db-restore FILE=backups/hub_backup_YYYYMMDD_HHMMSS.sql"; \
+		exit 1; \
+	fi
+	@echo "Restoring Hub database from $(FILE)..."
+	cat $(FILE) | $(DOCKER_COMPOSE) -f $(COMPOSE_HUB_FILE) exec -T postgres psql -U postgres -d campus_placement_portal
+	@echo "Database restored!"
+
+hub-cron-setup: ## Install automated daily backup cron job (runs at 2 AM)
+	@chmod +x scripts/spc-backup-cron.sh
+	@( crontab -l 2>/dev/null | grep -v "spc-backup-cron.sh" ; \
+	   echo "0 2 * * * $(PWD)/scripts/spc-backup-cron.sh >> $(HOME)/spc-backup.log 2>&1" ) | crontab -
+	@echo "Cron job installed — daily backup at 2 AM"
+	@echo "Logs → $(HOME)/spc-backup.log"
+	@echo "Verify with: crontab -l"
+
+hub-cron-remove: ## Remove automated backup cron job
+	@crontab -l 2>/dev/null | grep -v "spc-backup-cron.sh" | crontab -
+	@echo "Backup cron job removed."
+
 hub-db-reset: ## Full Hub DB reset: stop, remove volume, pull, start, seed
 	@echo "WARNING: This will DELETE ALL DATA and recreate the database!"
 	@read -p "Are you sure? (y/N) " confirm && [ "$$confirm" = "y" ] || exit 1

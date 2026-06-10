@@ -351,6 +351,9 @@ export const superAdminAPI = {
   // Academic Year Reset
   getResetPreview: () => API.get('/super-admin/academic-year-reset/preview'),
   performAcademicYearReset: (data) => API.post('/super-admin/academic-year-reset/execute', data),
+
+  // Database Backup
+  downloadDatabaseBackup: () => API.get('/super-admin/database/backup/download', { responseType: 'blob' }),
 };
 
 export default API;

@@ -61,6 +61,8 @@ guides/
 *.md
 !README.md
 !docs/*.md
+college-server-data.txt
+staging-info-update.txt
 
 # Claude Code configuration (optional - keep if you want to share)
 # .claude/

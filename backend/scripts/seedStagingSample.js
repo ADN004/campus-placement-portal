@@ -111,6 +111,10 @@ async function main() {
       const userId = user.rows[0].id;
       studentUserIds.push(userId);
 
+      // Conditional values are computed here in JS — using the same SQL
+      // parameter both as a column value and inside a CASE comparison makes
+      // PostgreSQL fail with "inconsistent types deduced for parameter $N"
+      const isApproved = regStatus === 'approved';
       const student = await client.query(
         `INSERT INTO students (
            user_id, prn, region_id, college_id, email, mobile_number,
@@ -125,22 +129,22 @@ async function main() {
            $1, $2, $3, $4, $5, $6,
            $7, $8, $9, $10, $11,
            $12, $13,
-           $13, $13, $13, $13,
-           $14, $15, $16,
-           $17, CASE WHEN $17 THEN CURRENT_TIMESTAMP END,
-           $18, CASE WHEN $18 = 'approved' THEN CURRENT_TIMESTAMP END,
-           CASE WHEN $18 = 'approved' THEN $19::integer END,
-           $20, CASE WHEN $20 THEN 'Sample blacklisted student (staging test data)' END,
-           CASE WHEN $20 THEN CURRENT_TIMESTAMP END, CASE WHEN $20 THEN $19::integer END
+           $14, $15, $16, $17,
+           $18, $19, $20,
+           $21, $22,
+           $23, $24, $25,
+           $26, $27, $28, $29
          ) RETURNING id`,
         [
           userId, prn, college.region_id, college.id, email, `90000000${String(i + 1).padStart(2, '0')}`,
           name, 20, gender, `2004-0${(i % 9) + 1}-15`, `Sample Address ${i + 1}, Kerala`,
           branch, cgpa,
+          cgpa, cgpa, cgpa, cgpa,
           String(backlogs), Math.min(backlogs, 1), Math.max(backlogs - 1, 0),
-          regStatus === 'approved', // email_verified for approved students
-          regStatus, adminUserId,
-          isBlacklisted,
+          isApproved, isApproved ? new Date() : null,
+          regStatus, isApproved ? new Date() : null, isApproved ? adminUserId : null,
+          isBlacklisted, isBlacklisted ? 'Sample blacklisted student (staging test data)' : null,
+          isBlacklisted ? new Date() : null, isBlacklisted ? adminUserId : null,
         ]
       );
       studentIds.push(student.rows[0].id);
@@ -214,18 +218,18 @@ async function main() {
       [6, 3, 'submitted', null, null],
     ];
     for (const [sIdx, jIdx, status, pkg, loc] of applications) {
+      const isReviewed = status !== 'submitted';
       await client.query(
         `INSERT INTO job_applications (
            job_id, student_id, application_status,
            reviewed_by, reviewed_at,
            placement_package, placement_location, joining_date
-         ) VALUES (
-           $1, $2, $3,
-           CASE WHEN $3 <> 'submitted' THEN $4::integer END,
-           CASE WHEN $3 <> 'submitted' THEN CURRENT_TIMESTAMP END,
-           $5, $6, CASE WHEN $5 IS NOT NULL THEN $7::date END
-         )`,
-        [jobIds[jIdx], studentIds[sIdx], status, adminUserId, pkg, loc, new Date(now + 60 * day)]
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [
+          jobIds[jIdx], studentIds[sIdx], status,
+          isReviewed ? adminUserId : null, isReviewed ? new Date() : null,
+          pkg, loc, pkg !== null ? new Date(now + 60 * day) : null,
+        ]
       );
     }
 

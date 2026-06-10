@@ -1,2675 +1,372 @@
-# State Placement Cell
+<div align="center">
 
-> **A comprehensive placement management system for 60 Polytechnic Colleges in Kerala**
+# State Placement Cell — Campus Placement Portal
 
-Full-stack web application built with React, Node.js, Express, and PostgreSQL to manage campus placements across all polytechnic colleges in Kerala with role-based access control for Students, Placement Officers, and Super Admin.
+**A production-grade placement management platform serving 60 Government Polytechnic Colleges across Kerala.**
 
----
+[![CI — Build & Push](https://github.com/ADN004/campus-placement-portal/actions/workflows/docker-hub.yml/badge.svg)](https://github.com/ADN004/campus-placement-portal/actions/workflows/docker-hub.yml)
+![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-18-339933?logo=nodedotjs&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-4169E1?logo=postgresql&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-multi--stage-2496ED?logo=docker&logoColor=white)
+![Deploys](https://img.shields.io/badge/deploys-immutable%20tags-success)
 
-## 📋 Table of Contents
+🌐 **Live:** [spc.gptcpalakkad.ac.in](https://spc.gptcpalakkad.ac.in)
 
-- [Overview](#-overview)
-- [Key Highlights](#-key-highlights)
-- [Features by Role](#-features-by-role)
-  - [Student Features](#-student-features)
-  - [Placement Officer Features](#-placement-officer-features)
-  - [Super Admin Features](#-super-admin-features)
-- [Tech Stack](#-tech-stack)
-- [3-Tier Profile Architecture](#-3-tier-profile-architecture)
-- [Smart Application System](#-smart-application-system)
-- [Project Structure](#-project-structure)
-- [Quick Start](#-quick-start)
-- [Database Schema](#-database-schema)
-- [API Documentation](#-api-documentation)
-- [Security Features](#-security-features)
-- [Deployment](#-deployment)
-- [Testing](#-testing)
-- [System Statistics](#-system-statistics)
+</div>
 
 ---
 
-## 🎯 Overview
-
-The **State Placement Cell** is a production-ready, enterprise-grade placement management system designed specifically for managing campus recruitment across **60 polytechnic colleges** in Kerala. The system handles the complete placement workflow from student registration to job applications with comprehensive approval mechanisms, email verification, photo management, detailed analytics, and advanced profile management.
-
----
-
-## ✨ Key Highlights
-
-### Core Capabilities
-- **3 User Roles:** Student, Placement Officer (one per college), Super Admin
-- **60 Colleges:** All polytechnic colleges across 5 Kerala regions
-- **26 Branches:** Support for all Kerala polytechnic diploma engineering programs
-- **3-Tier Student Data:** Basic profile (Tier 1) + Extended profile (Tier 2) + Custom job fields (Tier 3)
-- **200+ API Endpoints:** Complete REST API with role-based access control
-- **28 Database Tables:** Normalized schema with triggers, functions, and materialized views
-- **40+ Indexes:** Query optimization for 20,000+ concurrent users
-
-### Advanced Features
-- **Smart Application System:** Validates requirements, detects missing data, prompts for completion
-- **Extended Profile Management:** 5-section extended profile with completion tracking
-- **Job Requirements Configuration:** Configurable Tier 2/3 requirements per job
-- **Placement Drive Scheduling:** Schedule drives with email notifications
-- **Placement Tracking:** Record placements with package, location, joining date
-- **Email Verification:** Token-based email verification with 24-hour expiry
-- **Photo Management:** Cloudinary integration with bulk operations
-- **Activity Logging:** Complete audit trail with IP, user agent, metadata
-- **Export Features:** PDF and Excel exports with custom field selection
-- **Resume Generation:** Professional PDF resumes with student-customizable content
-- **Placement Posters:** Generate PDF placement posters with eligible students
-- **Rate Limiting:** Configured for 20k+ users with tiered limits
-- **Background Jobs:** Daily age updates, materialized view refresh, cleanup tasks
-- **Docker Ready:** Production-optimized multi-stage Docker builds
-
----
-
-## ✨ Features by Role
-
-### 🎓 Student Features
-
-#### Registration & Authentication
-- **PRN-Based Registration** with real-time validation against active PRN ranges
-- **Cascading Selection:** Region → College → Branch with dynamic filtering
-- **Email Verification System:**
-  - Token-based verification sent after placement officer approval
-  - Resend verification with new token generation
-  - 24-hour token expiry with auto-cleanup
-- **Photo Upload:** Required profile photo upload to Cloudinary during registration (max 500KB)
-- **Comprehensive Profile Data (Tier 1 - Basic Profile):**
-  - Personal: Name, Email, Mobile, DOB, Age (auto-calculated), Gender, Height, Weight
-  - Academic: Branch, Semester-wise CGPA (1-6), Programme CGPA (auto-calculated via trigger)
-  - Documents: Address, Driving License status, PAN Card status
-  - Performance: Backlog count and detailed backlog information
-- **Login Options:** PRN or Email with password
-- **Approval Workflow:**
-  - Registration creates account with 'pending' status
-  - Student redirected to waiting page
-  - Placement officer approves/rejects
-  - Email verification sent automatically on approval
-  - Full access granted after email verification
-
-#### Extended Profile (Tier 2 - Advanced Profile)
-- **5 Sections with Completion Tracking:**
-  1. **Academic Extended:** SSLC marks/year/board, 12th marks/year/board
-  2. **Physical Details:** Height (cm), weight (kg), physically handicapped status with details
-  3. **Family Details:** Father/mother details (name, occupation, annual income), siblings count and details
-  4. **Personal Details:** District, permanent address, interests and hobbies
-  5. **Document Verification:** PAN card with number, Aadhar card with number, Passport with number, Driving license
-  6. **Education Preferences:** Interested in B.Tech (Yes/No/Not Interested), Interested in M.Tech, Preferred study mode (full-time/part-time/distance)
-- **Additional Data (JSONB):**
-  - Certifications array
-  - Achievements array
-  - Extracurricular activities array
-- **Profile Completion Tracking:**
-  - Section-wise completion percentage
-  - Overall profile completion percentage
-  - Trigger-based auto-calculation
-- **Optional/Job-Specific:** Extended profile requested when applying to jobs that require it
-
-#### Resume Builder & Download
-
-- **My Resume Page:** Dedicated resume management interface for students
-- **Resume Content:**
-  - Career objective statement
-  - Technical skills (add/remove individual skills)
-  - Soft skills with tag-based management
-  - Languages known
-  - Projects with title, technologies, and description
-  - Work experience / internships with company, role, duration, description
-  - Certifications with name, issuer, and year
-  - Achievements and awards
-  - Extracurricular activities
-  - Custom sections for additional information
-  - Declaration text (customizable)
-- **Professional PDF Generation:**
-  - Clean, modern layout suitable for job applications
-  - Auto-generated from profile and extended profile data
-  - Includes education details (Diploma, 12th, 10th)
-  - Personal details, documents available
-  - Proper formatting with sections and headers
-- **Download:** Download resume as PDF anytime
-
-#### Dashboard & Profile Management
-- **Dashboard Statistics:**
-  - Total applications count
-  - Eligible jobs count
-  - Unread notifications count
-  - Profile completion percentage
-- **View Complete Profile:** All personal, academic, and document details
-- **Update Profile:**
-  - Contact information (email, mobile, address)
-  - Physical details (height, weight)
-  - Semester CGPAs (programme CGPA auto-recalculates via triggers)
-  - Backlog information
-  - Profile photo (upload new or delete existing)
-  - Extended profile sections (5 sections)
-- **Age Auto-Update:**
-  - Database trigger updates age on DOB change
-  - Daily cron job updates all student ages at midnight
-- **Change Password:**
-  - Minimum 8 characters
-  - Must contain uppercase, lowercase, and number
-  - Old password verification required
-
-#### Job Applications with Smart Application System
-- **View All Jobs:** Can see ALL active jobs regardless of eligibility criteria
-- **Eligibility Indicators:**
-  - Jobs display if student meets criteria (CGPA, backlogs, height, weight, branch, region/college)
-  - Green checkmark for eligible jobs
-  - Clear criteria display (min CGPA, max backlogs, allowed branches, etc.)
-- **Apply to Any Job:** Students can apply to any job (not restricted by eligibility)
-- **Smart Application Modal:**
-  - Checks for missing required data (Tier 1, Tier 2, Tier 3)
-  - Shows modal with missing sections if data incomplete
-  - Student can fill missing data inline or navigate to extended profile
-  - Validates against job-specific requirements
-  - Only allows submission when all requirements met
-- **Application Form Integration:**
-  - Embedded Google Form or external application URL
-  - Application tracking in database
-- **Application Tracking:**
-  - View all submitted applications with status
-  - Status types: Submitted, Under Review, Shortlisted, Rejected, Selected
-  - Data snapshot preserved at application time (Tier 2 snapshot + Tier 3 custom responses)
-- **Deadline Enforcement:** Cannot apply after deadline passes
-- **Duplicate Prevention:** System prevents applying twice to same job
-- **Job Details:** Company info, location, salary package, job description, eligibility, requirements
-
-#### Notifications
-- **Receive Notifications:** From placement officers (college-specific) and super admin (system-wide)
-- **Mark as Read/Unread:** Toggle read status for notification management
-- **Notification Types:**
-  - General announcements
-  - Job posted alerts
-  - Application deadline reminders
-  - Approval/rejection notifications
-  - Drive schedule notifications
-  - Shortlist/selection/rejection notifications
-  - System updates
-- **Notification Filtering:** Filter by read/unread status
-- **Email Notifications:** Receive emails for critical updates
-
----
-
-### 👨‍💼 Placement Officer Features
-
-#### Dashboard & Profile
-- **Dashboard Statistics:**
-  - Total students in college
-  - Pending approvals count
-  - Approved students count
-  - Rejected students count
-  - Blacklisted students count
-  - Active jobs count
-- **College Information:** View college name, region, and branches
-- **Profile Management:**
-  - Update name, email, phone, designation
-  - Upload profile photo to Cloudinary (optional)
-  - Delete profile photo
-- **Change Password:** Secure password change with validation
-
-#### Student Management
-- **View Students List** with advanced filtering:
-  - Filter by status: pending, approved, rejected, blacklisted
-  - Filter by minimum CGPA threshold
-  - Filter by maximum backlog count
-  - Search by PRN, name, email, or mobile number
-  - Pagination with configurable page size
-- **Approve Students:**
-  - Single approval with button click
-  - Bulk approval with checkbox selection
-  - Automatically sends email verification link
-  - Updates registration status to 'approved'
-  - Activity logged for audit trail
-- **Reject Students:**
-  - Single or bulk rejection
-  - Mandatory rejection reason
-  - Email notification sent to student
-  - Activity logged with reason
-- **Blacklist Students:**
-  - Instant access removal
-  - Mandatory blacklist reason
-  - Student cannot login after blacklisting
-  - Creates activity log entry
-- **Request Whitelist:**
-  - Submit whitelist request to super admin
-  - Provide justification for whitelist
-  - Track request status (pending, approved, rejected)
-  - Super admin reviews and approves/rejects
-- **College-Only Access:** Can only view and manage students from own college
-- **View Student Details:**
-  - Complete Tier 1 profile information
-  - Extended Tier 2 profile (if filled)
-  - Academic performance
-  - Application history
-  - Notification history
-  - **Resume Download:**
-    - Download student resume as PDF directly from student details modal
-    - Choose between Standard (system-generated) or Custom (student-modified) version
-    - Visual indicator shows if student has added custom content
-    - Professional PDF layout with education, skills, projects, and achievements
-
-#### Export Features
-- **Export Student Data:**
-  - **PDF Format:** Formatted student list with college letterhead
-  - **Excel Format:** Detailed columns with all student data
-  - **Custom Field Selection:**
-    - Choose specific fields to export (PRN, Name, Email, Mobile, Branch, CGPA, Sem CGPAs, Height, Weight, Backlogs, SSLC marks, 12th marks, etc.)
-    - Filter by departments/branches (college-specific branches only)
-    - Include/exclude photo URLs
-    - Customizable column headers
-  - **Branch Filtering:** Only shows branches available in their college
-  - **Enhanced Export:**
-    - Normalized branch names across 26 Kerala polytechnic branches
-    - Short branch names for compact display
-    - Dynamic column widths based on content
-- **Export Job Applicants:**
-  - Download list of students from their college who applied for specific jobs
-  - Includes student details and application status
-  - Excel format with formatted headers
-- **Export PRN Range Students:**
-  - Export all students in a specific PRN range
-  - Excel format with all student details
-- **Placement Poster Generation:**
-  - Generate PDF placement posters with job details
-  - Include eligible students list
-  - Custom formatting and branding
-
-#### Job Management
-- **View Jobs:** All jobs accessible to their college/region
-- **Job Applicants:** View students from their college who applied to each job
-- **Manually Add Student to Job:**
-  - Add students who didn't apply but got selected (e.g., walk-in placements, off-campus selections)
-  - Validate student PRN before adding to verify student details
-  - Only students from their own college can be added
-  - Set placement details: package, joining date, location, and notes
-  - Automatically creates application with 'selected' status
-  - If student already applied, updates existing application to selected
-  - Marks application with `manually_added` flag for tracking
-  - Complete audit trail logged for manual additions
-- **Create Job Request:**
-  - Request super admin to post a job
-  - Provide company details, job description
-  - Specify eligibility criteria (CGPA, backlogs, branches, height, weight)
-  - Set application form URL and deadline
-  - Target specific regions or colleges
-  - **Configure Job Requirements:**
-    - Set Tier 2 section requirements (which extended profile sections are required)
-    - Define specific field requirements with validation rules
-    - Add custom fields (Tier 3) for company-specific data (text, number, boolean, select, date)
-- **Track Job Requests:**
-  - View status (pending, approved, rejected)
-  - See admin feedback/review comments
-  - Edit pending requests
-- **Manage Requirement Templates:**
-  - Create reusable requirement templates
-  - Apply templates to multiple jobs
-
-#### PRN Range Management
-- **View PRN Ranges:**
-  - Both super admin created (system-wide) and own college-specific ranges
-  - See range start/end or single PRN
-  - View is_enabled status (for graduated batches)
-  - Track creator information
-- **Add PRN Ranges/Single PRNs:** For their college only
-- **Update PRN Ranges:**
-  - Toggle active/inactive status
-  - Update description
-  - Cannot modify super admin created ranges
-- **Delete PRN Ranges:** Only ranges they created (cannot delete super admin ranges)
-- **Track Creator:** See who added each range and when
-- **View Students by PRN Range:**
-  - Eye icon to view all students in a specific range
-  - Works for both enabled and disabled ranges
-  - Export students from range to Excel
-
-#### Notification System
-- **Send Notifications:** To college students only (approved, non-blacklisted)
-- **Targeted Messaging:**
-  - Custom title and message
-  - Auto-delivered to all eligible students
-  - Notification history tracking
-- **Notification Analytics:** View delivery status and read counts
-
-#### College Logo Management
-- **Upload College Logo:** Upload a logo image for their college (used in placement posters and exports)
-- **Delete College Logo:** Remove the current college logo
-
-#### College Branch Management
-- **View College Branches:** See all branches available in their college
-- **Manage Branches:** (If authorized) Add/remove branches for their college
-- **Apply Branch Templates:** Apply predefined branch templates to their college
-
-#### Application Management
-- **Update Application Status:** Change individual application status (pending, shortlisted, selected, rejected)
-- **Bulk Update Status:** Update status for multiple applications at once
-- **Update Placement Details:** Record package, joining date, and location for selected students
-- **Notify Students:** Send email notifications about application status changes
-
-#### Job Drive Management
-- **Schedule Placement Drives:** Set date, time, location for job drives
-- **Add Drive Instructions:** Include additional instructions for students
-- **View Drive Details:** See scheduled drive information
-
----
-
-### 🛡️ Super Admin Features
-
-#### Dashboard & Analytics
-- **Comprehensive Statistics:**
-  - Total students (system-wide)
-  - Approved students count
-  - Pending approvals count
-  - Blacklisted students count
-  - Total jobs created
-  - Active jobs count
-  - Total colleges (60)
-  - Total active placement officers
-  - Active PRN ranges count
-  - Pending whitelist requests count
-  - Recent activities (last 7 days)
-- **System Health:** Database connection status, active users
-
-#### PRN Range Management (System-Wide)
-- **View All PRN Ranges:**
-  - Super admin created ranges
-  - Placement officer created ranges (tagged by creator)
-  - Filter by enabled/disabled status
-- **Add PRN Ranges/Single PRNs:**
-  - Add range with start and end PRN
-  - Add single PRN for special cases
-  - Add description for context
-  - Set initial enabled status
-- **Update PRN Ranges:**
-  - Toggle `is_active` (soft delete)
-  - Toggle `is_enabled` (on/off for graduated batches)
-  - Add/update description
-  - Add disabled reason when disabling
-  - Track modification history
-- **Delete PRN Ranges:** Permanent deletion
-- **Track Modifications:**
-  - Who added (super admin or placement officer)
-  - When created
-  - Who disabled and when
-  - Disable reason
-- **View Students by PRN Range:**
-  - Eye icon to view all students in range
-  - Works for disabled ranges too
-  - Export to Excel with all student details
-- **PRN Range Analytics:** Student distribution across ranges
-
-#### Placement Officer Management
-- **View All Officers:** Across all 60 colleges
-- **Add/Replace Officers:**
-  - Automatically moves previous officer to history
-  - Deactivates old user account
-  - Creates new user with role 'placement_officer'
-  - Default password: "123" (must be changed on first login)
-  - One active officer per college enforced
-- **Update Officer Details:**
-  - Phone number, designation, email
-  - Cannot change college (must replace officer)
-- **Upload Officer Photo:**
-  - Upload to Cloudinary
-  - Image optimization (500x500px, auto quality)
-  - Photo URL and public_id tracking
-- **Delete Officer Photo:** Remove from Cloudinary and database
-- **Deactivate/Remove Officer:**
-  - Provide reason for removal
-  - Moves to history
-  - Deactivates user account
-- **View Officer History:**
-  - Complete history per college
-  - All previous officers with tenure dates
-  - Reasons for changes
-- **Clear Officer History:** Remove history for a college
-- **Complete Audit Trail:** All officer changes logged in activity logs
-
-#### Job Management (Complete Control)
-- **Create Jobs:**
-  - Company details: name, location, job type
-  - Job description and requirements
-  - Salary package
-  - Application form URL (Google Form or custom)
-  - Start date and deadline
-  - **Eligibility Criteria:**
-    - Minimum CGPA requirement
-    - Maximum backlogs allowed
-    - Height range (if applicable)
-    - Weight range (if applicable)
-    - Allowed branches (multi-select from 26 branches)
-  - **Target Type:**
-    - All colleges
-    - Specific regions (multi-select from 5 regions)
-    - Specific colleges (multi-select from 60 colleges)
-  - **Configure Job Requirements (Advanced):**
-    - Set Tier 2 requirements (which extended profile sections are required)
-    - Define specific field requirements with validation rules
-    - Add custom fields (Tier 3) with field types: text, number, boolean, select, date
-- **View All Jobs:**
-  - With application counts (total and per college)
-  - Filter by active/inactive status
-  - Search by company name or job title
-- **Update Jobs:**
-  - All job details editable
-  - Update eligibility criteria
-  - Change target regions/colleges
-  - Extend or modify deadline
-  - Modify job requirements
-- **Soft Delete Jobs:**
-  - Mark as deleted with reason
-  - Preserves application data
-  - Moves to deleted jobs history
-- **Permanently Delete Jobs:**
-  - Complete removal from database
-  - Cascade deletes applications
-  - Logged in activity logs
-- **Job Deletion History:**
-  - Track all deleted jobs
-  - View application counts at time of deletion
-  - See deletion reason and who deleted
-  - Restore capability (if implemented)
-- **Clear Deleted Jobs History:** Permanent cleanup
-- **Schedule Placement Drives:**
-  - Set date, time, location for each job
-  - Add additional instructions
-  - Email notifications to shortlisted students
-- **View Job Applicants:**
-  - Across ALL colleges (system-wide)
-  - Filter by college, status, CGPA
-  - Update application status (under_review, shortlisted, rejected, selected)
-  - Add review notes
-  - Record placement details (package, location, joining date)
-  - Export applicant list to Excel
-- **Manually Add Student to Job:**
-  - Add students who didn't apply but got selected (e.g., walk-in placements, off-campus selections)
-  - Validate student PRN before adding to verify student details
-  - Can add students from ANY college (system-wide access)
-  - Optionally specify college_id or let system detect from PRN
-  - Set placement details: package, joining date, location, and notes
-  - Automatically creates application with 'selected' status
-  - If student already applied, updates existing application to selected
-  - Marks application with `manually_added` flag for tracking
-  - Complete audit trail logged for manual additions
-- **Placement Poster Generation:**
-  - Generate PDF placement posters with job details
-  - Include eligible students list across all colleges
-  - Custom formatting and branding
-  - College-wise student organization
-
-#### Job Request Management
-- **View Pending Job Requests:** From all placement officers
-- **Approve Job Requests:**
-  - Automatically creates job posting
-  - Copies all criteria from request
-  - Notifies requesting officer
-  - Marks request as approved
-- **Reject Job Requests:**
-  - Provide review comments/reason
-  - Notifies requesting officer
-  - Marks request as rejected
-- **Request History:** View all approved/rejected requests
-
-#### Requirement Template Management
-- **Manage Requirement Templates:**
-  - Create reusable templates for common job types
-  - Apply templates to multiple jobs
-  - Share templates across colleges
-  - Update and delete templates
-
-#### Student Management (System-Wide)
-- **View All Students:**
-  - **Advanced Filtering:**
-    - By status (pending, approved, rejected, blacklisted)
-    - By college (all 60 colleges)
-    - By region (5 Kerala regions)
-    - By minimum CGPA threshold
-    - By maximum backlog count
-  - Search by PRN, name, email, mobile number
-  - Pagination with configurable page size
-- **Search Student by PRN:**
-  - Quick search with complete details
-  - Shows college, region, approval status
-  - Application history
-- **View Student Details & Resume:**
-  - Complete student profile (Tier 1 and Tier 2)
-  - **Resume Download:**
-    - Download student resume as PDF directly from student details modal
-    - Choose between Standard (system-generated) or Custom (student-modified) version
-    - Visual indicator shows if student has added custom content
-    - Professional PDF layout with education, skills, projects, and achievements
-- **Blacklist Student:**
-  - System-wide blacklist with reason
-  - Instant access removal across all roles
-  - Activity logged with timestamp
-- **Whitelist Student Directly:**
-  - Remove from blacklist without request workflow
-  - Provide reason for whitelist
-  - Immediate access restoration
-- **Delete Student Completely:**
-  - Removes all related data:
-    - User account
-    - Student profile (Tier 1 and Tier 2)
-    - Applications
-    - Notifications
-  - Cascade delete handled by database
-  - Irreversible action with confirmation
-- **Bulk Delete Student Photos:**
-  - Storage management feature
-  - Delete by single PRN
-  - Delete by PRN range
-  - Delete by date range (upload date)
-  - Photos deleted from Cloudinary
-  - Database updated with deletion metadata
-- **Custom Export Students:**
-  - **Select Specific Fields:**
-    - PRN, Name, Email, Mobile, Branch, CGPA, Sem CGPAs, Height, Weight, Backlogs, SSLC marks, 12th marks, etc.
-    - Choose which columns to include
-    - Customizable export
-  - **Filter Options:**
-    - By college (with college-specific branch filtering)
-    - By departments/branches
-    - By status, CGPA, backlogs
-  - **Excel Format:**
-    - Formatted headers (bold, colored backgrounds)
-    - Auto-width columns
-    - Freeze header row
-  - **Include Photo URLs:** Optional checkbox to include Cloudinary URLs
-  - **Enhanced Branch Filtering:**
-    - When college selected, only shows that college's branches
-    - Dynamic branch loading with loading indicator
-    - Normalized branch names (26 Kerala polytechnic branches)
-
-#### Whitelist Request Management
-- **View All Whitelist Requests:**
-  - From all placement officers across colleges
-  - Filter by status (pending, approved, rejected)
-  - Sort by date submitted
-- **Review Request Details:**
-  - Student complete information (Tier 1 and Tier 2)
-  - Original blacklist reason and date
-  - Who blacklisted (placement officer details)
-  - Placement officer's whitelist reason/justification
-  - College and region information
-  - Student's application history
-- **Approve Whitelist:**
-  - Removes student from blacklist
-  - Restores full access
-  - Sends notification to student
-  - Notifies requesting placement officer
-  - Activity logged
-- **Reject Whitelist:**
-  - Provide review comment explaining rejection
-  - Student remains blacklisted
-  - Notifies requesting placement officer
-  - Activity logged
-- **Complete History:**
-  - Who blacklisted and when
-  - Who requested whitelist and when
-  - Who approved/rejected and when
-  - Full audit trail
-
-#### Activity Logs & Audit Trail
-- **View All Activity Logs:**
-  - Complete system activity history
-  - **Filter Options:**
-    - By user (email search)
-    - By action type (login, logout, approval, blacklist, etc.)
-    - By user role (student, placement_officer, super_admin)
-    - By date range
-    - Search by description
-  - **Pagination:** Configurable limit and page number
-- **Export Activity Logs:**
-  - CSV format with all fields
-  - Includes: timestamp, user, role, action, description, IP, user agent
-  - Filterable export
-- **Tracked Actions:**
-  - Authentication: Login, logout, password change
-  - Student Management: Registration, approval, rejection, blacklist, whitelist
-  - Job Management: Job created, updated, deleted, applied
-  - PRN Management: Range added, updated, deleted, enabled/disabled
-  - Officer Management: Officer added, updated, removed, photo uploaded/deleted
-  - Profile Updates: Student profile updates, officer profile updates
-  - Notifications: Sent, read status changes
-- **Complete Metadata:**
-  - IP address
-  - User agent (browser/device info)
-  - Timestamp (down to milliseconds)
-  - User ID and role
-  - Related entity IDs (student_id, job_id, etc.)
-
-#### Super Admin Management
-- **View All Super Admins:**
-  - List of all system administrators
-  - See active/inactive status
-  - Last login timestamp
-- **Create New Super Admin:**
-  - Email and password with strong validation
-  - **Password Requirements:**
-    - Minimum 8 characters
-    - At least one uppercase letter
-    - At least one lowercase letter
-    - At least one number
-  - Auto-hashed with bcrypt (10 salt rounds)
-  - Creates user with role 'super_admin'
-- **Deactivate Super Admin:**
-  - Cannot deactivate self (security measure)
-  - Provide reason for deactivation
-  - User account marked inactive
-  - Activity logged
-- **Activate Super Admin:**
-  - Reactivate previously deactivated accounts
-  - Provide reason for activation
-  - Restores full access
-
-#### Branch Management & Normalization
-- **Normalized Branch Names:**
-  - 26 official Kerala polytechnic branches
-  - 30+ branch name variations mapped to standard names
-  - Handles abbreviations and alternate names
-- **Get College Branches:**
-  - API endpoint to fetch branches for any college
-  - Used in dynamic filtering for exports
-  - Used in student registration cascading selection
-- **Branch Categories:**
-  - **Design:** Architecture
-  - **Mechanical:** Automobile, Mechanical, Tool and Die
-  - **Electronics:** Electronics, ECE, EEE, Instrumentation, Biomedical
-  - **Chemical:** Chemical, Polymer Technology
-  - **Civil:** Civil Engineering (including Hearing Impaired)
-  - **Commerce:** Commercial Practice, Computer Application and Business Management
-  - **Computer:** Computer Engineering, Computer Hardware, Computer Science, IT, Cyber Forensics, RPA
-  - **Printing:** Printing Technology
-  - **Textile:** Textile Technology
-  - **Wood:** Wood and Paper Technology
-
-#### Notification System
-- **Send System-Wide Notifications:** To all students or filtered groups
-- **Targeted Messaging:** By region, college, or student status
-- **Select Colleges and Branches:** Choose specific colleges and their branches as notification targets
-- **Priority Levels:** Set notification priority
-- **Notification Analytics:** View delivery and read statistics
-
-#### Admin Notifications
-- **In-App Admin Notifications:** Receive notifications for system events (new job requests, whitelist requests, etc.)
-- **Unread Count Badge:** Real-time unread notification count displayed in the dashboard
-- **Mark as Read:** Mark individual or all admin notifications as read
-
-#### Multi-College Placement Posters
-- **Single College Poster:** Generate PDF placement poster for a specific college
-- **Multi-College Poster:** Generate combined placement poster across multiple selected colleges
-- **College-Wise Student Organization:** Students organized by college in multi-college posters
-
----
-
-## 🛠️ Tech Stack
-
-### Frontend
-- **React 18** - UI library with hooks (useState, useEffect, useContext, useCallback)
-- **Vite** - Next-generation build tool and dev server (lightning-fast HMR)
-- **React Router v6** - Client-side routing with protected routes
-- **Tailwind CSS 3** - Utility-first styling framework with glassmorphism design
-- **Axios** - Promise-based HTTP client with interceptors
-- **React Hot Toast** - Lightweight notification library
-- **Lucide React** - Beautiful, consistent icon library
-- **ExcelJS** - Excel file generation on client-side
-
-### Backend
-- **Node.js 18** - JavaScript runtime environment with ES Modules
-- **Express.js 4** - Fast, unopinionated web framework
-- **PostgreSQL 15** - Advanced open-source relational database
-- **node-postgres (pg)** - PostgreSQL client for Node.js with connection pooling
-- **JWT (jsonwebtoken)** - JSON Web Token authentication
-- **Bcrypt** - Password hashing with 10 salt rounds
-- **Nodemailer** - Email sending with Gmail/SMTP support
-- **Cloudinary** - Cloud-based image and video management
-- **PDFKit** - PDF document generation with custom fonts
-- **ExcelJS** - Excel spreadsheet creation and manipulation
-- **Multer** - Multipart form-data handling for file uploads
-- **dotenv** - Environment variable management
-- **cors** - Cross-Origin Resource Sharing middleware
-- **cookie-parser** - Parse HTTP request cookies
-- **helmet** - Security headers
-- **compression** - gzip compression for API responses
-- **express-rate-limit** - Rate limiting for 20k+ users
-
-### Database Features
-- **PostgreSQL 15** with advanced features:
-  - **Materialized Views:** `active_students_view` for performance optimization
-  - **Database Triggers:**
-    - Auto-update timestamps
-    - Age calculation from DOB
-    - Extended profile auto-creation
-    - Profile completion percentage calculation
-  - **Database Functions:**
-    - `update_all_student_ages()` - Batch age updates
-    - `refresh_active_students_view()` - View refresh
-    - `isPRNInRange(prn TEXT)` - PRN validation logic
-    - `calculate_profile_completion_percentage(student_id)` - Profile completion calculation
-  - **40+ Indexes:** Query optimization for large datasets
-  - **JSONB Fields:** Flexible data storage for metadata, branches, targets, certifications, achievements
-  - **Foreign Keys & Constraints:** Data integrity enforcement
-  - **Check Constraints:** Value range validation (CGPA 0-10, height 140-220, etc.)
-
-### DevOps & Tools
-- **Docker** - Containerization platform with multi-stage builds
-- **Docker Compose** - Multi-container orchestration
-- **Git** - Version control system
-- **npm** - Package management
-- **Nginx** - High-performance web server and reverse proxy (for frontend)
-- **dumb-init** - Process supervisor for containers
-- **Health Checks** - Container health monitoring
-- **Resource Limits** - CPU and memory constraints for production
-
-### Background Jobs & Automation
-- **Node.js Cron Jobs:**
-  - Daily age update at midnight
-  - Materialized view refresh
-  - Cleanup tasks (expired tokens, old logs)
-- **Email Automation:**
-  - Verification emails
-  - Drive schedule notifications
-  - Shortlist/selection/rejection emails
-- **Scheduled Tasks:** Using native setTimeout/setInterval
-
----
-
-## 🎯 3-Tier Profile Architecture
-
-### Overview
-The system uses a sophisticated 3-tier architecture to manage student data efficiently:
-
-### **Tier 1 - Basic Profile (Always Required)**
-- Stored in `students` table
-- Required for registration
-- **Includes:**
-  - PRN, name, email, mobile
-  - DOB, age (auto-calculated), gender
-  - Height, weight
-  - Branch
-  - 6 semester CGPAs
-  - Programme CGPA (auto-calculated via trigger)
-  - Backlog count and details
-  - Address
-  - Driving license status
-  - PAN card status
-  - Photo (Cloudinary)
-
-### **Tier 2 - Extended Profile (Optional/Job-Specific)**
-- Stored in `student_extended_profiles` table
-- Requested when applying to jobs that require it
-- **5 Sections with Completion Tracking:**
-  1. **Academic Extended**
-     - SSLC marks, year, board
-     - 12th/Plus Two marks, year, board
-
-  2. **Physical Details**
-     - Height (cm), weight (kg)
-     - Physically handicapped status with details
-
-  3. **Family Details**
-     - Father: name, occupation, annual income
-     - Mother: name, occupation, annual income
-     - Siblings count and details
-
-  4. **Personal Details**
-     - District, permanent address
-     - Interests and hobbies
-
-  5. **Document Verification**
-     - PAN card with number
-     - Aadhar card with number
-     - Passport with number
-     - Driving license
-
-  6. **Education Preferences**
-     - Interested in B.Tech (Yes/No/Not Interested)
-     - Interested in M.Tech (Yes/No/Not Interested)
-     - Preferred study mode (full-time/part-time/distance)
-
-- **Additional Data (JSONB):**
-  - Certifications array
-  - Achievements array
-  - Extracurricular activities array
-
-- **Profile Completion:**
-  - Section-wise completion percentage
-  - Overall profile completion percentage
-  - Trigger-based auto-calculation
-
-### **Tier 3 - Custom Job Fields (Job-Specific)**
-- Stored in `job_applications_extended` table
-- Defined per job by placement officer/admin
-- **Custom Field Types:**
-  - Text fields
-  - Number fields
-  - Boolean (Yes/No) fields
-  - Select dropdowns with options
-  - Date fields
-- **Examples:**
-  - "Have you applied for SITTTR internship?" (boolean)
-  - "Regional preference" (select: South, North, Central, East, West)
-  - "Years of relevant experience" (number)
-  - "Additional skills" (text)
-- **Storage:**
-  - Responses stored as JSONB in `custom_field_responses`
-  - Flexible schema for any custom fields
-
-### **Data Flow:**
-1. Student registers → Tier 1 profile created
-2. Extended profile auto-created (empty) via trigger
-3. When applying to job → System checks requirements
-4. If Tier 2 required → Student fills extended profile sections
-5. If Tier 3 custom fields exist → Student fills custom responses
-6. Data snapshot taken at application time
-7. Stored in `job_applications_extended` for fair evaluation
-
----
-
-## 🧠 Smart Application System
-
-### Application Readiness Check
-1. System checks if student has all required data (Tier 1, Tier 2, Tier 3)
-2. If missing data, shows modal with missing sections
-3. Student can fill missing data inline or navigate to extended profile
-4. Validates against job-specific requirements
-5. Only allows submission when all requirements are met
-
-### Data Snapshot & Preservation
-- **Tier 2 Snapshot:** Extended profile data snapshotted at application time
-- **Stored In:** `tier2_snapshot` JSONB field
-- **Purpose:** Preserves student data at time of application
-- **Benefit:** Fair evaluation even if student updates profile later
-
-### Requirement Validation
-- **Tier 1 Validation:**
-  - CGPA >= minimum required
-  - Backlogs <= maximum allowed
-  - Branch in allowed branches list
-  - Height/weight within range (if specified)
-  - Student's college/region matches target
-
-- **Tier 2 Section Validation:**
-  - Which extended profile sections are required
-  - Example: Job requires "Academic Extended" + "Document Verification"
-
-- **Tier 2 Specific Field Validation:**
-  - Field-level validation rules
-  - Example JSON:
-    ```json
-    {
-      "height_cm": {"required": true, "min": 155},
-      "sslc_marks": {"required": true, "min": 60},
-      "has_pan_card": {"required": true}
-    }
-    ```
-
-- **Tier 3 Custom Field Validation:**
-  - All required custom fields must be filled
-  - Type-specific validation (number range, date format, etc.)
-
-### Job Requirements Configuration
-- **Requirement Templates:**
-  - Create reusable templates for common job types
-  - Apply templates to multiple jobs
-  - Share templates across colleges
-
-- **Per-Job Requirements:**
-  - Toggle which Tier 2 sections are required
-  - Define specific field requirements
-  - Add custom Tier 3 fields with types and options
-
-### Placement Drive & Tracking
-
-**Drive Scheduling:**
-- Schedule date, time, location for each job
-- Add additional instructions
-- Email notifications to shortlisted students
-- Stored in `job_drives` table
-
-**Application Status Tracking:**
-- **5 Status Types:**
-  1. **submitted** - Initial submission
-  2. **under_review** - Admin reviewing application
-  3. **shortlisted** - Selected for drive
-  4. **rejected** - Not selected
-  5. **selected** - Final selection
-
-**Placement Recording:**
-- Record placement package (LPA)
-- Record joining date
-- Record placement location
-- Add placement notes
-- Track reviewer and review timestamp
-
-**Email Notifications:**
-- Drive schedule email (date, time, location, instructions)
-- Shortlist notification email
-- Selection email (with package, location, joining date)
-- Rejection email (polite, encouraging)
-
----
-
-## 📁 Project Structure
-
+One portal, three roles, sixty colleges. Students register against whitelisted PRN ranges, build verified profiles, and apply to eligibility-gated job postings. Placement officers manage their college's pipeline. A state-level super admin console governs everything — from job targeting across five regions to academic-year graduation archival. Shipped with a full staging environment, immutable-tag CI/CD, and one-command rollback.
+
+## Table of Contents
+
+- [Architecture](#architecture)
+- [Tech Stack](#tech-stack)
+- [Features](#features)
+- [Getting Started](#getting-started)
+- [Environments & Deployment](#environments--deployment)
+- [Database](#database)
+- [Operations Reference](#operations-reference)
+- [Repository Structure](#repository-structure)
+- [Documentation Index](#documentation-index)
+
+## Architecture
+
+```text
+                        ┌─────────────────────────────────────────────┐
+ Internet ── HTTPS ──►  │ Host nginx (TLS, vhosts, staging auth gate) │
+                        └───────┬─────────────────────┬───────────────┘
+                                │ /                    │ /api
+                        ┌───────▼────────┐    ┌────────▼────────┐
+                        │ frontend       │    │ backend         │
+                        │ nginx + React  │    │ Node 18/Express │
+                        │ (static build) │    │ JWT · REST API  │
+                        └────────────────┘    └────────┬────────┘
+                                                       │ private Docker network
+                                              ┌────────▼────────┐     ┌────────────┐
+                                              │ PostgreSQL 15   │     │ Cloudinary │
+                                              │ (no host port)  │     │ Gmail SMTP │
+                                              └─────────────────┘     └────────────┘
 ```
-campus-placement-portal/
+
+Three containers per environment, orchestrated by Docker Compose. The database is reachable **only** inside the Docker network — no host port is ever exposed. Production and staging run side-by-side on one host as fully isolated compose projects (separate containers, volumes, networks, ports, databases, and credentials).
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | React 18 · Vite · Tailwind CSS · Framer Motion · Axios · jsPDF |
+| Backend | Node.js 18 · Express · JWT · bcrypt · PDFKit · ExcelJS · Nodemailer |
+| Database | PostgreSQL 15 · plain-SQL migrations · trigram search indexes · materialized views |
+| Media | Cloudinary (auto-optimized image pipeline, per-environment accounts) |
+| Infra | Docker multi-stage builds · GitHub Actions · Docker Hub · nginx · Let's Encrypt |
+
+## Features
+
+<details>
+<summary><b>✨ Full Feature Catalogue</b> — every capability, traced from code (click to expand)</summary>
+
+<br>
+
+<details>
+<summary><b>🔐 Authentication & Security Model</b></summary>
+<br>
+
+- **Stateless JWT authentication** with role claims (`student` / `placement_officer` / `super_admin`), 7-day expiry, bcrypt-hashed credentials.
+- **PRN-gated student registration** — students can only register if their PRN falls inside an admin-managed whitelist (`prn_ranges` supports both ranges and single PRNs, with per-range enable/disable and audit fields for who disabled what and why).
+- **Email verification flow** — approved students receive a branded verification email; tokens expire in 24 hours, resend attempts are counted and throttled.
+- **Tiered rate limiting** (`express-rate-limit`): a general API limiter, a stricter auth limiter on login/registration, and a dedicated export limiter for PDF/Excel endpoints — with `RateLimit-*` standard headers and proxy-aware client IP resolution (`trust proxy`).
+- **Hardened HTTP layer**: Helmet security headers, gzip compression (level 6, opt-out header respected), CORS allowlist driven by environment (supports multiple comma-separated origins), JSON body limits sized for base64 photo uploads.
+- **Student blacklisting** with reason, timestamp, and acting-admin tracking — blacklisted students are excluded from every eligibility query in the system.
+- **Activity logging middleware** records privileged actions to an `activity_logs` table, browsable from the admin console and auto-pruned after 14 days.
+
+</details>
+
+<details>
+<summary><b>🎓 Student Experience</b></summary>
+<br>
+
+- **Role-aware login portal** — separate themed login pages for students, placement officers, and super admins behind a role-selection landing page.
+- **Registration wizard** validating PRN whitelist membership, per-semester CGPA (supports a perfect 10.00), per-semester backlog counts, and document holdings (license, PAN, Aadhaar, passport).
+- **Waiting room** — pending registrations land on a status page until their placement officer approves them; only then does email verification begin.
+- **Extended profile system** — six structured sections (physical details, extended academics incl. SSLC/12th marks, family details, document verification, education preferences, personal details) with per-section completion tracking. Completing them is **enforced before any job application** is accepted.
+- **Eligibility badges** — every job card shows the student exactly why they are or aren't eligible (CGPA, backlogs, branch, physical criteria, targeting) before they apply.
+- **Smart application modal** — applications snapshot the student's profile state at apply-time (`tier2_snapshot`), collect job-specific custom field responses, and store validation results, so reviewers see what the data looked like at submission.
+- **Resume builder** — a server-side PDFKit engine generates a clean navy-themed A4 resume combining verified system data (CGPA, college, branch) with student-curated content (skills as pills, projects, experience), downloadable in one click.
+- **CGPA / backlog unlock windows** — semester 5/6 results can only be updated while an admin-opened time window is active, preventing silent grade edits mid-drive.
+- **Profile photos via Cloudinary** with automatic resize (500×500 limit), quality and format optimization, organized per-PRN folders.
+
+</details>
+
+<details>
+<summary><b>🏛️ Placement Officer Console</b></summary>
+<br>
+
+- **College-scoped everything** — officers see and manage only their own college's students, ranges, branches, and jobs.
+- **Student lifecycle management**: approve/reject registrations (approval triggers the verification email), blacklist with reason, manually add students to job applications, and drill into full student detail modals.
+- **College-scoped PRN ranges** — officers manage whitelist ranges for their own college alongside the global admin ranges.
+- **College branch management** — per-college branch lists (stored as JSONB) drive registration dropdowns and eligibility checks.
+- **Job request workflow** — officers draft job postings (with full eligibility criteria and requirement templates) that route to the super admin for approval; auto-approval is supported and flagged on the resulting job.
+- **Drive scheduling** — date/time/location/instructions per job, with automatic branded schedule emails to every shortlisted student.
+- **Placement poster generator** — auto-builds shareable placement-stats posters per college (placed counts, companies, highest/average package, company-wise breakdown), with student photo grids.
+- **Targeted notifications** to their college's students, with read tracking.
+- **Officer profiles** with Cloudinary photos and appointment history — when an officer is replaced, the predecessor is archived to `placement_officer_history` with removal reason.
+
+</details>
+
+<details>
+<summary><b>🛡️ Super Admin Console</b></summary>
+<br>
+
+- **State-wide governance**: 5 regions, 60 colleges (seeded with official branch lists), officer appointments, and a multi-admin system with profile management.
+- **Job management** — create/edit jobs with the full eligibility engine (below), **soft-delete with mandatory reason** (history preserved in `deleted_jobs_history`), and per-job views of applicants and eligible-but-not-applied students.
+- **Job request approvals** — review officer-submitted postings, approve into live jobs, or reject with feedback.
+- **Whitelist request approvals** — officers request PRN additions; admins adjudicate.
+- **Requirement templates** — reusable per-company and per-job application requirement sets (including a "requires personal details" gate) that drive the smart application modal.
+- **Notification center** — broadcast to all students, specific regions, specific colleges, or hand-picked students; recipient-level read receipts.
+- **Academic year reset** — one guarded workflow graduates the outgoing batch: students are archived to `archived_students`, their Cloudinary photo folders are bulk-deleted, and the portal is reset for the incoming year.
+- **Database backup from the browser** — streams a live `pg_dump` of the database as a timestamped `.sql` download, straight from the admin panel (spawned process, no temp files).
+- **Activity log explorer** and **cross-college student management** with trigram-indexed fuzzy search over names and PRNs.
+
+</details>
+
+<details>
+<summary><b>🎯 Job Eligibility Engine</b></summary>
+<br>
+
+Every posting composes any combination of:
+
+- **Minimum CGPA** (`DECIMAL(4,2)` — a 10.00 scorer is handled correctly).
+- **Backlog rules in three modes**: max total backlogs, backlogs evaluated only up to semester *N*, or an explicit allowlist of semesters where backlogs are tolerated.
+- **Branch allowlists** matched against each college's JSONB branch data.
+- **Physical criteria** — min/max height and weight ranges (for uniformed-service recruiters), validated at the schema level.
+- **Audience targeting** — `all`, by region, by college, or `specific` combinations; targeting is resolved against numeric IDs with type-coercion-safe comparisons.
+- **Time windows** — application start and deadline timestamps gate the apply button.
+
+The same criteria are replicated in export SQL, so "eligible students" PDFs always agree with what students see.
+
+</details>
+
+<details>
+<summary><b>📧 Email System</b></summary>
+<br>
+
+- Seven branded, mobile-responsive HTML templates: account verification, password reset, generic notification, drive schedule, shortlist, selection (with package/location/joining date), and rejection.
+- **Environment-aware fail-safe transport**: real SMTP delivery requires `APP_ENV=production` *and* `EMAIL_MODE=smtp`. Any other environment composes every email normally but captures it to the application logs via Nodemailer's `jsonTransport` — **staging is physically incapable of emailing a real student**, even with production credentials present.
+- Transport verification on startup, per-send structured logging.
+
+</details>
+
+<details>
+<summary><b>📄 Documents, Exports & Reporting</b></summary>
+<br>
+
+- **Applicant exports in PDF and Excel** (`?format=pdf|excel`), with a field-selector UI to choose exactly which columns appear.
+- **Host-officer awareness** — when the exporting officer's college hosts the job, Excel exports become a multi-sheet workbook (one sheet per participating college plus a summary); other officers get their single-college view.
+- **Eligible-but-not-applied exports** — the eligibility engine run in reverse, surfacing students who qualify but haven't applied, including extended-profile data (height, weight, SSLC %, 12th %).
+- **Placement posters** (server-side PDFKit) and **job detail PDFs** (client-side jsPDF) for printable notice-board output.
+- **Student resume PDFs** as described above.
+
+All export endpoints sit behind the dedicated export rate limiter.
+
+</details>
+
+<details>
+<summary><b>⚙️ Background Automation</b></summary>
+<br>
+
+- **Daily age recomputation** — a scheduled job calls a database function to keep every student's age in sync with their date of birth.
+- **Materialized view refresh** (`active_students_view`) keeping hot dashboards fast.
+- **Activity log retention** — automatic deletion after 14 days.
+- **Nightly database backups** — a cron-installed script (`make hub-cron-setup`) runs `pg_dump` inside the container at 2 AM, verifies dump size, and rotates files older than 30 days.
+
+</details>
+
+<details>
+<summary><b>💎 Frontend Engineering</b></summary>
+<br>
+
+- **Route-level code splitting** — every page is `React.lazy`-loaded; the production bundle is chunked per route with vendor splitting.
+- **Glassmorphism design system** — reusable `GlassCard` / `GlassButton` / `GlassStatCard` / `GradientOrb` primitives with a consistent gradient language.
+- **Scroll-safe animation discipline** — Framer Motion is applied per-card/section with delay-based staggering (never `staggerChildren` on layout parents); backgrounds are static `position: fixed` with `pointer-events: none` — patterns chosen specifically to eliminate scroll-freeze bugs.
+- **Skeleton loading system** — five purpose-built skeleton layouts (dashboards, tables, forms, profiles) with minimum-display-time hooks so content never flashes.
+- **Auto-refresh** — polling hook with a visible refresh indicator on live lists (eligible students during drives).
+- **Desktop view switcher** for data-dense officer/admin tables, `en-IN` locale dates throughout, and an unmissable amber **STAGING ribbon** baked into staging builds at compile time (dead-code-eliminated from production bundles).
+
+</details>
+
+<details>
+<summary><b>🚀 DevOps & Release Engineering</b></summary>
+<br>
+
+- **Branch-based CI** (GitHub Actions): pushes to `develop` build `staging-<sha>` images; pushes to `main` build `main-<sha>` — three images each (frontend, backend, schema-preloaded database), published to Docker Hub with the exact deploy command printed in the job summary.
+- **Immutable-tag deployments** — compose refuses to start without a pinned `IMAGE_TAG`; moving tags (`latest`, `staging`) exist only as pointers and are never deployed. Every deploy is recorded in `deploy-history.log`; **rollback is redeploying any previous tag by name**.
+- **A true staging environment** — isolated database with four dataset modes (empty / seeded sample / sanitized production clone / cleared), credential sanitization after every production refresh, an HTTP basic-auth gate at the nginx layer, a separate Cloudinary account, and log-only email. See [docs/STAGING.md](docs/STAGING.md).
+- **Layered safety guards** — destructive staging commands verify the environment file, container prefix, *and* resolved container identity before running; production-mutating commands require typed confirmations (the exact target tag, `RESTORE PRODUCTION`, …).
+- **Plain-SQL migration system** with a transactional runner, `schema_migrations` tracking, and a staging-first application workflow.
+- **Image hygiene** — a weekly retention workflow keeps the newest 15 production / 10 staging tags on Docker Hub; `make hub-cleanup-images` prunes stale local images without ever touching running ones.
+- **Production-optimized images** — multi-stage builds, non-root users, `dumb-init` signal handling, container healthchecks, resource limits, and a PostgreSQL image with the schema baked into `/docker-entrypoint-initdb.d`.
+
+</details>
+
+</details>
+
+## Getting Started
+
+<details>
+<summary><b>Prerequisites</b></summary>
+<br>
+
+| Tool | Version | Notes |
+|---|---|---|
+| Docker + Compose v2 | 24+ | the only hard requirement for running the stack |
+| GNU Make | 4+ | drives all operations (Windows: Git Bash / WSL / scoop) |
+| Node.js | 18+ | only for running frontend/backend outside Docker |
+| Cloudinary account | free tier | photo uploads (optional for first run) |
+| Gmail App Password | — | email delivery (optional for first run) |
+
+</details>
+
+### Clone & run locally
+
+```bash
+git clone https://github.com/ADN004/campus-placement-portal.git
+cd campus-placement-portal
+
+cp .env.docker.example .env        # then edit: DB password + JWT secret at minimum
+make build && make up              # build images locally and start the stack
+make seed                          # regions, 60 colleges, officers, super admin
+```
+
+Open `http://localhost` — the frontend proxies `/api` to the backend internally, so no URLs need configuring.
+
+<details>
+<summary><b>Hot-reload development environment</b></summary>
+<br>
+
+```bash
+make dev          # Vite dev server on :5173, nodemon backend on :5000
+make dev-logs     # follow output
+make dev-down     # stop
+```
+
+Or fully manual (no Docker): `npm install && npm run dev` in `backend/` and `frontend/`, using `backend/.env.example` and `frontend/.env.example` as templates against a local PostgreSQL (`npm run db:setup && npm run db:seed`).
+
+</details>
+
+<details>
+<summary><b>Environment configuration reference</b></summary>
+<br>
+
+All configuration is environment-driven; nothing is hardcoded to a domain or institution.
+
+| File | Purpose |
+|---|---|
+| `.env.docker.example` | canonical template — production-style deployments |
+| `.env.staging.example` | staging overlay: ports, container prefix, safe email, sanitize password |
+| `backend/.env.example` / `frontend/.env.example` | bare-metal local development |
+
+Key variables: `IMAGE_TAG` (pinned deploy version, **required**), `APP_ENV` (drives email safety + guards), `EMAIL_MODE`, `CONTAINER_PREFIX`, `FRONTEND_PORT` / `BACKEND_PORT`, `JWT_SECRET`, `FRONTEND_URL` (CORS + email links), `CLOUDINARY_*`, `EMAIL_*`, and `CREATE_SUPER_ADMIN` + credentials for non-interactive seeding.
+
+</details>
+
+## Environments & Deployment
+
+```text
+ develop ──push──► CI builds staging-<sha> ──make staging-deploy──► STAGING
+                                                                    password-gated · isolated DB
+    │                                                               no real email · amber ribbon
+    │  verified on staging
+    ▼
+  main ────push──► CI builds main-<sha> ────make hub-deploy───────► PRODUCTION
+                                            (typed confirmation)    immutable tag · logged
+                                                                    rollback = previous tag
+```
+
+| Step | Command (server) |
+|---|---|
+| Deploy to staging | `make staging-deploy TAG=staging-<sha>` |
+| Inspect staging | `make staging-status` — dataset mode, last prod refresh, image drift |
+| Promote | merge `develop → main` (fast-forward), wait for CI |
+| Back up production | `make hub-db-backup` |
+| Deploy to production | `make hub-deploy TAG=main-<sha>` |
+| Roll back | `make hub-deploy TAG=main-<previous-sha>` |
+
+**Staging dataset modes:** `staging-db-reset` (empty schema) · `staging-db-seed-sample` (10 students, 4 jobs, known logins) · `staging-refresh-from-prod` (sanitized clone — every non-admin password rotated, production admins disabled, tokens cleared, automatically) · `staging-db-clear` (free the disk).
+
+Full guides: [docs/STAGING.md](docs/STAGING.md) (workflow, safety model, rollback) and [docs/SERVER_SETUP.md](docs/SERVER_SETUP.md) (fresh-server bootstrap, nginx/TLS, server migration). nginx vhost templates — including the staging basic-auth gate — live in [`deploy/nginx/`](deploy/nginx/).
+
+## Database
+
+- **Single source of truth:** [`database/schema.sql`](database/schema.sql) — 30+ tables with composite, partial, and trigram indexes, applied automatically on first boot via the schema-preloaded postgres image.
+- **Migrations:** ordered, idempotent SQL files in [`database/migrations/`](database/migrations/), applied transactionally by `backend/scripts/migrate.js` and tracked in `schema_migrations`. Staging first, always: `make staging-migrate` → verify → `make hub-migrate` (auto-backup + typed confirmation). Authoring rules: [database/migrations/README.md](database/migrations/README.md).
+- **Seeding:** `make seed` / `make hub-seed` loads 5 regions, 60 colleges with official branch lists, placement officers, and an interactively- or env-created super admin.
+- **Backups:** nightly cron (2 AM, size-verified, 30-day rotation), on-demand `make hub-db-backup`, and a super-admin browser download. Restore via `make hub-db-restore` (typed confirmation).
+
+## Operations Reference
+
+<details>
+<summary><b>Make target catalogue</b> (run <code>make help</code> for the live list)</summary>
+<br>
+
+| Family | Highlights |
+|---|---|
+| Local | `up` `down` `build` `logs` `seed` `db-shell` `db-backup` `db-restore` |
+| Dev | `dev` `dev-build` `dev-logs` `dev-down` |
+| Production (`hub-*`) | `hub-deploy TAG=` `hub-status` `hub-logs` `hub-migrate` `hub-db-backup` `hub-db-restore FILE=` `hub-db-sql SQL=` `hub-cron-setup` `hub-cleanup-images` |
+| Staging (`staging-*`) | `staging-deploy TAG=` `staging-status` `staging-logs` `staging-migrate` `staging-db-reset` `staging-db-seed-sample` `staging-refresh-from-prod` `staging-db-rollback FILE=` `staging-db-sanitize` `staging-db-clear` |
+
+Safety properties: every destructive staging target runs layered guards (env file → container prefix → live container identity); every production-mutating target requires a typed confirmation; every deploy appends to `deploy-history.log`.
+
+</details>
+
+## Repository Structure
+
+<details>
+<summary><b>Directory map</b></summary>
+<br>
+
+```text
+├── .github/workflows/      # CI: branch-based builds + weekly image retention
 ├── backend/
-│   ├── config/
-│   │   ├── database.js                    # PostgreSQL connection pool
-│   │   ├── cloudinary.js                  # Cloudinary configuration
-│   │   └── emailService.js                # Nodemailer email service
-│   ├── constants/
-│   │   └── branches.js                    # Branch definitions and categories
-│   ├── controllers/
-│   │   ├── authController.js              # Authentication & email verification
-│   │   ├── studentController.js           # Student operations
-│   │   ├── studentControllerExtensions.js # Extended student features
-│   │   ├── extendedProfileController.js   # Tier 2 extended profile management
-│   │   ├── enhancedApplicationController.js # Smart application system
-│   │   ├── placementOfficerController.js  # Placement officer operations
-│   │   ├── placementOfficerControllerExtensions.js # Extended officer features
-│   │   ├── superAdminController.js        # Super admin operations
-│   │   ├── superAdminControllerExtensions.js # Extended admin features
-│   │   ├── jobRequirementsController.js   # Job requirements configuration
-│   │   ├── collegeBranchController.js     # College branch management
-│   │   └── commonController.js            # Shared resources (regions, colleges)
-│   ├── middleware/
-│   │   ├── auth.js                        # JWT verification & role-based authorization
-│   │   ├── errorHandler.js                # Global error handling
-│   │   ├── activityLogger.js              # Activity logging middleware
-│   │   └── rateLimiter.js                 # Rate limiting (20k+ users)
-│   ├── routes/
-│   │   ├── authRoutes.js                  # Authentication routes
-│   │   ├── studentRoutes.js               # Student routes
-│   │   ├── extendedProfileRoutes.js       # Extended profile routes
-│   │   ├── enhancedApplicationRoutes.js   # Smart application routes
-│   │   ├── placementOfficerRoutes.js      # Placement officer routes
-│   │   ├── superAdminRoutes.js            # Super admin routes
-│   │   ├── jobRequirementsRoutes.js       # Job requirements routes
-│   │   └── commonRoutes.js                # Public/common routes
-│   ├── scripts/
-│   │   ├── setupDatabase.js               # Create database schema
-│   │   └── seedDatabase.js                # Seed initial data (regions, colleges)
-│   ├── utils/
-│   │   ├── cronJobs.js                    # Background cron jobs
-│   │   └── pdfGenerator.js                # PDF generation for exports and posters
-│   ├── .env.example                       # Environment variables template
-│   ├── .dockerignore                      # Docker ignore patterns
-│   ├── Dockerfile                         # Production-optimized multi-stage build
-│   ├── Dockerfile.dev                     # Development Dockerfile with hot-reload
-│   ├── package.json                       # Backend dependencies
-│   └── server.js                          # Entry point with Express app
-│
-├── frontend/
-│   ├── public/
-│   │   └── vite.svg                       # Favicon
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── Layout.jsx                 # Main layout with sidebar navigation
-│   │   │   ├── LoadingSpinner.jsx         # Loading indicator
-│   │   │   ├── ChangePassword.jsx         # Password change form
-│   │   │   ├── DashboardHeader.jsx        # Dashboard header with welcome message
-│   │   │   ├── GlassStatCard.jsx          # Glassmorphism stat card
-│   │   │   ├── GlassCard.jsx              # Glassmorphism card container
-│   │   │   ├── GlassButton.jsx            # Glassmorphism button
-│   │   │   ├── SectionHeader.jsx          # Section header with icon
-│   │   │   ├── GradientOrb.jsx            # Animated gradient background
-│   │   │   ├── SmartApplicationModal.jsx  # Smart application flow
-│   │   │   ├── DriveScheduleModal.jsx     # Schedule placement drive
-│   │   │   ├── PlacementDetailsForm.jsx   # Record placement details
-│   │   │   ├── JobRequirementsConfig.jsx  # Configure job requirements
-│   │   │   ├── PDFFieldSelector.jsx       # Select fields for PDF/Excel export
-│   │   │   ├── EnhancedFilterPanel.jsx    # Advanced filtering panel
-│   │   │   ├── StudentDetailModal.jsx     # View student details in modal
-│   │   │   ├── StatusBadge.jsx            # Status badge component
-│   │   │   ├── ManualStudentAdditionModal.jsx # Manually add students
-│   │   │   ├── CollegeLogoUpload.jsx      # Upload college logo
-│   │   │   ├── ExtendedProfilePromptModal.jsx # Prompt for extended profile
-│   │   │   └── extendedProfile/
-│   │   │       ├── AcademicExtendedSection.jsx     # SSLC and 12th marks
-│   │   │       ├── PhysicalDetailsSection.jsx      # Height, weight, handicap
-│   │   │       ├── FamilyDetailsSection.jsx        # Father, mother, siblings
-│   │   │       ├── PersonalDetailsSection.jsx      # District, address, interests
-│   │   │       ├── DocumentVerificationSection.jsx # PAN, Aadhar, Passport, DL
-│   │   │       └── EducationPreferencesSection.jsx # B.Tech, M.Tech, study mode
-│   │   ├── constants/
-│   │   │   └── branches.js                # 26 Kerala polytechnic branches
-│   │   ├── context/
-│   │   │   └── AuthContext.jsx            # Global auth state management
-│   │   ├── pages/
-│   │   │   ├── auth/
-│   │   │   │   ├── RoleSelectionPage.jsx          # Select user role for login
-│   │   │   │   ├── StudentLoginPage.jsx           # Student login
-│   │   │   │   ├── PlacementOfficerLoginPage.jsx  # Officer login
-│   │   │   │   ├── SuperAdminLoginPage.jsx        # Admin login
-│   │   │   │   ├── StudentRegisterPage.jsx        # Student registration
-│   │   │   │   └── VerifyEmailPage.jsx            # Email verification page
-│   │   │   ├── student/
-│   │   │   │   ├── StudentDashboard.jsx   # Student dashboard with stats
-│   │   │   │   ├── Profile.jsx            # View/edit Tier 1 profile
-│   │   │   │   ├── ExtendedProfile.jsx    # Manage Tier 2 extended profile
-│   │   │   │   ├── StudentJobs.jsx        # View available jobs
-│   │   │   │   ├── StudentApplications.jsx # Track applications
-│   │   │   │   ├── StudentNotifications.jsx # View notifications
-│   │   │   │   └── WaitingPage.jsx        # Waiting for approval page
-│   │   │   ├── placement-officer/
-│   │   │   │   ├── PlacementOfficerDashboard.jsx  # Officer dashboard
-│   │   │   │   ├── ManageStudents.jsx     # Approve/reject/blacklist students
-│   │   │   │   ├── ManagePRNRanges.jsx    # PRN range management
-│   │   │   │   ├── SendNotification.jsx   # Send notifications
-│   │   │   │   ├── CreateJobRequest.jsx   # Request job posting
-│   │   │   │   ├── MyJobRequests.jsx      # Track job request status
-│   │   │   │   ├── JobEligibleStudents.jsx # View eligible students
-│   │   │   │   ├── PlacementPoster.jsx    # Generate placement posters
-│   │   │   │   ├── ManageCollegeBranches.jsx # Manage college branches
-│   │   │   │   ├── ManageJobRequirements.jsx # Configure job requirements
-│   │   │   │   └── Profile.jsx            # View/edit officer profile
-│   │   │   └── super-admin/
-│   │   │       ├── SuperAdminDashboard.jsx # Admin dashboard with system stats
-│   │   │       ├── ManagePRNRanges.jsx    # System-wide PRN management
-│   │   │       ├── PRNRangeStudents.jsx   # View students in PRN range
-│   │   │       ├── ManagePlacementOfficers.jsx # Officer management
-│   │   │       ├── ManageJobs.jsx         # Job posting and management
-│   │   │       ├── ManageJobRequests.jsx  # Approve/reject job requests
-│   │   │       ├── ManageRequirementTemplates.jsx # Requirement templates
-│   │   │       ├── ManageAllStudents.jsx  # System-wide student management
-│   │   │       ├── SendNotification.jsx   # Send system-wide notifications
-│   │   │       ├── ManageWhitelistRequests.jsx # Approve whitelist requests
-│   │   │       ├── ManageSuperAdmins.jsx  # Super admin management
-│   │   │       ├── ActivityLogs.jsx       # View activity logs
-│   │   │       ├── JobEligibleStudents.jsx # System-wide eligible students
-│   │   │       ├── PlacementPoster.jsx    # Generate system-wide posters
-│   │   │       ├── ManageCollegeBranches.jsx # Branch management
-│   │   │       └── Profile.jsx            # View/edit admin profile
-│   │   ├── services/
-│   │   │   └── api.js                     # Centralized API service layer
-│   │   ├── utils/
-│   │   │   └── helpers.js                 # Utility functions
-│   │   ├── App.jsx                        # Main app with routing
-│   │   ├── main.jsx                       # Entry point
-│   │   └── index.css                      # Global styles with Tailwind
-│   ├── index.html                         # HTML template
-│   ├── .env.example                       # Frontend environment variables
-│   ├── .dockerignore                      # Docker ignore patterns
-│   ├── Dockerfile                         # Production-optimized 3-stage build
-│   ├── Dockerfile.dev                     # Development Dockerfile
-│   ├── nginx.conf                         # Nginx configuration
-│   ├── package.json                       # Frontend dependencies
-│   ├── vite.config.js                     # Vite configuration
-│   ├── tailwind.config.js                 # Tailwind CSS configuration
-│   └── postcss.config.js                  # PostCSS configuration
-│
+│   ├── config/             # database pool, Cloudinary, fail-safe email transport
+│   ├── controllers/        # route handlers (auth, students, officers, admin, backups…)
+│   ├── middleware/         # JWT auth, rate limiters, activity logger, error handler
+│   ├── routes/             # Express routers mounted under /api
+│   ├── scripts/            # migrate, seed, staging sample data, staging sanitizer
+│   └── utils/              # PDF/resume/poster generators, scheduled jobs, cleanup
 ├── database/
-│   ├── schema.sql                         # Complete database schema (23 tables)
-│   ├── seed-data.sql                      # Seed data (60 colleges, 5 regions, 59 officers, 1 admin)
-│   ├── db-commands.js                     # Database CLI utility
-│   ├── college-branches-map.json          # College branch mappings
-│   ├── add-sample-placements.sql          # Sample placement data
-│   └── migrations/                        # Database migrations (23 files)
-│       ├── 001_add_new_student_fields.sql
-│       ├── 002_update_prn_ranges_for_placement_officers.sql
-│       ├── 003_add_missing_placement_officer.sql
-│       ├── 004_add_height_weight_criteria.sql
-│       ├── 005_state_placement_cell_features.sql
-│       ├── 001_add_performance_indexes.sql
-│       ├── 001_create_extended_profiles.sql
-│       ├── 002_add_driving_license_to_extended_profiles.sql
-│       ├── 003_auto_create_extended_profiles.sql
-│       ├── 004_fix_document_defaults.sql
-│       ├── 005_recalculate_section_completion.sql
-│       ├── 006_create_branches_reference_table.sql
-│       ├── 006_create_job_request_requirements.sql
-│       ├── 006_add_job_drives_and_placement_tracking.sql
-│       ├── 007_fix_profile_completion_bug.sql
-│       ├── 008_add_priority_to_notifications.sql
-│       ├── 009_add_college_logo_fields.sql
-│       ├── 010_add_missing_document_columns.sql
-│       ├── 011_fix_profile_completion_logic.sql
-│       ├── 012_update_completion_logic_at_least_one.sql
-│       ├── 013_add_not_interested_education_option.sql
-│       └── 011_add_manual_addition_flag.sql
-│
-├── fonts/                                 # Custom fonts for PDF generation
-├── .env.docker.example                    # Docker environment template
-├── .dockerignore                          # Global Docker ignore
-├── docker-compose.yml                     # Production Docker Compose
-├── docker-compose.dev.yml                 # Development Docker Compose with hot-reload
-├── setup.bat / setup.sh                   # Quick automated setup
-├── guided-setup.bat / guided-setup.sh     # Interactive setup with explanations
-├── init-database.bat / init-database.sh   # Initialize database only
-├── reset-database.bat / reset-database.sh # Reset database to initial state
-├── apply-migrations.sh                    # Apply database migrations
-├── start.bat / start.sh                   # Start frontend & backend
-├── stop-servers.bat / stop-servers.sh     # Stop all servers
-├── start-backend.sh                       # Start backend only
-├── start-frontend.sh                      # Start frontend only
-├── start-docker.sh                        # Start with Docker
-├── push-to-github.bat / push-to-github.sh # Push to GitHub
-├── Makefile                               # Docker management commands (make help)
-├── TESTING.md                             # Comprehensive testing guide
-├── SETUP.md                               # Detailed setup instructions
-└── README.md                              # This file
+│   ├── schema.sql          # full schema (fresh-install source of truth)
+│   ├── migrations/         # ordered idempotent migrations + authoring rules
+│   ├── seed-data.sql       # 5 regions, 60 colleges, officers
+│   └── Dockerfile          # schema-preloaded PostgreSQL image
+├── frontend/
+│   └── src/                # pages (per role), components, hooks, services
+├── deploy/nginx/           # host vhost templates (production + gated staging)
+├── docs/                   # STAGING.md, SERVER_SETUP.md
+├── scripts/                # server-side backup cron
+├── docker-compose.yml      # local source build
+├── docker-compose.dev.yml  # hot-reload development
+├── docker-compose.hub.yml  # pinned-tag deployment (prod & staging)
+└── Makefile                # the operations interface for everything above
 ```
+
+</details>
+
+## Documentation Index
+
+| Document | Covers |
+|---|---|
+| [docs/STAGING.md](docs/STAGING.md) | staging workflow, dataset modes, sanitization, safety guards, promotion, rollback |
+| [docs/SERVER_SETUP.md](docs/SERVER_SETUP.md) | fresh-server bootstrap, DNS/nginx/TLS, server migration runbook |
+| [database/migrations/README.md](database/migrations/README.md) | migration authoring rules (idempotency, additive-first, schema.sql sync) |
+| [deploy/nginx/](deploy/nginx/) | annotated vhost templates incl. the staging basic-auth gate |
 
 ---
 
-## 🚀 Quick Start
+<div align="center">
 
-> **For detailed setup instructions, see [SETUP.md](./SETUP.md) (if available)**
+Built for the **Directorate of Technical Education, Kerala** — serving students across 60 polytechnic colleges.
 
-### Windows Quick Setup (Recommended for Local Development)
-
-**Prerequisites:** Node.js v18+, PostgreSQL v14+
-
-#### Option 1: Guided Setup (Recommended for First-Time Users)
-```batch
-# Run the interactive guided setup with step-by-step explanations
-guided-setup.bat
-```
-
-#### Option 2: Quick Automated Setup
-```batch
-# Run automated setup
-setup.bat
-
-# Edit backend/.env with your credentials
-# Then start the application
-start.bat
-```
-
-**What gets set up:**
-- ✅ Environment files with all required variables
-- ✅ Backend and frontend dependencies
-- ✅ Database with 23+ tables, triggers, and functions
-- ✅ Seed data (60 colleges, 59 officers, 1 super admin)
-- ✅ All 23 database migrations applied
-- ✅ Email verification system
-- ✅ Photo upload capabilities (Cloudinary)
-- ✅ Extended profiles and job requirements
-- ✅ Smart application system
-- ✅ Activity logging and audit trail
-- ✅ Rate limiting for 20k+ users
-
-**Batch/Shell Files Available:**
-- `setup.bat / setup.sh` - Quick automated setup
-- `guided-setup.bat / guided-setup.sh` - Interactive setup with explanations
-- `init-database.bat / init-database.sh` - Initialize database only
-- `reset-database.bat / reset-database.sh` - Reset database to initial state
-- `apply-migrations.sh` - Apply new migrations
-- `start.bat / start.sh` - Start frontend & backend
-- `stop-servers.bat / stop-servers.sh` - Stop all servers
-
----
-
-### Docker Deployment (Recommended for Production)
-
-**Prerequisites:** Docker and Docker Compose installed
-
-```bash
-# Clone repository
-git clone https://github.com/ADN004/campus-placement-portal.git
-cd campus-placement-portal
-
-# Create environment file
-cp backend/.env.example backend/.env
-# Edit backend/.env with your production values
-
-# Build and run with Docker Compose
-docker-compose up -d
-
-# View logs
-docker-compose logs -f
-
-# Access application
-# Frontend: http://localhost
-# Backend: http://localhost:5000
-# Database: localhost:5432
-```
-
-**Docker Commands (via Makefile):**
-
-The project includes a comprehensive `Makefile` for simplified Docker management. Run `make help` for all commands.
-
-**Requirements:** Docker & Docker Compose, GNU Make (Windows: install via Chocolatey, Scoop, or use Git Bash)
-
-```bash
-# Full first-time setup (create env, build, start, seed database)
-make setup
-
-# Quick start (assumes env is configured)
-make quick-start
-```
-
-| Category | Command | Description |
-| --- | --- | --- |
-| **Production** | `make up` / `make start` | Start all production containers |
-| | `make down` / `make stop` | Stop all production containers |
-| | `make restart` | Restart all production containers |
-| | `make build` | Build production images |
-| | `make build-no-cache` | Build production images without cache |
-| | `make logs` | View logs from all containers (follow mode) |
-| | `make logs-backend` | View backend logs only |
-| | `make logs-frontend` | View frontend logs only |
-| | `make logs-db` | View database logs only |
-| | `make status` / `make ps` | Show container status |
-| **Development** | `make dev` | Start dev environment with hot-reload |
-| | `make dev-build` | Build and start dev environment |
-| | `make dev-down` | Stop dev environment |
-| | `make dev-logs` | View dev logs |
-| | `make dev-restart` | Restart dev environment |
-| | `make dev-status` | Show dev container status |
-| **Database** | `make seed` | Seed the database with initial data |
-| | `make seed-dev` | Seed the dev database |
-| | `make db-shell` | Open PostgreSQL shell |
-| | `make db-shell-dev` | Open PostgreSQL shell (dev) |
-| | `make db-backup` | Backup database to `./backups` folder |
-| | `make db-restore FILE=backup.sql` | Restore database from backup |
-| | `make db-reset` | Reset database (drop and recreate) |
-| **Maintenance** | `make clean` | Stop containers and remove volumes |
-| | `make clean-dev` | Stop dev containers and remove volumes |
-| | `make clean-all` | Remove all containers, volumes, and images |
-| | `make prune` | Remove unused Docker resources (system-wide) |
-| | `make prune-all` | Remove ALL unused Docker resources incl. volumes |
-| | `make rebuild` | Rebuild and restart all containers |
-| | `make rebuild-backend` | Rebuild only the backend service |
-| | `make rebuild-frontend` | Rebuild only the frontend service |
-| **Utilities** | `make shell-backend` | Open shell in backend container |
-| | `make shell-frontend` | Open shell in frontend container |
-| | `make shell-db` | Open shell in database container |
-| | `make images` | List project Docker images |
-| | `make env-check` | Check if `.env` file exists |
-| | `make env-create` | Create `.env` file from template |
-| | `make health` | Check health of all services |
-| | `make info` | Show Docker and project information |
-
-**Development Mode (with hot-reload):**
-```bash
-# Start dev environment (Frontend: http://localhost:5173, Backend: http://localhost:5000)
-make dev
-
-# Or without Makefile:
-docker-compose -f docker-compose.dev.yml up -d
-```
-
----
-
-### Manual Installation (Linux/Mac/Windows)
-
-**Prerequisites:**
-- Node.js v18+
-- PostgreSQL v14+
-- npm or yarn
-
-#### 1. Clone Repository
-```bash
-git clone https://github.com/ADN004/campus-placement-portal.git
-cd campus-placement-portal
-```
-
-#### 2. Setup Database
-```bash
-# Create database
-createdb campus_placement_portal
-
-# Or using psql
-psql -U postgres
-CREATE DATABASE campus_placement_portal;
-\q
-
-# Run schema
-psql -U postgres -d campus_placement_portal -f database/schema.sql
-
-# Seed initial data
-psql -U postgres -d campus_placement_portal -f database/seed-data.sql
-
-# Apply migrations
-for file in database/migrations/*.sql; do
-  psql -U postgres -d campus_placement_portal -f "$file"
-done
-```
-
-#### 3. Configure Backend
-```bash
-cd backend
-npm install
-cp .env.example .env
-# Edit .env with your configuration
-```
-
-**Required Environment Variables (.env):**
-```bash
-# Database
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=campus_placement_portal
-DB_USER=postgres
-DB_PASSWORD=your_password
-
-# JWT (Generate 64+ char random string)
-JWT_SECRET=your_super_secret_jwt_key_change_this_in_production
-JWT_EXPIRE=7d
-JWT_COOKIE_EXPIRE=7
-
-# Email (for verification) - REQUIRED for email verification feature
-EMAIL_SERVICE=gmail
-EMAIL_USER=your_email@gmail.com
-EMAIL_PASSWORD=your_gmail_app_password  # Not regular password!
-EMAIL_FROM=State Placement Cell <your_email@gmail.com>
-
-# Cloudinary (for photo uploads) - REQUIRED for photo upload feature
-CLOUDINARY_CLOUD_NAME=your_cloud_name
-CLOUDINARY_API_KEY=your_api_key
-CLOUDINARY_API_SECRET=your_api_secret
-
-# Frontend URL (CRITICAL for email verification links)
-# Local Development
-FRONTEND_URL=http://localhost:5173
-# Production (Update this for hosted deployment)
-# FRONTEND_URL=https://your-domain.com
-```
-
-**How to get credentials:**
-- **Cloudinary:** Sign up at https://cloudinary.com (free tier available)
-- **Gmail App Password:** https://support.google.com/accounts/answer/185833
-- **JWT Secret:** Generate random string (64+ chars) at https://randomkeygen.com/
-
-#### 4. Start Backend
-```bash
-npm run dev
-# Runs on http://localhost:5000
-```
-
-#### 5. Setup Frontend
-```bash
-cd ../frontend
-npm install
-```
-
-#### 6. Start Frontend
-```bash
-npm run dev
-# Runs on http://localhost:5173
-```
-
-#### 7. Access Application
-- Open http://localhost:5173
-- Login with default credentials (see below)
-
----
-
-### Default Credentials
-
-**Super Admin:**
-- Created interactively during database seeding
-- You choose the email and password when running the seeding script
-- In development mode: No secret key required
-- In production mode: Requires `SETUP_SECRET_KEY` verification
-
-**Placement Officers:**
-- Username: `<phone_number>` (e.g., `9497219788`)
-- Password: `123`
-- **Note:** 60 placement officers created (one per college) during seed
-
-**Students:**
-- Must register first at `/register`
-- PRN must be in valid range (set by super admin)
-- Default PRN range after seed: `2301150100` to `2301150999`
-
----
-
-### Database CLI Utility
-
-A command-line utility to view database information:
-
-```bash
-# Navigate to database directory
-cd database
-
-# View database statistics
-node db-commands.js stats
-
-# List all tables
-node db-commands.js tables
-
-# Student statistics
-node db-commands.js students
-
-# Job statistics
-node db-commands.js jobs
-
-# View all colleges
-node db-commands.js colleges
-
-# View regions
-node db-commands.js regions
-
-# Recent activity
-node db-commands.js recent
-
-# Help
-node db-commands.js help
-```
-
----
-
-## 🗄️ Database Schema
-
-### Core Tables (23 Total)
-
-#### 1. **users**
-Central user authentication table for all roles.
-```sql
-- id (PK)
-- email (unique)
-- password_hash
-- role (student | placement_officer | super_admin)
-- is_active
-- last_login
-- created_at, updated_at
-```
-
-#### 2. **regions**
-5 Kerala regions for geographic organization.
-```sql
-- id (PK)
-- region_name (South, South-Central, Central, North-Central, North)
-- created_at, updated_at
-```
-
-#### 3. **colleges**
-60 polytechnic colleges across Kerala.
-```sql
-- id (PK)
-- college_name
-- region_id (FK → regions)
-- district
-- college_code (unique)
-- branches (JSONB array) - College-specific branches
-- created_at, updated_at
-```
-
-#### 4. **students**
-Student Tier 1 profiles with comprehensive data.
-```sql
-- id (PK)
-- prn (unique, indexed)
-- user_id (FK → users)
-- college_id (FK → colleges)
-- region_id (FK → regions)
-- student_name
-- email (unique)
-- mobile_number
-- date_of_birth
-- age (auto-calculated via trigger)
-- gender
-- height, weight
-- branch
-- programme_cgpa (auto-calculated via trigger)
-- cgpa_sem1 to cgpa_sem6
-- backlog_count, backlog_details
-- complete_address
-- has_driving_license, has_pan_card
-- photo_url, photo_public_id (Cloudinary)
-- registration_status (pending | approved | rejected)
-- is_blacklisted
-- blacklist_reason, blacklisted_at
-- rejection_reason
-- email_verified, email_verified_at
-- email_verification_token
-- email_verification_sent_count
-- email_verification_last_sent_at
-- created_at, updated_at
-```
-
-#### 5. **student_extended_profiles**
-Student Tier 2 extended profile data.
-```sql
-- id (PK)
-- student_id (FK → students, unique)
-- sslc_marks, sslc_year, sslc_board
-- twelfth_marks, twelfth_year, twelfth_board
-- height_cm, weight_kg
-- physically_handicapped, handicap_details
-- district, permanent_address
-- interests_hobbies
-- father_name, father_occupation, father_annual_income
-- mother_name, mother_occupation, mother_annual_income
-- siblings_count, siblings_details
-- has_pan_card, pan_number
-- has_aadhar_card, aadhar_number
-- has_passport, passport_number
-- has_driving_license, driving_license_number
-- interested_in_btech (yes | no | not_interested)
-- interested_in_mtech (yes | no | not_interested)
-- preferred_study_mode (full-time | part-time | distance)
-- additional_certifications (JSONB array)
-- achievements (JSONB array)
-- extracurricular_activities (JSONB array)
-- profile_completion_percentage (auto-calculated via trigger)
-- created_at, updated_at
-```
-
-#### 6. **placement_officers**
-One active officer per college with complete history.
-```sql
-- id (PK)
-- user_id (FK → users)
-- college_id (FK → colleges, unique for active)
-- officer_name
-- phone_number (unique)
-- designation
-- photo_url, photo_public_id
-- is_active
-- created_at, updated_at
-```
-
-#### 7. **placement_officer_history**
-Complete audit trail of officer changes.
-```sql
-- id (PK)
-- college_id (FK → colleges)
-- officer_name
-- phone_number
-- email
-- designation
-- start_date
-- end_date
-- reason_for_change
-- created_at
-```
-
-#### 8. **super_admins**
-System administrators.
-```sql
-- id (PK)
-- user_id (FK → users)
-- admin_name
-- created_at, updated_at
-```
-
-#### 9. **prn_ranges**
-Valid PRN ranges for student registration.
-```sql
-- id (PK)
-- range_start (for ranges)
-- range_end (for ranges)
-- single_prn (for single PRNs)
-- description
-- is_active (soft delete)
-- is_enabled (for graduated batches)
-- disabled_reason
-- college_id (FK → colleges, optional for college-specific)
-- added_by_role (super_admin | placement_officer)
-- added_by_id
-- disabled_by_id, disabled_at
-- created_at, updated_at
-```
-
-#### 10. **jobs**
-Job postings with eligibility criteria.
-```sql
-- id (PK)
-- job_title
-- company_name
-- company_location
-- job_description
-- no_of_vacancies (optional, number of vacancies for the job)
-- salary_package
-- application_form_url
-- application_start_date
-- application_deadline
-- is_active
-- is_deleted, deleted_at, deleted_by, deletion_reason
-- created_by (FK → users)
-- created_at, updated_at
-```
-
-#### 11. **job_eligibility_criteria**
-Multiple eligibility criteria per job.
-```sql
-- id (PK)
-- job_id (FK → jobs)
-- min_cgpa
-- max_backlogs
-- min_height, max_height
-- min_weight, max_weight
-- allowed_branches (JSONB array)
-- target_type (all | regions | colleges)
-- target_regions (JSONB array)
-- target_colleges (JSONB array)
-- created_at, updated_at
-```
-
-#### 12. **job_requirement_templates**
-Tier 2 & 3 job requirements configuration.
-```sql
-- id (PK)
-- job_id (FK → jobs)
-- min_cgpa
-- max_backlogs
-- allowed_branches (JSONB array)
-- requires_academic_extended (boolean)
-- requires_physical_details (boolean)
-- requires_family_details (boolean)
-- requires_document_verification (boolean)
-- requires_education_preferences (boolean)
-- specific_field_requirements (JSONB)
-- custom_fields (JSONB array)
-- created_at, updated_at
-```
-
-#### 13. **job_applications**
-Student job applications tracking.
-```sql
-- id (PK)
-- student_id (FK → students)
-- job_id (FK → jobs)
-- application_status (submitted | under_review | shortlisted | rejected | selected)
-- reviewed_by (FK → users)
-- reviewed_at
-- review_notes
-- placement_package
-- joining_date
-- placement_location
-- placement_notes
-- applied_at
-- updated_at
-```
-
-#### 14. **job_applications_extended**
-Tier 2 snapshot and Tier 3 custom field responses.
-```sql
-- id (PK)
-- application_id (FK → job_applications)
-- tier2_snapshot (JSONB) - Extended profile data at application time
-- custom_field_responses (JSONB) - Tier 3 custom field answers
-- submitted_at
-```
-
-#### 15. **job_drives**
-Placement drive scheduling.
-```sql
-- id (PK)
-- job_id (FK → jobs)
-- drive_date
-- drive_time
-- drive_location
-- additional_instructions
-- created_by (FK → users)
-- created_at, updated_at
-```
-
-#### 16. **job_requests**
-Placement officers can request job postings.
-```sql
-- id (PK)
-- requesting_officer_id (FK → placement_officers)
-- company_name
-- job_title
-- job_description
-- eligibility_criteria (JSONB)
-- target_type
-- status (pending | approved | rejected)
-- admin_review_comment
-- created_at, updated_at
-```
-
-#### 17. **notifications**
-System and user notifications.
-```sql
-- id (PK)
-- title
-- message
-- sent_by (FK → users)
-- priority (low | medium | high)
-- sent_at
-- created_at, updated_at
-```
-
-#### 18. **notification_recipients**
-User-notification mapping with read status.
-```sql
-- id (PK)
-- notification_id (FK → notifications)
-- user_id (FK → users)
-- is_read
-- read_at
-- created_at
-```
-
-#### 19. **notification_targets**
-Region/college targeting for notifications.
-```sql
-- id (PK)
-- notification_id (FK → notifications)
-- target_type (all | region | college)
-- target_id (region_id or college_id)
-- created_at
-```
-
-#### 20. **whitelist_requests**
-Requests to remove students from blacklist.
-```sql
-- id (PK)
-- student_id (FK → students)
-- requesting_officer_id (FK → placement_officers)
-- request_reason
-- status (pending | approved | rejected)
-- reviewed_by (FK → users)
-- review_comment
-- reviewed_at
-- created_at, updated_at
-```
-
-#### 21. **activity_logs**
-Complete audit trail of system actions.
-```sql
-- id (PK)
-- user_id (FK → users)
-- user_email
-- user_role
-- action_type (login, logout, student_approved, job_created, etc.)
-- action_description
-- ip_address
-- user_agent
-- metadata (JSONB)
-- timestamp
-```
-
-#### 22. **deleted_jobs_history**
-Archive of deleted jobs.
-```sql
-- id (PK)
-- job_id
-- job_title
-- company_name
-- deleted_at
-- deleted_by (FK → users)
-- deletion_reason
-- total_applications
-- created_at
-```
-
-#### 23. **college_branches_reference**
-Branch normalization mapping.
-```sql
-- id (PK)
-- standard_branch_name
-- short_name
-- category (Design, Mechanical, Electronics, etc.)
-- created_at
-```
-
-#### 24. **student_resumes**
-Student resume data for PDF generation.
-```sql
-- id (PK)
-- student_id (FK → students, UNIQUE)
-- custom_skills (JSONB: {technical, soft, languages})
-- custom_projects (JSONB array: [{title, description, technologies, duration}])
-- custom_work_experience (JSONB array: [{company, role, duration, description}])
-- custom_certifications (JSONB array: [{name, issuer, date, url}])
-- custom_achievements (JSONB array: [{title, description, date}])
-- custom_objective (TEXT)
-- custom_declaration (TEXT)
-- custom_sections (JSONB array: [{title, content}])
-- has_custom_content (BOOLEAN, default false)
-- created_at, updated_at
-```
-
-Auto-created for each student via database trigger.
-
-### Database Features
-
-#### Materialized View
-```sql
-CREATE MATERIALIZED VIEW active_students_view AS
-SELECT s.*, c.college_name, r.region_name
-FROM students s
-JOIN colleges c ON s.college_id = c.id
-JOIN regions r ON s.region_id = r.id
-WHERE s.registration_status = 'approved' AND s.is_blacklisted = false;
-```
-
-#### Triggers
-```sql
--- Auto-update timestamps
-CREATE TRIGGER update_students_timestamp ...
-
--- Auto-calculate age from DOB
-CREATE TRIGGER calculate_age_trigger ...
-
--- Auto-create extended profile on student creation
-CREATE TRIGGER auto_create_extended_profile ...
-
--- Auto-create resume record on student creation
-CREATE TRIGGER auto_create_student_resume ...
-
--- Auto-recalculate profile completion percentage
-CREATE TRIGGER recalculate_profile_completion ...
-```
-
-#### Functions
-```sql
--- Update all student ages (called by cron job)
-CREATE OR REPLACE FUNCTION update_all_student_ages() ...
-
--- Refresh materialized view
-CREATE OR REPLACE FUNCTION refresh_active_students_view() ...
-
--- Check if PRN is in valid range
-CREATE OR REPLACE FUNCTION isPRNInRange(prn TEXT) ...
-
--- Calculate profile completion percentage
-CREATE OR REPLACE FUNCTION calculate_profile_completion_percentage(student_id) ...
-```
-
-#### Indexes (40+)
-```sql
--- Primary keys, foreign keys, unique constraints
-CREATE INDEX idx_students_prn ON students(prn);
-CREATE INDEX idx_students_email ON students(email);
-CREATE INDEX idx_students_college ON students(college_id);
-CREATE INDEX idx_students_registration_status ON students(registration_status);
-CREATE INDEX idx_students_is_blacklisted ON students(is_blacklisted);
-CREATE INDEX idx_students_cgpa ON students(programme_cgpa);
-CREATE INDEX idx_extended_profiles_student ON student_extended_profiles(student_id);
-CREATE INDEX idx_extended_profiles_completion ON student_extended_profiles(profile_completion_percentage);
-CREATE INDEX idx_jobs_is_active ON jobs(is_active);
-CREATE INDEX idx_jobs_company ON jobs(company_name);
-CREATE INDEX idx_jobs_deadline ON jobs(application_deadline);
-CREATE INDEX idx_applications_job ON job_applications(job_id);
-CREATE INDEX idx_applications_student ON job_applications(student_id);
-CREATE INDEX idx_applications_status ON job_applications(application_status);
-CREATE INDEX idx_activity_logs_user ON activity_logs(user_id);
-CREATE INDEX idx_activity_logs_action ON activity_logs(action_type);
-CREATE INDEX idx_activity_logs_timestamp ON activity_logs(timestamp);
--- ... and 25+ more optimized indexes
-```
-
----
-
-## 📡 API Documentation
-
-### Base URL
-- Local Development: `http://localhost:5000/api`
-- Production: `https://your-domain.com/api`
-
-### Authentication
-All protected routes require JWT token in HTTP-only cookie or Authorization header.
-
-**Response Format:**
-```json
-Success:
-{
-  "success": true,
-  "message": "Operation successful",
-  "data": { ... }
-}
-
-Error:
-{
-  "success": false,
-  "message": "Error message",
-  "error": "Detailed error description"
-}
-```
-
----
-
-### 🔐 Authentication Routes (`/api/auth`)
-
-- **POST `/login`** - Login with email/PRN and password
-- **POST `/register-student`** - Student registration with PRN validation (multipart/form-data)
-- **GET `/verify-email/:token`** - Verify email with token from email link
-- **POST `/resend-verification`** - Resend verification email (generates new token)
-- **GET `/me`** - Get current logged-in user details
-- **POST `/logout`** - Logout user (clears JWT cookie)
-- **PUT `/change-password`** - Change user password
-
----
-
-### 🎓 Student Routes (`/api/students`)
-
-- **GET `/dashboard`** - Get student dashboard statistics
-- **GET `/profile`** - Get complete student profile (Tier 1)
-- **PUT `/profile`** - Update student profile
-- **POST `/profile/photo`** - Upload profile photo
-- **DELETE `/profile/photo`** - Delete profile photo
-- **GET `/jobs`** - Get all jobs with eligibility indicators
-- **POST `/apply/:jobId`** - Apply for a job (basic application)
-- **GET `/applications`** - Get all student applications
-- **GET `/notifications`** - Get student notifications
-- **PUT `/notifications/:id/read`** - Mark notification as read
-- **PUT `/notifications/:id/unread`** - Mark notification as unread
-- **GET `/resume`** - Get student resume data
-- **PUT `/resume`** - Update resume content
-- **GET `/resume/download`** - Download resume as PDF
-- **GET `/extended-profile`** - Get extended profile data
-- **GET `/extended-profile/completion`** - Get profile completion percentage
-
----
-
-### 📝 Extended Profile Routes (`/api/students/extended-profile`)
-
-- **GET `/`** - Get extended profile (Tier 2)
-- **PUT `/academic-extended`** - Update academic extended section (SSLC, 12th)
-- **PUT `/physical-details`** - Update physical details section
-- **PUT `/family-details`** - Update family details section
-- **PUT `/personal-details`** - Update personal details section
-- **PUT `/document-verification`** - Update document verification section
-- **PUT `/education-preferences`** - Update education preferences section
-
----
-
-### 🚀 Enhanced Application Routes (`/api/students/jobs`)
-
-- **POST `/:jobId/check-readiness`** - Check application readiness (validates Tier 1, 2, 3)
-- **GET `/:jobId/missing-fields`** - Get missing fields required for job application
-- **POST `/:jobId/apply-enhanced`** - Submit enhanced application with all tiers
-
----
-
-### 👨‍💼 Placement Officer Routes (`/api/placement-officer`)
-
-- **GET `/dashboard`** - Get placement officer dashboard statistics
-- **GET `/profile`** - Get officer profile
-- **PUT `/profile`** - Update officer profile
-- **POST `/profile/photo`** - Upload profile photo
-- **DELETE `/profile/photo`** - Delete profile photo
-- **GET `/students`** - Get students from officer's college with filters
-- **PUT `/students/:id/approve`** - Approve student registration
-- **PUT `/students/:id/reject`** - Reject student registration
-- **PUT `/students/:id/blacklist`** - Blacklist a student
-- **POST `/students/:id/whitelist-request`** - Request whitelist for blacklisted student
-- **GET `/students/export`** - Export students to PDF/Excel with custom filters
-- **POST `/send-notification`** - Send notification to college students
-- **GET `/prn-ranges`** - Get PRN ranges (super admin + own college)
-- **POST `/prn-ranges`** - Add PRN range/single PRN for own college
-- **PUT `/prn-ranges/:id`** - Update PRN range (only own created ranges)
-- **DELETE `/prn-ranges/:id`** - Delete PRN range (only own created ranges)
-- **GET `/prn-ranges/:id/students`** - View students in PRN range
-- **GET `/prn-ranges/:id/students/export`** - Export students from PRN range
-- **POST `/job-requests`** - Create job request for super admin approval
-- **GET `/job-requests`** - Get all job requests from this officer
-- **PUT `/job-requests/:id`** - Update pending job request
-- **DELETE `/job-requests/:id`** - Delete pending job request
-- **PUT `/students/bulk-approve`** - Bulk approve student registrations
-- **PUT `/students/bulk-reject`** - Bulk reject student registrations
-- **POST `/students/custom-export`** - Custom export with field selection
-- **GET `/students/:studentId/detailed-profile`** - Get detailed student profile
-- **GET `/students/:studentId/resume/status`** - Check student resume status
-- **GET `/students/:studentId/resume/download`** - Download student's resume
-- **GET `/jobs`** - Get all jobs accessible to officer's college
-- **GET `/jobs/:id/applicants`** - View job applicants from college
-- **GET `/jobs/:id/applicants/export`** - Export job applicants to Excel
-- **POST `/jobs/:id/applicants/enhanced-export`** - Enhanced export with detailed info
-- **PUT `/applications/:id/status`** - Update application status
-- **POST `/applications/bulk-update-status`** - Bulk update application status
-- **PUT `/applications/:id/placement`** - Update placement details
-- **POST `/applications/notify`** - Send notification about status change
-- **GET `/jobs/:id/placement-stats`** - Get placement statistics for a job
-- **POST `/jobs/:id/drive`** - Create or update job drive schedule
-- **GET `/jobs/:id/drive`** - Get job drive details
-- **POST `/job-requests/:id/requirements`** - Set requirements for job request
-- **GET `/job-requests/:id/requirements`** - Get requirements for job request
-- **GET `/college-branches`** - Get branches for officer's college
-- **PUT `/college-branches`** - Update college branches
-- **GET `/branch-templates`** - Get branch templates
-- **POST `/college/logo`** - Upload college logo
-- **DELETE `/college/logo`** - Delete college logo
-- **POST `/manually-add-student-to-job`** - Manually add student to a job
-- **POST `/validate-student-for-manual-addition`** - Validate student before manual addition
-- **GET `/placement-poster/stats`** - Get placement poster statistics
-- **POST `/placement-poster/generate`** - Generate placement poster PDF
-
----
-
-### 🛡️ Super Admin Routes (`/api/super-admin`)
-
-#### Dashboard & Statistics
-- **GET `/dashboard`** - Get comprehensive system statistics
-
-#### PRN Range Management
-- **GET `/prn-ranges`** - Get all PRN ranges (system-wide)
-- **POST `/prn-ranges`** - Add system-wide PRN range
-- **PUT `/prn-ranges/:id`** - Update PRN range (any range)
-- **PUT `/prn-ranges/:id/toggle-enabled`** - Enable/disable PRN range
-- **DELETE `/prn-ranges/:id`** - Permanently delete PRN range
-- **GET `/prn-ranges/:id/students`** - View all students in a PRN range
-- **GET `/prn-ranges/:id/students/export`** - Export students from PRN range to Excel
-
-#### Job Management
-- **GET `/jobs`** - Get all jobs with application counts
-- **POST `/jobs`** - Create job posting
-- **PUT `/jobs/:id`** - Update job details
-- **PUT `/jobs/:id/toggle-status`** - Toggle job active/inactive status
-- **DELETE `/jobs/:id`** - Soft delete job (with reason)
-- **DELETE `/jobs/:id/permanent`** - Permanently delete job
-- **GET `/jobs/deleted-history`** - Get deleted jobs history
-- **DELETE `/jobs/deleted-history`** - Clear deleted jobs history
-- **GET `/jobs/:id/applicants`** - Get all applicants for a job (system-wide)
-- **POST `/jobs/:id/applicants/export`** - Export job applicants
-- **POST `/jobs/:id/applicants/enhanced-export`** - Enhanced export with detailed info
-- **GET `/jobs/:id/placement-stats`** - Get placement statistics
-- **POST `/jobs/:id/requirements`** - Set job requirements
-- **PUT `/jobs/:id/requirements`** - Update job requirements
-- **GET `/jobs/:id/requirements`** - Get job requirements
-- **POST `/jobs/:id/drive`** - Create or update placement drive
-- **GET `/jobs/:id/drive`** - Get drive details
-- **PUT `/applications/:id/status`** - Update application status
-- **POST `/applications/bulk-update-status`** - Bulk update application status
-- **PUT `/applications/:id/placement`** - Record placement details
-- **POST `/applications/notify`** - Notify students about status changes
-
-#### Job Request Management
-- **GET `/job-requests`** - Get all pending job requests
-- **PUT `/job-requests/:id/approve`** - Approve job request (creates job)
-- **PUT `/job-requests/:id/reject`** - Reject job request
-
-#### Student Management
-- **GET `/students`** - Get all students (system-wide) with filters
-- **GET `/students/search/:prn`** - Search student by PRN
-- **GET `/students/:studentId/detailed-profile`** - Get detailed student profile
-- **GET `/students/:studentId/resume/status`** - Check student resume status
-- **GET `/students/:studentId/resume/download`** - Download student's resume
-- **POST `/students/custom-export`** - Custom student export with field selection
-- **POST `/students/enhanced-export`** - Enhanced export with detailed student info
-- **PUT `/students/:id/blacklist`** - System-wide blacklist
-- **PUT `/students/:id/whitelist`** - Direct whitelist (bypass request)
-- **DELETE `/students/:id`** - Permanently delete student
-- **POST `/students/bulk-delete-photos`** - Bulk delete student photos
-
-#### Whitelist Request Management
-- **GET `/whitelist-requests`** - Get all whitelist requests
-- **PUT `/whitelist-requests/:id/approve`** - Approve whitelist request
-- **PUT `/whitelist-requests/:id/reject`** - Reject whitelist request
-
-#### Activity Logs
-- **GET `/activity-logs`** - Get activity logs with filters
-- **GET `/activity-logs/export`** - Export activity logs to CSV
-
-#### Placement Officer Management
-- **GET `/placement-officers`** - Get all placement officers across colleges
-- **POST `/placement-officers`** - Add/replace placement officer
-- **PUT `/placement-officers/:id`** - Update officer details
-- **PUT `/placement-officers/:id/reset-password`** - Reset officer password
-- **DELETE `/placement-officers/:id`** - Delete placement officer
-- **GET `/placement-officers/history/:collegeId`** - Get officer history for a college
-- **DELETE `/placement-officers/history/:collegeId`** - Clear officer history
-
-#### Branch Management
-- **GET `/branches`** - Get all normalized branches
-- **GET `/colleges/:id/branches`** - Get branches for a specific college
-- **GET `/college-branches`** - Get all college branches
-- **PUT `/college-branches/:collegeId`** - Update branches for a college
-- **GET `/branch-templates`** - Get branch templates
-- **GET `/branch-references`** - Get all branch references
-- **PUT `/branch-references/:branchId`** - Update branch short name
-
-#### Notifications
-- **GET `/colleges-for-notifications`** - Get colleges for notification targeting
-- **POST `/branches-for-colleges`** - Get branches for selected colleges
-- **POST `/send-notification`** - Send system-wide notification
-
-#### Admin Notifications
-- **GET `/admin-notifications`** - Get admin notifications
-- **GET `/admin-notifications/unread-count`** - Get unread notification count
-- **PUT `/admin-notifications/mark-all-read`** - Mark all admin notifications as read
-- **PUT `/admin-notifications/:id/read`** - Mark single admin notification as read
-
-#### Super Admin Management
-- **GET `/admins`** - Get all super admins
-- **POST `/admins`** - Create new super admin
-- **PUT `/admins/:id/deactivate`** - Deactivate super admin
-- **PUT `/admins/:id/activate`** - Activate super admin
-- **DELETE `/admins/:id`** - Delete super admin
-
-#### Requirement Templates
-- **GET `/requirement-templates`** - Get requirement templates
-- **POST `/requirement-templates`** - Create requirement template
-- **PUT `/requirement-templates/:templateId`** - Update requirement template
-- **DELETE `/requirement-templates/:templateId`** - Delete requirement template
-
-#### Placement Posters
-- **GET `/placement-poster/stats/:collegeId`** - Get poster statistics for a college
-- **POST `/placement-poster/generate/:collegeId`** - Generate poster for a college
-- **POST `/placement-poster/generate-multi`** - Generate multi-college poster
-
-#### Manual Student Addition
-- **POST `/manually-add-student-to-job`** - Manually add student to a job
-- **POST `/validate-student-for-manual-addition`** - Validate student before manual addition
-
----
-
-### 🔧 Job Requirements Routes (`/api`)
-
-- **GET `/jobs/:jobId/requirements`** - Get job requirements
-- **POST `/jobs/:jobId/requirements`** - Create/update job requirements
-- **GET `/requirement-templates`** - Get requirement templates
-- **POST `/requirement-templates`** - Create requirement template
-- **PUT `/requirement-templates/:id`** - Update requirement template
-- **DELETE `/requirement-templates/:id`** - Delete requirement template
-
----
-
-### 🌍 Common/Public Routes (`/api/common`)
-
-- **GET `/regions`** - Get all 5 Kerala regions
-- **GET `/colleges`** - Get all colleges (with region filter)
-- **GET `/colleges/:id/branches`** - Get branches for a specific college
-- **POST `/validate-prn`** - Validate PRN before registration
-- **GET `/jobs/:id`** - Get public job details
-- **GET `/branch-mapping`** - Get branch name mapping
-
----
-
-## 🔒 Security Features
-
-### Authentication & Authorization
-- **JWT Tokens:** Stateless authentication with HTTP-only cookies
-- **Bcrypt Hashing:** Password hashing with 10 salt rounds
-- **Token Expiry:** 7-day expiry (configurable)
-- **Role-Based Middleware:**
-  - `protect()` - Verify JWT token
-  - `authorize(...roles)` - Check user role
-  - `studentApprovalCheck()` - Verify student approved status
-- **College-Level Access:** Placement officers limited to own college
-- **Password Strength Validation:** Minimum 8 chars, uppercase, lowercase, number
-
-### Rate Limiting (Configured for 20k+ Users)
-- **General API:** 1000 req/15min (production), 100 req/15min (dev)
-- **Authentication:** 10 failed attempts/15min (only failed requests count)
-- **Read Operations:** 60 req/min
-- **Export Operations:** 30 exports/hour
-- **File Upload:** 20 uploads/hour
-- **Skip for Authenticated Users:** Higher limits for logged-in users
-- **Skip for Super Admin:** No limits on exports
-
-### Data Protection
-- **SQL Injection Prevention:** Parameterized queries with pg library
-- **XSS Protection:** Input sanitization and helmet middleware
-- **CORS Configuration:** Whitelisted frontend URLs (supports multiple origins)
-- **Security Headers (Helmet):**
-  - Content Security Policy
-  - XSS Protection
-  - Clickjacking Protection
-  - MIME Sniffing Prevention
-  - Cross-Origin Resource Policy
-- **Response Compression:** gzip compression for all responses (70-90% bandwidth reduction)
-- **File Upload Validation:**
-  - Max file size: 500KB (photos)
-  - Allowed types: JPEG, PNG, JPG
-  - Cloudinary virus scanning
-
-### Activity Logging
-- **Complete Audit Trail:** All important actions logged
-- **Logged Information:**
-  - User ID, email, role
-  - Action type and description
-  - IP address
-  - User agent (browser/device)
-  - Timestamp (millisecond precision)
-  - Related entity IDs
-- **Immutable Logs:** No edit/delete capability
-- **Export for Compliance:** CSV export for audits
-
-### Database Security
-- **Foreign Key Constraints:** Data integrity enforcement
-- **Check Constraints:** Value range validation
-- **Unique Constraints:** Prevent duplicates (PRN, email, phone)
-- **Index Optimization:** Performance without exposing data structure
-- **Connection Pooling:** Prevent connection exhaustion attacks
-
----
-
-## 🚀 Deployment
-
-### Docker Deployment (Recommended)
-
-#### Production Deployment
-```bash
-# Clone repository
-git clone https://github.com/ADN004/campus-placement-portal.git
-cd campus-placement-portal
-
-# Configure environment
-cp backend/.env.example backend/.env
-# Edit backend/.env with production values
-
-# Build and start services
-docker-compose up -d
-
-# View logs
-docker-compose logs -f
-
-# Check service health
-docker-compose ps
-```
-
-**What's Included:**
-- ✅ PostgreSQL database with automatic schema initialization
-- ✅ Backend API with health checks and resource limits
-- ✅ Frontend with Nginx and optimized builds
-- ✅ Volume persistence for database, uploads, logs, backups
-- ✅ Automatic restarts on failure
-- ✅ Health monitoring for all services
-- ✅ Structured logging (JSON format, rotation)
-- ✅ Custom networking with subnet isolation
-- ✅ Resource limits (CPU and memory constraints)
-
-#### Development Deployment
-```bash
-# Use development compose file
-docker-compose -f docker-compose.dev.yml up -d
-
-# Features:
-# - Frontend on :5173 with Vite HMR
-# - Backend on :5000 with nodemon auto-restart
-# - Volume mounting for live code changes
-# - No build optimization (faster startup)
-```
-
----
-
-### Environment Configuration
-
-#### Critical Environment Variables
-
-**Database:**
-```bash
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=campus_placement_portal
-DB_USER=postgres
-DB_PASSWORD=<strong_password>
-```
-
-**JWT:**
-```bash
-JWT_SECRET=<generate_random_64_char_string>
-JWT_EXPIRE=7d
-JWT_COOKIE_EXPIRE=7
-```
-
-**Email (Gmail App Password):**
-```bash
-EMAIL_SERVICE=gmail
-EMAIL_USER=your_email@gmail.com
-EMAIL_PASSWORD=<gmail_app_password>  # Not regular password!
-EMAIL_FROM=State Placement Cell <your_email@gmail.com>
-```
-
-**Cloudinary:**
-```bash
-CLOUDINARY_CLOUD_NAME=<your_cloud_name>
-CLOUDINARY_API_KEY=<your_api_key>
-CLOUDINARY_API_SECRET=<your_api_secret>
-```
-
-**Frontend URL (Critical for Email Verification):**
-```bash
-# Local Development
-FRONTEND_URL=http://localhost:5173
-
-# Production (IMPORTANT: Update this for hosted deployment)
-FRONTEND_URL=https://your-domain.com  # No trailing slash
-```
-
-**⚠️ IMPORTANT for Production Deployment:**
-
-The `FRONTEND_URL` environment variable is **CRITICAL** for email verification to work correctly:
-
-1. **What it does**: Email verification links sent to students use this URL
-   - Example: `${FRONTEND_URL}/verify-email?token=abc123`
-   - If not set correctly, email links will point to localhost and won't work in production
-
-2. **For Local Development**:
-   - Use `http://localhost:5173` (default Vite dev server)
-
-3. **For Production Deployment**:
-   - Update to your actual domain: `https://placement.yourcollege.edu`
-   - Do NOT include trailing slash
-   - Must use HTTPS for security
-
-4. **Where to configure**:
-   - Backend `.env` file: `FRONTEND_URL=https://your-domain.com`
-   - This tells the email service where to direct verification links
-
-5. **Testing**: After deployment, register a test student and check:
-   - Email verification link points to your production domain
-   - Clicking the link opens your production site (not localhost)
-   - Verification completes successfully
-
----
-
-### Production Checklist
-
-- [ ] Strong JWT_SECRET generated (64+ random characters)
-- [ ] Database password changed from default
-- [ ] Gmail App Password configured (not regular password)
-- [ ] Cloudinary account setup and credentials added
-- [ ] **FRONTEND_URL updated to production domain** (Critical!)
-- [ ] SSL/HTTPS configured (Let's Encrypt recommended)
-- [ ] Test email verification flow end-to-end with real email
-- [ ] Firewall configured (only 80, 443, 22 open)
-- [ ] Database backups scheduled (daily recommended)
-- [ ] Log rotation configured
-- [ ] Monitoring setup (PM2, Docker logs)
-- [ ] Super admin password changed from default
-- [ ] Placement officer default passwords changed
-- [ ] CORS configured for production domain
-- [ ] Rate limiting enabled
-- [ ] Security headers configured (Nginx/Express)
-
----
-
-## 🧪 Testing
-
-Comprehensive testing documentation available in [TESTING.md](./TESTING.md) (if available).
-
-### Manual Testing Guide
-- **11 Detailed Test Scenarios** covering all user roles
-- **Step-by-step instructions** with expected results
-- **Edge case testing** for validation and error handling
-- **API testing examples** with Postman/cURL
-- **Database testing queries** for verification
-
-### Test Coverage
-- ✅ Student registration with PRN validation
-- ✅ Email verification flow (send, verify, resend)
-- ✅ Extended profile management (5 sections)
-- ✅ Smart application system (readiness check, validation)
-- ✅ Student approval/rejection workflow
-- ✅ Blacklist/whitelist workflow
-- ✅ Job creation with requirements configuration
-- ✅ Job application with Tier 1, 2, 3 data
-- ✅ PRN range management
-- ✅ Custom export with college-specific branches
-- ✅ View/export students from PRN ranges
-- ✅ Placement officer management
-- ✅ Activity logging verification
-- ✅ Role-based access control
-- ✅ Rate limiting validation
-- ✅ Placement drive scheduling
-- ✅ Placement tracking and recording
-
-### Database CLI Testing
-```bash
-# Verify database setup
-node database/db-commands.js stats
-
-# Check student data
-node database/db-commands.js students
-
-# Verify job data
-node database/db-commands.js jobs
-
-# Recent activity
-node database/db-commands.js recent
-```
-
-### Security Testing
-- SQL injection prevention
-- XSS attack prevention
-- JWT token manipulation
-- CORS configuration
-- Password strength validation
-- Role-based access enforcement
-- Rate limiting effectiveness
-
----
-
-## 📊 System Statistics
-
-### Current System Capacity
-- **Users:** Students, Placement Officers (60), Super Admins
-- **Colleges:** 60 polytechnic colleges across Kerala
-- **Regions:** 5 (South, South-Central, Central, North-Central, North)
-- **Branches:** 26 official Kerala polytechnic branches with normalization
-- **Scale:** Designed for 20,000+ concurrent users
-
-### Technical Metrics
-- **API Endpoints:** 200+ RESTful endpoints
-- **Database Tables:** 28 core tables
-- **Database Indexes:** 40+ optimized indexes
-- **Database Triggers:** 4 automated triggers
-- **Database Functions:** 4 custom functions
-- **Materialized Views:** 1 performance-optimized view
-- **Cron Jobs:** 3 background tasks (age update, view refresh, cleanup)
-- **Activity Log Actions:** 20+ tracked action types
-- **Database Migrations:** 23 migration files
-
-### Feature Breakdown
-- **3-Tier Profile System:** Tier 1 (Basic) + Tier 2 (Extended) + Tier 3 (Custom)
-- **5 Extended Profile Sections:** Academic, Physical, Family, Personal, Documents, Education
-- **Job Requirement Types:** Tier 1 eligibility + Tier 2 sections + Tier 3 custom fields
-- **Application Statuses:** 5 (Submitted, Under Review, Shortlisted, Rejected, Selected)
-- **Email Types:** 7 (Verification, Drive Schedule, Shortlist, Selection, Rejection, Password Reset, Generic)
-- **Rate Limiter Tiers:** 5 (General, Auth, Read, Export, Upload)
-
----
-
-## 🎯 Key Features Summary
-
-### Student Role
-✅ PRN-based registration with validation
-✅ Email verification system
-✅ Photo upload to Cloudinary
-✅ 3-tier profile system (Basic + Extended + Custom)
-✅ 5-section extended profile with completion tracking
-✅ Smart application system with requirement validation
-✅ View all jobs with eligibility indicators
-✅ Apply to any job with data snapshot
-✅ Track application status
-✅ Receive and manage notifications
-✅ Update profile and change password
-✅ Auto-calculated age and programme CGPA
-
-### Placement Officer Role
-✅ Approve/reject student registrations (single and bulk)
-✅ Blacklist students with reason
-✅ Request whitelist from super admin
-✅ Send college-specific notifications
-✅ Export students (PDF/Excel) with custom fields
-✅ College-specific branch filtering in exports
-✅ Manage college PRN ranges
-✅ View/export students from PRN ranges
-✅ Create job requests with requirements configuration
-✅ View job applicants from college
-✅ Update application status (single and bulk)
-✅ Record placement details (package, location, joining date)
-✅ Schedule placement drives
-✅ Generate placement posters
-✅ Upload/delete college logo
-✅ Upload/delete officer photo
-✅ Download student resumes
-✅ Manage college branches with templates
-✅ Manually add students to jobs
-
-### Super Admin Role
-✅ System-wide PRN range management
-✅ Enable/disable PRN ranges for graduated batches
-✅ View/export students from any PRN range
-✅ Manage placement officers with complete history
-✅ Reset placement officer passwords
-✅ Upload/delete officer photos
-✅ Create and manage jobs with advanced requirements
-✅ Toggle job active/inactive status
-✅ Configure Tier 2/3 requirements per job
-✅ Manage requirement templates
-✅ Schedule placement drives
-✅ Update application status (single and bulk)
-✅ Record placement details (package, location, joining date)
-✅ Soft delete and permanently delete jobs
-✅ View deleted jobs history
-✅ Approve/reject job requests
-✅ System-wide student management
-✅ Download student resumes
-✅ Approve/reject whitelist requests
-✅ Custom student export with dynamic branch filtering
-✅ Enhanced student export with detailed info
-✅ College-specific branch filtering
-✅ View and export activity logs
-✅ Manage super admins (create, activate, deactivate, delete)
-✅ Bulk student photo deletion
-✅ Complete audit trail
-✅ Send system-wide notifications with college/branch targeting
-✅ Admin notifications with unread count
-✅ Manually add students to jobs
-✅ Generate single and multi-college placement posters
-
----
-
-## 🛣️ Roadmap
-
-### Phase 1 (Completed) ✅
-- [x] Complete backend API with 200+ endpoints
-- [x] Database schema with triggers, functions, materialized views
-- [x] JWT authentication and role-based authorization
-- [x] Email verification system
-- [x] Photo upload with Cloudinary
-- [x] Complete frontend with all role dashboards
-- [x] Student registration with PRN validation
-- [x] 3-tier profile architecture (Tier 1 + Tier 2 + Tier 3)
-- [x] Extended profile system with 5 sections
-- [x] Smart application system with requirement validation
-- [x] Job management with advanced requirements configuration
-- [x] Job requirement templates
-- [x] Placement drive scheduling
-- [x] Placement tracking and recording
-- [x] PRN range management with view/export
-- [x] Placement officer management with history
-- [x] Blacklist/whitelist workflow
-- [x] Notification system
-- [x] Activity logging and audit trail
-- [x] Custom export with dynamic filtering
-- [x] College-specific branch filtering
-- [x] Branch normalization system
-- [x] Placement poster generation
-- [x] Rate limiting for 20k+ users
-- [x] Background jobs (age update, view refresh, cleanup)
-- [x] Docker deployment configuration
-- [x] Makefile for Docker management commands
-- [x] Resume builder and PDF download
-- [x] College logo management
-- [x] Admin notifications system
-- [x] Multi-college placement poster generation
-- [x] Manual student addition to jobs
-- [x] Application status management (single and bulk)
-- [x] Enhanced student export with detailed info
-- [x] Database CLI utility
-- [x] 23 database migrations
-
-### Phase 2 (Future Enhancements)
-- [ ] Real-time notifications with WebSocket
-- [ ] Resume upload and parsing
-- [ ] Email notifications for all actions (expanded)
-- [ ] SMS integration for critical updates
-- [ ] Advanced analytics dashboard
-- [ ] Placement statistics and reports
-- [ ] Interview scheduling system
-- [ ] Company portal for direct posting
-- [ ] Student performance predictions
-- [ ] Automated email reminders
-- [ ] Document verification system
-- [ ] Video interview integration
-
-### Phase 3 (Long-term Goals)
-- [ ] Mobile app (React Native)
-- [ ] AI-powered job matching
-- [ ] Blockchain-based certificates
-- [ ] Multi-language support (Malayalam, English)
-- [ ] Chatbot for student queries
-- [ ] API for third-party integrations
-- [ ] Advanced security features (2FA, biometric)
-
----
-
-## 📄 License
-
-This project is developed as a major project for academic purposes.
-
-**State Placement Cell**
-Built for 60 Polytechnic Colleges in Kerala
-
----
-
-## 👨‍💻 Developer Notes
-
-### Quick Commands
-```bash
-# Development (without Docker)
-npm run dev           # Start backend in dev mode
-npm run db:setup      # Initialize database
-npm run db:seed       # Seed initial data
-
-# Database CLI
-node database/db-commands.js stats    # Database statistics
-node database/db-commands.js help     # View all commands
-
-# Docker via Makefile (recommended)
-make setup            # Full first-time setup
-make quick-start      # Quick start (env already configured)
-make dev              # Start dev environment with hot-reload
-make up               # Start production containers
-make down             # Stop production containers
-make logs             # View logs (follow mode)
-make seed             # Seed the database
-make db-shell         # Open PostgreSQL shell
-make db-backup        # Backup database
-make health           # Check service health
-make help             # View all available make commands
-
-# Docker without Makefile
-docker-compose up -d                  # Start all services
-docker-compose logs -f backend        # View backend logs
-docker-compose exec postgres psql -U postgres  # Access database
-```
-
-### Useful Database Queries
-```sql
--- View all active students
-SELECT * FROM active_students_view LIMIT 10;
-
--- Check recent activity
-SELECT * FROM activity_logs ORDER BY timestamp DESC LIMIT 20;
-
--- View job application statistics
-SELECT j.job_title, COUNT(ja.id) as applications
-FROM jobs j
-LEFT JOIN job_applications ja ON j.id = ja.job_id
-GROUP BY j.id, j.job_title;
-
--- Check PRN range coverage
-SELECT * FROM prn_ranges WHERE is_enabled = true;
-
--- View extended profile completion distribution
-SELECT
-  CASE
-    WHEN profile_completion_percentage >= 80 THEN '80-100%'
-    WHEN profile_completion_percentage >= 60 THEN '60-79%'
-    WHEN profile_completion_percentage >= 40 THEN '40-59%'
-    WHEN profile_completion_percentage >= 20 THEN '20-39%'
-    ELSE '0-19%'
-  END as completion_range,
-  COUNT(*) as student_count
-FROM student_extended_profiles
-GROUP BY completion_range
-ORDER BY completion_range DESC;
-```
-
----
-
-## 📚 Additional Documentation
-
-- [SETUP.md](./SETUP.md) - Detailed setup instructions (if available)
-- [TESTING.md](./TESTING.md) - Comprehensive testing guide (if available)
-- [backend/.env.example](./backend/.env.example) - Environment variables reference
-
----
-
-**🎓 Built with ❤️ for Kerala Polytechnics**
-
-**State Placement Cell** - Empowering 60 polytechnic colleges across Kerala with modern placement management featuring 3-tier profile architecture, smart application system, and comprehensive placement tracking.
+</div>

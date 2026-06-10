@@ -1,0 +1,47 @@
+# ============================================================
+# Host nginx vhost — PRODUCTION
+# ============================================================
+# Install as: /etc/nginx/sites-available/<your-production-domain>
+#   sudo ln -s /etc/nginx/sites-available/<your-production-domain> /etc/nginx/sites-enabled/
+#   sudo nginx -t && sudo systemctl reload nginx
+#
+# Then add TLS (certbot rewrites this file in place):
+#   sudo certbot --nginx -d <your-production-domain>
+#
+# Replace before use:
+#   YOUR_PRODUCTION_DOMAIN  e.g. spc.gptcpalakkad.ac.in
+#   FRONTEND_PORT           must match FRONTEND_PORT in .env  (e.g. 8081)
+#   BACKEND_PORT            must match BACKEND_PORT in .env   (e.g. 5002)
+# ============================================================
+
+server {
+    listen 80;
+    server_name YOUR_PRODUCTION_DOMAIN;
+
+    client_max_body_size 10M;
+
+    location = /favicon.ico {
+        access_log off;
+        log_not_found off;
+    }
+
+    # API → backend container
+    location /api/ {
+        proxy_pass http://127.0.0.1:BACKEND_PORT/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # UI → frontend container (nginx serving the React build)
+    location / {
+        proxy_pass http://127.0.0.1:FRONTEND_PORT;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}

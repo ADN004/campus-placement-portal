@@ -246,8 +246,8 @@ sudo htpasswd -c /etc/nginx/.htpasswd_spc_staging spcstaging
 # choose the gate password when prompted; add more users without -c
 ```
 
-Create `/etc/nginx/sites-available/spc-staging` (mirror your production
-vhost's TLS/style conventions):
+Create `/etc/nginx/sites-available/spc-staging` (a ready-made template with
+placeholders lives at `deploy/nginx/spc-staging.conf.example`):
 
 ```nginx
 server {

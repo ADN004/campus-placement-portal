@@ -18,6 +18,7 @@ import {
   GraduationCap,
   FileImage,
   RotateCcw,
+  DatabaseBackup,
 } from 'lucide-react';
 import { useState } from 'react';
 import GradientOrb from './GradientOrb';
@@ -74,6 +75,7 @@ export default function Layout() {
           { name: 'Whitelist Requests', path: '/super-admin/whitelist-requests', icon: Shield },
           { name: 'Super Admins', path: '/super-admin/admins', icon: Shield },
           { name: 'Activity Logs', path: '/super-admin/activity-logs', icon: Activity },
+          { name: 'Database Backup', path: '/super-admin/database-backup', icon: DatabaseBackup },
           { name: 'Year Reset', path: '/super-admin/academic-year-reset', icon: RotateCcw },
           { name: 'Profile', path: '/super-admin/profile', icon: User },
         ];

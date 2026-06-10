@@ -63,6 +63,7 @@ guides/
 !docs/*.md
 college-server-data.txt
 staging-info-update.txt
+MY-WORKFLOW.md
 
 # Claude Code configuration (optional - keep if you want to share)
 # .claude/

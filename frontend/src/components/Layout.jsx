@@ -19,6 +19,7 @@ import {
   FileImage,
   RotateCcw,
   DatabaseBackup,
+  Building2,
 } from 'lucide-react';
 import { useState } from 'react';
 import GradientOrb from './GradientOrb';
@@ -66,6 +67,7 @@ export default function Layout() {
           { name: 'Send Notification', path: '/super-admin/send-notification', icon: Bell },
           { name: 'PRN Ranges', path: '/super-admin/prn-ranges', icon: ClipboardList },
           { name: 'Placement Officers', path: '/super-admin/placement-officers', icon: UserCheck },
+          { name: 'Manage Colleges', path: '/super-admin/colleges', icon: Building2 },
           { name: 'College Branches', path: '/super-admin/college-branches', icon: GraduationCap },
           { name: 'Manage Jobs', path: '/super-admin/jobs', icon: Briefcase },
           { name: 'Job Requests', path: '/super-admin/job-requests', icon: FileText },

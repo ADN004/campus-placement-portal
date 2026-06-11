@@ -94,6 +94,22 @@ import {
   getAllCompanyTemplates,
 } from '../controllers/jobRequirementsController.js';
 import {
+  getAllCollegesAdmin,
+  createCollege,
+  updateCollege,
+  toggleCollegeActive,
+  deleteCollege,
+  getAllRegionsAdmin,
+  createRegion,
+  updateRegion,
+  deleteRegion,
+} from '../controllers/collegeManagementController.js';
+import multer from 'multer';
+import {
+  downloadImportTemplate,
+  importData,
+} from '../controllers/bulkImportController.js';
+import {
   downloadStudentResumeSA,
   getStudentResumeStatusSA,
 } from '../controllers/resumeController.js';
@@ -106,6 +122,19 @@ import { protect, authorize } from '../middleware/auth.js';
 import { exportLimiter } from '../middleware/rateLimiter.js';
 
 const router = express.Router();
+
+// In-memory upload for bulk import spreadsheets (.xlsx only, max 2 MB)
+const importUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (file.originalname.toLowerCase().endsWith('.xlsx')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only .xlsx files are accepted — use the downloadable template'));
+    }
+  },
+});
 
 // All routes are protected and require super_admin role
 router.use(protect);
@@ -191,6 +220,28 @@ router.post('/applications/notify', notifyApplicationStatus);
 // Branches
 router.get('/branches', getNormalizedBranches);
 router.get('/colleges/:id/branches', getCollegeBranches);
+
+// College & Region Management
+router.get('/colleges', getAllCollegesAdmin);
+router.post('/colleges', createCollege);
+router.put('/colleges/:id', updateCollege);
+router.put('/colleges/:id/toggle-active', toggleCollegeActive);
+router.delete('/colleges/:id', deleteCollege);
+router.get('/regions', getAllRegionsAdmin);
+router.post('/regions', createRegion);
+router.put('/regions/:id', updateRegion);
+router.delete('/regions/:id', deleteRegion);
+
+// Bulk Import (colleges & placement officers from Excel)
+router.get('/import/template', downloadImportTemplate);
+router.post('/import/data', (req, res, next) => {
+  importUpload.single('file')(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    next();
+  });
+}, importData);
 
 // College Branch Management
 router.get('/college-branches', getAllCollegeBranches);

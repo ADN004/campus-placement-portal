@@ -52,6 +52,7 @@ const SuperAdminJobEligibleStudents = lazy(() => import('./pages/super-admin/Job
 const ManageAllStudents = lazy(() => import('./pages/super-admin/ManageAllStudents'));
 const ManageRequirementTemplates = lazy(() => import('./pages/super-admin/ManageRequirementTemplates'));
 const SuperAdminManageCollegeBranches = lazy(() => import('./pages/super-admin/ManageCollegeBranches'));
+const ManageColleges = lazy(() => import('./pages/super-admin/ManageColleges'));
 const SuperAdminSendNotification = lazy(() => import('./pages/super-admin/SendNotification'));
 const SuperAdminPlacementPoster = lazy(() => import('./pages/super-admin/PlacementPoster'));
 const AcademicYearReset = lazy(() => import('./pages/super-admin/AcademicYearReset'));
@@ -127,6 +128,7 @@ function App() {
                 <Route path="/super-admin/activity-logs" element={<ActivityLogs />} />
                 <Route path="/super-admin/job-eligible-students" element={<SuperAdminJobEligibleStudents />} />
                 <Route path="/super-admin/placement-poster" element={<SuperAdminPlacementPoster />} />
+                <Route path="/super-admin/colleges" element={<ManageColleges />} />
                 <Route path="/super-admin/college-branches" element={<SuperAdminManageCollegeBranches />} />
                 <Route path="/super-admin/academic-year-reset" element={<AcademicYearReset />} />
                 <Route path="/super-admin/database-backup" element={<DatabaseBackup />} />

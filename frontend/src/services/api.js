@@ -270,6 +270,23 @@ export const superAdminAPI = {
   updateCollegeBranches: (collegeId, branches) => API.put(`/super-admin/college-branches/${collegeId}`, { branches }),
   getBranchTemplates: () => API.get('/super-admin/branch-templates'),
 
+  // College & Region Management
+  getAllColleges: () => API.get('/super-admin/colleges'),
+  createCollege: (data) => API.post('/super-admin/colleges', data),
+  updateCollege: (id, data) => API.put(`/super-admin/colleges/${id}`, data),
+  toggleCollegeActive: (id) => API.put(`/super-admin/colleges/${id}/toggle-active`),
+  deleteCollege: (id) => API.delete(`/super-admin/colleges/${id}`),
+  getAllRegions: () => API.get('/super-admin/regions'),
+  createRegion: (data) => API.post('/super-admin/regions', data),
+  updateRegion: (id, data) => API.put(`/super-admin/regions/${id}`, data),
+  deleteRegion: (id) => API.delete(`/super-admin/regions/${id}`),
+
+  // Bulk Import (colleges & officers from Excel)
+  downloadImportTemplate: () => API.get('/super-admin/import/template', { responseType: 'blob' }),
+  importData: (formData) => API.post('/super-admin/import/data', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
+
   // PRN Range Students
   getStudentsByPRNRange: (rangeId) => API.get(`/super-admin/prn-ranges/${rangeId}/students`),
   exportStudentsByPRNRange: (rangeId, format = 'excel') => API.get(`/super-admin/prn-ranges/${rangeId}/students/export`, {

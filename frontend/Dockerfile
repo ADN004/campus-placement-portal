@@ -66,9 +66,10 @@ RUN rm -f /etc/nginx/conf.d/default.conf.bak
 # Expose port 80
 EXPOSE 80
 
-# Health check - improved
+# Health check — 127.0.0.1 (not localhost): in Alpine, localhost resolves
+# to ::1 first, but nginx only listens on IPv4, so the check would always fail
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget --quiet --tries=1 --spider http://localhost/ || exit 1
+  CMD wget --quiet --tries=1 --spider http://127.0.0.1/ || exit 1
 
 # Add labels for better container management
 LABEL org.opencontainers.image.title="State Placement Cell Frontend"

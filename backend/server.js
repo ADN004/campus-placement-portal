@@ -152,7 +152,10 @@ if (process.env.NODE_ENV === 'development') {
  * @route GET /health
  * @access Public
  */
-app.get('/health', (req, res) => {
+// Registered at /health (Docker healthcheck, direct port) AND /api/health
+// (publicly reachable through the reverse proxy, which only forwards /api/).
+// Defined before the /api rate limiters and routers on purpose.
+app.get(['/health', '/api/health'], (req, res) => {
   res.status(200).json({
     success: true,
     message: 'State Placement Cell API is running',

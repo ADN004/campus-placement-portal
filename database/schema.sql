@@ -912,6 +912,21 @@ CREATE INDEX idx_backlog_unlock_college ON backlog_unlock_windows(college_id);
 CREATE INDEX idx_backlog_unlock_active ON backlog_unlock_windows(is_active, unlock_end);
 
 -- ============================================
+-- PORTAL SETTINGS (deployment-level policies)
+-- ============================================
+-- Key-value store for portal-wide policies. First consumer:
+-- 'single_college_require_job_approval' (boolean) — in a single-college
+-- deployment the super admin can require approval for placement officers'
+-- own-college job posts (otherwise auto-approved). Absent row = false.
+-- (Also in database/migrations/002_add_portal_settings.sql)
+CREATE TABLE IF NOT EXISTS portal_settings (
+    setting_key VARCHAR(100) PRIMARY KEY,
+    setting_value JSONB NOT NULL DEFAULT 'null'::jsonb,
+    updated_by INTEGER REFERENCES users(id),
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ============================================
 -- TRIGGERS FOR UPDATED_AT TIMESTAMPS
 -- ============================================
 

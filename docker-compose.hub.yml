@@ -80,6 +80,10 @@ services:
       # capture-to-logs regardless of SMTP credentials. See backend/config/emailService.js
       APP_ENV: ${APP_ENV:-production}
       EMAIL_MODE: ${EMAIL_MODE:-}
+      # Testing tool: lets the super admin flip the portal between multi- and
+      # single-college mode (reversible, snapshot-based). Keep unset/false in
+      # production — intended for staging only. See .env.staging.example.
+      ENABLE_MODE_SWITCH: ${ENABLE_MODE_SWITCH:-false}
       PORT: 5000
       DB_HOST: postgres
       DB_PORT: 5432

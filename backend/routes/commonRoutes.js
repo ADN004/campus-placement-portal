@@ -1,5 +1,6 @@
 import express from 'express';
 import {
+  getPortalInfo,
   getRegions,
   getColleges,
   getCollegeBranches,
@@ -11,6 +12,7 @@ import { getBranchMapping } from '../controllers/collegeBranchController.js';
 const router = express.Router();
 
 // Public routes - no authentication required
+router.get('/portal-info', getPortalInfo);
 router.get('/regions', getRegions);
 router.get('/colleges', getColleges);
 router.get('/colleges/:collegeId/branches', getCollegeBranches);

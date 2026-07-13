@@ -1,6 +1,7 @@
 import bcrypt from 'bcrypt';
 import ExcelJS from 'exceljs';
 import { query, transaction } from '../config/database.js';
+import { getPortalCounts } from '../utils/portalMode.js';
 import logActivity from '../middleware/activityLogger.js';
 import { generateStudentPDF } from '../utils/pdfGenerator.js';
 import { deleteImage, deleteFolderOnly, extractFolderPath } from '../config/cloudinary.js';
@@ -972,6 +973,25 @@ export const createJob = async (req, res) => {
       });
     }
 
+    // Single-college deployments: pin "all colleges" jobs to the one active
+    // college so the job stays scoped to it even if more colleges are added
+    // later. Multi-college deployments are untouched.
+    let finalTargetType = target_type || 'all';
+    let finalTargetColleges = target_colleges;
+    if (finalTargetType === 'all') {
+      try {
+        const counts = await getPortalCounts();
+        if (counts.active_colleges === 1) {
+          const onlyCollege = await query('SELECT id FROM colleges WHERE is_active = TRUE');
+          finalTargetType = 'college';
+          finalTargetColleges = [onlyCollege.rows[0].id];
+        }
+      } catch (pinError) {
+        // On any failure keep the requested targeting unchanged
+        console.error('Single-college job pinning skipped:', pinError.message);
+      }
+    }
+
     const result = await transaction(async (client) => {
       // Create job
       const jobResult = await client.query(
@@ -995,9 +1015,9 @@ export const createJob = async (req, res) => {
           backlog_max_semester || null,
           JSON.stringify(allowed_backlog_semesters && allowed_backlog_semesters.length > 0 ? allowed_backlog_semesters : []),
           allowed_branches ? (typeof allowed_branches === 'string' ? allowed_branches : JSON.stringify(allowed_branches)) : null,
-          target_type || 'all',
+          finalTargetType,
           target_regions ? (typeof target_regions === 'string' ? target_regions : JSON.stringify(target_regions)) : null,
-          target_colleges ? (typeof target_colleges === 'string' ? target_colleges : JSON.stringify(target_colleges)) : null,
+          finalTargetColleges ? (typeof finalTargetColleges === 'string' ? finalTargetColleges : JSON.stringify(finalTargetColleges)) : null,
           req.user.id,
         ]
       );

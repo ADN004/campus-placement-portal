@@ -26,6 +26,7 @@ import { KERALA_POLYTECHNIC_BRANCHES } from '../../constants/branches';
 import DashboardHeader from '../../components/DashboardHeader';
 import GlassCard from '../../components/GlassCard';
 import useSkeletonLoading from '../../hooks/useSkeletonLoading';
+import usePortalMode from '../../hooks/usePortalMode';
 import TablePageSkeleton from '../../components/skeletons/TablePageSkeleton';
 import AnimatedSection from '../../components/animation/AnimatedSection';
 import AnimatedCard from '../../components/animation/AnimatedCard';
@@ -46,6 +47,7 @@ export default function CreateJobRequest() {
   const [expandedRegions, setExpandedRegions] = useState({});
 
   const showSkeleton = useSkeletonLoading(loading);
+  const portalMode = usePortalMode();
 
   const [formData, setFormData] = useState({
     title: '',
@@ -890,13 +892,24 @@ export default function CreateJobRequest() {
                       <div>
                         <span className="font-medium text-gray-900 flex items-center gap-2">
                           My College Only
-                          <span className="bg-green-500 text-white text-xs px-2 py-0.5 rounded-full flex items-center gap-1">
-                            <Zap size={12} /> Instant
-                          </span>
+                          {portalMode.requireJobApproval ? (
+                            <span className="bg-blue-500 text-white text-xs px-2 py-0.5 rounded-full flex items-center gap-1">
+                              <Clock size={12} /> Approval Required
+                            </span>
+                          ) : (
+                            <span className="bg-green-500 text-white text-xs px-2 py-0.5 rounded-full flex items-center gap-1">
+                              <Zap size={12} /> Instant
+                            </span>
+                          )}
                         </span>
-                        <p className="text-xs text-gray-500 mt-1">Auto-approved, no wait time</p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {portalMode.requireJobApproval
+                            ? 'Reviewed by the admin before going live'
+                            : 'Auto-approved, no wait time'}
+                        </p>
                       </div>
                     </label>
+                    {!portalMode.singleCollege && (
                     <label className={`flex items-center space-x-3 cursor-pointer p-4 border-2 rounded-xl transition-all ${
                       formData.target_type === 'region' || formData.target_type === 'specific_colleges'
                         ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200'
@@ -922,6 +935,7 @@ export default function CreateJobRequest() {
                         <p className="text-xs text-gray-500 mt-1">Select specific colleges from any region</p>
                       </div>
                     </label>
+                    )}
                   </div>
                 </div>
 

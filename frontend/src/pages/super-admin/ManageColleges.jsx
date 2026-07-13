@@ -19,6 +19,8 @@ import {
   Globe2,
   GraduationCap,
   UploadCloud,
+  ShieldCheck,
+  FlaskConical,
 } from 'lucide-react';
 import useSkeleton from '../../hooks/useSkeleton';
 import AnimatedSection from '../../components/animation/AnimatedSection';
@@ -52,6 +54,14 @@ export default function ManageColleges() {
   // Bulk import modal
   const [showImportModal, setShowImportModal] = useState(false);
 
+  // Portal settings (single-college policies)
+  const [portalSettings, setPortalSettings] = useState(null);
+
+  // Mode switch (testing tool, env-gated)
+  const [showModeSwitchModal, setShowModeSwitchModal] = useState(false);
+  const [modeSwitchCollegeId, setModeSwitchCollegeId] = useState('');
+  const [modeSwitchConfirmCode, setModeSwitchConfirmCode] = useState('');
+
   // Region management modal
   const [showRegionModal, setShowRegionModal] = useState(false);
   const [regionForm, setRegionForm] = useState({ region_name: '', region_code: '' });
@@ -68,12 +78,14 @@ export default function ManageColleges() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [collegesRes, regionsRes] = await Promise.all([
+      const [collegesRes, regionsRes, settingsRes] = await Promise.all([
         superAdminAPI.getAllColleges(),
         superAdminAPI.getAllRegions(),
+        superAdminAPI.getPortalSettings(),
       ]);
       setColleges(collegesRes.data.data || []);
       setRegions(regionsRes.data.data || []);
+      setPortalSettings(settingsRes.data.data || null);
     } catch (error) {
       toast.error('Failed to load colleges');
       console.error('Error fetching colleges:', error);
@@ -84,14 +96,66 @@ export default function ManageColleges() {
 
   const refreshData = async () => {
     try {
-      const [collegesRes, regionsRes] = await Promise.all([
+      const [collegesRes, regionsRes, settingsRes] = await Promise.all([
         superAdminAPI.getAllColleges(),
         superAdminAPI.getAllRegions(),
+        superAdminAPI.getPortalSettings(),
       ]);
       setColleges(collegesRes.data.data || []);
       setRegions(regionsRes.data.data || []);
+      setPortalSettings(settingsRes.data.data || null);
     } catch (error) {
       console.error('Error refreshing colleges:', error);
+    }
+  };
+
+  const handleModeSwitch = async () => {
+    setSubmitting(true);
+    try {
+      const response = await superAdminAPI.switchToSingleCollege({
+        keep_college_id: parseInt(modeSwitchCollegeId),
+        confirm_code: modeSwitchConfirmCode,
+      });
+      toast.success(response.data.message, { duration: 6000 });
+      setShowModeSwitchModal(false);
+      setModeSwitchCollegeId('');
+      setModeSwitchConfirmCode('');
+      await refreshData();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Mode switch failed');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleModeRestore = async () => {
+    if (!window.confirm('Restore multi-college mode? All colleges from the snapshot will be re-activated.')) return;
+    setSubmitting(true);
+    try {
+      const response = await superAdminAPI.restoreMultiCollege();
+      toast.success(response.data.message, { duration: 6000 });
+      await refreshData();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Restore failed');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleToggleJobApprovalPolicy = async () => {
+    const newValue = !portalSettings?.single_college_require_job_approval;
+    try {
+      await superAdminAPI.updatePortalSettings({
+        single_college_require_job_approval: newValue,
+      });
+      toast.success(
+        newValue
+          ? 'Officer job posts now require your approval'
+          : 'Officer job posts now publish directly (auto-approved)'
+      );
+      await refreshData();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to update policy');
     }
   };
 
@@ -418,6 +482,99 @@ export default function ManageColleges() {
         </div>
       </AnimatedSection>
 
+      {/* Single-College Policy (only shown when exactly one active college) */}
+      {portalSettings?.single_college && (
+        <AnimatedSection delay={0.12}>
+          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-indigo-500">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-start space-x-3">
+                <div className="p-2 bg-indigo-100 rounded-lg">
+                  <ShieldCheck className="h-6 w-6 text-indigo-600" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-gray-900">
+                    Single-College Policy: Officer Job Posts
+                  </h2>
+                  <p className="text-sm text-gray-600 mt-1 max-w-2xl">
+                    {portalSettings.single_college_require_job_approval
+                      ? 'Placement officer job posts currently require your approval before going live (you approve them on the Job Requests page).'
+                      : 'Placement officer job posts currently publish directly without your approval.'}{' '}
+                    This option appears because the portal has exactly one active college; with
+                    multiple colleges, own-college posts are always auto-approved.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleToggleJobApprovalPolicy}
+                className={`shrink-0 inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  portalSettings.single_college_require_job_approval
+                    ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                    : 'border border-indigo-600 text-indigo-600 hover:bg-indigo-50'
+                }`}
+              >
+                {portalSettings.single_college_require_job_approval
+                  ? 'Approval required — click to allow direct posting'
+                  : 'Direct posting — click to require approval'}
+              </button>
+            </div>
+          </div>
+        </AnimatedSection>
+      )}
+
+      {/* Mode Switch testing tool (only when ENABLE_MODE_SWITCH=true on the server) */}
+      {portalSettings?.mode_switch_available && (
+        <AnimatedSection delay={0.14}>
+          <div className={`bg-white rounded-lg shadow-md p-6 border-l-4 ${
+            portalSettings.mode_switch_snapshot ? 'border-amber-500' : 'border-gray-400'
+          }`}>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-start space-x-3">
+                <div className={`p-2 rounded-lg ${portalSettings.mode_switch_snapshot ? 'bg-amber-100' : 'bg-gray-100'}`}>
+                  <FlaskConical className={`h-6 w-6 ${portalSettings.mode_switch_snapshot ? 'text-amber-600' : 'text-gray-600'}`} />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-gray-900">Mode Switch (Testing Tool)</h2>
+                  {portalSettings.mode_switch_snapshot ? (
+                    <p className="text-sm text-amber-800 mt-1 max-w-2xl">
+                      <span className="font-semibold">Single-college simulation is ACTIVE</span> — kept{' '}
+                      {portalSettings.mode_switch_snapshot.kept_college_name},{' '}
+                      {portalSettings.mode_switch_snapshot.deactivated_college_ids?.length} colleges
+                      temporarily deactivated since{' '}
+                      {new Date(portalSettings.mode_switch_snapshot.switched_at).toLocaleString('en-IN')}.
+                      Restore when you finish testing.
+                    </p>
+                  ) : (
+                    <p className="text-sm text-gray-600 mt-1 max-w-2xl">
+                      Temporarily switch this portal to single-college mode to test the simplified
+                      experience. Reversible: colleges are only deactivated and a snapshot allows an
+                      exact restore. Available because ENABLE_MODE_SWITCH is set on this server.
+                    </p>
+                  )}
+                </div>
+              </div>
+              {portalSettings.mode_switch_snapshot ? (
+                <button
+                  onClick={handleModeRestore}
+                  disabled={submitting}
+                  className="shrink-0 inline-flex items-center px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 text-sm font-medium disabled:opacity-50"
+                >
+                  Restore Multi-College Mode
+                </button>
+              ) : (
+                portalSettings.active_colleges > 1 && (
+                  <button
+                    onClick={() => setShowModeSwitchModal(true)}
+                    className="shrink-0 inline-flex items-center px-4 py-2 border border-gray-500 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium"
+                  >
+                    Switch to Single-College Mode…
+                  </button>
+                )
+              )}
+            </div>
+          </div>
+        </AnimatedSection>
+      )}
+
       {/* Colleges Table */}
       <AnimatedSection delay={0.16}>
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
@@ -681,6 +838,112 @@ export default function ManageColleges() {
           </div>
         </div>
       )}
+
+      {/* Mode Switch Modal */}
+      {showModeSwitchModal && (() => {
+        const activeColleges = colleges.filter((c) => c.is_active);
+        const chosen = activeColleges.find((c) => c.id === parseInt(modeSwitchCollegeId));
+        const codeMatches =
+          chosen && modeSwitchConfirmCode.trim().toUpperCase() === chosen.college_code.toUpperCase();
+        return (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+                <h2 className="text-xl font-bold text-gray-900">Switch to Single-College Mode</h2>
+                <button
+                  onClick={() => setShowModeSwitchModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                  disabled={submitting}
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-5">
+                <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4 text-sm text-red-800">
+                  <p className="font-bold mb-2">⚠️ Read this before proceeding</p>
+                  <ul className="list-disc ml-5 space-y-1">
+                    <li>Every other college will be <span className="font-semibold">deactivated</span> until you restore.</li>
+                    <li>Their students can still log in but will stop matching new jobs.</li>
+                    <li>Those colleges disappear from registration, filters and notifications.</li>
+                    <li>Their placement officers' pages will not work normally.</li>
+                    <li>
+                      <span className="font-semibold">Nothing is deleted</span> — a snapshot is stored and
+                      “Restore Multi-College Mode” brings back exactly the colleges deactivated here.
+                    </li>
+                    <li>Intended for staging/testing, never for a live production portal.</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    College that stays active <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={modeSwitchCollegeId}
+                    onChange={(e) => {
+                      setModeSwitchCollegeId(e.target.value);
+                      setModeSwitchConfirmCode('');
+                    }}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    disabled={submitting}
+                  >
+                    <option value="">Select college...</option>
+                    {activeColleges.map((college) => (
+                      <option key={college.id} value={college.id}>
+                        {college.college_name} ({college.college_code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {chosen && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Type <span className="font-mono font-bold">{chosen.college_code}</span> to confirm
+                    </label>
+                    <input
+                      type="text"
+                      value={modeSwitchConfirmCode}
+                      onChange={(e) => setModeSwitchConfirmCode(e.target.value.toUpperCase())}
+                      placeholder={chosen.college_code}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent font-mono"
+                      disabled={submitting}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      {activeColleges.length - 1} colleges will be deactivated.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-gray-50 border-t border-gray-200 px-6 py-4 flex justify-end space-x-3">
+                <button
+                  onClick={() => setShowModeSwitchModal(false)}
+                  disabled={submitting}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleModeSwitch}
+                  disabled={submitting || !codeMatches}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center"
+                >
+                  {submitting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Switching...
+                    </>
+                  ) : (
+                    'Switch Mode'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Bulk Import Modal */}
       {showImportModal && (

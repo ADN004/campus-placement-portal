@@ -25,7 +25,7 @@ import pool from './config/database.js';
 import { errorHandler, notFound } from './middleware/errorHandler.js';
 import { runCleanupTasks } from './utils/cleanupTasks.js';
 import { scheduleDailyCronJobs, runMaintenanceTasks } from './utils/cronJobs.js';
-import { apiLimiter, authLimiter, exportLimiter } from './middleware/rateLimiter.js';
+import { apiLimiter, authLimiter, authIpLimiter, exportLimiter } from './middleware/rateLimiter.js';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -157,6 +157,10 @@ app.get('/health', (req, res) => {
     success: true,
     message: 'State Placement Cell API is running',
     environment: process.env.NODE_ENV || 'development',
+    // The client IP as Express resolves it (after trust proxy). Rate limits
+    // key on this — if it shows a private/docker IP instead of the caller's
+    // real IP, the reverse proxy is not forwarding X-Forwarded-For.
+    client_ip: req.ip,
     timestamp: new Date().toISOString(),
   });
 });
@@ -168,8 +172,11 @@ app.get('/health', (req, res) => {
 // Apply general rate limiter to all API routes
 app.use('/api/', apiLimiter);
 
-// Stricter rate limiting for authentication endpoints
+// Stricter rate limiting for authentication endpoints:
+// coarse per-IP failed cap first, then the per-(IP, account) limiter
+app.use('/api/auth/login', authIpLimiter);
 app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register-student', authIpLimiter);
 app.use('/api/auth/register-student', authLimiter);
 
 // Rate limiting for export endpoints (resource-intensive)

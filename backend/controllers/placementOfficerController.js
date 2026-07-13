@@ -4,6 +4,7 @@ import ExcelJS from 'exceljs';
 import { sendVerificationEmail } from '../config/emailService.js';
 import { generateStudentPDF } from '../utils/pdfGenerator.js';
 import { BRANCH_SHORT_NAMES } from '../constants/branches.js';
+import { singleCollegeJobApprovalRequired } from '../utils/portalMode.js';
 
 // ========================================
 // HELPER FUNCTIONS
@@ -1691,7 +1692,11 @@ export const createJobRequest = async (req, res) => {
       (!target_regions || target_regions.length === 0) &&
       (!target_colleges || target_colleges.length === 0);
 
-    if (isOwnCollegeOnly) {
+    // Single-college deployments can require super admin approval for
+    // own-college posts (portal setting). Multi-college: always auto-approved.
+    const approvalRequired = isOwnCollegeOnly && (await singleCollegeJobApprovalRequired());
+
+    if (isOwnCollegeOnly && !approvalRequired) {
       // AUTO-APPROVAL: Create job directly for own college
       const result = await transaction(async (client) => {
         // Create job request with auto_approved status
@@ -1898,6 +1903,40 @@ export const createJobRequest = async (req, res) => {
         'pending',
       ]
     );
+
+    // Own-college posts rerouted here by the approval policy keep their
+    // extended requirements, so approveJobRequest copies them to the job
+    // (multi-college requests are unaffected: they never send these fields)
+    if (approvalRequired && (requires_academic_extended || requires_physical_details ||
+        requires_family_details || requires_personal_details || requires_document_verification ||
+        requires_education_preferences || specific_field_requirements ||
+        (custom_fields && custom_fields.length > 0))) {
+      await query(
+        `INSERT INTO job_request_requirement_templates (
+          job_request_id, min_cgpa, max_backlogs, backlog_max_semester, allowed_backlog_semesters, allowed_branches,
+          requires_academic_extended, requires_physical_details,
+          requires_family_details, requires_personal_details,
+          requires_document_verification, requires_education_preferences,
+          specific_field_requirements, custom_fields
+        ) VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7, $8, $9, $10, $11, $12, $13::jsonb, $14::jsonb)`,
+        [
+          jobRequestResult.rows[0].id,
+          toNumberOrNull(min_cgpa),
+          toNumberOrNull(max_backlogs),
+          backlog_max_semester || null,
+          JSON.stringify(allowed_backlog_semesters && allowed_backlog_semesters.length > 0 ? allowed_backlog_semesters : []),
+          allowed_branches && allowed_branches.length > 0 ? JSON.stringify(allowed_branches) : null,
+          requires_academic_extended || false,
+          requires_physical_details || false,
+          requires_family_details || false,
+          requires_personal_details || false,
+          requires_document_verification || false,
+          requires_education_preferences || false,
+          specific_field_requirements ? JSON.stringify(specific_field_requirements) : null,
+          custom_fields && custom_fields.length > 0 ? JSON.stringify(custom_fields) : null,
+        ]
+      );
+    }
 
     // Log activity
     await logActivity(

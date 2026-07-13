@@ -5,6 +5,7 @@ import { commonAPI } from '../../services/api';
 import { UserPlus, CheckCircle, XCircle, Upload, X, Mail, ShieldCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { BRANCH_SHORT_NAMES } from '../../constants/branches';
+import usePortalMode from '../../hooks/usePortalMode';
 
 export default function StudentRegisterPage() {
   const [loading, setLoading] = useState(false);
@@ -54,6 +55,7 @@ export default function StudentRegisterPage() {
 
   const { registerStudent } = useAuth();
   const navigate = useNavigate();
+  const portalMode = usePortalMode();
 
   useEffect(() => {
     fetchRegions();
@@ -67,6 +69,26 @@ export default function StudentRegisterPage() {
       setFormData((prev) => ({ ...prev, college_id: '' }));
     }
   }, [formData.region_id]);
+
+  // Single-region deployments: pick the only region automatically
+  useEffect(() => {
+    if (portalMode.singleRegion && regions.length === 1 && !formData.region_id) {
+      setFormData((prev) => ({ ...prev, region_id: String(regions[0].id) }));
+    }
+  }, [portalMode.singleRegion, regions, formData.region_id]);
+
+  // Single-college deployments: pick the only college automatically
+  useEffect(() => {
+    if (portalMode.singleCollege && colleges.length === 1 && !formData.college_id) {
+      setFormData((prev) => ({ ...prev, college_id: String(colleges[0].id) }));
+      fetchBranches(colleges[0].id);
+    }
+  }, [portalMode.singleCollege, colleges, formData.college_id]);
+
+  // Hide pickers only once their value is auto-filled, so the required
+  // fields are always populated before they disappear from the form
+  const hideRegionPicker = portalMode.singleRegion && formData.region_id !== '';
+  const hideCollegePicker = portalMode.singleCollege && formData.college_id !== '';
 
   const fetchRegions = async () => {
     try {
@@ -527,7 +549,8 @@ export default function StudentRegisterPage() {
               </h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Region Selection */}
+                {/* Region Selection (hidden when the portal has one region) */}
+                {!hideRegionPicker && (
                 <div>
                   <label htmlFor="region_id" className="label">
                     Region *
@@ -548,8 +571,10 @@ export default function StudentRegisterPage() {
                     ))}
                   </select>
                 </div>
+                )}
 
-                {/* College Selection */}
+                {/* College Selection (hidden when the portal has one college) */}
+                {!hideCollegePicker ? (
                 <div>
                   <label htmlFor="college_id" className="label">
                     College *
@@ -573,6 +598,15 @@ export default function StudentRegisterPage() {
                     ))}
                   </select>
                 </div>
+                ) : (
+                <div className="md:col-span-2">
+                  <label className="label">College</label>
+                  <div className="input bg-emerald-50/50 text-gray-700 flex items-center">
+                    <CheckCircle className="h-4 w-4 text-emerald-600 mr-2 shrink-0" />
+                    {colleges[0]?.college_name}
+                  </div>
+                </div>
+                )}
 
                 {/* Branch */}
                 <div className="md:col-span-2">

@@ -103,6 +103,10 @@ import {
   createRegion,
   updateRegion,
   deleteRegion,
+  getPortalSettings,
+  updatePortalSettings,
+  switchToSingleCollege,
+  restoreMultiCollege,
 } from '../controllers/collegeManagementController.js';
 import multer from 'multer';
 import {
@@ -231,6 +235,14 @@ router.get('/regions', getAllRegionsAdmin);
 router.post('/regions', createRegion);
 router.put('/regions/:id', updateRegion);
 router.delete('/regions/:id', deleteRegion);
+
+// Portal Settings (single-college policies)
+router.get('/portal-settings', getPortalSettings);
+router.put('/portal-settings', updatePortalSettings);
+
+// Mode Switch (testing tool — requires ENABLE_MODE_SWITCH=true)
+router.post('/mode-switch/single', switchToSingleCollege);
+router.post('/mode-switch/restore', restoreMultiCollege);
 
 // Bulk Import (colleges & placement officers from Excel)
 router.get('/import/template', downloadImportTemplate);

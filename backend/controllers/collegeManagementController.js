@@ -1,5 +1,11 @@
-import { query } from '../config/database.js';
+import { query, transaction } from '../config/database.js';
 import logActivity from '../middleware/activityLogger.js';
+import {
+  getPortalCounts,
+  getPortalSetting,
+  setPortalSetting,
+  isModeSwitchEnabled,
+} from '../utils/portalMode.js';
 
 /**
  * College & Region Management Controller
@@ -564,6 +570,274 @@ export const deleteRegion = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error deleting region',
+    });
+  }
+};
+
+// ========================================
+// PORTAL SETTINGS (single-college policies)
+// ========================================
+
+// @desc    Get portal settings + mode info for the settings UI
+// @route   GET /api/super-admin/portal-settings
+// @access  Private (Super Admin)
+export const getPortalSettings = async (req, res) => {
+  try {
+    const counts = await getPortalCounts();
+    const requireJobApproval =
+      (await getPortalSetting('single_college_require_job_approval')) === true;
+    const modeSwitchSnapshot = await getPortalSetting('mode_switch_snapshot');
+
+    res.status(200).json({
+      success: true,
+      data: {
+        active_colleges: counts.active_colleges,
+        single_college: counts.active_colleges === 1,
+        single_college_require_job_approval: requireJobApproval,
+        mode_switch_available: isModeSwitchEnabled(),
+        mode_switch_snapshot: modeSwitchSnapshot,
+      },
+    });
+  } catch (error) {
+    console.error('Get portal settings error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching portal settings',
+    });
+  }
+};
+
+// @desc    Update portal settings (single-college policies only)
+// @route   PUT /api/super-admin/portal-settings
+// @access  Private (Super Admin)
+export const updatePortalSettings = async (req, res) => {
+  try {
+    const { single_college_require_job_approval } = req.body;
+
+    if (typeof single_college_require_job_approval !== 'boolean') {
+      return res.status(400).json({
+        success: false,
+        message: 'single_college_require_job_approval must be true or false',
+      });
+    }
+
+    // Enabling the approval requirement only makes sense (and is only
+    // allowed) in a single-college deployment. Disabling is always allowed
+    // so a stale setting can be cleared after expanding to more colleges.
+    if (single_college_require_job_approval === true) {
+      const counts = await getPortalCounts();
+      if (counts.active_colleges !== 1) {
+        return res.status(400).json({
+          success: false,
+          message:
+            'This policy is only available for single-college deployments. With multiple colleges, own-college job posts are always auto-approved.',
+        });
+      }
+    }
+
+    await setPortalSetting(
+      'single_college_require_job_approval',
+      single_college_require_job_approval,
+      req.user.id
+    );
+
+    await logActivity(
+      req.user.id,
+      'UPDATE_PORTAL_SETTINGS',
+      `Set officer job posts to ${single_college_require_job_approval ? 'require super admin approval' : 'publish directly (auto-approved)'}`,
+      'portal_settings',
+      null,
+      req,
+      { single_college_require_job_approval }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Portal settings updated',
+      data: { single_college_require_job_approval },
+    });
+  } catch (error) {
+    console.error('Update portal settings error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating portal settings',
+    });
+  }
+};
+
+// ========================================
+// MODE SWITCH (testing tool, env-gated)
+// ========================================
+// Lets a staging/test deployment flip between multi- and single-college mode
+// without data loss: switching only soft-deactivates colleges and records a
+// snapshot, restoring re-activates exactly that snapshot. Refused entirely
+// unless ENABLE_MODE_SWITCH=true in the backend environment, so production
+// deployments never expose it.
+
+// @desc    Switch to single-college mode (deactivate all but one college)
+// @route   POST /api/super-admin/mode-switch/single
+// @access  Private (Super Admin) + ENABLE_MODE_SWITCH=true
+export const switchToSingleCollege = async (req, res) => {
+  try {
+    if (!isModeSwitchEnabled()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Mode switching is not enabled on this deployment',
+      });
+    }
+
+    const { keep_college_id, confirm_code } = req.body;
+    if (!keep_college_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please choose which college stays active (keep_college_id)',
+      });
+    }
+
+    const existingSnapshot = await getPortalSetting('mode_switch_snapshot');
+    if (existingSnapshot) {
+      return res.status(400).json({
+        success: false,
+        message: 'Already switched — restore multi-college mode first',
+      });
+    }
+
+    const keepResult = await query(
+      'SELECT id, college_name, college_code FROM colleges WHERE id = $1 AND is_active = TRUE',
+      [keep_college_id]
+    );
+    if (keepResult.rows.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'The chosen college was not found or is not active',
+      });
+    }
+    const keptCollege = keepResult.rows[0];
+
+    // Type-to-confirm: the admin must type the kept college's code
+    if (
+      typeof confirm_code !== 'string' ||
+      confirm_code.trim().toUpperCase() !== keptCollege.college_code.toUpperCase()
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: `Confirmation failed — type the college code (${keptCollege.college_code}) to proceed`,
+      });
+    }
+
+    const counts = await getPortalCounts();
+    if (counts.active_colleges <= 1) {
+      return res.status(400).json({
+        success: false,
+        message: 'The portal is already in single-college mode',
+      });
+    }
+
+    let deactivatedIds = [];
+    await transaction(async (client) => {
+      const others = await client.query(
+        'SELECT id FROM colleges WHERE is_active = TRUE AND id != $1',
+        [keep_college_id]
+      );
+      deactivatedIds = others.rows.map((r) => r.id);
+
+      // Snapshot first, then deactivate — both inside the same transaction
+      await client.query(
+        `INSERT INTO portal_settings (setting_key, setting_value, updated_by, updated_at)
+         VALUES ('mode_switch_snapshot', $1::jsonb, $2, CURRENT_TIMESTAMP)
+         ON CONFLICT (setting_key)
+         DO UPDATE SET setting_value = $1::jsonb, updated_by = $2, updated_at = CURRENT_TIMESTAMP`,
+        [
+          JSON.stringify({
+            deactivated_college_ids: deactivatedIds,
+            kept_college_id: keptCollege.id,
+            kept_college_name: keptCollege.college_name,
+            switched_at: new Date().toISOString(),
+          }),
+          req.user.id,
+        ]
+      );
+
+      await client.query(
+        'UPDATE colleges SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP WHERE id = ANY($1::int[])',
+        [deactivatedIds]
+      );
+    });
+
+    await logActivity(
+      req.user.id,
+      'MODE_SWITCH_SINGLE',
+      `Switched portal to single-college mode (kept ${keptCollege.college_name}, deactivated ${deactivatedIds.length} colleges)`,
+      'portal_settings',
+      null,
+      req,
+      { kept_college_id: keptCollege.id, deactivated_count: deactivatedIds.length }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: `Single-college mode active: ${keptCollege.college_name}. ${deactivatedIds.length} colleges deactivated (restorable).`,
+      data: { kept_college_id: keptCollege.id, deactivated_count: deactivatedIds.length },
+    });
+  } catch (error) {
+    console.error('Switch to single college error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error switching mode',
+    });
+  }
+};
+
+// @desc    Restore multi-college mode from the snapshot
+// @route   POST /api/super-admin/mode-switch/restore
+// @access  Private (Super Admin) + ENABLE_MODE_SWITCH=true
+export const restoreMultiCollege = async (req, res) => {
+  try {
+    if (!isModeSwitchEnabled()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Mode switching is not enabled on this deployment',
+      });
+    }
+
+    const snapshot = await getPortalSetting('mode_switch_snapshot');
+    if (!snapshot || !Array.isArray(snapshot.deactivated_college_ids)) {
+      return res.status(400).json({
+        success: false,
+        message: 'No mode-switch snapshot found — nothing to restore',
+      });
+    }
+
+    await transaction(async (client) => {
+      await client.query(
+        'UPDATE colleges SET is_active = TRUE, updated_at = CURRENT_TIMESTAMP WHERE id = ANY($1::int[])',
+        [snapshot.deactivated_college_ids]
+      );
+      await client.query(
+        "DELETE FROM portal_settings WHERE setting_key = 'mode_switch_snapshot'"
+      );
+    });
+
+    await logActivity(
+      req.user.id,
+      'MODE_SWITCH_RESTORE',
+      `Restored multi-college mode (${snapshot.deactivated_college_ids.length} colleges re-activated)`,
+      'portal_settings',
+      null,
+      req,
+      { restored_count: snapshot.deactivated_college_ids.length }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: `Multi-college mode restored: ${snapshot.deactivated_college_ids.length} colleges re-activated`,
+      data: { restored_count: snapshot.deactivated_college_ids.length },
+    });
+  } catch (error) {
+    console.error('Restore multi college error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error restoring mode',
     });
   }
 };

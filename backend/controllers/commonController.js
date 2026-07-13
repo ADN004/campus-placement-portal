@@ -1,4 +1,34 @@
 import { query } from '../config/database.js';
+import { getPortalCounts, getPortalSetting } from '../utils/portalMode.js';
+
+// @desc    Portal mode info — lets the UI adapt to single-college deployments
+// @route   GET /api/common/portal-info
+// @access  Public
+export const getPortalInfo = async (req, res) => {
+  try {
+    const counts = await getPortalCounts();
+    const requireJobApproval =
+      counts.active_colleges === 1 &&
+      (await getPortalSetting('single_college_require_job_approval')) === true;
+
+    res.status(200).json({
+      success: true,
+      data: {
+        active_colleges: counts.active_colleges,
+        regions: counts.regions,
+        single_college: counts.active_colleges === 1,
+        single_region: counts.regions === 1,
+        single_college_require_job_approval: requireJobApproval,
+      },
+    });
+  } catch (error) {
+    console.error('Get portal info error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching portal info',
+    });
+  }
+};
 
 // @desc    Get all regions
 // @route   GET /api/common/regions

@@ -55,6 +55,7 @@ export const authAPI = {
 
 // Common APIs
 export const commonAPI = {
+  getPortalInfo: () => API.get('/common/portal-info'),
   getRegions: () => API.get('/common/regions'),
   getColleges: (regionId) => API.get(`/common/colleges${regionId ? `?region_id=${regionId}` : ''}`),
   getCollegeBranches: (collegeId) => API.get(`/common/colleges/${collegeId}/branches`),
@@ -280,6 +281,14 @@ export const superAdminAPI = {
   createRegion: (data) => API.post('/super-admin/regions', data),
   updateRegion: (id, data) => API.put(`/super-admin/regions/${id}`, data),
   deleteRegion: (id) => API.delete(`/super-admin/regions/${id}`),
+
+  // Portal Settings (single-college policies)
+  getPortalSettings: () => API.get('/super-admin/portal-settings'),
+  updatePortalSettings: (data) => API.put('/super-admin/portal-settings', data),
+
+  // Mode Switch (testing tool, env-gated)
+  switchToSingleCollege: (data) => API.post('/super-admin/mode-switch/single', data),
+  restoreMultiCollege: () => API.post('/super-admin/mode-switch/restore'),
 
   // Bulk Import (colleges & officers from Excel)
   downloadImportTemplate: () => API.get('/super-admin/import/template', { responseType: 'blob' }),

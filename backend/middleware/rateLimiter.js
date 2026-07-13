@@ -9,7 +9,7 @@
  * - Use rate-limit-redis or rate-limit-memcached for distributed systems
  */
 
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 
 /**
  * General API Rate Limiter
@@ -32,21 +32,54 @@ export const apiLimiter = rateLimit({
 });
 
 /**
- * Authentication Rate Limiter
+ * Authentication Rate Limiter (per IP + account)
  * Stricter limits for login/registration to prevent brute force
- * - 10 attempts per 15 minutes per IP (increased for legitimate use cases)
+ * - 10 failed attempts per 15 minutes per (IP, account) pair
  * - Only failed requests count toward the limit
+ *
+ * Keyed by IP + the submitted email/PRN, NOT by IP alone: whole campuses
+ * share one NAT IP and mobile carriers put thousands of users behind one
+ * CGNAT IP, so a pure-IP key let 10 failed attempts from ANYONE lock out
+ * everyone sharing that IP. Per-account keying keeps brute-force protection
+ * (10 tries per account per IP) without collective lockouts. A separate
+ * coarse per-IP cap below still stops credential-stuffing across accounts.
  */
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // Limit each IP to 10 failed attempts per windowMs
+  max: 10, // Limit each (IP, account) pair to 10 failed attempts per windowMs
+  keyGenerator: (req) => {
+    const account =
+      typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+    // ipKeyGenerator normalizes IPv6 to its /56 subnet (v8 requirement)
+    return `${ipKeyGenerator(req.ip)}|${account}`;
+  },
   message: {
     success: false,
-    message: 'Too many login attempts from this IP, please try again after 15 minutes.',
+    message:
+      'Too many login attempts for this account, please try again after 15 minutes.',
   },
   standardHeaders: true,
   legacyHeaders: false,
   // Only count failed requests - successful logins don't count
+  skipSuccessfulRequests: true,
+});
+
+/**
+ * Authentication IP-wide Rate Limiter
+ * Coarse safety net behind authLimiter: 100 FAILED attempts per IP per
+ * 15 minutes, across all accounts. High enough that a shared campus/CGNAT
+ * IP never hits it through normal use, low enough to blunt bulk
+ * credential-stuffing from a single source.
+ */
+export const authIpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Failed attempts per IP across all accounts
+  message: {
+    success: false,
+    message: 'Too many login attempts from this network, please try again after 15 minutes.',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
   skipSuccessfulRequests: true,
 });
 

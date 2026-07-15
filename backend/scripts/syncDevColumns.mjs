@@ -8,7 +8,7 @@ import 'dotenv/config';
 import fs from 'fs';
 import pg from 'pg';
 
-const TABLES = ['jobs', 'job_requests', 'job_requirement_templates', 'job_request_requirement_templates'];
+const TABLES = ['jobs', 'job_requests', 'job_requirement_templates', 'job_request_requirement_templates', 'students', 'colleges'];
 const NON_COLUMN = /^(PRIMARY|FOREIGN|UNIQUE|CHECK|CONSTRAINT|REFERENCES)/i;
 
 const { Pool } = pg;

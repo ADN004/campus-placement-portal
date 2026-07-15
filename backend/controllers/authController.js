@@ -11,6 +11,7 @@ import { query, transaction } from '../config/database.js';
 import { sendTokenResponse } from '../middleware/auth.js';
 import logActivity from '../middleware/activityLogger.js';
 import { uploadImage, deleteImage } from '../config/cloudinary.js';
+import { isDisposableEmail, DISPOSABLE_EMAIL_MESSAGE } from '../utils/emailPolicy.js';
 
 // ============================================================================
 // Constants
@@ -60,7 +61,7 @@ export const login = async (req, res) => {
     if (isNumeric) {
       // First, try to find student by PRN
       const studentResult = await query(
-        `SELECT u.*, s.registration_status
+        `SELECT u.*, s.registration_status, s.rejection_reason
          FROM students s
          JOIN users u ON s.user_id = u.id
          WHERE s.prn = $1`,
@@ -69,6 +70,17 @@ export const login = async (req, res) => {
 
       if (studentResult.rows.length > 0) {
         isStudent = true;
+
+        // Rejected: tell the truth (with the reason) and point to re-registration
+        if (studentResult.rows[0].registration_status === 'rejected') {
+          const reason = studentResult.rows[0].rejection_reason;
+          return res.status(401).json({
+            success: false,
+            message: `Your registration was rejected by your placement officer${
+              reason ? `: "${reason}"` : ''
+            }. Please register again with the corrected details — your PRN will be accepted.`,
+          });
+        }
 
         // Check if student is approved
         if (studentResult.rows[0].registration_status !== 'approved') {
@@ -438,6 +450,15 @@ export const registerStudent = async (req, res) => {
       });
     }
 
+    // Block disposable/temporary email services — placement communication
+    // must reach a real, lasting inbox
+    if (isDisposableEmail(email)) {
+      return res.status(400).json({
+        success: false,
+        message: DISPOSABLE_EMAIL_MESSAGE,
+      });
+    }
+
     // Validate PRN against active ranges
     const prnValidation = await validatePRN(prn);
     if (!prnValidation.valid) {
@@ -447,17 +468,25 @@ export const registerStudent = async (req, res) => {
       });
     }
 
-    // Check if PRN already exists
+    // Check if PRN already exists. A REJECTED registration does not block
+    // the PRN: the student may register again with corrected details, and
+    // the new submission replaces the rejected one (re-entering the normal
+    // pending-approval flow).
     const existingPRN = await query(
-      'SELECT id, email, student_name FROM students WHERE prn = $1',
+      'SELECT id, user_id, email, student_name, registration_status, photo_cloudinary_id FROM students WHERE prn = $1',
       [prn]
     );
 
+    let replaceTarget = null;
     if (existingPRN.rows.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: `A student with PRN ${prn} is already registered. If this is you, please contact your placement officer.`,
-      });
+      if (existingPRN.rows[0].registration_status === 'rejected') {
+        replaceTarget = existingPRN.rows[0];
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: `A student with PRN ${prn} is already registered. If this is you, please contact your placement officer.`,
+        });
+      }
     }
 
     // Check if email already exists - emails are permanently bound to PRNs
@@ -466,11 +495,14 @@ export const registerStudent = async (req, res) => {
       [email]
     );
 
-    if (existingEmail.rows.length > 0) {
-      const existing = existingEmail.rows[0];
+    // The rejected registration being replaced does not count as a conflict
+    const conflictingStudentEmail = existingEmail.rows.find(
+      (row) => row.id !== replaceTarget?.id
+    );
+    if (conflictingStudentEmail) {
       return res.status(400).json({
         success: false,
-        message: `This email (${email}) is already registered to PRN ${existing.prn}. Each email can only be used with one PRN. Please use a different email address or contact your placement officer if you believe this is an error.`,
+        message: `This email (${email}) is already registered to PRN ${conflictingStudentEmail.prn}. Each email can only be used with one PRN. Please use a different email address or contact your placement officer if you believe this is an error.`,
       });
     }
 
@@ -480,7 +512,10 @@ export const registerStudent = async (req, res) => {
       [email]
     );
 
-    if (existingUser.rows.length > 0) {
+    const conflictingUserEmail = existingUser.rows.find(
+      (row) => row.id !== replaceTarget?.user_id
+    );
+    if (conflictingUserEmail) {
       return res.status(400).json({
         success: false,
         message: 'This email address is already registered in the system but not linked to any student. Please contact support to resolve this issue.',
@@ -537,15 +572,28 @@ export const registerStudent = async (req, res) => {
         const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
         const hashedPassword = await bcrypt.hash(DEFAULT_STUDENT_PASSWORD, salt);
 
-        // Create user account
-        const userResult = await client.query(
-          `INSERT INTO users (email, password_hash, role)
-           VALUES ($1, $2, 'student')
-           RETURNING id`,
-          [email, hashedPassword]
-        );
-
-        const userId = userResult.rows[0].id;
+        // Create user account — or, when replacing a rejected registration,
+        // reuse its user account and discard the old student row (all
+        // dependent rows are ON DELETE CASCADE; a rejected student could
+        // never log in, so none exist)
+        let userId;
+        if (replaceTarget) {
+          await client.query(
+            `UPDATE users SET email = $1, password_hash = $2, role = 'student', is_active = TRUE
+             WHERE id = $3`,
+            [email, hashedPassword, replaceTarget.user_id]
+          );
+          await client.query('DELETE FROM students WHERE id = $1', [replaceTarget.id]);
+          userId = replaceTarget.user_id;
+        } else {
+          const userResult = await client.query(
+            `INSERT INTO users (email, password_hash, role)
+             VALUES ($1, $2, 'student')
+             RETURNING id`,
+            [email, hashedPassword]
+          );
+          userId = userResult.rows[0].id;
+        }
 
         // Create student profile with all fields
         const studentResult = await client.query(
@@ -628,10 +676,20 @@ export const registerStudent = async (req, res) => {
         return { userId, studentId };
       });
 
+      // Replaced a rejected registration: clean up its old photo (best-effort)
+      if (replaceTarget?.photo_cloudinary_id && replaceTarget.photo_cloudinary_id !== photoCloudinaryId) {
+        try {
+          await deleteImage(replaceTarget.photo_cloudinary_id);
+        } catch (cleanupError) {
+          console.error('Old rejected-registration photo cleanup failed (non-fatal):', cleanupError.message);
+        }
+      }
+
       res.status(201).json({
         success: true,
-        message:
-          'Registration successful! Your account is pending approval from your placement officer. You will receive an email verification link after approval.',
+        message: replaceTarget
+          ? 'Corrected registration submitted! Your previous rejected registration was replaced and your account is pending approval from your placement officer again.'
+          : 'Registration successful! Your account is pending approval from your placement officer. You will receive an email verification link after approval.',
         data: result,
       });
     } catch (transactionError) {

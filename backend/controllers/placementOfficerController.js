@@ -1,7 +1,7 @@
 import { query, transaction } from '../config/database.js';
 import logActivity from '../middleware/activityLogger.js';
 import ExcelJS from 'exceljs';
-import { sendVerificationEmail } from '../config/emailService.js';
+import { sendVerificationEmail, sendRegistrationRejectedEmail } from '../config/emailService.js';
 import { generateStudentPDF } from '../utils/pdfGenerator.js';
 import { BRANCH_SHORT_NAMES } from '../constants/branches.js';
 import { singleCollegeJobApprovalRequired } from '../utils/portalMode.js';
@@ -648,20 +648,49 @@ export const rejectStudent = async (req, res) => {
       });
     }
 
+    // Only pending registrations can be rejected. This also guarantees a
+    // rejected student never has dependent records (they could never log
+    // in), which keeps re-registration (replace) safe.
+    if (student.registration_status !== 'pending') {
+      return res.status(400).json({
+        success: false,
+        message: `Only pending registrations can be rejected (this one is ${student.registration_status})`,
+      });
+    }
+
+    // Optional reason — stored, shown at the student's next login attempt,
+    // and included in the notification email
+    const reason =
+      typeof req.body?.reason === 'string' && req.body.reason.trim()
+        ? req.body.reason.trim().slice(0, 500)
+        : null;
+
     // Update student status
     await query(
-      `UPDATE students SET registration_status = 'rejected' WHERE id = $1`,
-      [studentId]
+      `UPDATE students
+       SET registration_status = 'rejected',
+           rejection_reason = $1,
+           rejected_at = CURRENT_TIMESTAMP
+       WHERE id = $2`,
+      [reason, studentId]
     );
+
+    // Best-effort notification — the registered email may itself be the
+    // problem (typos), so a failure here must never fail the rejection
+    try {
+      await sendRegistrationRejectedEmail(student.email, student.student_name, reason);
+    } catch (emailError) {
+      console.error('Rejection email failed (non-fatal):', emailError.message);
+    }
 
     // Log activity
     await logActivity(
       req.user.id,
       'REJECT_STUDENT',
-      `Rejected student registration for PRN ${student.prn}`,
+      `Rejected student registration for PRN ${student.prn}${reason ? ` (reason: ${reason})` : ''}`,
       'student',
       studentId,
-      { prn: student.prn },
+      { prn: student.prn, reason },
       req
     );
 
@@ -824,19 +853,36 @@ export const bulkRejectStudents = async (req, res) => {
       });
     }
 
+    // Optional reason applied to the whole batch
+    const bulkReason =
+      typeof req.body?.reason === 'string' && req.body.reason.trim()
+        ? req.body.reason.trim().slice(0, 500)
+        : null;
+
     // Reject all students in transaction
     const result = await transaction(async (client) => {
       const rejectedResult = await client.query(
         `UPDATE students
-         SET registration_status = 'rejected'
+         SET registration_status = 'rejected',
+             rejection_reason = $2,
+             rejected_at = CURRENT_TIMESTAMP
          WHERE id = ANY($1::int[])
            AND registration_status = 'pending'
-         RETURNING id, prn`,
-        [studentIds]
+         RETURNING id, prn, email, student_name`,
+        [studentIds, bulkReason]
       );
 
       return rejectedResult.rows;
     });
+
+    // Best-effort notifications — never fail the rejection over email issues
+    for (const student of result) {
+      try {
+        await sendRegistrationRejectedEmail(student.email, student.student_name, bulkReason);
+      } catch (emailError) {
+        console.error(`Rejection email failed for PRN ${student.prn} (non-fatal):`, emailError.message);
+      }
+    }
 
     // Log activity for each rejected student
     for (const student of result) {

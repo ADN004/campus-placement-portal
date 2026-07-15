@@ -363,10 +363,13 @@ export default function ManageStudents() {
   };
 
   const handleReject = async (studentId) => {
-    const reason = window.prompt('Please provide a reason for rejection:');
-    if (!reason) return;
+    const reason = window.prompt(
+      'Reason for rejection (optional — shown to the student so they can fix it and re-register):',
+      ''
+    );
+    if (reason === null) return; // Cancel pressed — abort; empty is allowed
     try {
-      await placementOfficerAPI.rejectStudent(studentId, reason);
+      await placementOfficerAPI.rejectStudent(studentId, reason.trim() || undefined);
       toast.success('Student rejected');
       fetchStudents();
     } catch (error) {
@@ -422,10 +425,15 @@ export default function ManageStudents() {
       toast.error('Please select at least one student');
       return;
     }
-    const reason = window.prompt('Please provide a reason for rejecting these students:');
-    if (!reason) return;
+    const reason = window.prompt(
+      'Reason for rejecting these students (optional — shown to each student):',
+      ''
+    );
+    if (reason === null) return; // Cancel pressed — abort; empty is allowed
     try {
-      const promises = selectedStudents.map((id) => placementOfficerAPI.rejectStudent(id, reason));
+      const promises = selectedStudents.map((id) =>
+        placementOfficerAPI.rejectStudent(id, reason.trim() || undefined)
+      );
       await Promise.all(promises);
       toast.success(`${selectedStudents.length} student(s) rejected`);
       setSelectedStudents([]);

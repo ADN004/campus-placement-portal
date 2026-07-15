@@ -421,6 +421,64 @@ export const sendNotificationEmail = async (email, subject, message) => {
   }
 };
 
+/**
+ * Registration rejected email — tells the student why their REGISTRATION
+ * was rejected and that they can register again with corrected details.
+ * (Distinct from sendRejectionEmail below, which is about job applications.)
+ */
+export const sendRegistrationRejectedEmail = async (email, studentName, reason) => {
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+
+  const mailOptions = {
+    from: process.env.EMAIL_FROM,
+    to: email,
+    subject: 'Registration Update - State Placement Cell',
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background-color: #DC2626; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
+          .content { background-color: #f9f9f9; padding: 30px; border: 1px solid #ddd; }
+          .reason { background-color: #FEF2F2; border: 1px solid #FECACA; border-radius: 5px; padding: 15px; margin: 15px 0; }
+          .button { display: inline-block; background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-top: 10px; }
+          .footer { text-align: center; padding: 20px; font-size: 12px; color: #666; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>State Placement Cell</h1>
+          </div>
+          <div class="content">
+            <p>Dear ${studentName},</p>
+            <p>Your registration on the State Placement Cell portal was <strong>not approved</strong> by your placement officer.</p>
+            ${reason ? `<div class="reason"><strong>Reason:</strong> ${reason}</div>` : ''}
+            <p>Please register again with the corrected details — your PRN will be accepted for a fresh registration.</p>
+            <a class="button" href="${frontendUrl}/register">Register Again</a>
+            <p style="margin-top: 20px;">If you believe this was a mistake, please contact your college placement officer.</p>
+          </div>
+          <div class="footer">
+            <p>&copy; 2025 State Placement Cell. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `,
+  };
+
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    console.log('✅ Registration rejected email sent:', info.messageId);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error('❌ Email send error:', error);
+    throw new Error(`Failed to send registration rejected email: ${error.message}`);
+  }
+};
+
 // ============================================
 // PLACEMENT DRIVE & RESULT EMAILS
 // ============================================

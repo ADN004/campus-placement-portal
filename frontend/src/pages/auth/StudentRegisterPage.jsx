@@ -15,6 +15,8 @@ export default function StudentRegisterPage() {
   const [branches, setBranches] = useState([]);
   const [prnValid, setPrnValid] = useState(null);
   const [prnChecking, setPrnChecking] = useState(false);
+  // Set when this PRN had a rejected registration — re-registering replaces it
+  const [prnPreviousRejected, setPrnPreviousRejected] = useState(false);
   const [photoPreview, setPhotoPreview] = useState(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   // Email chosen via the Google account picker (locks the field until "change")
@@ -159,8 +161,10 @@ export default function StudentRegisterPage() {
     try {
       const response = await commonAPI.validatePRN(prn);
       setPrnValid(response.data.valid);
+      setPrnPreviousRejected(response.data.previous_rejected === true);
     } catch (error) {
       setPrnValid(false);
+      setPrnPreviousRejected(false);
       toast.error(error.response?.data?.message || 'PRN validation failed');
     } finally {
       setPrnChecking(false);
@@ -393,6 +397,12 @@ export default function StudentRegisterPage() {
                   {prnValid === false && (
                     <p className="text-sm text-red-600 mt-1">
                       PRN is not valid or already registered
+                    </p>
+                  )}
+                  {prnValid === true && prnPreviousRejected && (
+                    <p className="text-sm text-amber-700 mt-1">
+                      Your previous registration was rejected — submitting this form will replace
+                      it with your corrected details.
                     </p>
                   )}
                 </div>

@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { query, transaction } from '../config/database.js';
 import logActivity from '../middleware/activityLogger.js';
 import { sendVerificationEmail } from '../config/emailService.js';
+import { isDisposableEmail, DISPOSABLE_EMAIL_MESSAGE } from '../utils/emailPolicy.js';
 
 /**
  * Student Email Correction
@@ -32,6 +33,10 @@ const changeStudentEmail = async (student, rawEmail, req, actorLabel) => {
 
   if (!newEmail || !EMAIL_REGEX.test(newEmail)) {
     return { status: 400, body: { success: false, message: 'Please provide a valid email address' } };
+  }
+
+  if (isDisposableEmail(newEmail)) {
+    return { status: 400, body: { success: false, message: DISPOSABLE_EMAIL_MESSAGE } };
   }
 
   if (newEmail === (student.email || '').toLowerCase()) {

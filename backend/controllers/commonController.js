@@ -110,18 +110,24 @@ export const validatePRN = async (req, res) => {
       });
     }
 
-    // Check if PRN already exists
+    // Check if PRN already exists. A rejected registration does NOT block
+    // the PRN — re-registering replaces it (see registerStudent).
     const existingStudent = await query(
-      'SELECT id FROM students WHERE prn = $1',
+      'SELECT id, registration_status FROM students WHERE prn = $1',
       [prn]
     );
 
+    let previousRejected = false;
     if (existingStudent.rows.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'This PRN is already registered',
-        valid: false,
-      });
+      if (existingStudent.rows[0].registration_status === 'rejected') {
+        previousRejected = true;
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: 'This PRN is already registered',
+          valid: false,
+        });
+      }
     }
 
     // Get all active PRN ranges
@@ -139,25 +145,26 @@ export const validatePRN = async (req, res) => {
       });
     }
 
+    const validResponse = {
+      success: true,
+      message: previousRejected
+        ? 'PRN is valid — your previous registration was rejected, submitting again will replace it'
+        : 'PRN is valid',
+      valid: true,
+      previous_rejected: previousRejected,
+    };
+
     // Check single PRNs
     const singlePRNs = ranges.filter((r) => r.single_prn !== null);
     if (singlePRNs.some((r) => r.single_prn === prn)) {
-      return res.status(200).json({
-        success: true,
-        message: 'PRN is valid',
-        valid: true,
-      });
+      return res.status(200).json(validResponse);
     }
 
     // Check PRN ranges
     const rangesPRNs = ranges.filter((r) => r.range_start !== null);
     for (const range of rangesPRNs) {
       if (isPRNInRange(prn, range.range_start, range.range_end)) {
-        return res.status(200).json({
-          success: true,
-          message: 'PRN is valid',
-          valid: true,
-        });
+        return res.status(200).json(validResponse);
       }
     }
 

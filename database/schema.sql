@@ -220,6 +220,8 @@ CREATE TABLE students (
     registration_status VARCHAR(50) DEFAULT 'pending' CHECK (registration_status IN ('pending', 'approved', 'rejected')),
     approved_date TIMESTAMP,
     approved_by INTEGER REFERENCES users(id),
+    rejection_reason TEXT,
+    rejected_at TIMESTAMP,
 
     -- Blacklist Status
     is_blacklisted BOOLEAN DEFAULT FALSE,

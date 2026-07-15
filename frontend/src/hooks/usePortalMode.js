@@ -17,6 +17,7 @@ export default function usePortalMode() {
     singleCollege: false,
     singleRegion: false,
     requireJobApproval: false,
+    googleClientId: null,
   });
 
   useEffect(() => {
@@ -34,6 +35,7 @@ export default function usePortalMode() {
           singleCollege: data.single_college,
           singleRegion: data.single_region,
           requireJobApproval: data.single_college_require_job_approval,
+          googleClientId: data.google_client_id || null,
         });
       })
       .catch(() => {

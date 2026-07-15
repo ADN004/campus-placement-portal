@@ -998,3 +998,85 @@ const isPRNInRange = (prn, start, end) => {
   // Handle string comparison
   return prn >= start && prn <= end;
 };
+
+// ========================================
+// GOOGLE EMAIL VERIFICATION (registration autofill)
+// ========================================
+
+/**
+ * Lazily-created OAuth2 client for verifying Google Identity Services
+ * credentials. Only used when GOOGLE_CLIENT_ID is configured.
+ */
+let googleOAuthClient = null;
+const getGoogleClient = async () => {
+  if (!googleOAuthClient) {
+    const { OAuth2Client } = await import('google-auth-library');
+    googleOAuthClient = new OAuth2Client();
+  }
+  return googleOAuthClient;
+};
+
+// @desc    Verify a Google Identity Services credential and return the email.
+//          Used by the registration form to autofill a typo-free email address.
+//          Stores nothing; the normal registration + email verification flow
+//          is completely unchanged.
+// @route   POST /api/auth/google-email
+// @access  Public (rate-limited by the global API limiter)
+export const verifyGoogleEmail = async (req, res) => {
+  try {
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    if (!clientId) {
+      return res.status(503).json({
+        success: false,
+        message: 'Google account selection is not enabled on this portal',
+      });
+    }
+
+    const { credential } = req.body;
+    if (!credential || typeof credential !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing Google credential',
+      });
+    }
+
+    // verifyIdToken checks the signature (against Google's public keys),
+    // audience, expiry and issuer — per Google's server-side guidance.
+    let payload;
+    try {
+      const client = await getGoogleClient();
+      const ticket = await client.verifyIdToken({
+        idToken: credential,
+        audience: clientId,
+      });
+      payload = ticket.getPayload();
+    } catch (verifyError) {
+      return res.status(401).json({
+        success: false,
+        message: 'Google account could not be verified — please type your email manually',
+      });
+    }
+
+    if (!payload?.email) {
+      return res.status(401).json({
+        success: false,
+        message: 'Google account has no email — please type your email manually',
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        email: payload.email.toLowerCase(),
+        email_verified: payload.email_verified === true,
+        name: payload.name || '',
+      },
+    });
+  } catch (error) {
+    console.error('Google email verification error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error verifying Google account',
+    });
+  }
+};

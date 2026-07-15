@@ -19,6 +19,9 @@ export const getPortalInfo = async (req, res) => {
         single_college: counts.active_colleges === 1,
         single_region: counts.regions === 1,
         single_college_require_job_approval: requireJobApproval,
+        // OAuth client IDs are public identifiers (the secret never leaves
+        // Google). null = "Choose Google Account" is hidden on registration.
+        google_client_id: process.env.GOOGLE_CLIENT_ID || null,
       },
     });
   } catch (error) {

@@ -51,6 +51,7 @@ export const authAPI = {
   changePassword: (data) => API.put('/auth/change-password', data),
   verifyEmail: (token) => API.get(`/auth/verify-email/${token}`),
   resendVerification: (email) => API.post('/auth/resend-verification', { email }),
+  verifyGoogleEmail: (credential) => API.post('/auth/google-email', { credential }),
 };
 
 // Common APIs

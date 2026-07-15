@@ -6,6 +6,7 @@ import { UserPlus, CheckCircle, XCircle, Upload, X, Mail, ShieldCheck } from 'lu
 import toast from 'react-hot-toast';
 import { BRANCH_SHORT_NAMES } from '../../constants/branches';
 import usePortalMode from '../../hooks/usePortalMode';
+import GoogleEmailButton from '../../components/GoogleEmailButton';
 
 export default function StudentRegisterPage() {
   const [loading, setLoading] = useState(false);
@@ -16,6 +17,8 @@ export default function StudentRegisterPage() {
   const [prnChecking, setPrnChecking] = useState(false);
   const [photoPreview, setPhotoPreview] = useState(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  // Email chosen via the Google account picker (locks the field until "change")
+  const [googleEmail, setGoogleEmail] = useState(null);
 
   const [formData, setFormData] = useState({
     prn: '',
@@ -89,6 +92,25 @@ export default function StudentRegisterPage() {
   // fields are always populated before they disappear from the form
   const hideRegionPicker = portalMode.singleRegion && formData.region_id !== '';
   const hideCollegePicker = portalMode.singleCollege && formData.college_id !== '';
+
+  // Autofill from the Google account picker. Never overwrites what the
+  // student typed without an explicit confirmation; the name is only filled
+  // when the field is still empty.
+  const handleGoogleEmail = ({ email, name }) => {
+    if (formData.email && formData.email.toLowerCase() !== email.toLowerCase()) {
+      const replace = window.confirm(
+        `Replace the email you typed (${formData.email}) with ${email} from your Google account?`
+      );
+      if (!replace) return;
+    }
+    setFormData((prev) => ({
+      ...prev,
+      email,
+      student_name: prev.student_name.trim() ? prev.student_name : (name || ''),
+    }));
+    setGoogleEmail(email);
+    toast.success('Email filled from your Google account');
+  };
 
   const fetchRegions = async () => {
     try {
@@ -494,14 +516,44 @@ export default function StudentRegisterPage() {
                     autoComplete="email"
                     inputMode="email"
                     value={formData.email}
-                    onChange={handleChange}
+                    onChange={(e) => {
+                      if (googleEmail) setGoogleEmail(null);
+                      handleChange(e);
+                    }}
                     placeholder="your.email@example.com"
-                    className="input"
+                    className={`input ${googleEmail ? 'bg-emerald-50 border-emerald-300' : ''}`}
+                    readOnly={!!googleEmail}
+                    aria-describedby="email-hint"
                     required
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Please ensure this is your active email — your verification link will be sent here.
-                  </p>
+                  {googleEmail ? (
+                    <p
+                      id="email-hint"
+                      className="text-xs text-emerald-700 mt-1 flex items-center gap-1"
+                      role="status"
+                      aria-live="polite"
+                    >
+                      <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                      Email selected from Google account
+                      <button
+                        type="button"
+                        onClick={() => setGoogleEmail(null)}
+                        className="underline font-medium hover:text-emerald-900"
+                      >
+                        change
+                      </button>
+                    </p>
+                  ) : (
+                    <p id="email-hint" className="text-xs text-gray-500 mt-1">
+                      Please ensure this is your active email — your verification link will be sent here.
+                    </p>
+                  )}
+                  {!googleEmail && (
+                    <GoogleEmailButton
+                      clientId={portalMode.googleClientId}
+                      onEmail={handleGoogleEmail}
+                    />
+                  )}
                 </div>
 
                 {/* Mobile Number */}

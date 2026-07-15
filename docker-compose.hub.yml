@@ -84,6 +84,9 @@ services:
       # single-college mode (reversible, snapshot-based). Keep unset/false in
       # production — intended for staging only. See .env.staging.example.
       ENABLE_MODE_SWITCH: ${ENABLE_MODE_SWITCH:-false}
+      # Google OAuth client ID (public identifier) — enables the "Choose
+      # Google Account" email autofill on student registration. Empty = hidden.
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       PORT: 5000
       DB_HOST: postgres
       DB_PORT: 5432

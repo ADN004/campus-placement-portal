@@ -7,6 +7,7 @@ import {
   registerStudent,
   verifyEmail,
   resendVerificationEmail,
+  verifyGoogleEmail,
 } from '../controllers/authController.js';
 import { protect } from '../middleware/auth.js';
 
@@ -17,6 +18,7 @@ router.post('/login', login);
 router.post('/register-student', registerStudent);
 router.get('/verify-email/:token', verifyEmail);
 router.post('/resend-verification', resendVerificationEmail);
+router.post('/google-email', verifyGoogleEmail);
 
 // Protected routes
 router.get('/me', protect, getMe);

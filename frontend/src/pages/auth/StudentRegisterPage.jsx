@@ -19,6 +19,10 @@ export default function StudentRegisterPage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   // Email chosen via the Google account picker (locks the field until "change")
   const [googleEmail, setGoogleEmail] = useState(null);
+  // Google-first UX: while the picker is available, the manual input is
+  // hidden behind a "type manually" link. Any load failure flips it back.
+  const [gisStatus, setGisStatus] = useState('loading'); // loading | ready | unavailable
+  const [manualEmail, setManualEmail] = useState(false);
 
   const [formData, setFormData] = useState({
     prn: '',
@@ -271,6 +275,14 @@ export default function StudentRegisterPage() {
       return;
     }
 
+    // The email input can be hidden in Google-first mode, so HTML5
+    // `required` cannot be relied on for this field — guard explicitly.
+    if (!formData.email.trim()) {
+      toast.error('Please choose a Google account or type your email address');
+      setManualEmail(true);
+      return;
+    }
+
     setLoading(true);
 
     const result = await registerStudent(formData);
@@ -509,51 +521,82 @@ export default function StudentRegisterPage() {
                   <label htmlFor="email" className="label">
                     Email ID *
                   </label>
-                  <input
-                    id="email"
-                    type="email"
-                    name="email"
-                    autoComplete="email"
-                    inputMode="email"
-                    value={formData.email}
-                    onChange={(e) => {
-                      if (googleEmail) setGoogleEmail(null);
-                      handleChange(e);
-                    }}
-                    placeholder="your.email@example.com"
-                    className={`input ${googleEmail ? 'bg-emerald-50 border-emerald-300' : ''}`}
-                    readOnly={!!googleEmail}
-                    aria-describedby="email-hint"
-                    required
-                  />
-                  {googleEmail ? (
-                    <p
-                      id="email-hint"
-                      className="text-xs text-emerald-700 mt-1 flex items-center gap-1"
-                      role="status"
-                      aria-live="polite"
-                    >
-                      <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
-                      Email selected from Google account
-                      <button
-                        type="button"
-                        onClick={() => setGoogleEmail(null)}
-                        className="underline font-medium hover:text-emerald-900"
-                      >
-                        change
-                      </button>
-                    </p>
-                  ) : (
-                    <p id="email-hint" className="text-xs text-gray-500 mt-1">
-                      Please ensure this is your active email — your verification link will be sent here.
-                    </p>
-                  )}
-                  {!googleEmail && (
-                    <GoogleEmailButton
-                      clientId={portalMode.googleClientId}
-                      onEmail={handleGoogleEmail}
-                    />
-                  )}
+                  {(() => {
+                    // Google-first: hide the manual input while the picker is
+                    // the primary path. Any of these brings the input back:
+                    // picker unavailable, user opted for manual, an email is
+                    // already present, or a Google email is locked in.
+                    const hideEmailInput =
+                      gisStatus === 'ready' &&
+                      !manualEmail &&
+                      !googleEmail &&
+                      formData.email === '';
+                    return (
+                      <>
+                        {!hideEmailInput && (
+                          <input
+                            id="email"
+                            type="email"
+                            name="email"
+                            autoComplete="email"
+                            inputMode="email"
+                            value={formData.email}
+                            onChange={(e) => {
+                              if (googleEmail) setGoogleEmail(null);
+                              handleChange(e);
+                            }}
+                            placeholder="your.email@example.com"
+                            className={`input ${googleEmail ? 'bg-emerald-50 border-emerald-300' : ''}`}
+                            readOnly={!!googleEmail}
+                            aria-describedby="email-hint"
+                            required
+                          />
+                        )}
+                        {googleEmail ? (
+                          <p
+                            id="email-hint"
+                            className="text-xs text-emerald-700 mt-1 flex items-center gap-1"
+                            role="status"
+                            aria-live="polite"
+                          >
+                            <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                            Email selected from Google account
+                            <button
+                              type="button"
+                              onClick={() => setGoogleEmail(null)}
+                              className="underline font-medium hover:text-emerald-900"
+                            >
+                              change
+                            </button>
+                          </p>
+                        ) : (
+                          <p id="email-hint" className="text-xs text-gray-500 mt-1">
+                            {hideEmailInput
+                              ? 'Pick your Google account — fastest and typo-proof. Your verification link will be sent to this email.'
+                              : 'Please ensure this is your active email — your verification link will be sent here.'}
+                          </p>
+                        )}
+                        {!googleEmail && (
+                          <>
+                            <GoogleEmailButton
+                              clientId={portalMode.googleClientId}
+                              onEmail={handleGoogleEmail}
+                              onStatusChange={setGisStatus}
+                            />
+                            {hideEmailInput && (
+                              <button
+                                type="button"
+                                onClick={() => setManualEmail(true)}
+                                className="text-xs text-gray-500 underline mt-2 hover:text-gray-700"
+                              >
+                                type my email manually instead
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
 
                 {/* Mobile Number */}

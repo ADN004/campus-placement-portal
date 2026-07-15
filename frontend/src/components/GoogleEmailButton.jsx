@@ -38,16 +38,24 @@ const loadGisScript = () => {
   return gisScriptPromise;
 };
 
-export default function GoogleEmailButton({ clientId, onEmail }) {
+export default function GoogleEmailButton({ clientId, onEmail, onStatusChange }) {
   const containerRef = useRef(null);
   const onEmailRef = useRef(onEmail);
+  const onStatusChangeRef = useRef(onStatusChange);
   const [status, setStatus] = useState('loading'); // loading | ready | unavailable
   const [verifying, setVerifying] = useState(false);
 
-  // Keep the latest callback without re-initializing GIS
+  // Keep the latest callbacks without re-initializing GIS
   useEffect(() => {
     onEmailRef.current = onEmail;
-  }, [onEmail]);
+    onStatusChangeRef.current = onStatusChange;
+  }, [onEmail, onStatusChange]);
+
+  // Parent uses this to decide whether the manual input can be de-emphasized
+  const updateStatus = (next) => {
+    setStatus(next);
+    onStatusChangeRef.current?.(next);
+  };
 
   useEffect(() => {
     if (!clientId) return undefined;
@@ -91,13 +99,13 @@ export default function GoogleEmailButton({ clientId, onEmail }) {
             shape: 'pill',
             logo_alignment: 'left',
           });
-          setStatus('ready');
+          updateStatus('ready');
         } catch (initError) {
-          setStatus('unavailable');
+          updateStatus('unavailable');
         }
       })
       .catch(() => {
-        if (!cancelled) setStatus('unavailable');
+        if (!cancelled) updateStatus('unavailable');
       });
 
     return () => {

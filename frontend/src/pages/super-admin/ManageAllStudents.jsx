@@ -21,11 +21,13 @@ import {
   Lock,
   Unlock,
   GraduationCap,
+  MailWarning,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import useSkeleton from '../../hooks/useSkeleton';
 import AnimatedSection from '../../components/animation/AnimatedSection';
 import TablePageSkeleton from '../../components/skeletons/TablePageSkeleton';
+import UpdateStudentEmailModal from '../../components/UpdateStudentEmailModal';
 import { KERALA_POLYTECHNIC_BRANCHES } from '../../constants/branches';
 
 export default function ManageAllStudents() {
@@ -76,6 +78,7 @@ export default function ManageAllStudents() {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showBlacklistModal, setShowBlacklistModal] = useState(false);
+  const [emailFixStudent, setEmailFixStudent] = useState(null);
   const [showWhitelistModal, setShowWhitelistModal] = useState(false);
   const [showCustomExportModal, setShowCustomExportModal] = useState(false);
   const [showBulkDeletePhotoModal, setShowBulkDeletePhotoModal] = useState(false);
@@ -1261,6 +1264,21 @@ export default function ManageAllStudents() {
                           </button>
                         )}
                         <button
+                          onClick={() => setEmailFixStudent(student)}
+                          className={`p-2 rounded-xl transition-all duration-200 hover:shadow-lg transform hover:scale-110 ${
+                            student.email_verified
+                              ? 'text-gray-400 hover:text-white hover:bg-gradient-to-r hover:from-gray-400 hover:to-gray-500'
+                              : 'text-amber-500 hover:text-white hover:bg-gradient-to-r hover:from-amber-500 hover:to-yellow-500'
+                          }`}
+                          title={
+                            student.email_verified
+                              ? 'Update email'
+                              : 'Email NOT verified — fix email & resend link'
+                          }
+                        >
+                          <MailWarning size={18} />
+                        </button>
+                        <button
                           onClick={() => handleDeleteClick(student)}
                           className="p-2 text-red-600 hover:text-white hover:bg-gradient-to-r hover:from-red-500 hover:to-rose-500 rounded-xl transition-all duration-200 hover:shadow-lg transform hover:scale-110"
                           title="Delete Student"
@@ -1513,6 +1531,19 @@ export default function ManageAllStudents() {
       )}
 
       {/* Blacklist Modal */}
+      {emailFixStudent && (
+        <UpdateStudentEmailModal
+          currentEmail={emailFixStudent.email}
+          studentName={`${emailFixStudent.name || emailFixStudent.student_name || ''} (PRN ${emailFixStudent.prn})`}
+          onSubmit={async (email) => {
+            const response = await superAdminAPI.updateStudentEmail(emailFixStudent.id, email);
+            toast.success(response.data.message, { duration: 7000 });
+            fetchStudents();
+          }}
+          onClose={() => setEmailFixStudent(null)}
+        />
+      )}
+
       {showBlacklistModal && selectedStudent && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">

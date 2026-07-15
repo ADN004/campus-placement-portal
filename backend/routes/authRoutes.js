@@ -9,6 +9,7 @@ import {
   resendVerificationEmail,
   verifyGoogleEmail,
 } from '../controllers/authController.js';
+import { updateOwnEmail } from '../controllers/studentEmailController.js';
 import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -24,5 +25,6 @@ router.post('/google-email', verifyGoogleEmail);
 router.get('/me', protect, getMe);
 router.get('/logout', protect, logout);
 router.put('/change-password', protect, changePassword);
+router.put('/student-email', protect, updateOwnEmail);
 
 export default router;

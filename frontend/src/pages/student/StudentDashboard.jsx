@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { studentAPI } from '../../services/api';
+import { studentAPI, authAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import {
@@ -28,6 +28,7 @@ import GlassCard from '../../components/GlassCard';
 import ExtendedProfilePromptModal from '../../components/ExtendedProfilePromptModal';
 import ResumePromptModal from '../../components/ResumePromptModal';
 import CgpaUnlockPopup from '../../components/CgpaUnlockPopup';
+import UpdateStudentEmailModal from '../../components/UpdateStudentEmailModal';
 import api from '../../services/api';
 
 // Skeleton component for dashboard loading state
@@ -124,6 +125,7 @@ export default function StudentDashboard() {
   const [loading, setLoading] = useState(true);
   const [showSkeleton, setShowSkeleton] = useState(true);
   const [resending, setResending] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState(null);
   const [showExtendedProfilePrompt, setShowExtendedProfilePrompt] = useState(false);
   const [extendedProfileCompletion, setExtendedProfileCompletion] = useState(100);
@@ -324,6 +326,19 @@ export default function StudentDashboard() {
       {/* CGPA Unlock Popup (one-time, for approved students) */}
       <CgpaUnlockPopup />
 
+      {/* Update Email Modal (self-service email correction) */}
+      {showEmailModal && (
+        <UpdateStudentEmailModal
+          currentEmail={profile.email}
+          onSubmit={async (email) => {
+            const response = await authAPI.updateStudentEmail(email);
+            toast.success(response.data.message, { duration: 7000 });
+            fetchDashboard();
+          }}
+          onClose={() => setShowEmailModal(false)}
+        />
+      )}
+
       {/* Dashboard Header */}
       <motion.div
         variants={fadeUp}
@@ -363,18 +378,28 @@ export default function StudentDashboard() {
                   <div className="flex items-center space-x-2">
                     <Mail size={18} className="text-gray-600" />
                     <span className="text-gray-600 font-medium">
-                      Didn't receive the email?
+                      Didn't receive the email? Wrong address?
                     </span>
                   </div>
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={handleResendVerification}
-                    disabled={resending || !verificationStatus?.can_resend}
-                    className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-bold px-6 py-2.5 rounded-xl shadow-lg hover:shadow-xl hover:from-yellow-600 hover:to-orange-600 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {resending ? 'Sending...' : 'Resend Verification Email'}
-                  </motion.button>
+                  <div className="flex flex-wrap gap-3">
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setShowEmailModal(true)}
+                      className="bg-white border-2 border-orange-400 text-orange-700 font-bold px-6 py-2.5 rounded-xl shadow hover:bg-orange-50 transition-all duration-200"
+                    >
+                      Update Email Address
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={handleResendVerification}
+                      disabled={resending || !verificationStatus?.can_resend}
+                      className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-bold px-6 py-2.5 rounded-xl shadow-lg hover:shadow-xl hover:from-yellow-600 hover:to-orange-600 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {resending ? 'Sending...' : 'Resend Verification Email'}
+                    </motion.button>
+                  </div>
                 </div>
                 {verificationStatus && !verificationStatus.can_resend && (
                   <p className="text-sm text-gray-600 mt-3 bg-white/70 rounded-lg p-2 border border-yellow-200">

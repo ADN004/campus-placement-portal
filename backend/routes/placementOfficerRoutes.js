@@ -65,6 +65,7 @@ import {
   updateOwnCollegeBranches,
   getBranchTemplates,
 } from '../controllers/collegeBranchController.js';
+import { updateStudentEmailByStaff } from '../controllers/studentEmailController.js';
 import { protect, authorize } from '../middleware/auth.js';
 import { exportLimiter } from '../middleware/rateLimiter.js';
 
@@ -87,6 +88,7 @@ router.put('/students/bulk-reject', bulkRejectStudents);
 router.put('/students/:id/approve', approveStudent);
 router.put('/students/:id/reject', rejectStudent);
 router.put('/students/:id/blacklist', blacklistStudent);
+router.put('/students/:id/email', updateStudentEmailByStaff);
 router.post('/students/:id/whitelist-request', requestWhitelist);
 router.get('/branches', getBranchesForNotifications); // Get branches for notifications
 router.post('/send-notification', sendNotification);

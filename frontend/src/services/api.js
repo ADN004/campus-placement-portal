@@ -52,6 +52,7 @@ export const authAPI = {
   verifyEmail: (token) => API.get(`/auth/verify-email/${token}`),
   resendVerification: (email) => API.post('/auth/resend-verification', { email }),
   verifyGoogleEmail: (credential) => API.post('/auth/google-email', { credential }),
+  updateStudentEmail: (email) => API.put('/auth/student-email', { email }),
 };
 
 // Common APIs
@@ -113,6 +114,7 @@ export const placementOfficerAPI = {
   approveStudent: (studentId) => API.put(`/placement-officer/students/${studentId}/approve`),
   rejectStudent: (studentId, reason) => API.put(`/placement-officer/students/${studentId}/reject`, { reason }),
   blacklistStudent: (studentId, reason) => API.put(`/placement-officer/students/${studentId}/blacklist`, { reason }),
+  updateStudentEmail: (studentId, email) => API.put(`/placement-officer/students/${studentId}/email`, { email }),
   requestWhitelist: (studentId, reason) => API.post(`/placement-officer/students/${studentId}/whitelist-request`, { reason }),
   sendNotification: (data) => API.post('/placement-officer/send-notification', data),
   exportStudents: (queryString) => API.get(`/placement-officer/students/export${queryString}`, { responseType: 'blob' }),
@@ -243,6 +245,7 @@ export const superAdminAPI = {
   getAllStudents: (queryString = '') => API.get(`/super-admin/students${queryString ? `?${queryString}` : ''}`),
   searchStudentByPRN: (prn) => API.get(`/super-admin/students/search/${prn}`),
   blacklistStudent: (studentId, reason) => API.put(`/super-admin/students/${studentId}/blacklist`, { reason }),
+  updateStudentEmail: (studentId, email) => API.put(`/super-admin/students/${studentId}/email`, { email }),
   whitelistStudent: (studentId) => API.put(`/super-admin/students/${studentId}/whitelist`),
   deleteStudent: (id) => API.delete(`/super-admin/students/${id}`),
   customExportStudents: (data) => API.post('/super-admin/students/custom-export', data, { responseType: 'blob' }),

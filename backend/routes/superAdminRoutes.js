@@ -113,6 +113,7 @@ import {
   downloadImportTemplate,
   importData,
 } from '../controllers/bulkImportController.js';
+import { updateStudentEmailByStaff } from '../controllers/studentEmailController.js';
 import {
   downloadStudentResumeSA,
   getStudentResumeStatusSA,
@@ -211,6 +212,7 @@ router.post('/students/custom-export', customExportStudents);
 router.post('/students/enhanced-export', enhancedCustomExport);
 router.post('/students/bulk-delete-photos', bulkDeleteStudentPhotos);
 router.put('/students/:id/blacklist', blacklistStudent);
+router.put('/students/:id/email', updateStudentEmailByStaff);
 router.put('/students/:id/whitelist', whitelistStudent);
 router.delete('/students/:id', deleteStudent);
 router.get('/districts', getAvailableDistricts);

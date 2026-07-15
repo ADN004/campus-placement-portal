@@ -2,12 +2,13 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { placementOfficerAPI } from '../../services/api';
 import toast from 'react-hot-toast';
-import { Check, X, Ban, Shield, Eye, Search, Download, Filter, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Users, Settings, XCircle, Lock, Unlock, GraduationCap, FileText } from 'lucide-react';
+import { Check, X, Ban, Shield, Eye, Search, Download, Filter, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Users, Settings, XCircle, Lock, Unlock, GraduationCap, FileText, MailWarning } from 'lucide-react';
 import DashboardHeader from '../../components/DashboardHeader';
 import GlassCard from '../../components/GlassCard';
 import { BRANCH_SHORT_NAMES } from '../../constants/branches';
 import useSkeletonLoading from '../../hooks/useSkeletonLoading';
 import TablePageSkeleton from '../../components/skeletons/TablePageSkeleton';
+import UpdateStudentEmailModal from '../../components/UpdateStudentEmailModal';
 import AnimatedSection from '../../components/animation/AnimatedSection';
 
 export default function ManageStudents() {
@@ -64,6 +65,7 @@ export default function ManageStudents() {
   // Modals
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showBlacklistModal, setShowBlacklistModal] = useState(false);
+  const [emailFixStudent, setEmailFixStudent] = useState(null);
   const [showWhitelistModal, setShowWhitelistModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [blacklistReason, setBlacklistReason] = useState('');
@@ -1665,6 +1667,21 @@ export default function ManageStudents() {
                                 <Eye size={24} />
                               </button>
                               <button
+                                onClick={() => setEmailFixStudent(student)}
+                                className={`transform hover:scale-125 transition-all ${
+                                  student.email_verified
+                                    ? 'text-gray-400 hover:text-gray-600'
+                                    : 'text-amber-500 hover:text-amber-700'
+                                }`}
+                                title={
+                                  student.email_verified
+                                    ? 'Update email'
+                                    : 'Email NOT verified — fix email & resend link'
+                                }
+                              >
+                                <MailWarning size={24} />
+                              </button>
+                              <button
                                 onClick={() => handleBlacklist(student)}
                                 className="text-red-600 hover:text-red-800 transform hover:scale-125 transition-all"
                                 title="Blacklist"
@@ -1904,6 +1921,19 @@ export default function ManageStudents() {
       )}
 
       {/* Blacklist Modal */}
+      {emailFixStudent && (
+        <UpdateStudentEmailModal
+          currentEmail={emailFixStudent.email}
+          studentName={`${emailFixStudent.name || emailFixStudent.student_name || ''} (PRN ${emailFixStudent.prn})`}
+          onSubmit={async (email) => {
+            const response = await placementOfficerAPI.updateStudentEmail(emailFixStudent.id, email);
+            toast.success(response.data.message, { duration: 7000 });
+            fetchStudents();
+          }}
+          onClose={() => setEmailFixStudent(null)}
+        />
+      )}
+
       {showBlacklistModal && selectedStudent && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <GlassCard variant="elevated" className="p-8 w-full max-w-md">

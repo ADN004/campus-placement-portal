@@ -563,16 +563,22 @@ export default function StudentRegisterPage() {
                             Email selected from Google account
                             <button
                               type="button"
-                              onClick={() => setGoogleEmail(null)}
+                              onClick={() => {
+                                // Back to the chooser: pick another Google
+                                // account or switch to manual entry
+                                setGoogleEmail(null);
+                                setManualEmail(false);
+                                setFormData((prev) => ({ ...prev, email: '' }));
+                              }}
                               className="underline font-medium hover:text-emerald-900"
                             >
-                              change
+                              Change
                             </button>
                           </p>
                         ) : (
                           <p id="email-hint" className="text-xs text-gray-500 mt-1">
                             {hideEmailInput
-                              ? 'Pick your Google account — fastest and typo-proof. Your verification link will be sent to this email.'
+                              ? 'Your verification link will be sent to this email.'
                               : 'Please ensure this is your active email — your verification link will be sent here.'}
                           </p>
                         )}
@@ -589,7 +595,7 @@ export default function StudentRegisterPage() {
                                 onClick={() => setManualEmail(true)}
                                 className="text-xs text-gray-500 underline mt-2 hover:text-gray-700"
                               >
-                                type my email manually instead
+                                Type my email manually instead
                               </button>
                             )}
                           </>

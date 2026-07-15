@@ -628,3 +628,10 @@
     opacity: 1;
   }
 }
+
+/* Hide the browser's built-in password reveal/clear buttons (Edge injects
+   them into every password input) — the app ships its own eye toggle. */
+input[type='password']::-ms-reveal,
+input[type='password']::-ms-clear {
+  display: none;
+}

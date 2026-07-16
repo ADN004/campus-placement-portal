@@ -5,7 +5,7 @@
  */
 
 import express from 'express';
-import { protect, authorize } from '../middleware/auth.js';
+import { protect, authorize, checkStudentApproval } from '../middleware/auth.js';
 import {
   checkApplicationReadiness,
   submitEnhancedApplication,
@@ -14,9 +14,12 @@ import {
 
 const router = express.Router();
 
-// All routes require authentication and student role
+// All routes require authentication and an approved, non-blacklisted student.
+// apply-enhanced is the endpoint that actually creates the application row, so
+// the status gate belongs here — not only on the legacy /students/apply route.
 router.use(protect);
 router.use(authorize('student'));
+router.use(checkStudentApproval);
 
 /**
  * @route   POST /api/students/jobs/:jobId/check-readiness

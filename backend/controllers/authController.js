@@ -53,7 +53,6 @@ export const login = async (req, res) => {
     }
 
     let user = null;
-    let isStudent = false;
 
     // Check if input is numeric (could be PRN or phone number)
     const isNumeric = /^\d+$/.test(email);
@@ -69,27 +68,6 @@ export const login = async (req, res) => {
       );
 
       if (studentResult.rows.length > 0) {
-        isStudent = true;
-
-        // Rejected: tell the truth (with the reason) and point to re-registration
-        if (studentResult.rows[0].registration_status === 'rejected') {
-          const reason = studentResult.rows[0].rejection_reason;
-          return res.status(401).json({
-            success: false,
-            message: `Your registration was rejected by your placement officer${
-              reason ? `: "${reason}"` : ''
-            }. Please register again with the corrected details — your PRN will be accepted.`,
-          });
-        }
-
-        // Check if student is approved
-        if (studentResult.rows[0].registration_status !== 'approved') {
-          return res.status(401).json({
-            success: false,
-            message: 'Your registration is pending approval from your placement officer',
-          });
-        }
-
         user = studentResult.rows[0];
       } else {
         // Not a student PRN, try as phone number for PO/Admin
@@ -120,6 +98,45 @@ export const login = async (req, res) => {
         success: false,
         message: 'Invalid credentials',
       });
+    }
+
+    // A student's registration status gates login no matter which identifier
+    // they signed in with — checking only on the PRN path would let pending
+    // and rejected students in by typing their email instead.
+    if (user.role === 'student') {
+      let status = user.registration_status;
+      let reason = user.rejection_reason;
+      if (status === undefined) {
+        const statusResult = await query(
+          'SELECT registration_status, rejection_reason FROM students WHERE user_id = $1',
+          [user.id]
+        );
+        if (statusResult.rows.length === 0) {
+          return res.status(401).json({
+            success: false,
+            message: 'Invalid credentials',
+          });
+        }
+        status = statusResult.rows[0].registration_status;
+        reason = statusResult.rows[0].rejection_reason;
+      }
+
+      // Rejected: tell the truth (with the reason) and point to re-registration
+      if (status === 'rejected') {
+        return res.status(401).json({
+          success: false,
+          message: `Your registration was rejected by your placement officer${
+            reason ? `: "${reason}"` : ''
+          }. Please register again with the corrected details — your PRN will be accepted.`,
+        });
+      }
+
+      if (status !== 'approved') {
+        return res.status(401).json({
+          success: false,
+          message: 'Your registration is pending approval from your placement officer',
+        });
+      }
     }
 
     // Check if user is active
@@ -160,10 +177,10 @@ export const login = async (req, res) => {
     // Send token response
     sendTokenResponse(user, 200, res, 'Login successful');
   } catch (error) {
+    console.error('Login error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error logging in',
-      error: error.message,
+      message: 'Something went wrong on our side while logging you in. Please try again in a moment.',
     });
   }
 };

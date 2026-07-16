@@ -55,6 +55,11 @@ const fieldDisplayNames = {
   blacklist_reason: 'Blacklist Reason',
 };
 
+// A4 landscape fits only so many readable columns — beyond this the font
+// floor (7pt) and per-column minimum width make rows overflow and truncate.
+// Excel has no such physical limit, so callers should suggest it instead.
+export const MAX_PDF_EXPORT_FIELDS = 12;
+
 // Default fields when none selected (for simple exports)
 const DEFAULT_FIELDS = [
   'prn',
@@ -163,23 +168,16 @@ const calculateColumnWidths = (fields, pageWidth, hasSignature, hasSlNo, useShor
   if (hasSlNo) widths.sl_no = slNoWidth;
 
   if (Object.keys(contentWeights).length > 0) {
-    // Content-based sizing
-    let totalContentWidth = Object.values(contentWeights).reduce((sum, w) => sum + w, 0);
-
-    // Scale to fit available width if necessary
-    if (totalContentWidth > availableWidth) {
-      const scaleFactor = availableWidth / totalContentWidth;
-      fields.forEach(field => {
-        widths[field] = Math.max(minWidthPerColumn, contentWeights[field] * scaleFactor);
-      });
-    } else {
-      // Distribute extra space proportionally
-      const extraSpace = availableWidth - totalContentWidth;
-      const spacePerField = extraSpace / fields.length;
-      fields.forEach(field => {
-        widths[field] = Math.max(minWidthPerColumn, contentWeights[field] + spacePerField);
-      });
-    }
+    // Content-based sizing: scale every column by the same factor so both
+    // shrinking (too wide) and growing (spare width) stay proportional to
+    // what the column actually holds. Handing spare width out equally used
+    // to leave short columns (e.g. Blacklisted: "No") padded with dead
+    // space that long columns (names, addresses) needed.
+    const totalContentWidth = Object.values(contentWeights).reduce((sum, w) => sum + w, 0);
+    const scaleFactor = availableWidth / totalContentWidth;
+    fields.forEach(field => {
+      widths[field] = Math.max(minWidthPerColumn, contentWeights[field] * scaleFactor);
+    });
   } else {
     // Weight-based sizing (fallback)
     let totalWeight = fields.reduce((sum, field) => {
@@ -874,15 +872,21 @@ export const generateStudentPDF = async (students, options, res) => {
 
     // Draw student rows
     students.forEach((student, index) => {
-      // Check if college has changed (for separate colleges feature)
-      if (separateColleges && student.college_name && student.college_name !== currentCollege) {
+      // Check if college has changed (for separate colleges feature).
+      // Fall back to the export-wide college name (or a generic banner) so
+      // the first page always gets its section banner + table headers even
+      // when college_name is missing from the row data.
+      const studentCollege = separateColleges
+        ? (student.college_name || collegeName || 'STUDENT LIST')
+        : null;
+      if (separateColleges && studentCollege !== currentCollege) {
         // Start new page for new college (except for first college)
         if (currentCollege !== null) {
           doc.addPage();
           currentY = 50;
         }
 
-        currentCollege = student.college_name;
+        currentCollege = studentCollege;
 
         // Calculate table width
         const tableWidth = Object.values(columnWidths).reduce((sum, w) => sum + w, 0);

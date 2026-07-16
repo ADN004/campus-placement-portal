@@ -2,7 +2,7 @@ import { query, getClient } from '../config/database.js';
 import { uploadImage, deleteImage, deleteMultipleImages, deleteFolderOnly, extractFolderPath } from '../config/cloudinary.js';
 import logActivity from '../middleware/activityLogger.js';
 import ExcelJS from 'exceljs';
-import { generateStudentPDF, generatePlacementPosterPDF } from '../utils/pdfGenerator.js';
+import { generateStudentPDF, generatePlacementPosterPDF, MAX_PDF_EXPORT_FIELDS } from '../utils/pdfGenerator.js';
 import { BRANCH_SHORT_NAMES } from '../constants/branches.js';
 import {
   sendDriveScheduleEmail,
@@ -452,6 +452,13 @@ export const enhancedCustomExport = async (req, res) => {
       });
     }
 
+    if (format === 'pdf' && fields.length > MAX_PDF_EXPORT_FIELDS) {
+      return res.status(400).json({
+        success: false,
+        message: `PDF export fits at most ${MAX_PDF_EXPORT_FIELDS} columns readably — deselect some fields or switch to Excel, which has no limit`,
+      });
+    }
+
     // Define available fields mapping
     const fieldMapping = {
       prn: 's.prn',
@@ -472,12 +479,15 @@ export const enhancedCustomExport = async (req, res) => {
       cgpa_sem5: 's.cgpa_sem5',
       cgpa_sem6: 's.cgpa_sem6',
       backlog_count: 's.backlog_count',
+      backlog_details: 's.backlog_details',
       complete_address: 's.complete_address',
       has_driving_license: 's.has_driving_license',
       has_pan_card: 's.has_pan_card',
       college_name: 'c.college_name',
       region_name: 'r.region_name',
       district: 'ep.district',
+      registration_status: 's.registration_status',
+      is_blacklisted: 's.is_blacklisted',
     };
 
     // Add photo URL if requested
@@ -502,6 +512,13 @@ export const enhancedCustomExport = async (req, res) => {
     if (include_photo_url && fieldMapping.photo_url) {
       selectFields.push(`${fieldMapping.photo_url} AS photo_url`);
       columnHeaders.photo_url = 'Photo URL';
+    }
+
+    // college_name is always fetched: the PDF's separate-colleges grouping
+    // draws each college's banner + table headers only when it can read
+    // student.college_name, even if it isn't one of the exported columns
+    if (!fields.includes('college_name')) {
+      selectFields.push('c.college_name AS college_name');
     }
 
     // Build query
@@ -721,13 +738,21 @@ export const enhancedCustomExport = async (req, res) => {
 
     worksheet.columns = columns;
 
-    // Process students data to use short names if requested
-    const processedStudents = use_short_names === true
-      ? students.map(student => ({
-          ...student,
-          branch: student.branch ? (BRANCH_SHORT_NAMES[student.branch] || student.branch) : student.branch
-        }))
-      : students;
+    // Excel-friendly rows: short branch names on request, booleans as
+    // Yes/No, DOB as a plain date instead of a raw timestamp
+    const processedStudents = students.map(student => {
+      const row = { ...student };
+      if (use_short_names === true && row.branch) {
+        row.branch = BRANCH_SHORT_NAMES[row.branch] || row.branch;
+      }
+      for (const key of ['has_driving_license', 'has_pan_card', 'is_blacklisted']) {
+        if (typeof row[key] === 'boolean') row[key] = row[key] ? 'Yes' : 'No';
+      }
+      if (row.date_of_birth) {
+        row.date_of_birth = new Date(row.date_of_birth).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' });
+      }
+      return row;
+    });
 
     // Add rows
     worksheet.addRows(processedStudents);

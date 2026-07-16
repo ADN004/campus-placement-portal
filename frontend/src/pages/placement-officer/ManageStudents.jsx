@@ -352,13 +352,15 @@ export default function ManageStudents() {
   };
 
   const handleApprove = async (studentId) => {
-    if (!window.confirm('Are you sure you want to approve this student?')) return;
+    if (!window.confirm('Are you sure you want to approve this student?')) return false;
     try {
       await placementOfficerAPI.approveStudent(studentId);
       toast.success('Student approved successfully');
       fetchStudents();
+      return true;
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to approve student');
+      return false;
     }
   };
 
@@ -367,13 +369,15 @@ export default function ManageStudents() {
       'Reason for rejection (optional — shown to the student so they can fix it and re-register):',
       ''
     );
-    if (reason === null) return; // Cancel pressed — abort; empty is allowed
+    if (reason === null) return false; // Cancel pressed — abort; empty is allowed
     try {
       await placementOfficerAPI.rejectStudent(studentId, reason.trim() || undefined);
       toast.success('Student rejected');
       fetchStudents();
+      return true;
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to reject student');
+      return false;
     }
   };
 
@@ -1647,6 +1651,15 @@ export default function ManageStudents() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex space-x-2">
+                          {/* Review is available for EVERY status — approving or
+                              rejecting without seeing the details makes no sense */}
+                          <button
+                            onClick={() => openDetailsModal(student)}
+                            className="text-blue-600 hover:text-blue-800 transform hover:scale-125 transition-all"
+                            title="Review Details"
+                          >
+                            <Eye size={24} />
+                          </button>
                           {student.registration_status === 'pending' && !student.is_blacklisted && (
                             <>
                               <button
@@ -1667,13 +1680,6 @@ export default function ManageStudents() {
                           )}
                           {student.registration_status === 'approved' && !student.is_blacklisted && (
                             <>
-                              <button
-                                onClick={() => openDetailsModal(student)}
-                                className="text-blue-600 hover:text-blue-800 transform hover:scale-125 transition-all"
-                                title="View Details"
-                              >
-                                <Eye size={24} />
-                              </button>
                               <button
                                 onClick={() => setEmailFixStudent(student)}
                                 className={`transform hover:scale-125 transition-all ${
@@ -1916,7 +1922,28 @@ export default function ManageStudents() {
                 </div>
               </div>
             </div>
-            <div className="mt-8 flex justify-end">
+            <div className="mt-8 flex justify-end gap-3 flex-wrap">
+              {/* Decide right where you reviewed: approve/reject from the modal */}
+              {selectedStudent.registration_status === 'pending' && !selectedStudent.is_blacklisted && (
+                <>
+                  <button
+                    onClick={async () => {
+                      if (await handleReject(selectedStudent.id)) setShowDetailsModal(false);
+                    }}
+                    className="bg-red-600 text-white font-bold px-8 py-4 rounded-xl hover:bg-red-700 transition-all transform hover:scale-105"
+                  >
+                    ✕ Reject
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (await handleApprove(selectedStudent.id)) setShowDetailsModal(false);
+                    }}
+                    className="bg-green-600 text-white font-bold px-8 py-4 rounded-xl hover:bg-green-700 transition-all transform hover:scale-105"
+                  >
+                    ✓ Approve
+                  </button>
+                </>
+              )}
               <button
                 onClick={() => setShowDetailsModal(false)}
                 className="bg-gray-200 text-gray-700 font-bold px-8 py-4 rounded-xl hover:bg-gray-300 transition-all transform hover:scale-105"

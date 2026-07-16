@@ -490,7 +490,9 @@ staging-refresh-from-prod: staging-guard-live ## Overwrite staging DB with a fre
 	cat backups/prod_for_staging_$$TS.sql | $(STAGING_COMPOSE) exec -T postgres psql -U postgres -d $(STAGING_DB_NAME) -q || exit 1; \
 	echo "    Removing temporary production dump (rollback backup staging_pre_refresh_$$TS.sql is kept)..."; \
 	rm -f backups/prod_for_staging_$$TS.sql
-	@echo "5/5 Sanitizing staging credentials..."
+	@echo "5/6 Applying pending migrations (the restored prod schema may be behind staging's code)..."
+	@$(MAKE) --no-print-directory staging-migrate
+	@echo "6/6 Sanitizing staging credentials..."
 	@$(MAKE) --no-print-directory staging-db-sanitize
 	@$(MAKE) --no-print-directory staging-set-mode MODE=prod-clone REFRESHED=1
 	@echo ""

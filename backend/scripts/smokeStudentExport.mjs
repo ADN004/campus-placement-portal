@@ -78,12 +78,12 @@ const main = async () => {
   // quotes, ™). Restored in finally.
   const detailStudent = (
     await pool.query(
-      `SELECT id, backlog_details FROM students
+      `SELECT id, prn, backlog_details FROM students
        WHERE registration_status = 'approved' AND is_blacklisted = FALSE LIMIT 1`
     )
   ).rows[0];
   await pool.query('UPDATE students SET backlog_details = $1 WHERE id = $2',
-    ['• Math’s “Lab”\nLine2™', detailStudent.id]);
+    ['• Math’s “Lab”\nLine2™\n' + 'Subject Name, '.repeat(40) + 'ENDMARKER', detailStudent.id]);
 
   try {
     let res = await fetch(`${BASE}/auth/login`, {
@@ -211,6 +211,10 @@ const main = async () => {
       `not found in extracted text`);
     check('no raw bullet/curly quote survives into the PDF',
       !flatPdfText.includes('•') && !flatPdfText.includes('“') && !flatPdfText.includes('’'));
+    check('overlong details are truncated with "..." (never wrap past the row)',
+      !flatPdfText.includes('ENDMARKER') && flatPdfText.includes('...'));
+    check('full PRN survives on one line (rigid column never squeezed)',
+      flatPdfText.includes(detailStudent.prn), `PRN ${detailStudent.prn} split or missing`);
 
     const expectedTitle = expectedColleges.length > 1
       ? 'ALL COLLEGES'

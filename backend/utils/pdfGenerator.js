@@ -183,16 +183,32 @@ const calculateColumnWidths = (fields, pageWidth, hasSignature, hasSlNo, useShor
   if (hasSlNo) widths.sl_no = slNoWidth;
 
   if (Object.keys(contentWeights).length > 0) {
-    // Content-based sizing: scale every column by the same factor so both
-    // shrinking (too wide) and growing (spare width) stay proportional to
-    // what the column actually holds. Handing spare width out equally used
-    // to leave short columns (e.g. Blacklisted: "No") padded with dead
-    // space that long columns (names, addresses) needed.
-    const totalContentWidth = Object.values(contentWeights).reduce((sum, w) => sum + w, 0);
-    const scaleFactor = availableWidth / totalContentWidth;
-    fields.forEach(field => {
-      widths[field] = Math.max(minWidthPerColumn, contentWeights[field] * scaleFactor);
-    });
+    // Columns whose full content is narrow (PRNs, CGPAs, Yes/No, ages) are
+    // RIGID: they keep exactly the width their content needs and must never
+    // be squeezed — a PRN that wraps its last digit is unusable. Only the
+    // long-text columns (names, backlog details, addresses) are flexible
+    // and share whatever width remains, proportionally to their content.
+    const RIGID_MAX_WIDTH = 90;
+    const rigid = fields.filter(f => contentWeights[f] <= RIGID_MAX_WIDTH);
+    const flexible = fields.filter(f => contentWeights[f] > RIGID_MAX_WIDTH);
+    const rigidTotal = rigid.reduce((sum, f) => sum + contentWeights[f], 0);
+    const flexTotal = flexible.reduce((sum, f) => sum + contentWeights[f], 0);
+    const flexAvailable = availableWidth - rigidTotal;
+
+    if (flexible.length === 0 || flexAvailable < flexible.length * minWidthPerColumn) {
+      // Degenerate case (almost everything rigid, or no room left):
+      // fall back to plain proportional scaling for every column
+      const scaleFactor = availableWidth / (rigidTotal + flexTotal);
+      fields.forEach(field => {
+        widths[field] = Math.max(minWidthPerColumn, contentWeights[field] * scaleFactor);
+      });
+    } else {
+      rigid.forEach(field => { widths[field] = contentWeights[field]; });
+      const scaleFactor = flexAvailable / flexTotal;
+      flexible.forEach(field => {
+        widths[field] = Math.max(minWidthPerColumn, contentWeights[field] * scaleFactor);
+      });
+    }
   } else {
     // Weight-based sizing (fallback)
     let totalWeight = fields.reduce((sum, field) => {
@@ -497,17 +513,28 @@ const drawTableRow = (doc, student, fields, columnWidths, hasSignature, hasSlNo,
 
     value = sanitizeCellText(value) || '-';
 
+    // One row is ONE line — enforced by measuring, not by PDFKit flags:
+    // once `ellipsis` is set PDFKit wraps to the cell width even with
+    // lineBreak:false, overflowing the fixed row height and bleeding
+    // across rows/pages. Truncate manually until the text physically fits.
+    const maxTextWidth = columnWidths[field] - 4;
+    if (doc.widthOfString(value) > maxTextWidth) {
+      let keep = value.length;
+      while (keep > 1 && doc.widthOfString(value.slice(0, keep) + '...') > maxTextWidth) {
+        keep = Math.floor(keep * 0.9);
+      }
+      value = value.slice(0, keep).trimEnd() + '...';
+    }
+
     // Determine alignment - center for numeric fields and short branch names
     const shouldCenterAlign = field === 'programme_cgpa' || field.includes('cgpa') ||
                               field === 'age' || field === 'backlog_count' ||
                               (field === 'branch' && useShortNames);
 
-    // Better text fitting - use PDFKit's built-in ellipsis without pre-truncation
     doc.text(value, currentX + 2, startY + 8, {
       width: columnWidths[field] - 4,
       align: shouldCenterAlign ? 'center' : 'left',
-      lineBreak: false,
-      ellipsis: true
+      lineBreak: false
     });
     currentX += columnWidths[field];
   });

@@ -60,6 +60,21 @@ const fieldDisplayNames = {
 // Excel has no such physical limit, so callers should suggest it instead.
 export const MAX_PDF_EXPORT_FIELDS = 12;
 
+// Table cells must hold ONE line of WinAnsi-safe text. Students paste
+// multi-line subject lists and phone-keyboard punctuation (curly quotes,
+// bullets, ™): explicit newlines ignore lineBreak:false and flood past the
+// fixed 25pt row height across whole pages, and characters outside the
+// built-in Helvetica encoding render as garbage glyphs.
+const sanitizeCellText = (text) => String(text)
+  .replace(/[‘’‚′]/g, "'")
+  .replace(/[“”„″]/g, '"')
+  .replace(/[–—―]/g, '-')
+  .replace(/[•●▪·⁃]/g, '-')
+  .replace(/…/g, '...')
+  .replace(/[^\x20-\x7EÀ-ÿ]/g, ' ')
+  .replace(/\s+/g, ' ')
+  .trim();
+
 // Default fields when none selected (for simple exports)
 const DEFAULT_FIELDS = [
   'prn',
@@ -154,7 +169,7 @@ const calculateColumnWidths = (fields, pageWidth, hasSignature, hasSlNo, useShor
         } else {
           value = String(value);
         }
-        maxLength = Math.max(maxLength, value.length);
+        maxLength = Math.max(maxLength, sanitizeCellText(value).length);
       });
 
       // Estimate width based on character count (approximate 6 pixels per character)
@@ -238,7 +253,7 @@ const drawHeader = (doc, options) => {
     doc.fontSize(16)
        .font('Helvetica-Bold')
        .fillColor('black')
-       .text(collegeName.toUpperCase(), 0, currentY, {
+       .text(sanitizeCellText(collegeName).toUpperCase(), 0, currentY, {
          width: pageWidth,
          align: 'center',
          lineBreak: false
@@ -311,7 +326,7 @@ const drawCollegeRow = (doc, collegeName, tableWidth, startX, startY) => {
   doc.fontSize(16)
      .font('Helvetica-Bold')
      .fillColor('#1F2937')
-     .text(collegeName.toUpperCase(), startX, startY + 13, {
+     .text(sanitizeCellText(collegeName).toUpperCase(), startX, startY + 13, {
        width: tableWidth,
        align: 'center',
        lineBreak: false
@@ -479,6 +494,8 @@ const drawTableRow = (doc, student, fields, columnWidths, hasSignature, hasSlNo,
     } else {
       value = String(value);
     }
+
+    value = sanitizeCellText(value) || '-';
 
     // Determine alignment - center for numeric fields and short branch names
     const shouldCenterAlign = field === 'programme_cgpa' || field.includes('cgpa') ||

@@ -48,7 +48,8 @@ const extractPdfText = (buf) => {
     try {
       raw += zlib.inflateSync(buf.subarray(start, end)).toString('latin1');
     } catch { /* not a Flate stream (font/image) — skip */ }
-    idx = end;
+    // resume past 'endstream' — its tail spells 'stream' and would misalign the scan
+    idx = end + 'endstream'.length;
   }
   let text = '';
   for (const [, arr] of raw.matchAll(/\[((?:<[0-9a-fA-F]+>|-?[\d.]+|\s)+)\]\s*TJ/g)) {
@@ -71,6 +72,18 @@ const main = async () => {
 
   const hash = await bcrypt.hash('smoke-export-pass', 10);
   await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, admin.id]);
+
+  // Borrow one student row and plant the kind of backlog_details that broke
+  // production PDFs: newlines + phone-keyboard punctuation (bullet, curly
+  // quotes, ™). Restored in finally.
+  const detailStudent = (
+    await pool.query(
+      `SELECT id, backlog_details FROM students
+       WHERE registration_status = 'approved' AND is_blacklisted = FALSE LIMIT 1`
+    )
+  ).rows[0];
+  await pool.query('UPDATE students SET backlog_details = $1 WHERE id = $2',
+    ['• Math’s “Lab”\nLine2™', detailStudent.id]);
 
   try {
     let res = await fetch(`${BASE}/auth/login`, {
@@ -185,10 +198,31 @@ const main = async () => {
       `status=${res.status} msg="${capBody.message}"`);
 
     check('Excel with 26 fields NOT capped (no limit on Excel)', allHeaders.length === 26);
+
+    // --- Cell sanitization + honest title (all colleges, no separation) ---
+    res = await fetch(`${BASE}/super-admin/students/enhanced-export`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fields: ['prn', 'student_name', 'backlog_details'], format: 'pdf' }),
+    });
+    const flatPdfText = extractPdfText(Buffer.from(await res.arrayBuffer()));
+    check('multi-line/smart-punctuation details render as ONE sanitized line',
+      flatPdfText.includes(`- Math's "Lab" Line2`),
+      `not found in extracted text`);
+    check('no raw bullet/curly quote survives into the PDF',
+      !flatPdfText.includes('•') && !flatPdfText.includes('“') && !flatPdfText.includes('’'));
+
+    const expectedTitle = expectedColleges.length > 1
+      ? 'ALL COLLEGES'
+      : (expectedColleges[0] || '').toUpperCase();
+    check(`title is honest ("${expectedTitle}", not the first row's college)`,
+      flatPdfText.includes(expectedTitle));
   } finally {
     await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [admin.password_hash, admin.id]);
+    await pool.query('UPDATE students SET backlog_details = $1 WHERE id = $2',
+      [detailStudent.backlog_details, detailStudent.id]);
   }
-  check('super admin password restored', true);
+  check('borrowed admin + student rows fully restored', true);
 
   console.log(`\n${pass} passed, ${fail} failed`);
   await pool.end();

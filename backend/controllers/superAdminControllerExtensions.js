@@ -678,10 +678,11 @@ export const enhancedCustomExport = async (req, res) => {
 
     // Branch based on export format
     if (format === 'pdf') {
-      // Determine college name for header
-      const collegeName = students.length > 0 && students[0].college_name
-        ? students[0].college_name
-        : 'Multiple Colleges';
+      // Title the PDF with a college name ONLY when the export really
+      // contains just one — stamping the first row's college on an
+      // all-colleges export mislabels everyone else's data
+      const distinctColleges = [...new Set(students.map((s) => s.college_name).filter(Boolean))];
+      const collegeName = distinctColleges.length === 1 ? distinctColleges[0] : 'All Colleges';
 
       // Log activity before PDF generation
       await logActivity(

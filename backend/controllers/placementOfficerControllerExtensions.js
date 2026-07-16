@@ -2,7 +2,7 @@ import { query, getClient } from '../config/database.js';
 import { uploadImage, deleteImage, deleteFolderOnly, extractFolderPath } from '../config/cloudinary.js';
 import logActivity from '../middleware/activityLogger.js';
 import ExcelJS from 'exceljs';
-import { generateStudentPDF, generatePlacementPosterPDF } from '../utils/pdfGenerator.js';
+import { generateStudentPDF, generatePlacementPosterPDF, MAX_PDF_EXPORT_FIELDS } from '../utils/pdfGenerator.js';
 import { BRANCH_SHORT_NAMES } from '../constants/branches.js';
 import {
   sendDriveScheduleEmail,
@@ -305,6 +305,13 @@ export const customExportStudents = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Please select at least one field to export',
+      });
+    }
+
+    if (format === 'pdf' && fields.length > MAX_PDF_EXPORT_FIELDS) {
+      return res.status(400).json({
+        success: false,
+        message: `PDF export fits at most ${MAX_PDF_EXPORT_FIELDS} columns readably — deselect some fields or switch to Excel, which has no limit`,
       });
     }
 

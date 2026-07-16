@@ -586,6 +586,12 @@ export default function ManageStudents() {
       return;
     }
 
+    // A4 landscape fits at most 12 readable columns (backend enforces too)
+    if (exportFormat === 'pdf' && exportFields.length > 12) {
+      toast.error('PDF fits at most 12 columns readably — deselect some fields or switch to Excel, which has no limit');
+      return;
+    }
+
     setProcessing(true);
     try {
       const payload = {
@@ -2274,8 +2280,9 @@ export default function ManageStudents() {
                     </label>
                   ))}
                 </div>
-                <p className="text-xs text-gray-400 mt-1">
+                <p className={`text-xs mt-1 ${exportFormat === 'pdf' && exportFields.length > 12 ? 'text-red-500 font-semibold' : 'text-gray-400'}`}>
                   {exportFields.length} field(s) selected
+                  {exportFormat === 'pdf' && ' — PDF fits up to 12 columns; use Excel for more'}
                 </p>
               </div>
 

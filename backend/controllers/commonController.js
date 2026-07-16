@@ -101,7 +101,9 @@ export const getColleges = async (req, res) => {
 // @access  Public
 export const validatePRN = async (req, res) => {
   try {
-    const { prn } = req.body;
+    // Trimmed exactly like registerStudent, so the live pre-check and the
+    // actual registration always agree on the same PRN value
+    const prn = typeof req.body.prn === 'string' ? req.body.prn.trim() : req.body.prn;
 
     if (!prn) {
       return res.status(400).json({

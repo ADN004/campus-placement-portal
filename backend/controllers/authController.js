@@ -397,7 +397,7 @@ export const changePassword = async (req, res) => {
  */
 export const registerStudent = async (req, res) => {
   try {
-    const {
+    let {
       prn,
       student_name,
       branch,
@@ -429,6 +429,15 @@ export const registerStudent = async (req, res) => {
       backlogs_sem6,
       backlog_details,
     } = req.body;
+
+    // Identity fields must never carry copy-paste whitespace: a PRN with a
+    // trailing space passes the numeric range checks (parseInt ignores it)
+    // but breaks the Cloudinary folder path — and if stored, the student
+    // could never log in by PRN again.
+    if (typeof prn === 'string') prn = prn.trim();
+    if (typeof student_name === 'string') student_name = student_name.trim();
+    if (typeof email === 'string') email = email.trim();
+    if (typeof mobile_number === 'string') mobile_number = mobile_number.trim();
 
     // Auto-compute backlog_count from per-semester values
     const backlog_count = (parseInt(backlogs_sem1) || 0) + (parseInt(backlogs_sem2) || 0) +

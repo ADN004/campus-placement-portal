@@ -148,13 +148,19 @@ const calculateColumnWidths = (fields, pageWidth, hasSignature, hasSlNo, useShor
   // Calculate content-based weights if we have student data
   const contentWeights = {};
   if (students && students.length > 0) {
-    fields.forEach(field => {
-      // Sample up to 50 students for performance
-      const sampleSize = Math.min(50, students.length);
-      const sample = students.slice(0, sampleSize);
+    // Measure at the font size the rows will actually render with — a
+    // fixed 6px/char estimate pads 7pt tables with dead space that the
+    // name/email columns desperately need
+    const rowFontSize = numFields > 12 ? 7 : (numFields > 8 ? 8 : 9);
+    const charWidth = rowFontSize * 0.62;
 
-      // Calculate average content length
-      let maxLength = (fieldDisplayNames[field] || field).length; // Start with header length
+    // Sample spread across the WHOLE dataset: the first rows alone would
+    // size College by "GPC Koratty" and truncate "MPC (IHRD) Kuzhalmannam"
+    const sampleStep = Math.max(1, Math.floor(students.length / 60));
+    const sample = students.filter((_, i) => i % sampleStep === 0);
+
+    fields.forEach(field => {
+      let maxLength = 1;
       sample.forEach(student => {
         let value = student[field];
         // Format value the same way it will be displayed
@@ -172,9 +178,18 @@ const calculateColumnWidths = (fields, pageWidth, hasSignature, hasSlNo, useShor
         maxLength = Math.max(maxLength, sanitizeCellText(value).length);
       });
 
-      // Estimate width based on character count (approximate 6 pixels per character)
-      const estimatedWidth = maxLength * 6;
-      contentWeights[field] = Math.min(maxWidthPerColumn, Math.max(minWidthPerColumn, estimatedWidth));
+      // Headers wrap between words inside the header row ("Sem 1" over
+      // "CGPA"), so a column only needs its longest single header WORD —
+      // sizing by the full header title is what starved the name columns
+      const headerWordWidth = Math.max(
+        ...(fieldDisplayNames[field] || field).split(/\s+/).map(w => w.length)
+      ) * charWidth * 1.1;
+
+      const contentWidth = maxLength * charWidth;
+      contentWeights[field] = Math.min(
+        maxWidthPerColumn,
+        Math.max(26, headerWordWidth, contentWidth) + 8
+      );
     });
   }
 

@@ -1042,33 +1042,32 @@ const validatePRN = async (prn) => {
       return { valid: false, message: 'No active PRN ranges found' };
     }
 
+    // Exceptions act as a BLOCKLIST: a PRN excepted in ANY active range is
+    // refused outright — no overlapping range or single-PRN entry can
+    // override it. The only way to re-allow it is to remove it from the
+    // range's exceptions.
+    if (ranges.some((r) => Array.isArray(r.excepted_prns) && r.excepted_prns.includes(prn))) {
+      return {
+        valid: false,
+        message: 'This PRN has been excluded from registration by the placement cell. Please contact your placement officer.',
+      };
+    }
+
     // Check single PRNs
     const singlePRNs = ranges.filter((r) => r.single_prn !== null);
     if (singlePRNs.some((r) => r.single_prn === prn)) {
       return { valid: true };
     }
 
-    // Check PRN ranges. A PRN listed in a range's exceptions is excluded
-    // from THAT range only — another (overlapping) range or an explicit
-    // single-PRN entry can still allow it.
-    let excludedByException = false;
+    // Check PRN ranges
     const rangesPRNs = ranges.filter((r) => r.range_start !== null);
     for (const range of rangesPRNs) {
       if (isPRNInRange(prn, range.range_start, range.range_end)) {
-        if (Array.isArray(range.excepted_prns) && range.excepted_prns.includes(prn)) {
-          excludedByException = true;
-          continue;
-        }
         return { valid: true };
       }
     }
 
-    return {
-      valid: false,
-      message: excludedByException
-        ? 'This PRN has been excluded from registration by the placement cell. Please contact your placement officer.'
-        : 'PRN is not in the valid range for registration',
-    };
+    return { valid: false, message: 'PRN is not in the valid range for registration' };
   } catch (error) {
     return { valid: false, message: 'Error validating PRN' };
   }

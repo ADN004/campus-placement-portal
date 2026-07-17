@@ -156,32 +156,35 @@ export const validatePRN = async (req, res) => {
       previous_rejected: previousRejected,
     };
 
+    // Exceptions act as a BLOCKLIST: a PRN excepted in ANY active range is
+    // refused outright — no overlapping range or single-PRN entry can
+    // override it. The only way to re-allow it is to remove it from the
+    // range's exceptions.
+    if (ranges.some((r) => Array.isArray(r.excepted_prns) && r.excepted_prns.includes(prn))) {
+      return res.status(400).json({
+        success: false,
+        message: 'This PRN has been excluded from registration by the placement cell. Please contact your placement officer.',
+        valid: false,
+      });
+    }
+
     // Check single PRNs
     const singlePRNs = ranges.filter((r) => r.single_prn !== null);
     if (singlePRNs.some((r) => r.single_prn === prn)) {
       return res.status(200).json(validResponse);
     }
 
-    // Check PRN ranges. A PRN listed in a range's exceptions is excluded
-    // from THAT range only — another (overlapping) range or an explicit
-    // single-PRN entry can still allow it.
-    let excludedByException = false;
+    // Check PRN ranges
     const rangesPRNs = ranges.filter((r) => r.range_start !== null);
     for (const range of rangesPRNs) {
       if (isPRNInRange(prn, range.range_start, range.range_end)) {
-        if (Array.isArray(range.excepted_prns) && range.excepted_prns.includes(prn)) {
-          excludedByException = true;
-          continue;
-        }
         return res.status(200).json(validResponse);
       }
     }
 
     return res.status(400).json({
       success: false,
-      message: excludedByException
-        ? 'This PRN has been excluded from registration by the placement cell. Please contact your placement officer.'
-        : 'PRN is not in the valid range for registration',
+      message: 'PRN is not in the valid range for registration',
       valid: false,
     });
   } catch (error) {

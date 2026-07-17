@@ -41,6 +41,7 @@ const main = async () => {
   await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, admin.id]);
 
   let rangeId = null;
+  let singleId = null;
   try {
     let res = await fetch(`${BASE}/auth/login`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -95,6 +96,22 @@ const main = async () => {
     check('validate-prn accepts a neighbouring PRN in the same range',
       res.status === 200 && body.valid === true, `status=${res.status} msg="${body.message}"`);
 
+    // --- exceptions are a BLOCKLIST: a Single entry cannot re-open one ---
+    res = await authed('/super-admin/prn-ranges', 'POST', { single_prn: EXCEPTED });
+    body = await res.json();
+    singleId = body.data?.id;
+    check('single-PRN entry for the excepted PRN can be created', res.status === 201,
+      `status=${res.status}`);
+
+    res = await fetch(`${BASE}/common/validate-prn`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prn: EXCEPTED }),
+    });
+    body = await res.json();
+    check('excepted PRN STILL blocked despite the single-PRN entry (blocklist wins)',
+      res.status === 400 && body.valid === false && /excluded/i.test(body.message),
+      `status=${res.status} msg="${body.message}"`);
+
     // --- registration enforcement (fails at PRN validation, before photo) ---
     res = await fetch(`${BASE}/auth/register-student`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -112,7 +129,7 @@ const main = async () => {
       res.status === 400 && /excluded/i.test(body.message),
       `status=${res.status} msg="${body.message}"`);
 
-    // --- clearing exceptions via update re-opens the PRN ---
+    // --- clearing exceptions via update re-opens the PRN (the ONE way) ---
     res = await authed(`/super-admin/prn-ranges/${rangeId}`, 'PUT', { exceptions: '' });
     check('exceptions cleared via update (200)', res.status === 200, `status=${res.status}`);
 
@@ -125,6 +142,7 @@ const main = async () => {
       res.status === 200 && body.valid === true, `status=${res.status} msg="${body.message}"`);
   } finally {
     if (rangeId) await pool.query('DELETE FROM prn_ranges WHERE id = $1', [rangeId]);
+    if (singleId) await pool.query('DELETE FROM prn_ranges WHERE id = $1', [singleId]);
     await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [admin.password_hash, admin.id]);
   }
   check('smoke range deleted + admin restored', true);

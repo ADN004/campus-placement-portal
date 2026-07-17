@@ -561,7 +561,8 @@ export default function ManagePRNRanges() {
                   placeholder="PRNs inside this range that must NOT register — comma separated, e.g., 2401133557, 2401133560"
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  These PRNs will be blocked from registering even though they fall inside the range.
+                  These PRNs are fully blocked from registering — no other range or single-PRN entry
+                  can override this. To re-allow one, remove it from this list.
                 </p>
               </div>
 

@@ -464,28 +464,16 @@ export default function ManageAllStudents() {
   };
 
   const handleOpenCustomExport = () => {
-    // Prepare regions and colleges data with IDs
-    const regionsMap = new Map();
-    const collegesMap = new Map();
-
-    students.forEach(student => {
-      if (student.region_id && student.region_name) {
-        regionsMap.set(student.region_id, {
-          id: student.region_id,
-          name: student.region_name
-        });
-      }
-      if (student.college_id && student.college_name) {
-        collegesMap.set(student.college_id, {
-          id: student.college_id,
-          name: student.college_name,
-          region_id: student.region_id
-        });
-      }
-    });
-
-    const regionsData = Array.from(regionsMap.values()).sort((a, b) => a.name.localeCompare(b.name));
-    const collegesData = Array.from(collegesMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+    // Use the FULL region/college lists fetched from the API. These used
+    // to be derived from the students on the current page, so the dropdowns
+    // only offered the colleges of the ~20 visible students and silently
+    // hid every other college from the export filters.
+    const regionsData = regions
+      .map(r => ({ id: r.id, name: r.region_name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    const collegesData = colleges
+      .map(c => ({ id: c.id, name: c.college_name, region_id: c.region_id }))
+      .sort((a, b) => a.name.localeCompare(b.name));
 
     setExportRegionsData(regionsData);
     setExportCollegesData(collegesData);

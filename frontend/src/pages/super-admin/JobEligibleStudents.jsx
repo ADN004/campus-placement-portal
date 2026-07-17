@@ -1224,7 +1224,7 @@ export default function JobEligibleStudents() {
                             key={student.id}
                             className={
                               selectedStudents.includes(student.application_id)
-                                ? 'bg-green-100 hover:bg-green-200 transition-colors'
+                                ? 'bg-amber-200 hover:bg-amber-300 transition-colors'
                                 : ''
                             }
                           >

@@ -1616,7 +1616,7 @@ export default function ManageStudents() {
                       key={student.id}
                       className={`border-b border-gray-200 transition-colors ${
                         selectedStudents.includes(student.id)
-                          ? 'bg-green-100 hover:bg-green-200'
+                          ? 'bg-amber-200 hover:bg-amber-300'
                           : `hover:bg-blue-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`
                       }`}
                     >

@@ -2098,12 +2098,27 @@ export const updateJob = async (req, res) => {
     const officer = officerResult.rows[0];
 
     // Ownership check
-    const jobCheck = await query('SELECT placement_officer_id FROM jobs WHERE id = $1', [jobId]);
+    const jobCheck = await query('SELECT placement_officer_id, is_auto_approved FROM jobs WHERE id = $1', [jobId]);
     if (jobCheck.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Job not found' });
     }
     if (jobCheck.rows[0].placement_officer_id !== officer.id) {
       return res.status(403).json({ success: false, message: 'You can only edit jobs you created' });
+    }
+
+    // A cross-college job needed super admin approval to go live, so it needs
+    // super admin sign-off to change too. Only own-college jobs are
+    // auto-approved (is_auto_approved = TRUE) and remain freely editable by the
+    // officer. A job the officer created but that is NOT auto-approved went
+    // through the SA approval queue (it targeted other colleges, or
+    // single-college approval was enabled) — the super admin owns edits to it
+    // and can change it directly, so block the officer from silently editing an
+    // approved posting out from under that approval.
+    if (!jobCheck.rows[0].is_auto_approved) {
+      return res.status(403).json({
+        success: false,
+        message: 'This job covers other colleges and was approved by the Super Admin. Contact the Super Admin to make changes.',
+      });
     }
 
     const {

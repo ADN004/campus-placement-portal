@@ -1220,7 +1220,14 @@ export default function JobEligibleStudents() {
                         </tr>
                       ) : (
                         filteredStudents.filter(s => !s.is_already_placed).map((student) => (
-                          <tr key={student.id}>
+                          <tr
+                            key={student.id}
+                            className={
+                              selectedStudents.includes(student.application_id)
+                                ? 'bg-green-100 hover:bg-green-200 transition-colors'
+                                : ''
+                            }
+                          >
                             <td>
                               <input
                                 type="checkbox"

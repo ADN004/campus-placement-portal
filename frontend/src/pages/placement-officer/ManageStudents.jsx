@@ -1612,7 +1612,14 @@ export default function ManageStudents() {
                   </tr>
                 ) : (
                   students.map((student, index) => (
-                    <tr key={student.id} className={`border-b border-gray-200 hover:bg-blue-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                    <tr
+                      key={student.id}
+                      className={`border-b border-gray-200 transition-colors ${
+                        selectedStudents.includes(student.id)
+                          ? 'bg-green-100 hover:bg-green-200'
+                          : `hover:bg-blue-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`
+                      }`}
+                    >
                       {getPendingStudentsInView().length > 0 && (
                         <td className="px-6 py-4">
                           {student.registration_status === 'pending' && !student.is_blacklisted ? (

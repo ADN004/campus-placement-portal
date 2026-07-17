@@ -84,6 +84,27 @@ export const authIpLimiter = rateLimit({
 });
 
 /**
+ * Password Reset Rate Limiter
+ * Protects the forgot-password / reset-password endpoints from abuse.
+ * - 10 requests per 15 minutes per IP, counting ALL requests.
+ *
+ * These count every request (not just failures) because forgot-password
+ * deliberately always returns success to avoid account enumeration — so
+ * skipping successful ones would defeat the limit. High enough for a genuine
+ * user retrying, low enough to blunt reset-email spam aimed at a victim.
+ */
+export const passwordResetLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10,
+  message: {
+    success: false,
+    message: 'Too many password reset requests. Please try again in a few minutes.',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+/**
  * Read Operations Rate Limiter
  * More lenient for GET requests
  * - 60 requests per minute per IP

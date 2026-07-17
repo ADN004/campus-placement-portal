@@ -8,6 +8,8 @@ import {
   verifyEmail,
   resendVerificationEmail,
   verifyGoogleEmail,
+  forgotPassword,
+  resetPassword,
 } from '../controllers/authController.js';
 import { updateOwnEmail } from '../controllers/studentEmailController.js';
 import { protect } from '../middleware/auth.js';
@@ -20,6 +22,8 @@ router.post('/register-student', registerStudent);
 router.get('/verify-email/:token', verifyEmail);
 router.post('/resend-verification', resendVerificationEmail);
 router.post('/google-email', verifyGoogleEmail);
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password', resetPassword);
 
 // Protected routes
 router.get('/me', protect, getMe);

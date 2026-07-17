@@ -51,6 +51,10 @@ CREATE TABLE users (
     role VARCHAR(50) NOT NULL CHECK (role IN ('student', 'placement_officer', 'super_admin')),
     is_active BOOLEAN DEFAULT TRUE,
     last_login TIMESTAMP,
+    -- Self-service password reset (students & super admins). Stores a SHA-256
+    -- hash of the emailed token, never the raw token. See migration 003.
+    reset_password_token VARCHAR(64),
+    reset_password_expires TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -58,6 +62,7 @@ CREATE TABLE users (
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_role ON users(role);
 CREATE INDEX idx_users_active ON users(is_active);
+CREATE INDEX idx_users_reset_token ON users(reset_password_token);
 
 -- ============================================
 -- 3b. SUPER ADMINS TABLE

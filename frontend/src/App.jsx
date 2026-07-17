@@ -14,6 +14,8 @@ const PlacementOfficerLoginPage = lazy(() => import('./pages/auth/PlacementOffic
 const SuperAdminLoginPage = lazy(() => import('./pages/auth/SuperAdminLoginPage'));
 const StudentRegisterPage = lazy(() => import('./pages/auth/StudentRegisterPage'));
 const VerifyEmailPage = lazy(() => import('./pages/auth/VerifyEmailPage'));
+const ForgotPasswordPage = lazy(() => import('./pages/auth/ForgotPasswordPage'));
+const ResetPasswordPage = lazy(() => import('./pages/auth/ResetPasswordPage'));
 
 // Student Pages (lazy loaded)
 const StudentDashboard = lazy(() => import('./pages/student/StudentDashboard'));
@@ -77,6 +79,8 @@ function App() {
         <Route path="/login/admin" element={!user ? <SuperAdminLoginPage /> : <Navigate to={getDashboardRoute(user.role)} />} />
         <Route path="/register" element={!user ? <StudentRegisterPage /> : <Navigate to={getDashboardRoute(user.role)} />} />
         <Route path="/verify-email" element={<VerifyEmailPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
 
         {/* Protected Routes */}
         {user ? (

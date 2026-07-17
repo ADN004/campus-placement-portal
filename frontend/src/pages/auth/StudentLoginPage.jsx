@@ -248,6 +248,11 @@ export default function StudentLoginPage() {
                     </svg>
                     Default password is <code className="bg-blue-50 px-2 py-0.5 rounded text-blue-600 font-mono text-xs ml-1">123</code> (change after first login)
                   </p>
+                  <div className="text-right">
+                    <Link to="/forgot-password" className="text-sm font-semibold text-blue-600 hover:text-blue-800">
+                      Forgot password?
+                    </Link>
+                  </div>
                 </div>
 
                 {/* Login Button */}

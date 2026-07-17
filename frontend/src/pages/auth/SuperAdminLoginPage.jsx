@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Shield, Eye, EyeOff, ArrowLeft, AlertCircle, Lock, Database, Settings } from 'lucide-react';
 
@@ -240,6 +240,11 @@ export default function SuperAdminLoginPage() {
                         <Eye className="w-5 h-5" />
                       )}
                     </button>
+                  </div>
+                  <div className="text-right mt-2">
+                    <Link to="/forgot-password" className="text-sm font-semibold text-emerald-700 hover:text-emerald-900">
+                      Forgot password?
+                    </Link>
                   </div>
                 </div>
 

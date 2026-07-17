@@ -380,6 +380,179 @@ export const changePassword = async (req, res) => {
 };
 
 // ============================================================================
+// Password Reset (self-service — students & super admins only)
+// ============================================================================
+
+/**
+ * Request a password reset link
+ *
+ * Emails a time-limited, single-use reset link to the account's email address.
+ * Only students and super admins can self-reset; placement officers log in by
+ * phone and keep the super-admin-initiated reset.
+ *
+ * Always responds with the same generic success message, whether or not an
+ * account exists, so this endpoint cannot be used to discover which emails are
+ * registered. Only a SHA-256 hash of the token is stored.
+ *
+ * @route   POST /api/auth/forgot-password
+ * @access  Public (rate-limited)
+ */
+export const forgotPassword = async (req, res) => {
+  const genericResponse = {
+    success: true,
+    message: 'If an account with that email exists, a password reset link has been sent.',
+  };
+
+  try {
+    const { email } = req.body;
+
+    if (!email || typeof email !== 'string') {
+      return res.status(200).json(genericResponse);
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // Officers are intentionally excluded (they log in by phone; their real
+    // email is optional and they already have the super-admin reset path).
+    const userResult = await query(
+      `SELECT id, email, role FROM users
+       WHERE LOWER(email) = $1 AND role IN ('student', 'super_admin') AND is_active = TRUE`,
+      [normalizedEmail]
+    );
+
+    // Never reveal whether the account exists.
+    if (userResult.rows.length === 0) {
+      return res.status(200).json(genericResponse);
+    }
+
+    const user = userResult.rows[0];
+
+    // Single-use token; store only its SHA-256 hash. Raw token goes in the email.
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    await query(
+      'UPDATE users SET reset_password_token = $1, reset_password_expires = $2 WHERE id = $3',
+      [tokenHash, expires, user.id]
+    );
+
+    // Resolve a display name for the email greeting.
+    let userName = 'User';
+    if (user.role === 'student') {
+      const s = await query('SELECT student_name FROM students WHERE user_id = $1', [user.id]);
+      if (s.rows.length > 0 && s.rows[0].student_name) userName = s.rows[0].student_name;
+    } else if (user.role === 'super_admin') {
+      const a = await query('SELECT name FROM super_admins WHERE user_id = $1', [user.id]);
+      if (a.rows.length > 0 && a.rows[0].name) userName = a.rows[0].name;
+    }
+
+    try {
+      const { sendPasswordResetEmail } = await import('../config/emailService.js');
+      await sendPasswordResetEmail(user.email, rawToken, userName);
+    } catch (emailError) {
+      // Do not leak send status to the caller — log it and still respond generically.
+      console.error('Password reset email send failed:', emailError.message);
+    }
+
+    await logActivity(
+      user.id,
+      'PASSWORD_RESET_REQUESTED',
+      `Password reset requested for ${user.email}`,
+      'user',
+      user.id,
+      req,
+      { role: user.role }
+    );
+
+    return res.status(200).json(genericResponse);
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    // Generic success even on error, so failures can't be used to probe accounts.
+    return res.status(200).json(genericResponse);
+  }
+};
+
+/**
+ * Complete a password reset using a token from the emailed link
+ *
+ * Verifies the (hashed) token is valid and unexpired, applies the same password
+ * strength rules as change-password, sets the new hash, and clears the token so
+ * the link cannot be reused.
+ *
+ * @route   POST /api/auth/reset-password
+ * @access  Public (rate-limited)
+ */
+export const resetPassword = async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Reset token and new password are required',
+      });
+    }
+
+    const passwordValidation = validatePasswordStrength(newPassword);
+    if (!passwordValidation.valid) {
+      return res.status(400).json({
+        success: false,
+        message: passwordValidation.message,
+      });
+    }
+
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+    const userResult = await query(
+      `SELECT id, email, role FROM users
+       WHERE reset_password_token = $1
+         AND reset_password_expires > CURRENT_TIMESTAMP
+         AND is_active = TRUE`,
+      [tokenHash]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'This password reset link is invalid or has expired. Please request a new one.',
+      });
+    }
+
+    const user = userResult.rows[0];
+
+    const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    // Set the new password and burn the token in one statement.
+    await query(
+      `UPDATE users
+       SET password_hash = $1, reset_password_token = NULL, reset_password_expires = NULL
+       WHERE id = $2`,
+      [hashedPassword, user.id]
+    );
+
+    await logActivity(
+      user.id,
+      'PASSWORD_RESET',
+      `Password reset completed for ${user.email}`,
+      'user',
+      user.id,
+      req,
+      { role: user.role }
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'Your password has been reset successfully. You can now log in with your new password.',
+    });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    return res.status(500).json({ success: false, message: 'Error resetting password' });
+  }
+};
+
+// ============================================================================
 // Student Registration
 // ============================================================================
 

@@ -320,12 +320,17 @@ startServer();
 
 /**
  * Handle Unhandled Promise Rejections
- * Logs error and gracefully shuts down server
+ *
+ * Log loudly but DO NOT exit. A rejected promise from a single request does
+ * not corrupt global process state, so killing the whole backend over it is
+ * disproportionate — and, with Docker's restart policy, a repeatable trigger
+ * (a retrying client, a monitor probe) turns it into a site-wide crash loop.
+ * This mirrors the database pool 'error' handler, which deliberately does not
+ * crash for the same reason. (uncaughtException below still exits, on purpose:
+ * there the process state may genuinely be corrupt and a clean restart is safer.)
  */
 process.on('unhandledRejection', (err) => {
-  console.error('❌ Unhandled Promise Rejection:', err);
-  // Close server & exit process
-  process.exit(1);
+  console.error('❌ Unhandled Promise Rejection (logged, server kept alive):', err);
 });
 
 /**

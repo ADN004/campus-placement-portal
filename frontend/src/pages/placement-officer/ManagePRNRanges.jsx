@@ -27,6 +27,7 @@ export default function ManagePRNRanges() {
     single_prn: '',
     year: '',
     description: '',
+    exceptions: '',
   });
 
   useEffect(() => {
@@ -58,6 +59,7 @@ export default function ManagePRNRanges() {
       single_prn: '',
       year: '',
       description: '',
+      exceptions: '',
     });
     setEditingId(null);
     setShowAddModal(false);
@@ -118,6 +120,7 @@ export default function ManagePRNRanges() {
         single_prn: '',
         year: range.year,
         description: range.description || '',
+        exceptions: (range.excepted_prns || []).join(', '),
       });
       setEditingId(range.id);
       setShowAddModal(true);
@@ -143,7 +146,7 @@ export default function ManagePRNRanges() {
     try {
       const updateData = isSingle
         ? { single_prn: formData.single_prn, year: formData.year, description: formData.description }
-        : { start_prn: formData.start_prn, end_prn: formData.end_prn, year: formData.year, description: formData.description };
+        : { start_prn: formData.start_prn, end_prn: formData.end_prn, year: formData.year, description: formData.description, exceptions: formData.exceptions };
       await placementOfficerAPI.updatePRNRange(editingId, updateData);
       toast.success(isSingle ? 'Single PRN updated successfully' : 'PRN range updated successfully');
       fetchPRNRanges();
@@ -375,6 +378,11 @@ export default function ManagePRNRanges() {
                           {range.single_prn}
                         </span>
                       ) : range.start_prn}
+                      {(range.excepted_prns || []).length > 0 && (
+                        <div className="mt-1 text-xs font-semibold text-red-600 font-sans">
+                          Except: {range.excepted_prns.join(', ')}
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4 font-mono font-bold text-gray-900">{range.single_prn ? '-' : range.end_prn}</td>
                     <td className="px-6 py-4 font-bold text-gray-900">{range.year || '-'}</td>
@@ -540,6 +548,21 @@ export default function ManagePRNRanges() {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Excepted PRNs (Optional)</label>
+                <textarea
+                  name="exceptions"
+                  value={formData.exceptions}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-red-100 focus:border-red-400 transition-all duration-200 text-gray-900 placeholder-gray-400 font-medium"
+                  rows="2"
+                  placeholder="PRNs inside this range that must NOT register — comma separated, e.g., 2401133557, 2401133560"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  These PRNs will be blocked from registering even though they fall inside the range.
+                </p>
               </div>
 
               <div>

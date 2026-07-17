@@ -28,6 +28,7 @@ export default function ManagePRNRanges() {
     single_prn: '',
     description: '',
     year: '',
+    exceptions: '',
   });
 
   useEffect(() => {
@@ -55,6 +56,7 @@ export default function ManagePRNRanges() {
           range_end: formData.range_end,
           description: formData.description,
           year: formData.year,
+          exceptions: formData.exceptions,
         });
         toast.success('PRN range updated successfully');
       } else {
@@ -64,12 +66,13 @@ export default function ManagePRNRanges() {
           range_end: formData.range_end,
           description: formData.description,
           year: formData.year,
+          exceptions: formData.exceptions,
         });
         toast.success('PRN range added successfully');
       }
       setShowAddRange(false);
       setEditingRange(null);
-      setFormData({ range_start: '', range_end: '', single_prn: '', description: '', year: '' });
+      setFormData({ range_start: '', range_end: '', single_prn: '', description: '', year: '', exceptions: '' });
       fetchRanges();
     } catch (error) {
       toast.error(error.response?.data?.message || `Failed to ${editingRange ? 'update' : 'add'} PRN range`);
@@ -98,7 +101,7 @@ export default function ManagePRNRanges() {
       }
       setShowAddSingle(false);
       setEditingRange(null);
-      setFormData({ range_start: '', range_end: '', single_prn: '', description: '', year: '' });
+      setFormData({ range_start: '', range_end: '', single_prn: '', description: '', year: '', exceptions: '' });
       fetchRanges();
     } catch (error) {
       toast.error(error.response?.data?.message || `Failed to ${editingRange ? 'update' : 'add'} single PRN`);
@@ -167,6 +170,7 @@ export default function ManagePRNRanges() {
       single_prn: range.single_prn || '',
       description: range.description || '',
       year: range.year || '',
+      exceptions: (range.excepted_prns || []).join(', '),
     });
 
     if (range.single_prn) {
@@ -376,6 +380,19 @@ export default function ManagePRNRanges() {
                 </select>
               </div>
               <div>
+                <label className="label">Excepted PRNs (Optional)</label>
+                <textarea
+                  className="input"
+                  rows={2}
+                  value={formData.exceptions}
+                  onChange={(e) => setFormData({ ...formData, exceptions: e.target.value })}
+                  placeholder="PRNs inside this range that must NOT register — comma separated, e.g., 2301150105, 2301150110"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  These PRNs will be blocked from registering even though they fall inside the range.
+                </p>
+              </div>
+              <div>
                 <label className="label">Description (Optional)</label>
                 <input
                   type="text"
@@ -394,7 +411,7 @@ export default function ManagePRNRanges() {
                   onClick={() => {
                     setShowAddRange(false);
                     setEditingRange(null);
-                    setFormData({ range_start: '', range_end: '', single_prn: '', description: '', year: '' });
+                    setFormData({ range_start: '', range_end: '', single_prn: '', description: '', year: '', exceptions: '' });
                   }}
                   className="btn btn-secondary flex-1"
                 >
@@ -457,7 +474,7 @@ export default function ManagePRNRanges() {
                   onClick={() => {
                     setShowAddSingle(false);
                     setEditingRange(null);
-                    setFormData({ range_start: '', range_end: '', single_prn: '', description: '', year: '' });
+                    setFormData({ range_start: '', range_end: '', single_prn: '', description: '', year: '', exceptions: '' });
                   }}
                   className="btn btn-secondary flex-1"
                 >
@@ -510,6 +527,11 @@ export default function ManagePRNRanges() {
                         {range.single_prn
                           ? range.single_prn
                           : `${range.range_start} - ${range.range_end}`}
+                        {(range.excepted_prns || []).length > 0 && (
+                          <div className="mt-1 text-xs font-semibold text-red-600 font-sans">
+                            Except: {range.excepted_prns.join(', ')}
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-5 text-sm text-gray-700 font-medium">
                         {range.year || '-'}

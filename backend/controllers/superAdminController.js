@@ -2,6 +2,7 @@ import bcrypt from 'bcrypt';
 import ExcelJS from 'exceljs';
 import { query, transaction } from '../config/database.js';
 import { getPortalCounts } from '../utils/portalMode.js';
+import { parseExceptedPrns } from '../utils/prnExceptions.js';
 import logActivity from '../middleware/activityLogger.js';
 import { generateStudentPDF } from '../utils/pdfGenerator.js';
 import { deleteImage, deleteFolderOnly, extractFolderPath } from '../config/cloudinary.js';
@@ -264,11 +265,17 @@ export const addPRNRange = async (req, res) => {
       });
     }
 
+    // PRNs inside the range that must NOT register (multiple allowed)
+    const exceptions = parseExceptedPrns(req.body.exceptions, range_start, range_end);
+    if (exceptions.error) {
+      return res.status(400).json({ success: false, message: exceptions.error });
+    }
+
     const result = await query(
-      `INSERT INTO prn_ranges (range_start, range_end, single_prn, description, year, added_by, created_by_role, college_id)
-       VALUES ($1, $2, $3, $4, $5, $6, 'super_admin', NULL)
+      `INSERT INTO prn_ranges (range_start, range_end, single_prn, description, excepted_prns, year, added_by, created_by_role, college_id)
+       VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, 'super_admin', NULL)
        RETURNING *`,
-      [range_start || null, range_end || null, single_prn || null, description, year || null, req.user.id]
+      [range_start || null, range_end || null, single_prn || null, description, JSON.stringify(exceptions.prns), year || null, req.user.id]
     );
 
     // Log activity
@@ -387,6 +394,19 @@ export const updatePRNRange = async (req, res) => {
       paramCount++;
       updates.push(`single_prn = $${paramCount}`);
       params.push(single_prn || null);
+    }
+
+    if (req.body.exceptions !== undefined) {
+      // Validate against the bounds the range will have AFTER this update
+      const finalStart = range_start !== undefined ? range_start : currentRange.range_start;
+      const finalEnd = range_end !== undefined ? range_end : currentRange.range_end;
+      const exceptions = parseExceptedPrns(req.body.exceptions, finalStart, finalEnd);
+      if (exceptions.error) {
+        return res.status(400).json({ success: false, message: exceptions.error });
+      }
+      paramCount++;
+      updates.push(`excepted_prns = $${paramCount}::jsonb`);
+      params.push(JSON.stringify(exceptions.prns));
     }
 
     if (updates.length === 0) {

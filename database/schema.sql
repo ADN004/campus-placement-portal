@@ -133,6 +133,7 @@ CREATE TABLE prn_ranges (
     disabled_date TIMESTAMP,
     disabled_by INTEGER REFERENCES users(id),
     description TEXT,
+    excepted_prns JSONB NOT NULL DEFAULT '[]'::jsonb,
     added_by INTEGER REFERENCES users(id),
     created_by_role VARCHAR(50) NOT NULL DEFAULT 'super_admin' CHECK (created_by_role IN ('super_admin', 'placement_officer')),
     college_id INTEGER REFERENCES colleges(id) ON DELETE CASCADE,

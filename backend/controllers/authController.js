@@ -485,12 +485,13 @@ export const registerStudent = async (req, res) => {
       });
     }
 
-    // Validate PRN against active ranges
+    // Validate PRN against active ranges (surfaces the exclusion message
+    // when the PRN is specifically excepted from its range)
     const prnValidation = await validatePRN(prn);
     if (!prnValidation.valid) {
       return res.status(400).json({
         success: false,
-        message: 'PRN is not in the valid range for registration',
+        message: prnValidation.message || 'PRN is not in the valid range for registration',
       });
     }
 
@@ -1032,7 +1033,7 @@ const validatePRN = async (prn) => {
   try {
     // Get all active PRN ranges
     const rangesResult = await query(
-      'SELECT range_start, range_end, single_prn FROM prn_ranges WHERE is_active = TRUE'
+      'SELECT range_start, range_end, single_prn, excepted_prns FROM prn_ranges WHERE is_active = TRUE'
     );
 
     const ranges = rangesResult.rows;
@@ -1047,15 +1048,27 @@ const validatePRN = async (prn) => {
       return { valid: true };
     }
 
-    // Check PRN ranges
+    // Check PRN ranges. A PRN listed in a range's exceptions is excluded
+    // from THAT range only — another (overlapping) range or an explicit
+    // single-PRN entry can still allow it.
+    let excludedByException = false;
     const rangesPRNs = ranges.filter((r) => r.range_start !== null);
     for (const range of rangesPRNs) {
       if (isPRNInRange(prn, range.range_start, range.range_end)) {
+        if (Array.isArray(range.excepted_prns) && range.excepted_prns.includes(prn)) {
+          excludedByException = true;
+          continue;
+        }
         return { valid: true };
       }
     }
 
-    return { valid: false, message: 'PRN not in valid range' };
+    return {
+      valid: false,
+      message: excludedByException
+        ? 'This PRN has been excluded from registration by the placement cell. Please contact your placement officer.'
+        : 'PRN is not in the valid range for registration',
+    };
   } catch (error) {
     return { valid: false, message: 'Error validating PRN' };
   }

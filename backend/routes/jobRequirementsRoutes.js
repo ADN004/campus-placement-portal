@@ -11,8 +11,6 @@ import {
   getJobRequirements,
   createCompanyTemplate,
   getAllCompanyTemplates,
-  applyTemplateToJob,
-  getEligibleStudentsCount,
   deleteCompanyTemplate,
   updateCompanyTemplate
 } from '../controllers/jobRequirementsController.js';

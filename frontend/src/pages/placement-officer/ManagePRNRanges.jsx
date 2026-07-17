@@ -7,6 +7,7 @@ import GlassCard from '../../components/GlassCard';
 import useSkeletonLoading from '../../hooks/useSkeletonLoading';
 import TablePageSkeleton from '../../components/skeletons/TablePageSkeleton';
 import AnimatedSection from '../../components/animation/AnimatedSection';
+import ExceptedPrnList from '../../components/ExceptedPrnList';
 
 export default function ManagePRNRanges() {
   const [prnRanges, setPrnRanges] = useState([]);
@@ -378,11 +379,7 @@ export default function ManagePRNRanges() {
                           {range.single_prn}
                         </span>
                       ) : range.start_prn}
-                      {(range.excepted_prns || []).length > 0 && (
-                        <div className="mt-1 text-xs font-semibold text-red-600 font-sans">
-                          Except: {range.excepted_prns.join(', ')}
-                        </div>
-                      )}
+                      <ExceptedPrnList prns={range.excepted_prns} />
                     </td>
                     <td className="px-6 py-4 font-mono font-bold text-gray-900">{range.single_prn ? '-' : range.end_prn}</td>
                     <td className="px-6 py-4 font-bold text-gray-900">{range.year || '-'}</td>

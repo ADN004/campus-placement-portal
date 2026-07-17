@@ -6,6 +6,7 @@ import { Plus, Trash2, ToggleLeft, ToggleRight, AlertCircle, Eye, Download, Exte
 import useSkeleton from '../../hooks/useSkeleton';
 import AnimatedSection from '../../components/animation/AnimatedSection';
 import TablePageSkeleton from '../../components/skeletons/TablePageSkeleton';
+import ExceptedPrnList from '../../components/ExceptedPrnList';
 
 export default function ManagePRNRanges() {
   const [ranges, setRanges] = useState([]);
@@ -528,11 +529,7 @@ export default function ManagePRNRanges() {
                         {range.single_prn
                           ? range.single_prn
                           : `${range.range_start} - ${range.range_end}`}
-                        {(range.excepted_prns || []).length > 0 && (
-                          <div className="mt-1 text-xs font-semibold text-red-600 font-sans">
-                            Except: {range.excepted_prns.join(', ')}
-                          </div>
-                        )}
+                        <ExceptedPrnList prns={range.excepted_prns} />
                       </td>
                       <td className="px-6 py-5 text-sm text-gray-700 font-medium">
                         {range.year || '-'}

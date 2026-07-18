@@ -118,11 +118,23 @@ app.use(cors({
 
 /**
  * Body Parsers
- * - JSON parser with 50MB limit for file uploads
- * - URL-encoded parser for form data
+ *
+ * 2MB, not the 50MB this used to allow. Express buffers the whole body into
+ * memory before any route runs — and these parsers sit above the routes, so
+ * that buffering happens before anyone is authenticated. At 50MB a handful of
+ * concurrent anonymous requests could pin ~1GB of RAM and OOM the container.
+ *
+ * 2MB clears every real payload with room to spare. The largest legitimate
+ * body in the app is a profile photo: those are capped at 500KB client-side
+ * and sent as base64, which inflates by roughly a third, so ~700KB. Bulk
+ * import spreadsheets are multipart (multer, 2MB) and never reach these
+ * parsers at all.
+ *
+ * Note this is also the only *enforced* photo limit — the 500KB check is
+ * client-side and a crafted request ignores it.
  */
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 
 /**
  * Cookie Parser

@@ -10,25 +10,76 @@
  */
 
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
+import jwt from 'jsonwebtoken';
+
+/**
+ * Identify the caller for rate-limiting purposes.
+ *
+ * Returns a per-user key when the request carries a valid JWT, and falls back
+ * to the client IP when it does not.
+ *
+ * This limiter runs in server.js before any route mounts `protect`, so
+ * `req.user` is not populated yet — the token has to be read here directly.
+ * Extraction mirrors `protect` in middleware/auth.js: cookie first, then a
+ * Bearer header. cookieParser() is mounted above this limiter, so req.cookies
+ * is available.
+ *
+ * The token is verified, not just decoded, so a forged payload cannot mint
+ * itself unlimited fresh buckets. Verification is an HMAC check — no database
+ * hit, microseconds per request.
+ */
+const userOrIpKey = (req) => {
+  let token;
+  if (req.cookies?.token) {
+    token = req.cookies.token;
+  } else if (req.headers.authorization?.startsWith('Bearer')) {
+    token = req.headers.authorization.split(' ')[1];
+  }
+
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      if (decoded?.id) return `user:${decoded.id}`;
+    } catch {
+      // Expired, tampered with, or otherwise unusable — fall through to IP.
+    }
+  }
+
+  // ipKeyGenerator normalizes IPv6 to its /56 subnet (v8 requirement) — it
+  // takes the IP string, not the request, and passing the request yields a key
+  // that differs every call, which silently removes the limit entirely.
+  return ipKeyGenerator(req.ip);
+};
 
 /**
  * General API Rate Limiter
  * Applies to all /api routes
- * - 1000 requests per 15 minutes per IP (increased for high traffic)
+ * - 1000 requests per 15 minutes per authenticated user, or per IP if anonymous
  * - For 20k users: ~66 requests/min per user across all endpoints
+ *
+ * Keyed by user id where possible, NOT by IP alone. A whole polytechnic leaves
+ * through a single NAT IP, so a pure-IP key made the cap collective: one
+ * dashboard load is several API calls, so 1000 requests is roughly 150-200 page
+ * loads for the entire campus combined. During a placement drive that trips in
+ * minutes and locks out every student at that college — and the placement
+ * officer on the same wifi along with them.
+ *
+ * This replaces a `skip: (req) => production && req.user` that never fired,
+ * because req.user is not set this early in the stack. It has been removed
+ * rather than left in place: code that looks like it exempts authenticated
+ * users while silently doing nothing is worse than no exemption at all.
  */
 export const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: process.env.NODE_ENV === 'production' ? 1000 : 100, // Higher limit for production
+  keyGenerator: userOrIpKey,
   message: {
     success: false,
-    message: 'Too many requests from this IP, please try again after 15 minutes.',
+    message: 'Too many requests, please try again after 15 minutes.',
   },
   standardHeaders: true, // Return rate limit info in `RateLimit-*` headers
   legacyHeaders: false, // Disable `X-RateLimit-*` headers
   skipSuccessfulRequests: false,
-  // Skip rate limiting for successful authenticated requests in production
-  skip: (req) => process.env.NODE_ENV === 'production' && req.user,
 });
 
 /**

@@ -20,15 +20,47 @@ import {
   RotateCcw,
   DatabaseBackup,
   Building2,
+  AlertTriangle,
 } from 'lucide-react';
 import { useState } from 'react';
 import GradientOrb from './GradientOrb';
+
+const DEFAULT_PW_DISMISS_KEY = 'default-password-warning-dismissed';
 
 export default function Layout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Warn (but never force) when the account is still on the shared default
+  // password. Dismissal is per-session, so it reappears at the next sign-in
+  // until the password is actually changed.
+  const [pwWarningDismissed, setPwWarningDismissed] = useState(() => {
+    try {
+      return sessionStorage.getItem(DEFAULT_PW_DISMISS_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const showDefaultPasswordWarning = user?.using_default_password === true && !pwWarningDismissed;
+
+  const dismissPwWarning = () => {
+    setPwWarningDismissed(true);
+    try {
+      sessionStorage.setItem(DEFAULT_PW_DISMISS_KEY, 'true');
+    } catch {
+      // Ignore — private browsing / storage disabled
+    }
+  };
+
+  const profilePath =
+    user.role === 'student'
+      ? '/student/profile'
+      : user.role === 'placement_officer'
+      ? '/placement-officer/profile'
+      : '/super-admin/profile';
 
   const handleLogout = async () => {
     await logout();
@@ -219,6 +251,43 @@ export default function Layout() {
           ${sidebarOpen ? '' : 'lg:ml-[296px]'} transition-all duration-300`}
         >
           <div className="max-w-[1400px] mx-auto">
+            {/* Default-password warning — informational, never blocking. */}
+            {showDefaultPasswordWarning && (
+              <div
+                className="mb-6 rounded-xl border-2 border-amber-300 bg-amber-50 p-4 shadow-sm"
+                role="alert"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                  <div className="flex items-start gap-3 flex-1">
+                    <AlertTriangle className="text-amber-600 flex-shrink-0 mt-0.5" size={22} />
+                    <div>
+                      <p className="font-bold text-amber-900">
+                        You&rsquo;re still using the default password
+                      </p>
+                      <p className="text-sm text-amber-800 mt-0.5">
+                        Anyone who knows your login ID could sign in and see your personal
+                        details. Changing it takes less than a minute.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button
+                      onClick={() => navigate(profilePath)}
+                      className="px-4 py-2 text-sm font-bold rounded-xl bg-amber-600 text-white hover:bg-amber-700 transition-all whitespace-nowrap"
+                    >
+                      Change password
+                    </button>
+                    <button
+                      onClick={dismissPwWarning}
+                      className="px-3 py-2 text-sm font-medium rounded-xl text-amber-800 hover:bg-amber-100 transition-all"
+                      aria-label="Dismiss password warning"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
             <Outlet />
           </div>
         </main>

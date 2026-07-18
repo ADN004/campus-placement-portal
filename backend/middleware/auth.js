@@ -66,7 +66,7 @@ export const protect = async (req, res, next) => {
 
       // Fetch user from database
       const result = await query(
-        'SELECT id, email, role, is_active FROM users WHERE id = $1',
+        'SELECT id, email, role, is_active, using_default_password FROM users WHERE id = $1',
         [decoded.id]
       );
 
@@ -277,6 +277,8 @@ export const sendTokenResponse = (user, statusCode, res, message = 'Success') =>
       id: user.id,
       email: user.email,
       role: user.role,
+      // Drives the "you're still on the default password" warning banner.
+      using_default_password: user.using_default_password === true,
     },
   });
 };

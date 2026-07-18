@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 import { Lock, Eye, EyeOff, Check, X, AlertCircle, Shield } from 'lucide-react';
 
 export default function ChangePassword({ onClose }) {
-  const { user } = useAuth();
+  const { user, checkAuth } = useAuth();
   // Self-service reset covers students and super admins only — placement
   // officers sign in by phone and are reset by the super admin instead.
   const canSelfReset = user?.role === 'student' || user?.role === 'super_admin';
@@ -176,6 +176,12 @@ export default function ChangePassword({ onClose }) {
         newPassword: '',
         confirmPassword: '',
       });
+
+      // Refresh the session so the "default password" warning banner clears
+      // immediately instead of lingering until the next login.
+      if (checkAuth) {
+        checkAuth().catch(() => {});
+      }
 
       // Close modal after a short delay
       setTimeout(() => {

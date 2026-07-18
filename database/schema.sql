@@ -55,6 +55,9 @@ CREATE TABLE users (
     -- hash of the emailed token, never the raw token. See migration 003.
     reset_password_token VARCHAR(64),
     reset_password_expires TIMESTAMP,
+    -- Whether the account is still on the shared default password ('123').
+    -- Determined at login, cleared on password change/reset. See migration 004.
+    using_default_password BOOLEAN,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

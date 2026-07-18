@@ -157,11 +157,23 @@ export const login = async (req, res) => {
       });
     }
 
+    // Login is the only place the plaintext password is available, so it is
+    // where we determine whether the account is still on the shared default
+    // ('123' — issued to students at registration and to officers on
+    // creation/import/reset). Folded into the existing last_login update, so
+    // it costs no extra query, and it self-corrects: an account reset back to
+    // the default is flagged again on its next sign-in.
+    const usingDefaultPassword = password === DEFAULT_STUDENT_PASSWORD;
+
     // Update last login timestamp
     await query(
-      'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1',
-      [user.id]
+      'UPDATE users SET last_login = CURRENT_TIMESTAMP, using_default_password = $2 WHERE id = $1',
+      [user.id, usingDefaultPassword]
     );
+
+    // Surface the freshly computed value in this response (the row read above
+    // predates the update).
+    user.using_default_password = usingDefaultPassword;
 
     // Log login activity
     await logActivity(
@@ -349,9 +361,10 @@ export const changePassword = async (req, res) => {
     const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
 
-    // Update password
+    // Update password — and clear the default-password flag, so the warning
+    // banner disappears without waiting for the next login.
     await query(
-      'UPDATE users SET password_hash = $1 WHERE id = $2',
+      'UPDATE users SET password_hash = $1, using_default_password = FALSE WHERE id = $2',
       [hashedPassword, req.user.id]
     );
 
@@ -524,10 +537,14 @@ export const resetPassword = async (req, res) => {
     const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
 
-    // Set the new password and burn the token in one statement.
+    // Set the new password, burn the token, and clear the default-password
+    // flag in one statement.
     await query(
       `UPDATE users
-       SET password_hash = $1, reset_password_token = NULL, reset_password_expires = NULL
+       SET password_hash = $1,
+           reset_password_token = NULL,
+           reset_password_expires = NULL,
+           using_default_password = FALSE
        WHERE id = $2`,
       [hashedPassword, user.id]
     );

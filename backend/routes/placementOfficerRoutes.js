@@ -67,7 +67,7 @@ import {
 } from '../controllers/collegeBranchController.js';
 import { updateStudentEmailByStaff } from '../controllers/studentEmailController.js';
 import { protect, authorize } from '../middleware/auth.js';
-import { exportLimiter } from '../middleware/rateLimiter.js';
+import { exportLimiter, uploadLimiter } from '../middleware/rateLimiter.js';
 
 const router = express.Router();
 
@@ -78,7 +78,8 @@ router.use(authorize('placement_officer'));
 router.get('/dashboard', getDashboard);
 router.get('/profile', getProfile);
 router.put('/profile', updateProfile);
-router.post('/profile/photo', uploadOwnPhoto);
+// uploadLimiter: these push to Cloudinary, which is metered and billed.
+router.post('/profile/photo', uploadLimiter, uploadOwnPhoto);
 router.delete('/profile/photo', deleteOwnPhoto);
 router.get('/students', getStudents);
 router.get('/students/export', exportStudents);
@@ -139,7 +140,7 @@ router.get('/placement-poster/stats', getPlacementPosterStats);
 router.post('/placement-poster/generate', exportLimiter, generatePlacementPoster);
 
 // College Logo Management Routes
-router.post('/college/logo', uploadCollegeLogo);
+router.post('/college/logo', uploadLimiter, uploadCollegeLogo);
 router.delete('/college/logo', deleteCollegeLogo);
 
 // Manual Student Addition Routes

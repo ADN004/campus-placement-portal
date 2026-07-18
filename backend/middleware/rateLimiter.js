@@ -156,49 +156,53 @@ export const passwordResetLimiter = rateLimit({
 });
 
 /**
- * Read Operations Rate Limiter
- * More lenient for GET requests
- * - 60 requests per minute per IP
- */
-export const readLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000, // 1 minute
-  max: 60, // Limit each IP to 60 requests per minute
-  message: {
-    success: false,
-    message: 'Too many requests, please slow down.',
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-  // Skip rate limiting for successful requests
-  skip: (req) => req.method === 'GET' && req.user, // Skip for authenticated GET requests
-});
-
-/**
  * Export Operations Rate Limiter
  * Limits for resource-intensive export operations
- * - 30 exports per hour per IP (increased for legitimate officer/admin use)
+ * - 30 exports per hour per authenticated user, or per IP if anonymous
+ *
+ * Keyed per user for the same reason as apiLimiter: a pure-IP key made this
+ * collective, so two officers at one college shared 30 exports an hour between
+ * them. During a drive — applicant lists per job, panel PDFs, an Excel for the
+ * office — that runs out mid-drive.
+ *
+ * Per-user keying also makes the super_admin skip below behave consistently.
+ * This limiter is mounted twice: on wildcard paths in server.js (above the
+ * routes, where req.user is not set yet, so the skip cannot fire) and directly
+ * on a few routes after `protect` (where it can). Keying on the verified token
+ * rather than on req.user means the *bucket* is correct either way.
  */
 export const exportLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 30, // Limit to 30 exports per hour
+  keyGenerator: userOrIpKey,
   message: {
     success: false,
     message: 'Export limit reached. Please try again in an hour.',
   },
   standardHeaders: true,
   legacyHeaders: false,
-  // Higher limit for authenticated users
+  // Only effective on the post-`protect` mounts; see note above.
   skip: (req) => req.user && req.user.role === 'super_admin',
 });
 
 /**
  * File Upload Rate Limiter
  * Limits for photo uploads
- * - 20 uploads per hour per IP
+ * - 20 uploads per hour per authenticated user, or per IP if anonymous
+ *
+ * Every upload pushes an image to Cloudinary, which is metered and billed. The
+ * general apiLimiter allows 1000 requests per 15 minutes, so without this an
+ * account stuck in a retry loop — or a compromised one — can burn a large
+ * amount of Cloudinary quota without tripping anything. That failure surfaces
+ * as a bill or a suspended account rather than an error in the logs.
+ *
+ * Photo size is separately capped at 500KB by validateImageSize in the
+ * controllers; this caps the *rate*, which nothing else does.
  */
 export const uploadLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 20, // Limit to 20 uploads per hour
+  keyGenerator: userOrIpKey,
   message: {
     success: false,
     message: 'Upload limit reached. Please try again in an hour.',

@@ -100,6 +100,25 @@ export const login = async (req, res) => {
       });
     }
 
+    // Verify the password BEFORE disclosing anything about the account.
+    //
+    // The status messages below are deliberately specific — a rejected student
+    // is told why and pointed at re-registration. That is right for the
+    // account's owner, but PRNs are published in ranges rather than secret, so
+    // running those checks first meant anyone could type a PRN with any made-up
+    // password and read back the account's registration status and the
+    // officer's written rejection reason. Authenticating first keeps every one
+    // of those messages intact for the real user while a stranger only ever
+    // sees "Invalid credentials".
+    const isMatch = await bcrypt.compare(password, user.password_hash);
+
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials',
+      });
+    }
+
     // A student's registration status gates login no matter which identifier
     // they signed in with — checking only on the PRN path would let pending
     // and rejected students in by typing their email instead.
@@ -144,16 +163,6 @@ export const login = async (req, res) => {
       return res.status(401).json({
         success: false,
         message: 'Your account has been deactivated',
-      });
-    }
-
-    // Verify password
-    const isMatch = await bcrypt.compare(password, user.password_hash);
-
-    if (!isMatch) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid credentials',
       });
     }
 

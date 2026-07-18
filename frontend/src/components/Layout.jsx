@@ -121,7 +121,7 @@ export default function Layout() {
   const navigationItems = getNavigationItems();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 relative overflow-x-hidden">
       {/* Animated Background Orbs */}
       <div className="fixed inset-0 pointer-events-none">
         <GradientOrb color="blue" size="xl" position={{ top: '10%', right: '10%' }} animationDuration="8s" />
@@ -181,7 +181,7 @@ export default function Layout() {
           bg-white/70 backdrop-blur-2xl border-r border-gray-200
           transition-all duration-300 ease-in-out z-20 flex flex-col
           lg:left-3 lg:top-[76px] lg:rounded-3xl lg:border-gray-200 lg:shadow-xl
-          ${sidebarOpen ? 'left-0 top-16 rounded-none' : 'left-0 top-16 rounded-none'}`}
+          left-0 top-16 rounded-none`}
         >
           {/* Scrollable Navigation */}
           <nav className="flex-1 overflow-y-auto p-6 space-y-2">
@@ -247,8 +247,15 @@ export default function Layout() {
         </aside>
 
         {/* Main Content */}
-        <main className={`flex-1 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] overflow-y-auto
-          ${sidebarOpen ? '' : 'lg:ml-[296px]'} transition-all duration-300`}
+        {/* The lg: margin is unconditional on purpose: at lg the sidebar is
+            always on screen (lg:translate-x-0 + fixed above), so the content
+            always has to clear it. Tying the margin to sidebarOpen meant that
+            opening the menu below lg and then crossing the breakpoint — an
+            iPad rotating to landscape, or a window dragged wider — left the
+            margin off while the sidebar was showing, hiding the leftmost
+            296px of the page underneath it. */}
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] overflow-y-auto
+          lg:ml-[296px] transition-all duration-300"
         >
           <div className="max-w-[1400px] mx-auto">
             {/* Default-password warning — informational, never blocking. */}

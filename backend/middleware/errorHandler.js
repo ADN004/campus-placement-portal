@@ -35,7 +35,18 @@ export const errorHandler = (err, req, res, next) => {
     error = { message, statusCode: 401 };
   }
 
-  res.status(error.statusCode || 500).json({
+  // Fall back to the original error's status before defaulting to 500.
+  //
+  // `error` above is a spread copy, and spreading only copies own *enumerable*
+  // properties. Libraries built on http-errors (body-parser among them) define
+  // status/statusCode as non-enumerable, so the copy silently loses them and
+  // every such error was reported as 500 — telling the client the server broke
+  // when the request was simply too large, malformed, or unsupported.
+  //
+  // The branches above still win, since they set error.statusCode explicitly.
+  const statusCode = error.statusCode || err.statusCode || err.status || 500;
+
+  res.status(statusCode).json({
     success: false,
     message: error.message || 'Server Error',
     error: process.env.NODE_ENV === 'development' ? err.stack : undefined,

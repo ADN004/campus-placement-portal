@@ -1,10 +1,18 @@
 import { useState, useMemo, useEffect } from 'react';
 import { authAPI } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { Lock, Eye, EyeOff, Check, X, AlertCircle, Shield } from 'lucide-react';
 
 export default function ChangePassword({ onClose }) {
+  const { user } = useAuth();
+  // Self-service reset covers students and super admins only — placement
+  // officers sign in by phone and are reset by the super admin instead.
+  const canSelfReset = user?.role === 'student' || user?.role === 'super_admin';
+
   const [loading, setLoading] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
   const [showPasswords, setShowPasswords] = useState({
     current: false,
     new: false,
@@ -36,6 +44,30 @@ export default function ChangePassword({ onClose }) {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  /**
+   * Email the signed-in user a password reset link — the escape hatch for
+   * someone who is logged in but no longer knows their current password.
+   * Reuses the same public endpoint as the login page's "Forgot password?".
+   */
+  const handleSendResetLink = async () => {
+    if (!user?.email) return;
+    setResetLoading(true);
+    try {
+      await authAPI.forgotPassword(user.email);
+      setResetSent(true);
+    } catch (error) {
+      // Rate limiting is the one failure worth surfacing; the endpoint is
+      // otherwise generic by design, so anything else is treated as sent.
+      if (error.response?.status === 429) {
+        toast.error(error.response?.data?.message || 'Too many requests. Please try again shortly.');
+      } else {
+        setResetSent(true);
+      }
+    } finally {
+      setResetLoading(false);
+    }
   };
 
   // Password validation rules
@@ -206,6 +238,39 @@ export default function ChangePassword({ onClose }) {
               >
                 {showPasswords.current ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
+            </div>
+
+            {/* Escape hatch for a signed-in user who no longer knows their
+                current password. Students/super admins can email themselves a
+                reset link; officers aren't covered by self-service reset, so
+                they're pointed at the super admin instead. */}
+            <div className="mt-2">
+              {canSelfReset ? (
+                resetSent ? (
+                  <div className="flex items-start gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg p-3">
+                    <Check size={16} className="flex-shrink-0 mt-0.5" />
+                    <span>
+                      Reset link sent to <span className="font-medium">{user.email}</span>. It expires in
+                      1 hour — open it to set a new password without needing your current one.
+                    </span>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleSendResetLink}
+                    disabled={resetLoading}
+                    className="text-sm font-semibold text-blue-600 hover:text-blue-800 disabled:opacity-50"
+                  >
+                    {resetLoading
+                      ? 'Sending reset link…'
+                      : 'Forgot your current password? Email me a reset link'}
+                  </button>
+                )
+              ) : (
+                <p className="text-sm text-gray-500">
+                  Forgot your current password? Contact your Super Admin to reset it.
+                </p>
+              )}
             </div>
           </div>
 

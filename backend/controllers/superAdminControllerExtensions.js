@@ -443,7 +443,12 @@ export const enhancedCustomExport = async (req, res) => {
             company_name, drive_date, include_signature, separate_colleges, use_short_names,
             cgpa_min, cgpa_max, backlog_count, search, status,
             dob_from, dob_to, height_min, height_max, weight_min, weight_max,
-            has_driving_license, has_pan_card, has_aadhar_card, has_passport, districts } = req.body;
+            has_driving_license, has_pan_card, has_aadhar_card, has_passport, districts,
+            archived, academic_year } = req.body;
+
+    // Archived export: passed-out students deactivated by the year-end reset.
+    // Default (not set) exports current, active students only.
+    const showArchived = archived === 'true' || archived === true;
 
     if (!fields || fields.length === 0) {
       return res.status(400).json({
@@ -521,18 +526,27 @@ export const enhancedCustomExport = async (req, res) => {
       selectFields.push('c.college_name AS college_name');
     }
 
-    // Build query
+    // Build query. Join users so the export matches the on-screen list: active
+    // students by default, deactivated (archived) students when requested.
     let queryText = `
       SELECT ${selectFields.join(', ')}
       FROM students s
       JOIN colleges c ON s.college_id = c.id
       JOIN regions r ON s.region_id = r.id
+      JOIN users u ON s.user_id = u.id
       LEFT JOIN student_extended_profiles ep ON s.id = ep.student_id
-      WHERE 1=1
+      WHERE u.is_active = ${showArchived ? 'FALSE' : 'TRUE'}
     `;
 
     const params = [];
     let paramCount = 0;
+
+    // Passed-out batch filter (archived export only)
+    if (showArchived && academic_year) {
+      paramCount++;
+      queryText += ` AND s.archived_academic_year = $${paramCount}`;
+      params.push(academic_year);
+    }
 
     // Filter by status
     if (status === 'blacklisted') {

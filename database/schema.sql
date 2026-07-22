@@ -237,6 +237,10 @@ CREATE TABLE students (
     rejection_reason TEXT,
     rejected_at TIMESTAMP,
 
+    -- Passed-out batch stamp: set by the academic year reset when a student is
+    -- deactivated. NULL = current active student. (migration 007)
+    archived_academic_year VARCHAR(10),
+
     -- Blacklist Status
     is_blacklisted BOOLEAN DEFAULT FALSE,
     blacklist_reason TEXT,

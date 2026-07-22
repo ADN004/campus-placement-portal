@@ -283,8 +283,11 @@ export const customExportStudents = async (req, res) => {
       search, cgpa_min, cgpa_max, backlog_count, branch,
       dob_from, dob_to, height_min, height_max, weight_min, weight_max,
       has_driving_license, has_pan_card, has_aadhar_card, has_passport,
-      districts
+      districts, archived, academic_year
     } = req.body;
+
+    // Archived export: passed-out students deactivated by the year-end reset.
+    const showArchived = archived === 'true' || archived === true;
 
     // Get officer's college
     const officerResult = await query(
@@ -361,15 +364,24 @@ export const customExportStudents = async (req, res) => {
       columnHeaders.photo_url = 'Photo URL';
     }
 
-    // Build query
+    // Build query. Join users so the export matches the on-screen list:
+    // active students by default, archived (deactivated) when requested.
     let queryText = `
       SELECT ${selectFields.join(', ')}
       FROM students s
-      WHERE s.college_id = $1
+      JOIN users u ON s.user_id = u.id
+      WHERE s.college_id = $1 AND u.is_active = ${showArchived ? 'FALSE' : 'TRUE'}
     `;
 
     const params = [collegeId];
     let paramCount = 1;
+
+    // Passed-out batch filter (archived export only)
+    if (showArchived && academic_year) {
+      paramCount++;
+      queryText += ` AND s.archived_academic_year = $${paramCount}`;
+      params.push(academic_year);
+    }
 
     // Filter by status
     if (status === 'blacklisted') {

@@ -4,6 +4,7 @@ import {
   getProfile,
   updateProfile,
   getStudents,
+  getArchivedAcademicYears,
   approveStudent,
   rejectStudent,
   bulkApproveStudents,
@@ -82,6 +83,7 @@ router.put('/profile', updateProfile);
 router.post('/profile/photo', uploadLimiter, uploadOwnPhoto);
 router.delete('/profile/photo', deleteOwnPhoto);
 router.get('/students', getStudents);
+router.get('/archived-years', getArchivedAcademicYears);
 router.get('/students/export', exportStudents);
 router.post('/students/custom-export', customExportStudents);
 router.put('/students/bulk-approve', bulkApproveStudents);

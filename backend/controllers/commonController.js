@@ -159,9 +159,11 @@ export const validatePRN = async (req, res) => {
       }
     }
 
-    // Get all active PRN ranges
+    // Get all active PRN ranges. A range that a PO has disabled (is_enabled =
+    // FALSE) must NOT admit registrations — that is the whole point of the
+    // toggle, and the academic year reset disables all ranges this way.
     const rangesResult = await query(
-      'SELECT range_start, range_end, single_prn, excepted_prns FROM prn_ranges WHERE is_active = TRUE'
+      'SELECT range_start, range_end, single_prn, excepted_prns FROM prn_ranges WHERE is_active = TRUE AND is_enabled IS NOT FALSE'
     );
 
     const ranges = rangesResult.rows;

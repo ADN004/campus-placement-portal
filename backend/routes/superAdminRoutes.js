@@ -24,6 +24,7 @@ import {
   rejectWhitelistRequest,
   getActivityLogs,
   getAllStudents,
+  getArchivedAcademicYears,
   searchStudentByPRN,
   blacklistStudent,
   whitelistStudent,
@@ -215,6 +216,7 @@ router.get('/activity-logs', getActivityLogs);
 
 // Students
 router.get('/students', getAllStudents);
+router.get('/archived-years', getArchivedAcademicYears);
 router.get('/students/search/:prn', searchStudentByPRN);
 router.get('/students/:studentId/detailed-profile', getDetailedStudentProfile);
 // Student Resume Download Routes

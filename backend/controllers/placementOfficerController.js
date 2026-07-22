@@ -329,11 +329,42 @@ export const getDashboard = async (req, res) => {
 // @desc    Get students from officer's college
 // @route   GET /api/placement-officer/students
 // @access  Private (Placement Officer)
+// @desc    Distinct passed-out batch years for this officer's college
+// @route   GET /api/placement-officer/archived-years
+// @access  Private (Placement Officer)
+export const getArchivedAcademicYears = async (req, res) => {
+  try {
+    const officerResult = await query(
+      'SELECT college_id FROM placement_officers WHERE user_id = $1',
+      [req.user.id]
+    );
+    if (officerResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Placement officer profile not found' });
+    }
+    const result = await query(
+      `SELECT DISTINCT archived_academic_year AS year
+       FROM students
+       WHERE college_id = $1 AND archived_academic_year IS NOT NULL
+       ORDER BY year DESC`,
+      [officerResult.rows[0].college_id]
+    );
+    res.status(200).json({ success: true, data: result.rows.map((r) => r.year) });
+  } catch (error) {
+    console.error('Get archived years error (PO):', error);
+    res.status(500).json({ success: false, message: 'Error fetching archived years', error: error.message });
+  }
+};
+
 export const getStudents = async (req, res) => {
   try {
     const { status, cgpa_min, backlog, search, page = '1', limit = '100',
             dob_from, dob_to, height_min, height_max, weight_min, weight_max,
-            has_driving_license, has_pan_card, has_aadhar_card, has_passport, districts } = req.query;
+            has_driving_license, has_pan_card, has_aadhar_card, has_passport, districts,
+            archived, academic_year } = req.query;
+
+    // Archived view: passed-out students of this college, deactivated by the
+    // year-end reset. Default (not set) keeps the original active-only behavior.
+    const showArchived = archived === 'true' || archived === true;
 
     // Parse pagination parameters
     const pageNum = parseInt(page, 10);
@@ -366,10 +397,17 @@ export const getStudents = async (req, res) => {
       JOIN colleges c ON s.college_id = c.id
       JOIN regions r ON s.region_id = r.id
       LEFT JOIN student_extended_profiles ep ON s.id = ep.student_id
-      WHERE s.college_id = $1 AND u.is_active = TRUE
+      WHERE s.college_id = $1 AND u.is_active = ${showArchived ? 'FALSE' : 'TRUE'}
     `;
     const params = [collegeId];
     let paramCount = 1;
+
+    // Passed-out batch filter (archived view only)
+    if (showArchived && academic_year) {
+      paramCount++;
+      queryText += ` AND s.archived_academic_year = $${paramCount}`;
+      params.push(academic_year);
+    }
 
     // CRITICAL FIX: Filter based on status and blacklist
     // - If no status or status is not 'blacklisted', exclude blacklisted students

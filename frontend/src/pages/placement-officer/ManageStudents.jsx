@@ -58,6 +58,11 @@ export default function ManageStudents() {
   });
   const [filterDistricts, setFilterDistricts] = useState([]);
   const [availableDistricts, setAvailableDistricts] = useState([]);
+  // Archived (passed-out) students: deactivated by the year-end reset, kept for
+  // reference/export.
+  const [showArchived, setShowArchived] = useState(false);
+  const [archivedYear, setArchivedYear] = useState('');
+  const [archivedYears, setArchivedYears] = useState([]);
 
   // Bulk Selection
   const [selectedStudents, setSelectedStudents] = useState([]);
@@ -125,7 +130,17 @@ export default function ManageStudents() {
     fetchDistricts();
     fetchCgpaLockStatus();
     fetchBacklogLockStatus();
+    fetchArchivedYears();
   }, []);
+
+  const fetchArchivedYears = async () => {
+    try {
+      const res = await placementOfficerAPI.getArchivedYears();
+      setArchivedYears(res.data.data || []);
+    } catch {
+      // non-fatal
+    }
+  };
 
   const fetchDistricts = async () => {
     try {
@@ -146,7 +161,7 @@ export default function ManageStudents() {
 
   useEffect(() => {
     fetchStudents();
-  }, [currentPage, pageSize, activeTab, debouncedSearch, advancedFilters, filterDocuments, filterDistricts]);
+  }, [currentPage, pageSize, activeTab, debouncedSearch, advancedFilters, filterDocuments, filterDistricts, showArchived, archivedYear]);
 
   const fetchCollegeBranches = async () => {
     try {
@@ -313,6 +328,12 @@ export default function ManageStudents() {
 
       // District filter
       if (filterDistricts.length > 0) params.districts = filterDistricts.join(',');
+
+      // Archived (passed-out) students
+      if (showArchived) {
+        params.archived = 'true';
+        if (archivedYear) params.academic_year = archivedYear;
+      }
 
       const response = await placementOfficerAPI.getStudents(params);
       const studentsData = response.data.data || [];
@@ -600,6 +621,9 @@ export default function ManageStudents() {
         include_photo_url: includePhotoUrl,
         status: activeTab !== 'all' ? activeTab : undefined,
         format: exportFormat,
+        // Export the archived batch when viewing archives
+        archived: showArchived ? 'true' : undefined,
+        academic_year: showArchived && archivedYear ? archivedYear : undefined,
       };
 
       // Include page-level filters
@@ -1268,6 +1292,34 @@ export default function ManageStudents() {
             </span>
           </button>
         ))}
+      </div>
+
+      {/* Archived (passed-out) students */}
+      <div className={`mb-6 flex flex-wrap items-center gap-3 rounded-xl border p-3 ${showArchived ? 'border-amber-400 bg-amber-50' : 'border-white/20 bg-white/70'}`}>
+        <button
+          type="button"
+          onClick={() => { setShowArchived(!showArchived); setArchivedYear(''); setCurrentPage(1); }}
+          className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${showArchived ? 'bg-amber-500 text-white hover:bg-amber-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+        >
+          {showArchived ? '← Back to current students' : 'Show archived (passed-out) students'}
+        </button>
+        {showArchived && (
+          <>
+            <select
+              value={archivedYear}
+              onChange={(e) => { setArchivedYear(e.target.value); setCurrentPage(1); }}
+              className="px-3 py-2 rounded-lg border border-gray-300 text-sm max-w-[220px]"
+            >
+              <option value="">All passed-out batches</option>
+              {archivedYears.map((y) => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+            <span className="text-sm text-amber-800">
+              Read-only. These students can no longer log in — shown for reference &amp; export.
+            </span>
+          </>
+        )}
       </div>
 
       {/* Search Bar */}

@@ -113,6 +113,7 @@ export const placementOfficerAPI = {
   getProfile: () => API.get('/placement-officer/profile'),
   updateProfile: (data) => API.put('/placement-officer/profile', data),
   getStudents: (filters) => API.get('/placement-officer/students', { params: filters }),
+  getArchivedYears: () => API.get('/placement-officer/archived-years'),
   approveStudent: (studentId) => API.put(`/placement-officer/students/${studentId}/approve`),
   rejectStudent: (studentId, reason) => API.put(`/placement-officer/students/${studentId}/reject`, { reason }),
   blacklistStudent: (studentId, reason) => API.put(`/placement-officer/students/${studentId}/blacklist`, { reason }),
@@ -251,6 +252,7 @@ export const superAdminAPI = {
 
   // Student Management
   getAllStudents: (queryString = '') => API.get(`/super-admin/students${queryString ? `?${queryString}` : ''}`),
+  getArchivedYears: () => API.get('/super-admin/archived-years'),
   searchStudentByPRN: (prn) => API.get(`/super-admin/students/search/${prn}`),
   blacklistStudent: (studentId, reason) => API.put(`/super-admin/students/${studentId}/blacklist`, { reason }),
   updateStudentEmail: (studentId, email) => API.put(`/super-admin/students/${studentId}/email`, { email }),

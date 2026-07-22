@@ -73,6 +73,12 @@ export default function ManageAllStudents() {
   });
   const [filterDistricts, setFilterDistricts] = useState([]);
   const [availableDistricts, setAvailableDistricts] = useState([]);
+  // Archived (passed-out) students: deactivated by the year-end reset, kept for
+  // reference/export. showArchived flips the list to those; archivedYear filters
+  // to one batch. archivedYears populates the batch dropdown.
+  const [showArchived, setShowArchived] = useState(false);
+  const [archivedYear, setArchivedYear] = useState('');
+  const [archivedYears, setArchivedYears] = useState([]);
 
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -138,9 +144,19 @@ export default function ManageAllStudents() {
       await fetchRegionsAndColleges();
       await fetchDistricts();
       await fetchGlobalCgpaStatus();
+      fetchArchivedYears();
     };
     initializeData();
   }, []);
+
+  const fetchArchivedYears = async () => {
+    try {
+      const res = await superAdminAPI.getArchivedYears();
+      setArchivedYears(res.data.data || []);
+    } catch {
+      // non-fatal: dropdown just stays empty
+    }
+  };
 
   // Debounce search input (400ms delay)
   useEffect(() => {
@@ -154,7 +170,7 @@ export default function ManageAllStudents() {
     if (regions.length > 0 && colleges.length > 0) {
       fetchStudents();
     }
-  }, [currentPage, pageSize, regions, colleges, filterRegion, filterCollege, filterStatus, filterBranch, debouncedSearch, advancedFilters, dobFrom, dobTo, heightMin, heightMax, weightMin, weightMax, filterDocuments, filterDistricts]);
+  }, [currentPage, pageSize, regions, colleges, filterRegion, filterCollege, filterStatus, filterBranch, debouncedSearch, advancedFilters, dobFrom, dobTo, heightMin, heightMax, weightMin, weightMax, filterDocuments, filterDistricts, showArchived, archivedYear]);
 
   // Reset to page 1 when filters change
   useEffect(() => {
@@ -335,6 +351,10 @@ export default function ManageAllStudents() {
       if (filterDocuments.aadhar_card) params.append('has_aadhar_card', filterDocuments.aadhar_card);
       if (filterDocuments.passport) params.append('has_passport', filterDocuments.passport);
       if (filterDistricts.length > 0) params.append('districts', filterDistricts.join(','));
+      if (showArchived) {
+        params.append('archived', 'true');
+        if (archivedYear) params.append('academic_year', archivedYear);
+      }
 
       console.log('Fetching students with params:', params.toString());
       const response = await superAdminAPI.getAllStudents(params.toString());
@@ -576,6 +596,9 @@ export default function ManageAllStudents() {
         has_aadhar_card: filterDocuments.aadhar_card || null,
         has_passport: filterDocuments.passport || null,
         districts: filterDistricts.length > 0 ? filterDistricts : null,
+        // Export the archived batch when viewing archives
+        archived: showArchived ? 'true' : null,
+        academic_year: showArchived && archivedYear ? archivedYear : null,
       };
 
       // Add format-specific parameters
@@ -810,6 +833,34 @@ export default function ManageAllStudents() {
               <option value="blacklisted">Blacklisted</option>
             </select>
           </div>
+        </div>
+
+        {/* Archived (passed-out) students */}
+        <div className={`mt-4 flex flex-wrap items-center gap-3 rounded-xl border p-3 ${showArchived ? 'border-amber-400 bg-amber-50' : 'border-gray-200 bg-white/60'}`}>
+          <button
+            type="button"
+            onClick={() => { setShowArchived(!showArchived); setArchivedYear(''); setCurrentPage(1); }}
+            className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${showArchived ? 'bg-amber-500 text-white hover:bg-amber-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+          >
+            {showArchived ? '← Back to current students' : 'Show archived (passed-out) students'}
+          </button>
+          {showArchived && (
+            <>
+              <select
+                value={archivedYear}
+                onChange={(e) => { setArchivedYear(e.target.value); setCurrentPage(1); }}
+                className="input max-w-[220px]"
+              >
+                <option value="">All passed-out batches</option>
+                {archivedYears.map((y) => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+              <span className="text-sm text-amber-800">
+                Read-only. These students can no longer log in — shown for reference &amp; export.
+              </span>
+            </>
+          )}
         </div>
       </div>
         </AnimatedSection>

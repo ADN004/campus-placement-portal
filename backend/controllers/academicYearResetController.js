@@ -174,7 +174,18 @@ export const performAcademicYearReset = async (req, res) => {
       );
       counts.prn_ranges_disabled = prnResult.rowCount;
 
-      // 2. Deactivate all student user accounts
+      // 2a. Stamp the passed-out batch year on the students being archived
+      //     (while their accounts are still active, so the set matches 2b).
+      await client.query(
+        `UPDATE students SET archived_academic_year = $1, updated_at = CURRENT_TIMESTAMP
+         WHERE user_id IN (
+           SELECT id FROM users WHERE role = 'student' AND is_active = TRUE
+         )`,
+        [academic_year]
+      );
+
+      // 2b. Deactivate all student user accounts (they can no longer log in;
+      //     their records are kept for PO/SA reference and export).
       const studentResult = await client.query(
         `UPDATE users SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP
          WHERE role = 'student' AND is_active = TRUE`

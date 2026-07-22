@@ -1905,8 +1905,15 @@ export const getAllStudents = async (req, res) => {
       has_pan_card,
       has_aadhar_card,
       has_passport,
-      districts
+      districts,
+      archived,
+      academic_year
     } = req.query;
+
+    // Archived view: passed-out students whose accounts the year-end reset
+    // deactivated. Default (archived not set) is byte-identical to before —
+    // active students only.
+    const showArchived = archived === 'true' || archived === true;
 
     // Parse pagination params
     const pageNum = parseInt(page) || 1;
@@ -1919,6 +1926,7 @@ export const getAllStudents = async (req, res) => {
              s.date_of_birth, s.age, s.gender, s.branch, s.programme_cgpa,
              s.backlog_count, s.registration_status, s.is_blacklisted,
              s.photo_url, s.created_at, s.college_id, s.region_id,
+             s.archived_academic_year,
              c.college_name, r.region_name, u.email as user_email, u.is_active as user_is_active,
              COALESCE(ep.height_cm, s.height) as height,
              COALESCE(ep.weight_kg, s.weight) as weight,
@@ -1928,7 +1936,7 @@ export const getAllStudents = async (req, res) => {
       JOIN regions r ON s.region_id = r.id
       JOIN users u ON s.user_id = u.id
       LEFT JOIN student_extended_profiles ep ON s.id = ep.student_id
-      WHERE u.is_active = TRUE
+      WHERE u.is_active = ${showArchived ? 'FALSE' : 'TRUE'}
     `;
     const params = [];
     let paramCount = 0;
@@ -1948,6 +1956,13 @@ export const getAllStudents = async (req, res) => {
     } else {
       // Default: Show all non-blacklisted students
       queryText += ` AND s.is_blacklisted = FALSE`;
+    }
+
+    // Passed-out batch filter (archived view only)
+    if (showArchived && academic_year) {
+      paramCount++;
+      queryText += ` AND s.archived_academic_year = $${paramCount}`;
+      params.push(academic_year);
     }
 
     // Additional filters
@@ -2098,6 +2113,24 @@ export const getAllStudents = async (req, res) => {
       message: 'Error fetching students',
       error: error.message,
     });
+  }
+};
+
+// @desc    Distinct passed-out batch years present in the archive
+// @route   GET /api/super-admin/archived-years
+// @access  Private (Super Admin)
+export const getArchivedAcademicYears = async (req, res) => {
+  try {
+    const result = await query(
+      `SELECT DISTINCT archived_academic_year AS year
+       FROM students
+       WHERE archived_academic_year IS NOT NULL
+       ORDER BY year DESC`
+    );
+    res.status(200).json({ success: true, data: result.rows.map((r) => r.year) });
+  } catch (error) {
+    console.error('Get archived years error:', error);
+    res.status(500).json({ success: false, message: 'Error fetching archived years', error: error.message });
   }
 };
 

@@ -1264,9 +1264,10 @@ const validatePasswordStrength = (password) => {
  */
 const validatePRN = async (prn) => {
   try {
-    // Get all active PRN ranges
+    // Get all active PRN ranges. Disabled ranges (is_enabled = FALSE) must not
+    // admit registrations — mirrors the public validate-prn check.
     const rangesResult = await query(
-      'SELECT range_start, range_end, single_prn, excepted_prns FROM prn_ranges WHERE is_active = TRUE'
+      'SELECT range_start, range_end, single_prn, excepted_prns FROM prn_ranges WHERE is_active = TRUE AND is_enabled IS NOT FALSE'
     );
 
     const ranges = rangesResult.rows;

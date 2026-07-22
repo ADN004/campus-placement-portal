@@ -42,6 +42,7 @@ const PlacementOfficerPlacementPoster = lazy(() => import('./pages/placement-off
 // Super Admin Pages (lazy loaded)
 const SuperAdminDashboard = lazy(() => import('./pages/super-admin/SuperAdminDashboard'));
 const ManagePRNRanges = lazy(() => import('./pages/super-admin/ManagePRNRanges'));
+const ManageCollegeLocks = lazy(() => import('./pages/super-admin/ManageCollegeLocks'));
 const PRNRangeStudents = lazy(() => import('./pages/super-admin/PRNRangeStudents'));
 const ManagePlacementOfficers = lazy(() => import('./pages/super-admin/ManagePlacementOfficers'));
 const ManageJobs = lazy(() => import('./pages/super-admin/ManageJobs'));
@@ -121,6 +122,7 @@ function App() {
                 <Route path="/super-admin/dashboard" element={<SuperAdminDashboard />} />
                 <Route path="/super-admin/prn-ranges" element={<ManagePRNRanges />} />
                 <Route path="/super-admin/prn-ranges/:rangeId/students" element={<PRNRangeStudents />} />
+                <Route path="/super-admin/college-locks" element={<ManageCollegeLocks />} />
                 <Route path="/super-admin/placement-officers" element={<ManagePlacementOfficers />} />
                 <Route path="/super-admin/jobs" element={<ManageJobs />} />
                 <Route path="/super-admin/job-requests" element={<ManageJobRequests />} />

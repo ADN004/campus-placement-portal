@@ -15,6 +15,8 @@ export default function StudentRegisterPage() {
   const [branches, setBranches] = useState([]);
   const [prnValid, setPrnValid] = useState(null);
   const [prnChecking, setPrnChecking] = useState(false);
+  // Server's reason when a PRN is refused (range, exclusion, or registration lock)
+  const [prnMessage, setPrnMessage] = useState('');
   // Set when this PRN had a rejected registration — re-registering replaces it
   const [prnPreviousRejected, setPrnPreviousRejected] = useState(false);
   const [photoPreview, setPhotoPreview] = useState(null);
@@ -99,6 +101,12 @@ export default function StudentRegisterPage() {
   const hideRegionPicker = portalMode.singleRegion && formData.region_id !== '';
   const hideCollegePicker = portalMode.singleCollege && formData.college_id !== '';
 
+  // The super admin can lock registration per college once its deadline passes.
+  // getColleges returns a registration_locked flag; when the selected college
+  // is locked we block the form and tell the student who to contact.
+  const selectedCollege = colleges.find((c) => String(c.id) === String(formData.college_id));
+  const registrationLocked = selectedCollege?.registration_locked === true;
+
   // Autofill from the Google account picker. Never overwrites what the
   // student typed without an explicit confirmation; the name is only filled
   // when the field is still empty.
@@ -151,20 +159,23 @@ export default function StudentRegisterPage() {
     }
   };
 
-  const validatePRN = async (prn) => {
+  const validatePRN = async (prn, collegeId) => {
     if (!prn) {
       setPrnValid(null);
+      setPrnMessage('');
       return;
     }
 
     setPrnChecking(true);
     try {
-      const response = await commonAPI.validatePRN(prn);
+      const response = await commonAPI.validatePRN(prn, collegeId);
       setPrnValid(response.data.valid);
+      setPrnMessage(response.data.message || '');
       setPrnPreviousRejected(response.data.previous_rejected === true);
     } catch (error) {
       setPrnValid(false);
       setPrnPreviousRejected(false);
+      setPrnMessage(error.response?.data?.message || '');
       toast.error(error.response?.data?.message || 'PRN validation failed');
     } finally {
       setPrnChecking(false);
@@ -172,7 +183,7 @@ export default function StudentRegisterPage() {
   };
 
   const handlePRNBlur = () => {
-    validatePRN(formData.prn);
+    validatePRN(formData.prn, formData.college_id);
   };
 
   // Calculate age from date of birth
@@ -266,6 +277,9 @@ export default function StudentRegisterPage() {
     // Fetch branches when college changes
     if (name === 'college_id' && value) {
       fetchBranches(value);
+      // Re-check the PRN against the new college — a registration lock (and its
+      // allow-list) is per college, so the valid/blocked result can change
+      if (formData.prn) validatePRN(formData.prn, value);
     } else if (name === 'college_id' && !value) {
       setBranches([]);
     }
@@ -274,8 +288,12 @@ export default function StudentRegisterPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // A registration lock is enforced through the PRN check (validatePRN factors
+    // in the college lock and its allow-list), so prnValid already reflects it —
+    // an allow-listed PRN stays valid and can submit; everyone else is blocked
+    // here and again server-side.
     if (!prnValid) {
-      toast.error('Please enter a valid PRN');
+      toast.error(prnMessage || 'Please enter a valid PRN');
       return;
     }
 
@@ -396,7 +414,7 @@ export default function StudentRegisterPage() {
                   </div>
                   {prnValid === false && (
                     <p className="text-sm text-red-600 mt-1">
-                      PRN is not valid or already registered
+                      {prnMessage || 'PRN is not valid or already registered'}
                     </p>
                   )}
                   {prnValid === true && prnPreviousRejected && (
@@ -717,6 +735,24 @@ export default function StudentRegisterPage() {
                     {colleges[0]?.college_name}
                   </div>
                 </div>
+                )}
+
+                {/* Registration locked for the selected college. Hidden once an
+                    allow-listed PRN validates (prnValid === true) so a
+                    specifically-permitted straggler isn't wrongly warned. */}
+                {registrationLocked && prnValid !== true && (
+                  <div className="md:col-span-2 rounded-xl border-l-4 border-red-500 bg-red-50 p-4 flex items-start gap-3">
+                    <Lock className="h-5 w-5 text-red-600 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="font-bold text-red-800 text-sm">Registration is closed for this college</p>
+                      <p className="text-sm text-red-700 mt-0.5">
+                        The placement cell has closed new registrations for{' '}
+                        {selectedCollege?.college_name || 'your college'}. Unless your PRN has been
+                        specifically allowed by the placement cell, please contact your placement
+                        officer to reopen it.
+                      </p>
+                    </div>
+                  </div>
                 )}
 
                 {/* Branch */}

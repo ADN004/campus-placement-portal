@@ -1,5 +1,6 @@
 import { query } from '../config/database.js';
 import { getPortalCounts, getPortalSetting } from '../utils/portalMode.js';
+import { getAllCollegeLocks, isRegistrationBlocked } from '../utils/collegeLocks.js';
 
 // @desc    Portal mode info — lets the UI adapt to single-college deployments
 // @route   GET /api/common/portal-info
@@ -81,10 +82,22 @@ export const getColleges = async (req, res) => {
 
     const collegesResult = await query(queryText, params);
 
+    // Annotate each college with whether its student registration is locked,
+    // so the registration page can warn/disable early. Read tolerantly: if
+    // the college_locks table is missing (pre-migration), nothing is locked.
+    const locks = await getAllCollegeLocks();
+    const registrationLocked = new Set(
+      locks.filter((l) => l.lock_type === 'registration').map((l) => l.college_id)
+    );
+    const data = collegesResult.rows.map((c) => ({
+      ...c,
+      registration_locked: registrationLocked.has(c.id),
+    }));
+
     res.status(200).json({
       success: true,
-      count: collegesResult.rows.length,
-      data: collegesResult.rows,
+      count: data.length,
+      data,
     });
   } catch (error) {
     console.error('Get colleges error:', error);
@@ -104,11 +117,25 @@ export const validatePRN = async (req, res) => {
     // Trimmed exactly like registerStudent, so the live pre-check and the
     // actual registration always agree on the same PRN value
     const prn = typeof req.body.prn === 'string' ? req.body.prn.trim() : req.body.prn;
+    const collegeId = req.body.college_id;
 
     if (!prn) {
       return res.status(400).json({
         success: false,
         message: 'Please provide a PRN',
+      });
+    }
+
+    // Registration lock (per college): if the student's college is locked and
+    // their PRN is not on the allow-list, refuse early — mirrors registerStudent
+    // so the live pre-check agrees with the actual submit. Allowed PRNs fall
+    // through to the normal range/exception checks below.
+    if (collegeId && (await isRegistrationBlocked(collegeId, prn))) {
+      return res.status(400).json({
+        success: false,
+        valid: false,
+        registration_locked: true,
+        message: 'Registration for your college is currently closed by the placement cell. Please contact your placement officer.',
       });
     }
 

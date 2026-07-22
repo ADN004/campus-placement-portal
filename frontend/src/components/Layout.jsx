@@ -21,6 +21,7 @@ import {
   DatabaseBackup,
   Building2,
   AlertTriangle,
+  Lock,
 } from 'lucide-react';
 import { useState } from 'react';
 import GradientOrb from './GradientOrb';
@@ -98,6 +99,7 @@ export default function Layout() {
           { name: 'All Students', path: '/super-admin/students', icon: Users },
           { name: 'Send Notification', path: '/super-admin/send-notification', icon: Bell },
           { name: 'PRN Ranges', path: '/super-admin/prn-ranges', icon: ClipboardList },
+          { name: 'Registration Locks', path: '/super-admin/college-locks', icon: Lock },
           { name: 'Placement Officers', path: '/super-admin/placement-officers', icon: UserCheck },
           { name: 'Manage Colleges', path: '/super-admin/colleges', icon: Building2 },
           { name: 'College Branches', path: '/super-admin/college-branches', icon: GraduationCap },

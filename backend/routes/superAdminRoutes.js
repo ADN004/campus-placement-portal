@@ -123,6 +123,12 @@ import {
   performAcademicYearReset,
 } from '../controllers/academicYearResetController.js';
 import { downloadDatabaseBackup } from '../controllers/backupController.js';
+import {
+  getCollegeLocks,
+  lockCollege,
+  unlockCollege,
+  setAllowedPrns,
+} from '../controllers/collegeLockController.js';
 import { protect, authorize } from '../middleware/auth.js';
 import { exportLimiter } from '../middleware/rateLimiter.js';
 
@@ -157,6 +163,12 @@ router.put('/prn-ranges/:id', updatePRNRange);
 router.delete('/prn-ranges/:id', deletePRNRange);
 router.get('/prn-ranges/:id/students', getStudentsByPRNRange);
 router.get('/prn-ranges/:id/students/export', exportStudentsByPRNRange);
+
+// Per-college registration / PRN-range locks (deadline control)
+router.get('/college-locks', getCollegeLocks);
+router.post('/college-locks', lockCollege);
+router.put('/college-locks/:collegeId/allowed-prns', setAllowedPrns);
+router.delete('/college-locks/:collegeId/:lockType', unlockCollege);
 
 // Placement Officer Management
 router.get('/placement-officers', getPlacementOfficers);

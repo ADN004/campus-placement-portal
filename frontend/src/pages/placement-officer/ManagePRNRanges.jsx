@@ -11,6 +11,7 @@ import ExceptedPrnList from '../../components/ExceptedPrnList';
 
 export default function ManagePRNRanges() {
   const [prnRanges, setPrnRanges] = useState([]);
+  const [locked, setLocked] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showAddSingleModal, setShowAddSingleModal] = useState(false);
@@ -40,6 +41,7 @@ export default function ManagePRNRanges() {
       setLoading(true);
       const response = await placementOfficerAPI.getPRNRanges();
       setPrnRanges(response.data.data || []);
+      setLocked(response.data.prn_ranges_locked === true);
     } catch (error) {
       toast.error('Failed to load PRN ranges');
       console.error('Error fetching PRN ranges:', error);
@@ -287,24 +289,45 @@ export default function ManagePRNRanges() {
             title="Manage PRN Ranges"
             subtitle="Define valid PRN ranges for student registration at your college"
           />
-          <div className="flex space-x-3">
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 hover:from-green-700 hover:via-emerald-700 hover:to-teal-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 transition-all duration-200 flex items-center space-x-2"
-            >
-              <Plus size={20} />
-              <span>Add PRN Range</span>
-            </button>
-            <button
-              onClick={() => setShowAddSingleModal(true)}
-              className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:via-indigo-700 hover:to-purple-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 transition-all duration-200 flex items-center space-x-2"
-            >
-              <User size={20} />
-              <span>Add Single PRN</span>
-            </button>
-          </div>
+          {!locked && (
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 hover:from-green-700 hover:via-emerald-700 hover:to-teal-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 transition-all duration-200 flex items-center space-x-2"
+              >
+                <Plus size={20} />
+                <span>Add PRN Range</span>
+              </button>
+              <button
+                onClick={() => setShowAddSingleModal(true)}
+                className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:via-indigo-700 hover:to-purple-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 transition-all duration-200 flex items-center space-x-2"
+              >
+                <User size={20} />
+                <span>Add Single PRN</span>
+              </button>
+            </div>
+          )}
         </div>
       </AnimatedSection>
+
+      {/* Locked banner — SA has frozen PRN-range management for this college */}
+      {locked && (
+        <AnimatedSection delay={0.05}>
+          <div className="mb-8 rounded-xl border-l-4 border-red-500 bg-red-50 p-5 flex items-start gap-4">
+            <div className="bg-red-500 rounded-xl p-2.5 shadow">
+              <Lock className="text-white" size={24} />
+            </div>
+            <div>
+              <h3 className="font-bold text-red-800">PRN range editing is locked</h3>
+              <p className="text-sm text-red-700 mt-1 max-w-2xl">
+                The Super Admin has locked PRN-range management for your college — adding, editing
+                and deleting ranges are disabled. Existing ranges still work for registration.
+                Please contact the Super Admin to unlock it.
+              </p>
+            </div>
+          </div>
+        </AnimatedSection>
+      )}
 
       {/* Info Box */}
       <AnimatedSection delay={0.1}>
@@ -439,9 +462,9 @@ export default function ManagePRNRanges() {
                             range.is_enabled
                               ? 'text-green-600 hover:text-green-800 bg-green-50 hover:bg-green-100'
                               : 'text-gray-400 hover:text-gray-600 bg-gray-50 hover:bg-gray-100'
-                          } ${range.created_by === 'super_admin' ? 'opacity-50 cursor-not-allowed' : ''}`}
-                          title={range.is_enabled ? 'Disable Range' : 'Enable Range'}
-                          disabled={range.created_by === 'super_admin'}
+                          } ${range.created_by === 'super_admin' || locked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          title={locked ? 'Locked by Super Admin' : range.is_enabled ? 'Disable Range' : 'Enable Range'}
+                          disabled={range.created_by === 'super_admin' || locked}
                         >
                           {range.is_enabled ? (
                             <ToggleRight size={20} />
@@ -449,7 +472,7 @@ export default function ManagePRNRanges() {
                             <ToggleLeft size={20} />
                           )}
                         </button>
-                        {range.created_by === 'placement_officer' ? (
+                        {range.created_by === 'placement_officer' && !locked ? (
                           <>
                             <button
                               onClick={() => handleEdit(range)}
@@ -469,7 +492,7 @@ export default function ManagePRNRanges() {
                         ) : (
                           <span className="text-gray-400 text-sm flex items-center space-x-1 bg-gray-50 px-3 py-2 rounded-xl font-medium">
                             <Lock size={14} />
-                            <span>Read-only</span>
+                            <span>{locked ? 'Locked' : 'Read-only'}</span>
                           </span>
                         )}
                       </div>

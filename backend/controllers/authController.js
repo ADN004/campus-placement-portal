@@ -12,6 +12,7 @@ import { sendTokenResponse } from '../middleware/auth.js';
 import logActivity from '../middleware/activityLogger.js';
 import { uploadImage, deleteImage } from '../config/cloudinary.js';
 import { isDisposableEmail, DISPOSABLE_EMAIL_MESSAGE } from '../utils/emailPolicy.js';
+import { isRegistrationBlocked } from '../utils/collegeLocks.js';
 
 // ============================================================================
 // Constants
@@ -693,6 +694,18 @@ export const registerStudent = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Please provide all required fields',
+      });
+    }
+
+    // Registration lock: the super admin can freeze new registrations for a
+    // college once its deadline passes. Already-approved students are
+    // unaffected (they log in normally) — only the register flow is refused.
+    // A locked college may still carry an allow-list of specific PRNs (e.g. a
+    // straggler the placement cell chose to let through) — those bypass it.
+    if (await isRegistrationBlocked(college_id, prn)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Registration for your college is currently closed by the placement cell. Please contact your placement officer to reopen it.',
       });
     }
 

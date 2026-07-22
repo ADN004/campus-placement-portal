@@ -942,6 +942,25 @@ CREATE TABLE IF NOT EXISTS portal_settings (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Per-college registration / PRN-range locks (super admin deadline control).
+-- Presence of a row = that (college, lock_type) is locked; unlocking deletes
+-- the row. Only NEW registrations are blocked — approved students keep login.
+-- (Also in database/migrations/005_add_college_locks.sql)
+CREATE TABLE IF NOT EXISTS college_locks (
+    id SERIAL PRIMARY KEY,
+    college_id INTEGER NOT NULL REFERENCES colleges(id) ON DELETE CASCADE,
+    lock_type VARCHAR(30) NOT NULL CHECK (lock_type IN ('registration', 'prn_ranges')),
+    locked_by INTEGER NOT NULL REFERENCES users(id),
+    reason TEXT,
+    -- Allow-list of PRNs that may still register despite a 'registration' lock
+    -- (escape hatch for specific stragglers). Unused for 'prn_ranges' locks.
+    allowed_prns JSONB NOT NULL DEFAULT '[]'::jsonb,
+    locked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (college_id, lock_type)
+);
+
+CREATE INDEX IF NOT EXISTS idx_college_locks_lookup ON college_locks(college_id, lock_type);
+
 -- ============================================
 -- TRIGGERS FOR UPDATED_AT TIMESTAMPS
 -- ============================================

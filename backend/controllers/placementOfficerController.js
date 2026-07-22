@@ -6,6 +6,11 @@ import { generateStudentPDF } from '../utils/pdfGenerator.js';
 import { BRANCH_SHORT_NAMES } from '../constants/branches.js';
 import { singleCollegeJobApprovalRequired } from '../utils/portalMode.js';
 import { parseExceptedPrns } from '../utils/prnExceptions.js';
+import { isCollegeLocked } from '../utils/collegeLocks.js';
+
+// Shared refusal when a college's PRN-range management is locked by the SA.
+const PRN_RANGE_LOCK_MESSAGE =
+  'Adding or editing PRN ranges is currently locked by the Super Admin. Please contact them to unlock it for your college.';
 
 // ========================================
 // HELPER FUNCTIONS
@@ -2351,6 +2356,9 @@ export const getPRNRanges = async (req, res) => {
       success: true,
       count: mappedData.length,
       data: mappedData,
+      // Lets the page show a banner and disable add/edit when the SA has
+      // frozen PRN-range management for this college.
+      prn_ranges_locked: await isCollegeLocked(officer.college_id, 'prn_ranges'),
     });
   } catch (error) {
     console.error('Get PRN ranges error:', error);
@@ -2386,6 +2394,11 @@ export const addPRNRange = async (req, res) => {
     }
 
     const officer = officerResult.rows[0];
+
+    // Refuse if the SA has locked PRN-range management for this college
+    if (await isCollegeLocked(officer.college_id, 'prn_ranges')) {
+      return res.status(403).json({ success: false, message: PRN_RANGE_LOCK_MESSAGE });
+    }
 
     // Validate input
     if ((!range_start || !range_end) && !single_prn) {
@@ -2484,6 +2497,11 @@ export const updatePRNRange = async (req, res) => {
     }
 
     const officer = officerResult.rows[0];
+
+    // Refuse if the SA has locked PRN-range management for this college
+    if (await isCollegeLocked(officer.college_id, 'prn_ranges')) {
+      return res.status(403).json({ success: false, message: PRN_RANGE_LOCK_MESSAGE });
+    }
 
     // Check if the range exists and belongs to this placement officer
     const rangeCheck = await query(
@@ -2676,6 +2694,11 @@ export const deletePRNRange = async (req, res) => {
     }
 
     const officer = officerResult.rows[0];
+
+    // Refuse if the SA has locked PRN-range management for this college
+    if (await isCollegeLocked(officer.college_id, 'prn_ranges')) {
+      return res.status(403).json({ success: false, message: PRN_RANGE_LOCK_MESSAGE });
+    }
 
     // Check if the range exists and belongs to this placement officer
     const rangeCheck = await query(

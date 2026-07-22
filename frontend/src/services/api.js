@@ -63,7 +63,7 @@ export const commonAPI = {
   getRegions: () => API.get('/common/regions'),
   getColleges: (regionId) => API.get(`/common/colleges${regionId ? `?region_id=${regionId}` : ''}`),
   getCollegeBranches: (collegeId) => API.get(`/common/colleges/${collegeId}/branches`),
-  validatePRN: (prn) => API.post('/common/validate-prn', { prn }),
+  validatePRN: (prn, collegeId) => API.post('/common/validate-prn', { prn, college_id: collegeId || undefined }),
   getJobDetails: (jobId) => API.get(`/common/jobs/${jobId}`),
 };
 
@@ -203,6 +203,12 @@ export const superAdminAPI = {
   addPRNRange: (data) => API.post('/super-admin/prn-ranges', data),
   updatePRNRange: (id, data) => API.put(`/super-admin/prn-ranges/${id}`, data),
   deletePRNRange: (id) => API.delete(`/super-admin/prn-ranges/${id}`),
+
+  // Per-college registration / PRN-range locks (deadline control)
+  getCollegeLocks: () => API.get('/super-admin/college-locks'),
+  lockCollege: (data) => API.post('/super-admin/college-locks', data),
+  unlockCollege: (collegeId, lockType) => API.delete(`/super-admin/college-locks/${collegeId}/${lockType}`),
+  setAllowedPrns: (collegeId, allowedPrns) => API.put(`/super-admin/college-locks/${collegeId}/allowed-prns`, { allowed_prns: allowedPrns }),
 
   // Placement Officer Management
   getPlacementOfficers: () => API.get('/super-admin/placement-officers'),

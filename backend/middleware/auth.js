@@ -64,10 +64,18 @@ export const protect = async (req, res, next) => {
       // Verify token signature and expiration
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-      // Fetch user from database
+      // Fetch the user, and in the same round-trip decide whether this token
+      // has been revoked. tokens_valid_from is a per-user cut-off (see
+      // migration 006): any token issued before it is dead. The token's iat is
+      // in whole seconds, so a token minted in the same second as the cut-off
+      // is kept (strict <) — that is the reissued token from a password change,
+      // which must survive while every older copy is refused.
       const result = await query(
-        'SELECT id, email, role, is_active, using_default_password FROM users WHERE id = $1',
-        [decoded.id]
+        `SELECT id, email, role, is_active, using_default_password,
+                (tokens_valid_from IS NOT NULL
+                 AND to_timestamp($2) < tokens_valid_from) AS token_revoked
+         FROM users WHERE id = $1`,
+        [decoded.id, decoded.iat || 0]
       );
 
       // Check if user exists
@@ -79,6 +87,16 @@ export const protect = async (req, res, next) => {
       }
 
       const user = result.rows[0];
+
+      // Reject tokens issued before the revocation cut-off (logout / password
+      // change / reset). Generic message — a stale token is a stale session.
+      if (user.token_revoked) {
+        return res.status(401).json({
+          success: false,
+          message: 'Session expired. Please login again.',
+        });
+      }
+      delete user.token_revoked; // internal flag, not part of req.user
 
       // Verify user account is active
       if (!user.is_active) {

@@ -276,6 +276,15 @@ export const getMe = async (req, res) => {
  */
 export const logout = async (req, res) => {
   try {
+    // Revoke every token this user currently holds. Without this, logout only
+    // cleared the cookie in this browser and a copied/leaked token stayed valid
+    // for the rest of its 7 days. date_trunc('second') matches the token's
+    // whole-second iat granularity; see migration 006 and protect().
+    await query(
+      "UPDATE users SET tokens_valid_from = date_trunc('second', NOW()) WHERE id = $1",
+      [req.user.id]
+    );
+
     // Log logout activity
     await logActivity(
       req.user.id,
@@ -370,10 +379,18 @@ export const changePassword = async (req, res) => {
     const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
 
-    // Update password — and clear the default-password flag, so the warning
-    // banner disappears without waiting for the next login.
+    // Update password, clear the default-password flag (so the warning banner
+    // disappears without waiting for the next login), and stamp the revocation
+    // cut-off so every OTHER session for this account is logged out. This
+    // device is kept alive by the fresh token issued below — the stamp is set
+    // first, so that new token's iat is not before the cut-off. See migration
+    // 006 and protect().
     await query(
-      'UPDATE users SET password_hash = $1, using_default_password = FALSE WHERE id = $2',
+      `UPDATE users
+         SET password_hash = $1,
+             using_default_password = FALSE,
+             tokens_valid_from = date_trunc('second', NOW())
+       WHERE id = $2`,
       [hashedPassword, req.user.id]
     );
 
@@ -388,10 +405,11 @@ export const changePassword = async (req, res) => {
       req
     );
 
-    res.status(200).json({
-      success: true,
-      message: 'Password changed successfully',
-    });
+    // Reissue a token for this device (fresh cookie + body token) so the user
+    // who just changed their password stays signed in while all other copies
+    // are now revoked. Reflect the just-cleared flag in the response.
+    user.using_default_password = false;
+    sendTokenResponse(user, 200, res, 'Password changed successfully');
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -546,14 +564,17 @@ export const resetPassword = async (req, res) => {
     const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
 
-    // Set the new password, burn the token, and clear the default-password
-    // flag in one statement.
+    // Set the new password, burn the token, clear the default-password flag,
+    // and revoke every existing session in one statement. Reset is the
+    // "I'm locked out / possibly compromised" path, so all prior tokens must
+    // die; the user signs in fresh with the new password. See migration 006.
     await query(
       `UPDATE users
        SET password_hash = $1,
            reset_password_token = NULL,
            reset_password_expires = NULL,
-           using_default_password = FALSE
+           using_default_password = FALSE,
+           tokens_valid_from = date_trunc('second', NOW())
        WHERE id = $2`,
       [hashedPassword, user.id]
     );

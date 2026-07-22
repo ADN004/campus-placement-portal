@@ -165,10 +165,17 @@ export default function ChangePassword({ onClose }) {
     setLoading(true);
 
     try {
-      await authAPI.changePassword({
+      const res = await authAPI.changePassword({
         currentPassword: formData.currentPassword,
         newPassword: formData.newPassword,
       });
+
+      // The change now revokes every prior token; the backend reissues a fresh
+      // one for this device. Store it so the Bearer header stops sending the
+      // just-revoked token (the cookie is refreshed automatically).
+      if (res?.data?.token) {
+        localStorage.setItem('token', res.data.token);
+      }
 
       toast.success('Password changed successfully!');
       setFormData({

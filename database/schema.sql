@@ -58,6 +58,11 @@ CREATE TABLE users (
     -- Whether the account is still on the shared default password ('123').
     -- Determined at login, cleared on password change/reset. See migration 004.
     using_default_password BOOLEAN,
+    -- Token revocation cut-off: any JWT issued before this instant is rejected
+    -- by `protect`. Stamped on logout, password change, and password reset.
+    -- NULL = never revoked. TIMESTAMPTZ so the iat comparison is TZ-safe. See
+    -- migration 006.
+    tokens_valid_from TIMESTAMPTZ,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

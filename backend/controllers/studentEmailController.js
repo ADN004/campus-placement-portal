@@ -3,6 +3,7 @@ import { query, transaction } from '../config/database.js';
 import logActivity from '../middleware/activityLogger.js';
 import { sendVerificationEmail } from '../config/emailService.js';
 import { isDisposableEmail, DISPOSABLE_EMAIL_MESSAGE } from '../utils/emailPolicy.js';
+import { DAY_AWARE_COUNT_SQL } from '../utils/verificationEmailPolicy.js';
 
 /**
  * Student Email Correction
@@ -86,7 +87,7 @@ const changeStudentEmail = async (student, rawEmail, req, actorLabel) => {
            email_verified_at = NULL,
            email_verification_token = $2,
            last_verification_email_sent_at = ${isApproved ? 'CURRENT_TIMESTAMP' : 'last_verification_email_sent_at'},
-           verification_email_sent_count = verification_email_sent_count + ${isApproved ? 1 : 0}
+           verification_email_sent_count = ${isApproved ? DAY_AWARE_COUNT_SQL : 'verification_email_sent_count'}
        WHERE id = $3`,
       [newEmail, newToken, student.id]
     );

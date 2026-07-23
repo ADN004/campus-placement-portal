@@ -13,6 +13,7 @@ import logActivity from '../middleware/activityLogger.js';
 import { uploadImage, deleteImage } from '../config/cloudinary.js';
 import { isDisposableEmail, DISPOSABLE_EMAIL_MESSAGE } from '../utils/emailPolicy.js';
 import { isRegistrationBlocked } from '../utils/collegeLocks.js';
+import { checkVerificationQuota, DAY_AWARE_COUNT_SQL } from '../utils/verificationEmailPolicy.js';
 
 // ============================================================================
 // Constants
@@ -1096,7 +1097,9 @@ export const resendVerificationEmail = async (req, res) => {
 
     // Find student
     const studentResult = await query(
-      `SELECT s.id, s.email, s.student_name, s.email_verified, s.registration_status, s.email_verification_token
+      `SELECT s.id, s.email, s.student_name, s.email_verified, s.registration_status,
+              s.email_verification_token, s.verification_email_sent_count,
+              s.last_verification_email_sent_at
        FROM students s
        WHERE s.email = $1`,
       [email]
@@ -1127,6 +1130,17 @@ export const resendVerificationEmail = async (req, res) => {
       });
     }
 
+    // Same per-day quota as the in-app resend button — this public route used
+    // to increment the counter without ever checking it, so it was an
+    // unlimited way to send mail (and to burn the daily SMTP allowance).
+    const quota = checkVerificationQuota(
+      student.verification_email_sent_count,
+      student.last_verification_email_sent_at
+    );
+    if (!quota.allowed) {
+      return res.status(429).json({ success: false, message: quota.message });
+    }
+
     // Generate new verification token
     const newVerificationToken = crypto.randomBytes(32).toString('hex');
 
@@ -1135,7 +1149,7 @@ export const resendVerificationEmail = async (req, res) => {
       `UPDATE students
        SET email_verification_token = $1,
            last_verification_email_sent_at = CURRENT_TIMESTAMP,
-           verification_email_sent_count = verification_email_sent_count + 1
+           verification_email_sent_count = ${DAY_AWARE_COUNT_SQL}
        WHERE id = $2`,
       [newVerificationToken, student.id]
     );

@@ -156,6 +156,24 @@ export const passwordResetLimiter = rateLimit({
 });
 
 /**
+ * Verification-email resends. The per-student cap (5/day) lives in the
+ * controllers; this is the network-level guard so the public resend route
+ * cannot be hammered — every accepted request costs one send against the
+ * mail account's daily allowance.
+ */
+export const verificationEmailLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10,
+  keyGenerator: userOrIpKey,
+  message: {
+    success: false,
+    message: 'Too many verification email requests. Please try again in a few minutes.',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+/**
  * Export Operations Rate Limiter
  * Limits for resource-intensive export operations
  * - 30 exports per hour per authenticated user, or per IP if anonymous

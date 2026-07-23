@@ -7,6 +7,7 @@ import { BRANCH_SHORT_NAMES } from '../constants/branches.js';
 import { singleCollegeJobApprovalRequired } from '../utils/portalMode.js';
 import { parseExceptedPrns } from '../utils/prnExceptions.js';
 import { isCollegeLocked } from '../utils/collegeLocks.js';
+import { DAY_AWARE_COUNT_SQL } from '../utils/verificationEmailPolicy.js';
 
 // Shared refusal when a college's PRN-range management is locked by the SA.
 const PRN_RANGE_LOCK_MESSAGE =
@@ -623,11 +624,13 @@ export const approveStudent = async (req, res) => {
     // Send email verification link
     if (student.email && student.email_verification_token && !student.email_verified) {
       try {
-        // Update timestamp before sending email
+        // Update timestamp before sending email. Day-aware so the approval
+        // email counts toward today's tally without inflating a lifetime
+        // total — approval itself is never blocked by the student's quota.
         await query(
           `UPDATE students
            SET last_verification_email_sent_at = CURRENT_TIMESTAMP,
-               verification_email_sent_count = verification_email_sent_count + 1
+               verification_email_sent_count = ${DAY_AWARE_COUNT_SQL}
            WHERE id = $1`,
           [studentId]
         );

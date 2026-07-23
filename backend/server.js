@@ -25,7 +25,7 @@ import pool from './config/database.js';
 import { errorHandler, notFound } from './middleware/errorHandler.js';
 import { runCleanupTasks } from './utils/cleanupTasks.js';
 import { scheduleDailyCronJobs, runMaintenanceTasks } from './utils/cronJobs.js';
-import { apiLimiter, authLimiter, authIpLimiter, exportLimiter, passwordResetLimiter } from './middleware/rateLimiter.js';
+import { apiLimiter, authLimiter, authIpLimiter, exportLimiter, passwordResetLimiter, verificationEmailLimiter } from './middleware/rateLimiter.js';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -198,6 +198,11 @@ app.use('/api/auth/register-student', authLimiter);
 // returns success to avoid enumeration, so a failure-only limiter wouldn't bite)
 app.use('/api/auth/forgot-password', passwordResetLimiter);
 app.use('/api/auth/reset-password', passwordResetLimiter);
+
+// Verification-email resends — each accepted request sends real mail, so guard
+// both the public (by-email) and the logged-in routes
+app.use('/api/auth/resend-verification', verificationEmailLimiter);
+app.use('/api/students/resend-verification', verificationEmailLimiter);
 
 // Rate limiting for export endpoints (resource-intensive)
 app.use('/api/*/export', exportLimiter);

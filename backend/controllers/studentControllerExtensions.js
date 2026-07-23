@@ -2,6 +2,12 @@ import { query } from '../config/database.js';
 import { sendVerificationEmail } from '../config/emailService.js';
 import logActivity from '../middleware/activityLogger.js';
 import crypto from 'crypto';
+import {
+  checkVerificationQuota,
+  verificationSendsToday,
+  DAY_AWARE_COUNT_SQL,
+  MAX_VERIFICATION_EMAILS_PER_DAY,
+} from '../utils/verificationEmailPolicy.js';
 
 // ========================================
 // EMAIL VERIFICATION RESEND
@@ -38,26 +44,14 @@ export const resendVerificationEmail = async (req, res) => {
       });
     }
 
-    // Check rate limiting - max 5 emails per day
-    if (student.verification_email_sent_count >= 5) {
-      const lastSentDate = student.last_verification_email_sent_at
-        ? new Date(student.last_verification_email_sent_at)
-        : null;
-
-      if (lastSentDate) {
-        const today = new Date();
-        const isSameDay =
-          lastSentDate.getDate() === today.getDate() &&
-          lastSentDate.getMonth() === today.getMonth() &&
-          lastSentDate.getFullYear() === today.getFullYear();
-
-        if (isSameDay) {
-          return res.status(429).json({
-            success: false,
-            message: 'Maximum verification emails sent for today. Please try again tomorrow.',
-          });
-        }
-      }
+    // Max 5 per calendar day — the tally restarts each day (see
+    // utils/verificationEmailPolicy.js).
+    const quota = checkVerificationQuota(
+      student.verification_email_sent_count,
+      student.last_verification_email_sent_at
+    );
+    if (!quota.allowed) {
+      return res.status(429).json({ success: false, message: quota.message });
     }
 
     // Generate new verification token
@@ -67,7 +61,7 @@ export const resendVerificationEmail = async (req, res) => {
     await query(
       `UPDATE students
        SET email_verification_token = $1,
-           verification_email_sent_count = verification_email_sent_count + 1,
+           verification_email_sent_count = ${DAY_AWARE_COUNT_SQL},
            last_verification_email_sent_at = CURRENT_TIMESTAMP
        WHERE id = $2`,
       [verificationToken, student.id]
@@ -130,14 +124,22 @@ export const getVerificationStatus = async (req, res) => {
 
     const student = studentResult.rows[0];
 
+    // Report today's usage, not the raw stored number — the counter restarts
+    // each day, so can_resend must be computed the same way the send path does.
+    const sentToday = verificationSendsToday(
+      student.verification_email_sent_count,
+      student.last_verification_email_sent_at
+    );
+
     res.status(200).json({
       success: true,
       data: {
         email_verified: student.email_verified,
         email_verified_at: student.email_verified_at,
-        verification_email_sent_count: student.verification_email_sent_count || 0,
+        verification_email_sent_count: sentToday,
+        verification_emails_remaining_today: Math.max(0, MAX_VERIFICATION_EMAILS_PER_DAY - sentToday),
         last_verification_email_sent_at: student.last_verification_email_sent_at,
-        can_resend: student.verification_email_sent_count < 5,
+        can_resend: !student.email_verified && sentToday < MAX_VERIFICATION_EMAILS_PER_DAY,
       },
     });
   } catch (error) {

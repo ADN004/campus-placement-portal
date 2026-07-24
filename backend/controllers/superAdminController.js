@@ -537,6 +537,15 @@ export const getPlacementOfficers = async (req, res) => {
     const officersResult = await query(
       `SELECT po.*, c.college_name, r.id as region_id, r.region_name, u.email,
               u.is_active as status, u.last_login,
+              -- Three distinct states, derived from the two flags:
+              --   removed   = tenure ended (officer row retired)
+              --   suspended = still holds the college's seat, login disabled
+              --   active    = serving normally
+              CASE
+                WHEN po.is_active = FALSE THEN 'removed'
+                WHEN u.is_active = FALSE THEN 'suspended'
+                ELSE 'active'
+              END AS officer_status,
               appointed_by_user.email as appointed_by_email
        FROM placement_officers po
        JOIN colleges c ON po.college_id = c.id
@@ -611,13 +620,25 @@ export const addPlacementOfficer = async (req, res) => {
     await transaction(async (client) => {
       // Check if college already has an active officer
       const existingOfficerResult = await client.query(
-        'SELECT * FROM placement_officers WHERE college_id = $1 AND is_active = TRUE',
+        `SELECT po.*, u.is_active AS user_active
+         FROM placement_officers po
+         JOIN users u ON po.user_id = u.id
+         WHERE po.college_id = $1 AND po.is_active = TRUE`,
         [college_id]
       );
 
       if (existingOfficerResult.rows.length > 0) {
         // Move existing officer to history
         const existingOfficer = existingOfficerResult.rows[0];
+
+        // A suspended officer is deliberately holding this seat. Silently
+        // retiring them here would discard that decision, so require the
+        // super admin to reactivate or remove them first.
+        if (existingOfficer.user_active === false) {
+          throw new Error(
+            `${existingOfficer.officer_name} is currently suspended and still holds this college's officer seat. Reactivate them, or remove them, before appointing a replacement.`
+          );
+        }
 
         await client.query(
           `INSERT INTO placement_officer_history
@@ -718,6 +739,15 @@ export const addPlacementOfficer = async (req, res) => {
     console.error('Add placement officer error:', error);
 
     if (error.message === 'This phone number is already registered with a different role') {
+      return res.status(409).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    // Blocked because the college's sitting officer is suspended — the message
+    // tells the super admin exactly what to do, so surface it verbatim.
+    if (error.message.includes("still holds this college's officer seat")) {
       return res.status(409).json({
         success: false,
         message: error.message,
@@ -843,6 +873,98 @@ export const resetPlacementOfficerPassword = async (req, res) => {
 // @desc    Remove/Deactivate placement officer
 // @route   DELETE /api/super-admin/placement-officers/:id
 // @access  Private (Super Admin)
+// @desc    Suspend or reactivate a placement officer (reversible; distinct
+//          from Remove, which ends the tenure and frees the college's seat).
+//          Suspending disables their login and kills current sessions, but the
+//          officer keeps holding their college's seat — so no replacement can
+//          be appointed until they are reactivated or removed.
+// @route   PUT /api/super-admin/placement-officers/:id/active
+// @access  Private (Super Admin)
+// @body    { is_active: boolean, reason?: string }
+export const setPlacementOfficerActive = async (req, res) => {
+  try {
+    const officerId = req.params.id;
+    const { is_active, reason } = req.body;
+
+    if (typeof is_active !== 'boolean') {
+      return res.status(400).json({
+        success: false,
+        message: 'is_active must be true (reactivate) or false (suspend)',
+      });
+    }
+
+    const officerResult = await query(
+      `SELECT po.id, po.user_id, po.officer_name, po.college_id, po.is_active AS officer_row_active,
+              c.college_name
+       FROM placement_officers po
+       JOIN colleges c ON po.college_id = c.id
+       WHERE po.id = $1`,
+      [officerId]
+    );
+
+    if (officerResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Placement officer not found' });
+    }
+
+    const officer = officerResult.rows[0];
+
+    // A removed officer's tenure is over — reinstating them is a re-appointment,
+    // not a toggle, so it must go through "Add Placement Officer".
+    if (!officer.officer_row_active) {
+      return res.status(400).json({
+        success: false,
+        message: `${officer.officer_name} has already been removed from ${officer.college_name}. Appoint them again from "Add Placement Officer" instead.`,
+      });
+    }
+
+    await transaction(async (client) => {
+      if (is_active) {
+        await client.query(
+          'UPDATE users SET is_active = TRUE, updated_at = CURRENT_TIMESTAMP WHERE id = $1',
+          [officer.user_id]
+        );
+      } else {
+        // Disable login AND revoke tokens issued so far, so an existing
+        // session cannot outlive the suspension (and cannot resume if the
+        // officer is later reactivated — they must sign in again).
+        await client.query(
+          `UPDATE users
+           SET is_active = FALSE,
+               tokens_valid_from = CURRENT_TIMESTAMP,
+               updated_at = CURRENT_TIMESTAMP
+           WHERE id = $1`,
+          [officer.user_id]
+        );
+      }
+      // NOTE: placement_officers.is_active is deliberately untouched — the
+      // officer keeps their college's seat while suspended.
+    });
+
+    await logActivity(
+      req.user.id,
+      is_active ? 'REACTIVATE_PLACEMENT_OFFICER' : 'SUSPEND_PLACEMENT_OFFICER',
+      `${is_active ? 'Reactivated' : 'Suspended'} placement officer ${officer.officer_name} (${officer.college_name})${reason ? ` — ${reason}` : ''}`,
+      'placement_officer',
+      officerId,
+      { officer_name: officer.officer_name, college_id: officer.college_id, reason: reason || null },
+      req
+    );
+
+    res.status(200).json({
+      success: true,
+      message: is_active
+        ? `${officer.officer_name} can sign in again.`
+        : `${officer.officer_name} has been suspended and signed out. They still hold ${officer.college_name}'s officer seat — reactivate or remove them before appointing a replacement.`,
+    });
+  } catch (error) {
+    console.error('Set placement officer active error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error updating placement officer status',
+    });
+  }
+};
+
 export const deletePlacementOfficer = async (req, res) => {
   try {
     const officerId = req.params.id;

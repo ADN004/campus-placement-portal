@@ -217,6 +217,7 @@ export const superAdminAPI = {
   addPlacementOfficer: (data) => API.post('/super-admin/placement-officers', data),
   updatePlacementOfficer: (id, data) => API.put(`/super-admin/placement-officers/${id}`, data),
   resetPlacementOfficerPassword: (id) => API.put(`/super-admin/placement-officers/${id}/reset-password`),
+  setPlacementOfficerActive: (id, isActive, reason) => API.put(`/super-admin/placement-officers/${id}/active`, { is_active: isActive, reason }),
   deletePlacementOfficer: (id) => API.delete(`/super-admin/placement-officers/${id}`),
   clearOfficerHistory: (collegeId) => API.delete(`/super-admin/placement-officers/history/${collegeId}`),
 

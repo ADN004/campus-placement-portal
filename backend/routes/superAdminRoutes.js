@@ -12,6 +12,7 @@ import {
   addPlacementOfficer,
   updatePlacementOfficer,
   resetPlacementOfficerPassword,
+  setPlacementOfficerActive,
   deletePlacementOfficer,
   clearOfficerHistory,
   createJob,
@@ -177,6 +178,7 @@ router.get('/placement-officers/history/:collegeId', getOfficerHistory);
 router.post('/placement-officers', addPlacementOfficer);
 router.put('/placement-officers/:id', updatePlacementOfficer);
 router.put('/placement-officers/:id/reset-password', resetPlacementOfficerPassword);
+router.put('/placement-officers/:id/active', setPlacementOfficerActive);
 router.delete('/placement-officers/:id', deletePlacementOfficer);
 router.delete('/placement-officers/history/:collegeId', clearOfficerHistory);
 // NOTE: Placement officer photo management removed - officers manage their own photos

@@ -19,6 +19,8 @@ import {
   Camera,
   Upload,
   User,
+  UserCheck,
+  UserX,
 } from 'lucide-react';
 import useSkeleton from '../../hooks/useSkeleton';
 import AnimatedSection from '../../components/animation/AnimatedSection';
@@ -208,6 +210,26 @@ export default function ManagePlacementOfficers() {
     setShowResetPasswordModal(true);
   };
 
+  // Suspend / reactivate — reversible, and distinct from Remove: a suspended
+  // officer keeps holding their college's seat, so no replacement can be
+  // appointed until they are reactivated or removed.
+  const handleToggleSuspend = async (officer) => {
+    const suspending = officer.officer_status !== 'suspended';
+    const message = suspending
+      ? `Suspend ${officer.officer_name}?\n\nThey will be signed out immediately and blocked from signing in.\n\nThey keep holding ${officer.college_name}'s officer seat, so you cannot appoint a replacement until they are reactivated or removed.`
+      : `Reactivate ${officer.officer_name}?\n\nThey will be able to sign in again (they will need to log in fresh).`;
+
+    if (!window.confirm(message)) return;
+
+    try {
+      const res = await superAdminAPI.setPlacementOfficerActive(officer.id, !suspending);
+      toast.success(res.data?.message || (suspending ? 'Officer suspended' : 'Officer reactivated'));
+      fetchInitialData();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to update officer status');
+    }
+  };
+
   const handleConfirmResetPassword = async () => {
     if (!selectedOfficer) return;
 
@@ -230,6 +252,20 @@ export default function ManagePlacementOfficers() {
       return <span className="badge badge-success">Active</span>;
     }
     return <span className="badge badge-danger">Inactive</span>;
+  };
+
+  // Three distinct officer states from the API's officer_status field:
+  // active (serving), suspended (login disabled but still holds the seat),
+  // removed (tenure ended). Falls back to the old flag if absent.
+  const getOfficerStatusBadge = (officer) => {
+    const state = officer.officer_status || (officer.status ? 'active' : 'removed');
+    if (state === 'suspended') {
+      return <span className="badge bg-amber-100 text-amber-800 border border-amber-300">Suspended</span>;
+    }
+    if (state === 'removed') {
+      return <span className="badge badge-danger">Removed</span>;
+    }
+    return <span className="badge badge-success">Active</span>;
   };
 
   const formatDate = (dateString) => {
@@ -480,7 +516,7 @@ export default function ManagePlacementOfficers() {
                           <span className="text-sm">{officer.region_name || 'N/A'}</span>
                         </div>
                       </td>
-                      <td className="px-6 py-5">{getStatusBadge(officer.status)}</td>
+                      <td className="px-6 py-5">{getOfficerStatusBadge(officer)}</td>
                       <td className="px-6 py-5">
                         <div className="flex space-x-2">
                           <button
@@ -504,6 +540,19 @@ export default function ManagePlacementOfficers() {
                           >
                             <Key size={18} />
                           </button>
+                          {officer.officer_status !== 'removed' && (
+                            <button
+                              onClick={() => handleToggleSuspend(officer)}
+                              className={`p-2 rounded-xl transition-all duration-200 hover:shadow-lg transform hover:scale-110 ${
+                                officer.officer_status === 'suspended'
+                                  ? 'text-green-600 hover:text-white hover:bg-gradient-to-r hover:from-green-500 hover:to-emerald-500'
+                                  : 'text-amber-600 hover:text-white hover:bg-gradient-to-r hover:from-amber-500 hover:to-yellow-500'
+                              }`}
+                              title={officer.officer_status === 'suspended' ? 'Reactivate (allow sign-in)' : 'Suspend (block sign-in, keep the seat)'}
+                            >
+                              {officer.officer_status === 'suspended' ? <UserCheck size={18} /> : <UserX size={18} />}
+                            </button>
+                          )}
                           <button
                             onClick={() => handleRemoveOfficer(officer)}
                             className="p-2 text-red-600 hover:text-white hover:bg-gradient-to-r hover:from-red-500 hover:to-rose-500 rounded-xl transition-all duration-200 hover:shadow-lg transform hover:scale-110"

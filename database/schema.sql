@@ -105,9 +105,16 @@ CREATE TABLE placement_officers (
     appointed_by INTEGER REFERENCES users(id),
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(college_id, is_active)
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- A college has at most one ACTIVE officer. Must be a partial index, not
+-- UNIQUE(college_id, is_active): the composite form would also cap a college
+-- at one INACTIVE officer, breaking every removal/replacement after the first.
+-- (Also in database/migrations/009_fix_officer_active_constraint.sql)
+CREATE UNIQUE INDEX IF NOT EXISTS placement_officers_one_active_per_college
+  ON placement_officers (college_id)
+  WHERE is_active = TRUE;
 
 CREATE INDEX idx_po_user ON placement_officers(user_id);
 CREATE INDEX idx_po_college ON placement_officers(college_id);

@@ -270,10 +270,6 @@ export const superAdminAPI = {
 
   togglePRNRange: (id) => API.put(`/super-admin/prn-ranges/${id}/toggle`),
 
-  // Profile Photo Management
-  uploadOfficerPhoto: (officerId, formData) => API.post(`/super-admin/placement-officers/${officerId}/photo`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
-  deleteOfficerPhoto: (officerId) => API.delete(`/super-admin/placement-officers/${officerId}/photo`),
-
   // Job Permanent Deletion
   permanentlyDeleteJob: (jobId, reason) => API.delete(`/super-admin/jobs/${jobId}/permanent`, { data: { reason } }),
   getDeletedJobsHistory: () => API.get('/super-admin/jobs/deleted-history'),

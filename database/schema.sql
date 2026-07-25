@@ -355,14 +355,14 @@ CREATE TABLE student_extended_profiles (
     siblings_count INTEGER,
     siblings_details TEXT,
 
-    -- Document Status
+    -- Document Status — we only record WHETHER a student holds each document,
+    -- never the actual ID number. The number columns were removed (migration
+    -- 012): the numbers were never collected and storing Aadhaar/PAN is a
+    -- privacy liability we deliberately avoid.
     has_driving_license BOOLEAN DEFAULT NULL,
     has_pan_card BOOLEAN DEFAULT NULL,
-    pan_number VARCHAR(10),
     has_aadhar_card BOOLEAN DEFAULT NULL,
-    aadhar_number VARCHAR(12),
     has_passport BOOLEAN DEFAULT NULL,
-    passport_number VARCHAR(20),
 
     -- Education Preferences
     interested_in_btech BOOLEAN DEFAULT NULL,

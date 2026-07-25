@@ -631,8 +631,8 @@ export const checkJobEligibility = async (req, res) => {
         ep.father_name, ep.father_occupation, ep.father_annual_income,
         ep.mother_name, ep.mother_occupation, ep.mother_annual_income,
         ep.siblings_count, ep.siblings_details, ep.has_pan_card as ep_has_pan_card,
-        ep.pan_number, ep.has_aadhar_card, ep.aadhar_number, ep.has_passport,
-        ep.passport_number, ep.interested_in_btech, ep.interested_in_mtech,
+        ep.has_aadhar_card, ep.has_passport,
+        ep.interested_in_btech, ep.interested_in_mtech,
         ep.preferred_study_mode, ep.additional_certifications, ep.achievements,
         ep.extracurricular, ep.profile_completion_percentage
        FROM students s

@@ -40,11 +40,8 @@ function getSectionForField(fieldName) {
     'permanent_address': 'personal_details',
     'interests_hobbies': 'personal_details',
     'has_pan_card': 'document_verification',
-    'pan_number': 'document_verification',
     'has_aadhar_card': 'document_verification',
-    'aadhar_number': 'document_verification',
     'has_passport': 'document_verification',
-    'passport_number': 'document_verification',
     'has_driving_license': 'document_verification',
     'interested_in_btech': 'education_preferences',
     'interested_in_mtech': 'education_preferences',
@@ -82,8 +79,8 @@ export const checkApplicationReadiness = async (req, res) => {
         ep.father_name, ep.father_occupation, ep.father_annual_income,
         ep.mother_name, ep.mother_occupation, ep.mother_annual_income,
         ep.siblings_count, ep.siblings_details, ep.has_pan_card as ep_has_pan_card,
-        ep.pan_number, ep.has_aadhar_card, ep.aadhar_number, ep.has_passport,
-        ep.passport_number, ep.interested_in_btech, ep.interested_in_mtech,
+        ep.has_aadhar_card, ep.has_passport,
+        ep.interested_in_btech, ep.interested_in_mtech,
         ep.preferred_study_mode, ep.additional_certifications, ep.achievements,
         ep.extracurricular, ep.profile_completion_percentage
        FROM students s
@@ -651,8 +648,8 @@ export const submitEnhancedApplication = async (req, res) => {
           ep.father_name, ep.father_occupation, ep.father_annual_income,
           ep.mother_name, ep.mother_occupation, ep.mother_annual_income,
           ep.siblings_count, ep.siblings_details, ep.has_pan_card as ep_has_pan_card,
-          ep.pan_number, ep.has_aadhar_card, ep.aadhar_number, ep.has_passport,
-          ep.passport_number, ep.interested_in_btech, ep.interested_in_mtech,
+          ep.has_aadhar_card, ep.has_passport,
+          ep.interested_in_btech, ep.interested_in_mtech,
           ep.preferred_study_mode, ep.additional_certifications, ep.achievements,
           ep.extracurricular, ep.profile_completion_percentage
          FROM students s
@@ -808,8 +805,8 @@ export const submitEnhancedApplication = async (req, res) => {
           ep.father_name, ep.father_occupation, ep.father_annual_income,
           ep.mother_name, ep.mother_occupation, ep.mother_annual_income,
           ep.siblings_count, ep.siblings_details, ep.has_pan_card as ep_has_pan_card,
-          ep.pan_number, ep.has_aadhar_card, ep.aadhar_number, ep.has_passport,
-          ep.passport_number, ep.interested_in_btech, ep.interested_in_mtech,
+          ep.has_aadhar_card, ep.has_passport,
+          ep.interested_in_btech, ep.interested_in_mtech,
           ep.preferred_study_mode, ep.additional_certifications, ep.achievements,
           ep.extracurricular, ep.profile_completion_percentage
          FROM students s
@@ -935,11 +932,8 @@ export const submitEnhancedApplication = async (req, res) => {
         siblings_count: updatedStudent.siblings_count,
         siblings_details: updatedStudent.siblings_details,
         has_pan_card: updatedStudent.ep_has_pan_card !== null ? updatedStudent.ep_has_pan_card : updatedStudent.has_pan_card,
-        pan_number: updatedStudent.pan_number,
         has_aadhar_card: updatedStudent.has_aadhar_card,
-        aadhar_number: updatedStudent.aadhar_number,
         has_passport: updatedStudent.has_passport,
-        passport_number: updatedStudent.passport_number,
         has_driving_license: updatedStudent.has_driving_license,
         interested_in_btech: updatedStudent.interested_in_btech,
         interested_in_mtech: updatedStudent.interested_in_mtech,
@@ -1027,8 +1021,8 @@ export const getMissingFields = async (req, res) => {
         ep.handicap_details, ep.district, ep.permanent_address, ep.interests_hobbies,
         ep.father_name, ep.father_occupation, ep.father_annual_income,
         ep.mother_name, ep.mother_occupation, ep.mother_annual_income,
-        ep.siblings_count, ep.siblings_details, ep.has_pan_card, ep.pan_number,
-        ep.has_aadhar_card, ep.aadhar_number, ep.has_passport, ep.passport_number
+        ep.siblings_count, ep.siblings_details, ep.has_pan_card,
+        ep.has_aadhar_card, ep.has_passport
        FROM students s
        LEFT JOIN student_extended_profiles ep ON s.id = ep.student_id
        WHERE s.user_id = $1`,
@@ -1122,9 +1116,7 @@ export const getMissingFields = async (req, res) => {
           label: 'Document Verification',
           fields: [
             { name: 'has_pan_card', label: 'Do you have PAN Card?', type: 'boolean', value: student.has_pan_card },
-            { name: 'pan_number', label: 'PAN Number', type: 'text', value: student.pan_number, conditional: 'has_pan_card' },
-            { name: 'has_aadhar_card', label: 'Do you have Aadhar Card?', type: 'boolean', value: student.has_aadhar_card },
-            { name: 'aadhar_number', label: 'Aadhar Number', type: 'text', value: student.aadhar_number, conditional: 'has_aadhar_card' }
+            { name: 'has_aadhar_card', label: 'Do you have Aadhar Card?', type: 'boolean', value: student.has_aadhar_card }
           ]
         });
       }

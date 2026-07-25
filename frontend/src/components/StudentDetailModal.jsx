@@ -225,17 +225,14 @@ const StudentDetailModal = ({ isOpen, onClose, studentId, applicationId, userRol
                   <DocumentCard
                     title="PAN Card"
                     hasDocument={student.has_pan_card}
-                    number={student.pan_number}
                   />
                   <DocumentCard
                     title="Aadhar Card"
                     hasDocument={student.has_aadhar_card}
-                    number={student.aadhar_number}
                   />
                   <DocumentCard
                     title="Passport"
                     hasDocument={student.has_passport}
-                    number={student.passport_number}
                   />
                 </div>
               )}
@@ -269,7 +266,7 @@ const BooleanRow = ({ label, value }) => (
   </div>
 );
 
-const DocumentCard = ({ title, hasDocument, number }) => (
+const DocumentCard = ({ title, hasDocument }) => (
   <div className={`p-4 rounded-lg border-2 ${hasDocument ? 'border-green-500 bg-green-50' : 'border-gray-300 bg-gray-50'}`}>
     <div className="flex items-center gap-2 mb-2">
       {hasDocument ? (
@@ -280,7 +277,7 @@ const DocumentCard = ({ title, hasDocument, number }) => (
       <h4 className="font-semibold text-gray-900">{title}</h4>
     </div>
     <p className="text-sm text-gray-600">
-      {hasDocument ? (number || 'Available') : 'Not Available'}
+      {hasDocument ? 'Available' : 'Not Available'}
     </p>
   </div>
 );

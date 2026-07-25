@@ -1352,7 +1352,6 @@ export const getDetailedStudentProfile = async (req, res) => {
         sep.siblings_count, sep.siblings_details,
         COALESCE(sep.has_aadhar_card, false) as has_aadhar_card,
         COALESCE(sep.has_passport, false) as has_passport,
-        sep.pan_number, sep.aadhar_number, sep.passport_number,
         sep.interested_in_btech, sep.interested_in_mtech, sep.preferred_study_mode,
         sep.additional_certifications, sep.achievements, sep.extracurricular,
         sep.profile_completion_percentage

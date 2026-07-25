@@ -74,8 +74,10 @@ Three containers per environment, orchestrated by Docker Compose. The database i
 <br>
 
 - **Stateless JWT authentication** with role claims (`student` / `placement_officer` / `super_admin`), 7-day expiry, bcrypt-hashed credentials.
+- **Token revocation on demand** — a per-user `tokens_valid_from` cutoff lets the system invalidate every previously issued JWT at once; logging out, changing a password, and suspending an officer all advance the cutoff, so stale sessions die immediately regardless of the 7-day expiry.
 - **PRN-gated student registration** — students can only register if their PRN falls inside an admin-managed whitelist (`prn_ranges` supports both ranges and single PRNs, with per-range enable/disable and audit fields for who disabled what and why).
-- **Email verification flow** — approved students receive a branded verification email; tokens expire in 24 hours, resend attempts are counted and throttled.
+- **Per-college registration & approval locks** — a super admin can independently freeze *new registrations* and/or *pending-student approvals* for a specific college until unlocked; already-approved students keep logging in throughout. A **per-PRN allow-list** punches through an active lock for named stragglers, so specific students can still register while the college stays otherwise closed.
+- **Email verification flow** — approved students receive a branded verification email; tokens expire in 24 hours, and resends are held to a **per-day quota** (reset daily, not a lifetime cap) enforced on both the authenticated and the public resend routes, each additionally rate-limited.
 - **Tiered rate limiting** (`express-rate-limit`): a general API limiter, a stricter auth limiter on login/registration, and a dedicated export limiter for PDF/Excel endpoints — with `RateLimit-*` standard headers and proxy-aware client IP resolution (`trust proxy`).
 - **Hardened HTTP layer**: Helmet security headers, gzip compression (level 6, opt-out header respected), CORS allowlist driven by environment (supports multiple comma-separated origins), JSON body limits sized for base64 photo uploads.
 - **Student blacklisting** with reason, timestamp, and acting-admin tracking — blacklisted students are excluded from every eligibility query in the system.
@@ -105,6 +107,7 @@ Three containers per environment, orchestrated by Docker Compose. The database i
 
 - **College-scoped everything** — officers see and manage only their own college's students, ranges, branches, and jobs.
 - **Student lifecycle management**: approve/reject registrations (approval triggers the verification email), blacklist with reason, manually add students to job applications, and drill into full student detail modals.
+- **Send-back-for-correction** — a post-approval alternative to rejection: flag an already-approved student to fix a wrong or inappropriate photo (optionally taken down on the spot) or bad details. The student stays approved — keeping their login and existing applications — but hits a **blocking gate on every page except their profile** until they re-upload/correct, with no re-approval round-trip. Available to placement officers and the super admin.
 - **College-scoped PRN ranges** — officers manage whitelist ranges for their own college alongside the global admin ranges.
 - **College branch management** — per-college branch lists (stored as JSONB) drive registration dropdowns and eligibility checks.
 - **Job request workflow** — officers draft job postings (with full eligibility criteria and requirement templates) that route to the super admin for approval; auto-approval is supported and flagged on the resulting job.
@@ -112,6 +115,7 @@ Three containers per environment, orchestrated by Docker Compose. The database i
 - **Placement poster generator** — auto-builds shareable placement-stats posters per college (placed counts, companies, highest/average package, company-wise breakdown), with student photo grids.
 - **Targeted notifications** to their college's students, with read tracking.
 - **Officer profiles** with Cloudinary photos and appointment history — when an officer is replaced, the predecessor is archived to `placement_officer_history` with removal reason.
+- **Suspend / reactivate officers** — an officer can be suspended without giving up their college's seat: login is blocked and their active sessions are revoked immediately, and they can be reactivated later. Distinct from replacement, which permanently archives the predecessor; suspension holds the seat, backed by a partial unique index that keeps exactly one *active* officer per college.
 
 </details>
 
@@ -125,7 +129,8 @@ Three containers per environment, orchestrated by Docker Compose. The database i
 - **Whitelist request approvals** — officers request PRN additions; admins adjudicate.
 - **Requirement templates** — reusable per-company and per-job application requirement sets (including a "requires personal details" gate) that drive the smart application modal.
 - **Notification center** — broadcast to all students, specific regions, specific colleges, or hand-picked students; recipient-level read receipts.
-- **Academic year reset** — one guarded workflow graduates the outgoing batch: students are archived to `archived_students`, their Cloudinary photo folders are bulk-deleted, and the portal is reset for the incoming year.
+- **Academic year reset** — one guarded workflow graduates the outgoing batch: students are archived to `archived_students` **stamped with their graduating academic year**, their Cloudinary photo folders are bulk-deleted, and the portal is reset for the incoming year.
+- **Archived-student directory** — graduated batches stay browsable and exportable (PDF/Excel) by both super admins and placement officers, filterable by the academic year students passed out.
 - **Database backup from the browser** — streams a live `pg_dump` of the database as a timestamped `.sql` download, straight from the admin panel (spawned process, no temp files).
 - **Activity log explorer** and **cross-college student management** with trigram-indexed fuzzy search over names and PRNs.
 

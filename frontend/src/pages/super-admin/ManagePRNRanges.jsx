@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { superAdminAPI } from '../../services/api';
 import toast from 'react-hot-toast';
-import { Plus, Trash2, ToggleLeft, ToggleRight, AlertCircle, Eye, Download, ExternalLink, Edit2, Filter } from 'lucide-react';
+import { Plus, Trash2, ToggleLeft, ToggleRight, AlertCircle, Eye, Download, ExternalLink, Edit2, Filter, Search, ChevronDown, ChevronRight, Building2, Globe } from 'lucide-react';
 import useSkeleton from '../../hooks/useSkeleton';
 import AnimatedSection from '../../components/animation/AnimatedSection';
 import TablePageSkeleton from '../../components/skeletons/TablePageSkeleton';
@@ -23,6 +23,10 @@ export default function ManagePRNRanges() {
   const [exportingStudents, setExportingStudents] = useState(false);
   const [editingRange, setEditingRange] = useState(null);
   const [yearFilter, setYearFilter] = useState('active');
+  // Grouped view: search jumps to a college or PRN; expandedGroups tracks
+  // which college sections are open (a live search auto-expands matches)
+  const [search, setSearch] = useState('');
+  const [expandedGroups, setExpandedGroups] = useState(new Set());
   const [formData, setFormData] = useState({
     range_start: '',
     range_end: '',
@@ -233,12 +237,53 @@ export default function ManagePRNRanges() {
   // Extract unique years from ranges for dropdown
   const availableYears = [...new Set(ranges.map(r => r.year).filter(Boolean))].sort((a, b) => b - a);
 
-  // Filter ranges based on selected year filter
+  const searchQuery = search.trim().toLowerCase();
+
+  // Year/active filter first, then search: a query matches a range by its
+  // college name, PRN digits, year or description
   const filteredRanges = ranges.filter(range => {
-    if (yearFilter === 'active') return range.is_enabled;
-    if (yearFilter === 'all') return true;
-    return String(range.year) === yearFilter;
+    if (yearFilter === 'active' && !range.is_enabled) return false;
+    if (yearFilter !== 'active' && yearFilter !== 'all' && String(range.year) !== yearFilter) return false;
+    if (!searchQuery) return true;
+    const collegeLabel = range.college_name || 'system-wide all colleges super admin';
+    if (collegeLabel.toLowerCase().includes(searchQuery)) return true;
+    const haystack = [range.range_start, range.range_end, range.single_prn, range.description, range.year]
+      .filter(Boolean).join(' ').toLowerCase();
+    return haystack.includes(searchQuery);
   });
+
+  // Group into one collapsible section per college, with Super-Admin
+  // system-wide entries (college_id NULL) in their own section on top
+  const SYSTEM_KEY = '__system__';
+  const groupMap = new Map();
+  for (const range of filteredRanges) {
+    const key = range.college_name || SYSTEM_KEY;
+    if (!groupMap.has(key)) groupMap.set(key, []);
+    groupMap.get(key).push(range);
+  }
+  const groups = [...groupMap.entries()]
+    .map(([key, groupRanges]) => ({
+      key,
+      isSystemWide: key === SYSTEM_KEY,
+      label: key === SYSTEM_KEY ? 'System-wide (Super Admin)' : key,
+      ranges: groupRanges,
+      rangeCount: groupRanges.filter(r => !r.single_prn).length,
+      singleCount: groupRanges.filter(r => r.single_prn).length,
+      disabledCount: groupRanges.filter(r => !r.is_enabled).length,
+    }))
+    .sort((a, b) => (a.isSystemWide ? -1 : b.isSystemWide ? 1 : a.label.localeCompare(b.label)));
+
+  // A live search auto-expands every matching section
+  const isGroupExpanded = (key) => (searchQuery ? true : expandedGroups.has(key));
+  const toggleGroup = (key) => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+  const expandAll = () => setExpandedGroups(new Set(groups.map(g => g.key)));
+  const collapseAll = () => setExpandedGroups(new Set());
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-teal-50 via-cyan-50 to-blue-50 pb-8">
@@ -313,9 +358,9 @@ export default function ManagePRNRanges() {
         </div>
         </AnimatedSection>
 
-        {/* Year Filter */}
+        {/* Filters: year/active view + search + expand controls */}
         <AnimatedSection delay={0.12}>
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex flex-wrap items-center gap-3 mb-6">
             <div className="flex items-center space-x-3">
               <Filter size={18} className="text-gray-500" />
               <span className="text-sm font-semibold text-gray-600">View:</span>
@@ -331,8 +376,33 @@ export default function ManagePRNRanges() {
                 ))}
               </select>
             </div>
-            <p className="text-sm text-gray-500">
-              Showing <span className="font-bold text-gray-700">{filteredRanges.length}</span> of {ranges.length} range(s)
+            <div className="relative flex-1 min-w-[240px] max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Jump to a college or PRN…"
+                className="w-full pl-9 pr-3 py-2 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-xl text-sm font-medium text-gray-700 focus:border-teal-500 focus:ring-2 focus:ring-teal-200 outline-none transition-all shadow-sm"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={expandAll}
+                className="px-3 py-2 text-xs font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-xl transition-colors"
+              >
+                Expand all
+              </button>
+              <button
+                onClick={collapseAll}
+                className="px-3 py-2 text-xs font-bold text-gray-600 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl transition-colors"
+              >
+                Collapse all
+              </button>
+            </div>
+            <p className="text-sm text-gray-500 ml-auto">
+              <span className="font-bold text-gray-700">{filteredRanges.length}</span> of {ranges.length} range(s) in{' '}
+              <span className="font-bold text-gray-700">{groups.length}</span> group(s)
             </p>
           </div>
         </AnimatedSection>
@@ -488,139 +558,175 @@ export default function ManagePRNRanges() {
         </div>
       )}
 
-        {/* PRN Ranges Table */}
+        {/* Collapsible per-college groups */}
         <AnimatedSection delay={0.16}>
-        <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl overflow-hidden border border-white/50">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-100">
-              <thead className="bg-gradient-to-r from-teal-600 via-cyan-600 to-blue-600">
-                <tr>
-                  <th className="px-6 py-5 text-left text-xs font-black text-white uppercase tracking-wider">Type</th>
-                  <th className="px-6 py-5 text-left text-xs font-black text-white uppercase tracking-wider">Range / PRN</th>
-                  <th className="px-6 py-5 text-left text-xs font-black text-white uppercase tracking-wider">Year</th>
-                  <th className="px-6 py-5 text-left text-xs font-black text-white uppercase tracking-wider">College</th>
-                  <th className="px-6 py-5 text-left text-xs font-black text-white uppercase tracking-wider">Description</th>
-                  <th className="px-6 py-5 text-left text-xs font-black text-white uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-5 text-left text-xs font-black text-white uppercase tracking-wider">Added</th>
-                  <th className="px-6 py-5 text-left text-xs font-black text-white uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white/50 divide-y divide-gray-100">
-                {filteredRanges.length === 0 ? (
-                  <tr>
-                    <td colSpan="8" className="text-center py-16">
-                      <AlertCircle className="mx-auto mb-4 text-gray-300" size={64} />
-                      <p className="text-gray-500 text-lg font-semibold">
-                        {yearFilter === 'active'
-                          ? 'No active PRN ranges. Add new ranges to start the academic year.'
-                          : 'No PRN ranges found for this filter.'}
-                      </p>
-                    </td>
-                  </tr>
-                ) : (
-                  filteredRanges.map((range) => (
-                    <tr key={range.id} className="hover:bg-gradient-to-r hover:from-teal-50/50 hover:to-cyan-50/50 transition-all duration-200 group">
-                      <td className="px-6 py-5">
-                        <span className="px-3 py-1.5 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-full text-xs font-bold shadow-md">
-                          {range.single_prn ? 'Single' : 'Range'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-5 font-mono font-bold text-gray-900 group-hover:text-teal-700 transition-colors">
-                        {range.single_prn
-                          ? range.single_prn
-                          : `${range.range_start} - ${range.range_end}`}
-                        <ExceptedPrnList prns={range.excepted_prns} />
-                      </td>
-                      <td className="px-6 py-5 text-sm text-gray-700 font-medium">
-                        {range.year || '-'}
-                      </td>
-                      <td className="px-6 py-5 text-sm text-gray-700 font-medium">
-                        {range.college_name ? (
-                          <span className="inline-flex items-center space-x-1.5 bg-purple-100 text-purple-800 text-xs font-bold px-3 py-1.5 rounded-lg border border-purple-200">
-                            <span>{range.college_name}</span>
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1.5 rounded-lg border border-blue-200">
-                            All Colleges
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-5 text-sm text-gray-600">
-                        {range.description || '-'}
-                      </td>
-                    <td className="px-6 py-5">
-                      <div className="flex flex-col space-y-1">
-                        {range.is_enabled !== undefined ? (
-                          range.is_enabled ? (
-                            <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-xs font-semibold bg-green-100 text-green-800 w-fit">Enabled</span>
-                          ) : (
-                            <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-xs font-semibold bg-yellow-100 text-yellow-800 w-fit">Disabled</span>
-                          )
-                        ) : (
-                          range.is_active ? (
-                            <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-xs font-semibold bg-green-100 text-green-800 w-fit">Active</span>
-                          ) : (
-                            <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-xs font-semibold bg-red-100 text-red-800 w-fit">Inactive</span>
-                          )
-                        )}
-                        {range.disabled_reason && (
-                          <span className="text-xs text-gray-500" title={range.disabled_reason}>
-                            (Reason provided)
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-5 text-sm text-gray-600">
-                      {new Date(range.created_at).toLocaleDateString('en-IN')}
-                    </td>
-                      <td className="px-6 py-5">
-                        <div className="flex space-x-2">
-                          <Link
-                            to={`/super-admin/prn-ranges/${range.id}/students`}
-                            className="p-2 text-blue-600 hover:text-white hover:bg-gradient-to-r hover:from-blue-500 hover:to-cyan-500 rounded-xl transition-all duration-200 hover:shadow-lg transform hover:scale-110 flex items-center space-x-1"
-                            title="View Students in Range"
-                          >
-                            <Eye size={18} />
-                            <ExternalLink size={12} />
-                          </Link>
-                          <button
-                            onClick={() => handleEdit(range)}
-                            className="p-2 text-amber-600 hover:text-white hover:bg-gradient-to-r hover:from-amber-500 hover:to-orange-500 rounded-xl transition-all duration-200 hover:shadow-lg transform hover:scale-110"
-                            title="Edit"
-                          >
-                            <Edit2 size={18} />
-                          </button>
-                          <button
-                            onClick={() => handleToggleEnable(range)}
-                            className={`p-2 rounded-xl transition-all duration-200 hover:shadow-lg transform hover:scale-110 ${
-                              range.is_enabled
-                                ? 'text-green-600 hover:text-white hover:bg-gradient-to-r hover:from-green-500 hover:to-emerald-500'
-                                : 'text-gray-400 hover:text-white hover:bg-gradient-to-r hover:from-gray-400 hover:to-gray-600'
-                            }`}
-                            title={range.is_enabled ? 'Disable Range' : 'Enable Range'}
-                          >
-                            {range.is_enabled ? (
-                              <ToggleRight size={20} />
-                            ) : (
-                              <ToggleLeft size={20} />
-                            )}
-                          </button>
-                          <button
-                            onClick={() => handleDelete(range.id)}
-                            className="p-2 text-red-600 hover:text-white hover:bg-gradient-to-r hover:from-red-500 hover:to-rose-500 rounded-xl transition-all duration-200 hover:shadow-lg transform hover:scale-110"
-                            title="Delete"
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-              </tbody>
-            </table>
+        {groups.length === 0 ? (
+          <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/50 text-center py-16">
+            <AlertCircle className="mx-auto mb-4 text-gray-300" size={64} />
+            <p className="text-gray-500 text-lg font-semibold">
+              {searchQuery
+                ? 'Nothing matches your search.'
+                : yearFilter === 'active'
+                ? 'No active PRN ranges. Add new ranges to start the academic year.'
+                : 'No PRN ranges found for this filter.'}
+            </p>
           </div>
-        </div>
+        ) : (
+          <div className="space-y-4">
+            {groups.map((group) => (
+              <div key={group.key} className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl overflow-hidden border border-white/50">
+                {/* Group header */}
+                <button
+                  onClick={() => toggleGroup(group.key)}
+                  className={`w-full flex items-center gap-4 px-6 py-4 text-left transition-colors ${
+                    group.isSystemWide
+                      ? 'bg-gradient-to-r from-blue-50 to-cyan-50 hover:from-blue-100 hover:to-cyan-100'
+                      : 'hover:bg-teal-50/60'
+                  }`}
+                >
+                  {isGroupExpanded(group.key) ? (
+                    <ChevronDown size={20} className="text-gray-500 shrink-0" />
+                  ) : (
+                    <ChevronRight size={20} className="text-gray-500 shrink-0" />
+                  )}
+                  <span className={`p-2 rounded-xl shrink-0 ${group.isSystemWide ? 'bg-blue-100' : 'bg-teal-100'}`}>
+                    {group.isSystemWide ? (
+                      <Globe size={18} className="text-blue-700" />
+                    ) : (
+                      <Building2 size={18} className="text-teal-700" />
+                    )}
+                  </span>
+                  <span className="font-bold text-gray-900 text-lg">{group.label}</span>
+                  <span className="flex flex-wrap items-center gap-2 ml-auto">
+                    {group.rangeCount > 0 && (
+                      <span className="px-2.5 py-1 bg-teal-100 text-teal-800 rounded-full text-xs font-bold">
+                        {group.rangeCount} range{group.rangeCount !== 1 ? 's' : ''}
+                      </span>
+                    )}
+                    {group.singleCount > 0 && (
+                      <span className="px-2.5 py-1 bg-indigo-100 text-indigo-800 rounded-full text-xs font-bold">
+                        {group.singleCount} single{group.singleCount !== 1 ? 's' : ''}
+                      </span>
+                    )}
+                    {group.disabledCount > 0 && (
+                      <span className="px-2.5 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-bold">
+                        {group.disabledCount} disabled
+                      </span>
+                    )}
+                  </span>
+                </button>
+
+                {/* Group body */}
+                {isGroupExpanded(group.key) && (
+                  <div className="overflow-x-auto border-t border-gray-100">
+                    <table className="min-w-full divide-y divide-gray-100">
+                      <thead className="bg-gradient-to-r from-teal-600 via-cyan-600 to-blue-600">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-black text-white uppercase tracking-wider">Type</th>
+                          <th className="px-6 py-3 text-left text-xs font-black text-white uppercase tracking-wider">Range / PRN</th>
+                          <th className="px-6 py-3 text-left text-xs font-black text-white uppercase tracking-wider">Year</th>
+                          <th className="px-6 py-3 text-left text-xs font-black text-white uppercase tracking-wider">Description</th>
+                          <th className="px-6 py-3 text-left text-xs font-black text-white uppercase tracking-wider">Status</th>
+                          <th className="px-6 py-3 text-left text-xs font-black text-white uppercase tracking-wider">Added</th>
+                          <th className="px-6 py-3 text-left text-xs font-black text-white uppercase tracking-wider">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white/50 divide-y divide-gray-100">
+                        {group.ranges.map((range) => (
+                          <tr key={range.id} className="hover:bg-gradient-to-r hover:from-teal-50/50 hover:to-cyan-50/50 transition-all duration-200 group">
+                            <td className="px-6 py-5">
+                              <span className="px-3 py-1.5 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-full text-xs font-bold shadow-md">
+                                {range.single_prn ? 'Single' : 'Range'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-5 font-mono font-bold text-gray-900 group-hover:text-teal-700 transition-colors">
+                              {range.single_prn
+                                ? range.single_prn
+                                : `${range.range_start} - ${range.range_end}`}
+                              <ExceptedPrnList prns={range.excepted_prns} />
+                            </td>
+                            <td className="px-6 py-5 text-sm text-gray-700 font-medium">
+                              {range.year || '-'}
+                            </td>
+                            <td className="px-6 py-5 text-sm text-gray-600">
+                              {range.description || '-'}
+                            </td>
+                            <td className="px-6 py-5">
+                              <div className="flex flex-col space-y-1">
+                                {range.is_enabled !== undefined ? (
+                                  range.is_enabled ? (
+                                    <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-xs font-semibold bg-green-100 text-green-800 w-fit">Enabled</span>
+                                  ) : (
+                                    <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-xs font-semibold bg-yellow-100 text-yellow-800 w-fit">Disabled</span>
+                                  )
+                                ) : (
+                                  range.is_active ? (
+                                    <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-xs font-semibold bg-green-100 text-green-800 w-fit">Active</span>
+                                  ) : (
+                                    <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-xs font-semibold bg-red-100 text-red-800 w-fit">Inactive</span>
+                                  )
+                                )}
+                                {range.disabled_reason && (
+                                  <span className="text-xs text-gray-500" title={range.disabled_reason}>
+                                    (Reason provided)
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-6 py-5 text-sm text-gray-600">
+                              {new Date(range.created_at).toLocaleDateString('en-IN')}
+                            </td>
+                            <td className="px-6 py-5">
+                              <div className="flex space-x-2">
+                                <Link
+                                  to={`/super-admin/prn-ranges/${range.id}/students`}
+                                  className="p-2 text-blue-600 hover:text-white hover:bg-gradient-to-r hover:from-blue-500 hover:to-cyan-500 rounded-xl transition-all duration-200 hover:shadow-lg transform hover:scale-110 flex items-center space-x-1"
+                                  title="View Students in Range"
+                                >
+                                  <Eye size={18} />
+                                  <ExternalLink size={12} />
+                                </Link>
+                                <button
+                                  onClick={() => handleEdit(range)}
+                                  className="p-2 text-amber-600 hover:text-white hover:bg-gradient-to-r hover:from-amber-500 hover:to-orange-500 rounded-xl transition-all duration-200 hover:shadow-lg transform hover:scale-110"
+                                  title="Edit"
+                                >
+                                  <Edit2 size={18} />
+                                </button>
+                                <button
+                                  onClick={() => handleToggleEnable(range)}
+                                  className={`p-2 rounded-xl transition-all duration-200 hover:shadow-lg transform hover:scale-110 ${
+                                    range.is_enabled
+                                      ? 'text-green-600 hover:text-white hover:bg-gradient-to-r hover:from-green-500 hover:to-emerald-500'
+                                      : 'text-gray-400 hover:text-white hover:bg-gradient-to-r hover:from-gray-400 hover:to-gray-600'
+                                  }`}
+                                  title={range.is_enabled ? 'Disable Range' : 'Enable Range'}
+                                >
+                                  {range.is_enabled ? (
+                                    <ToggleRight size={20} />
+                                  ) : (
+                                    <ToggleLeft size={20} />
+                                  )}
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(range.id)}
+                                  className="p-2 text-red-600 hover:text-white hover:bg-gradient-to-r hover:from-red-500 hover:to-rose-500 rounded-xl transition-all duration-200 hover:shadow-lg transform hover:scale-110"
+                                  title="Delete"
+                                >
+                                  <Trash2 size={18} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
         </AnimatedSection>
 
       {/* Disable PRN Range Modal */}

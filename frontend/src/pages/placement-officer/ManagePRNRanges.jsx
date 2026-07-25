@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { placementOfficerAPI } from '../../services/api';
 import toast from 'react-hot-toast';
-import { Plus, Edit2, Trash2, Save, X, Lock, Hash, Calendar, BookOpen, Shield, Eye, Download, ToggleLeft, ToggleRight, AlertCircle, User } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, X, Lock, Hash, Calendar, BookOpen, Shield, Eye, Download, ToggleLeft, ToggleRight, AlertCircle, User, Filter, ChevronDown, ChevronRight, Globe } from 'lucide-react';
 import DashboardHeader from '../../components/DashboardHeader';
 import GlassCard from '../../components/GlassCard';
 import useSkeletonLoading from '../../hooks/useSkeletonLoading';
@@ -13,6 +13,11 @@ export default function ManagePRNRanges() {
   const [prnRanges, setPrnRanges] = useState([]);
   const [locked, setLocked] = useState(false);
   const [loading, setLoading] = useState(true);
+  // Main list shows only THIS college's ranges, Active by default — old-year
+  // disabled ranges pile up after every academic reset, so hide them unless
+  // asked. SA system-wide ranges live in their own collapsed section.
+  const [viewFilter, setViewFilter] = useState('active');
+  const [showSystemRanges, setShowSystemRanges] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showAddSingleModal, setShowAddSingleModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -279,6 +284,19 @@ export default function ManagePRNRanges() {
     return <TablePageSkeleton statCards={0} tableColumns={8} tableRows={6} hasSearch={false} hasFilters={false} />;
   }
 
+  // Split: this college's own ranges (the main list) vs Super-Admin
+  // system-wide entries (collapsed reference section below)
+  const ownRanges = prnRanges.filter(r => r.created_by !== 'super_admin');
+  const systemRanges = prnRanges.filter(r => r.created_by === 'super_admin');
+
+  const availableYears = [...new Set(ownRanges.map(r => r.year).filter(Boolean))].sort((a, b) => b - a);
+
+  const filteredOwn = ownRanges.filter(range => {
+    if (viewFilter === 'active') return range.is_enabled;
+    if (viewFilter === 'all') return true;
+    return String(range.year) === viewFilter;
+  });
+
   return (
     <div>
       {/* Header */}
@@ -353,7 +371,7 @@ export default function ManagePRNRanges() {
               </li>
               <li className="flex items-start">
                 <span className="mr-2 text-blue-600">•</span>
-                Ranges created by Super Admin are read-only (marked with lock icon)
+                System-wide ranges from the State Placement Cell appear in their own section below — read-only for you
               </li>
             </ul>
           </div>
@@ -361,7 +379,29 @@ export default function ManagePRNRanges() {
       </GlassCard>
       </AnimatedSection>
 
-      {/* PRN Ranges Table */}
+      {/* View filter for this college's ranges */}
+      <AnimatedSection delay={0.15}>
+        <div className="flex flex-wrap items-center gap-3 mb-4">
+          <Filter size={18} className="text-gray-500" />
+          <span className="text-sm font-semibold text-gray-600">View:</span>
+          <select
+            value={viewFilter}
+            onChange={(e) => setViewFilter(e.target.value)}
+            className="px-4 py-2 bg-white/90 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all shadow-sm"
+          >
+            <option value="active">Active Ranges</option>
+            <option value="all">All Years</option>
+            {availableYears.map((year) => (
+              <option key={year} value={year}>{year}</option>
+            ))}
+          </select>
+          <p className="text-sm text-gray-500 ml-auto">
+            Showing <span className="font-bold text-gray-700">{filteredOwn.length}</span> of {ownRanges.length} of your college's range(s)
+          </p>
+        </div>
+      </AnimatedSection>
+
+      {/* Your college's PRN ranges */}
       <AnimatedSection delay={0.2}>
       <GlassCard variant="elevated" className="overflow-hidden p-0">
         <div className="overflow-x-auto">
@@ -371,29 +411,35 @@ export default function ManagePRNRanges() {
                 <th className="px-6 py-4 text-left font-bold">Start PRN</th>
                 <th className="px-6 py-4 text-left font-bold">End PRN</th>
                 <th className="px-6 py-4 text-left font-bold">Year</th>
-                <th className="px-6 py-4 text-left font-bold">College</th>
                 <th className="px-6 py-4 text-left font-bold">Description</th>
                 <th className="px-6 py-4 text-left font-bold">Status</th>
-                <th className="px-6 py-4 text-left font-bold">Created By</th>
                 <th className="px-6 py-4 text-left font-bold">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {prnRanges.length === 0 ? (
+              {filteredOwn.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="text-center text-gray-500 py-12">
+                  <td colSpan="6" className="text-center text-gray-500 py-12">
                     <Hash className="mx-auto text-gray-400 mb-4" size={64} />
-                    <p className="font-bold text-lg">No PRN ranges defined yet</p>
-                    <p className="text-sm mt-2">Click "Add PRN Range" to create one</p>
+                    <p className="font-bold text-lg">
+                      {ownRanges.length === 0
+                        ? 'No PRN ranges defined yet'
+                        : viewFilter === 'active'
+                        ? 'No active PRN ranges for your college'
+                        : 'No ranges match this filter'}
+                    </p>
+                    <p className="text-sm mt-2">
+                      {ownRanges.length === 0
+                        ? 'Click "Add PRN Range" to create one'
+                        : 'Switch the view filter to see past-year or disabled ranges'}
+                    </p>
                   </td>
                 </tr>
               ) : (
-                prnRanges.map((range, index) => (
+                filteredOwn.map((range, index) => (
                   <tr
                     key={range.id}
-                    className={`hover:bg-blue-50 transition-colors ${
-                      range.created_by === 'super_admin' ? 'bg-purple-50/30' : index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                    }`}
+                    className={`hover:bg-blue-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
                   >
                     <td className="px-6 py-4 font-mono font-bold text-gray-900">
                       {range.single_prn ? (
@@ -406,17 +452,6 @@ export default function ManagePRNRanges() {
                     </td>
                     <td className="px-6 py-4 font-mono font-bold text-gray-900">{range.single_prn ? '-' : range.end_prn}</td>
                     <td className="px-6 py-4 font-bold text-gray-900">{range.year || '-'}</td>
-                    <td className="px-6 py-4 text-sm text-gray-700 font-medium">
-                      {range.college_name ? (
-                        <span className="inline-flex items-center space-x-1.5 bg-purple-100 text-purple-800 text-xs font-bold px-3 py-1.5 rounded-lg border border-purple-200">
-                          <span>{range.college_name}</span>
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1.5 rounded-lg border border-blue-200">
-                          All Colleges
-                        </span>
-                      )}
-                    </td>
                     <td className="px-6 py-4 text-sm text-gray-600 font-medium">{range.description || '-'}</td>
                     <td className="px-6 py-4">
                       <div className="flex flex-col space-y-1">
@@ -436,18 +471,6 @@ export default function ManagePRNRanges() {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      {range.created_by === 'super_admin' ? (
-                        <span className="inline-flex items-center space-x-1.5 bg-purple-100 text-purple-800 text-sm font-bold px-4 py-2 rounded-xl border-2 border-purple-200">
-                          <Lock size={14} />
-                          <span>Super Admin</span>
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center bg-blue-100 text-blue-800 text-sm font-bold px-4 py-2 rounded-xl border-2 border-blue-200">
-                          You
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
                       <div className="flex space-x-2">
                         <button
                           onClick={() => handleViewStudents(range)}
@@ -462,9 +485,9 @@ export default function ManagePRNRanges() {
                             range.is_enabled
                               ? 'text-green-600 hover:text-green-800 bg-green-50 hover:bg-green-100'
                               : 'text-gray-400 hover:text-gray-600 bg-gray-50 hover:bg-gray-100'
-                          } ${range.created_by === 'super_admin' || locked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          } ${locked ? 'opacity-50 cursor-not-allowed' : ''}`}
                           title={locked ? 'Locked by Super Admin' : range.is_enabled ? 'Disable Range' : 'Enable Range'}
-                          disabled={range.created_by === 'super_admin' || locked}
+                          disabled={locked}
                         >
                           {range.is_enabled ? (
                             <ToggleRight size={20} />
@@ -472,7 +495,7 @@ export default function ManagePRNRanges() {
                             <ToggleLeft size={20} />
                           )}
                         </button>
-                        {range.created_by === 'placement_officer' && !locked ? (
+                        {!locked ? (
                           <>
                             <button
                               onClick={() => handleEdit(range)}
@@ -492,7 +515,7 @@ export default function ManagePRNRanges() {
                         ) : (
                           <span className="text-gray-400 text-sm flex items-center space-x-1 bg-gray-50 px-3 py-2 rounded-xl font-medium">
                             <Lock size={14} />
-                            <span>{locked ? 'Locked' : 'Read-only'}</span>
+                            <span>Locked</span>
                           </span>
                         )}
                       </div>
@@ -505,6 +528,93 @@ export default function ManagePRNRanges() {
         </div>
       </GlassCard>
       </AnimatedSection>
+
+      {/* System-wide ranges (set by the State Placement Cell) — read-only, collapsed */}
+      {systemRanges.length > 0 && (
+        <AnimatedSection delay={0.25}>
+          <GlassCard variant="elevated" className="mt-6 overflow-hidden p-0">
+            <button
+              onClick={() => setShowSystemRanges(!showSystemRanges)}
+              className="w-full flex items-center gap-4 px-6 py-4 text-left bg-gradient-to-r from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 transition-colors"
+            >
+              {showSystemRanges ? (
+                <ChevronDown size={20} className="text-gray-500 shrink-0" />
+              ) : (
+                <ChevronRight size={20} className="text-gray-500 shrink-0" />
+              )}
+              <span className="p-2 bg-purple-100 rounded-xl shrink-0">
+                <Globe size={18} className="text-purple-700" />
+              </span>
+              <div>
+                <span className="font-bold text-gray-900">System-wide ranges (set by the State Placement Cell)</span>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  These also allow your students to register — read-only for you
+                </p>
+              </div>
+              <span className="ml-auto px-2.5 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-bold shrink-0">
+                {systemRanges.length} entr{systemRanges.length !== 1 ? 'ies' : 'y'}
+              </span>
+            </button>
+
+            {showSystemRanges && (
+              <div className="overflow-x-auto border-t border-gray-100">
+                <table className="w-full">
+                  <thead className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
+                    <tr>
+                      <th className="px-6 py-3 text-left font-bold text-sm">Start PRN</th>
+                      <th className="px-6 py-3 text-left font-bold text-sm">End PRN</th>
+                      <th className="px-6 py-3 text-left font-bold text-sm">Year</th>
+                      <th className="px-6 py-3 text-left font-bold text-sm">Description</th>
+                      <th className="px-6 py-3 text-left font-bold text-sm">Status</th>
+                      <th className="px-6 py-3 text-left font-bold text-sm">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {systemRanges.map((range) => (
+                      <tr key={range.id} className="bg-purple-50/30 hover:bg-purple-50 transition-colors">
+                        <td className="px-6 py-4 font-mono font-bold text-gray-900">
+                          {range.single_prn ? (
+                            <span className="inline-flex items-center gap-1.5">
+                              <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-md text-xs font-bold">Single</span>
+                              {range.single_prn}
+                            </span>
+                          ) : range.start_prn}
+                          <ExceptedPrnList prns={range.excepted_prns} />
+                        </td>
+                        <td className="px-6 py-4 font-mono font-bold text-gray-900">{range.single_prn ? '-' : range.end_prn}</td>
+                        <td className="px-6 py-4 font-bold text-gray-900">{range.year || '-'}</td>
+                        <td className="px-6 py-4 text-sm text-gray-600 font-medium">{range.description || '-'}</td>
+                        <td className="px-6 py-4">
+                          {range.is_enabled ? (
+                            <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-xs font-semibold bg-green-100 text-green-800 w-fit">Enabled</span>
+                          ) : (
+                            <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-xs font-semibold bg-yellow-100 text-yellow-800 w-fit">Disabled</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => handleViewStudents(range)}
+                              className="p-2 text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded-xl transition-all transform hover:scale-110"
+                              title="View Students"
+                            >
+                              <Eye size={18} />
+                            </button>
+                            <span className="text-gray-400 text-sm flex items-center space-x-1 bg-gray-50 px-3 py-2 rounded-xl font-medium">
+                              <Lock size={14} />
+                              <span>Read-only</span>
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </GlassCard>
+        </AnimatedSection>
+      )}
 
       {/* Add/Edit Modal */}
       {showAddModal && (

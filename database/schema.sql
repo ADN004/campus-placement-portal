@@ -356,13 +356,17 @@ CREATE TABLE student_extended_profiles (
     siblings_details TEXT,
 
     -- Document Status
+    -- The *_number columns are encrypted at rest (AES-256-GCM, "enc:v1:..."
+    -- format — see backend/utils/piiCrypto.js) and are TEXT to hold ciphertext.
+    -- They are never searched/filtered, so random-IV encryption is safe. The
+    -- has_* booleans stay plaintext. See migration 007.
     has_driving_license BOOLEAN DEFAULT NULL,
     has_pan_card BOOLEAN DEFAULT NULL,
-    pan_number VARCHAR(10),
+    pan_number TEXT,
     has_aadhar_card BOOLEAN DEFAULT NULL,
-    aadhar_number VARCHAR(12),
+    aadhar_number TEXT,
     has_passport BOOLEAN DEFAULT NULL,
-    passport_number VARCHAR(20),
+    passport_number TEXT,
 
     -- Education Preferences
     interested_in_btech BOOLEAN DEFAULT NULL,

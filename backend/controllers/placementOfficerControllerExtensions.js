@@ -1,4 +1,5 @@
 import { query, getClient } from '../config/database.js';
+import { decryptPiiFields } from '../utils/piiCrypto.js';
 import { uploadImage, deleteImage, deleteFolderOnly, extractFolderPath } from '../config/cloudinary.js';
 import logActivity from '../middleware/activityLogger.js';
 import ExcelJS from 'exceljs';
@@ -1309,6 +1310,7 @@ export const getDetailedStudentProfile = async (req, res) => {
       });
     }
 
+    decryptPiiFields(profileResult.rows[0]); // decrypt Aadhaar/PAN/passport for display (C-3)
     res.status(200).json({
       success: true,
       data: profileResult.rows[0],

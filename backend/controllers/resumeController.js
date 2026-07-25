@@ -5,6 +5,7 @@
  */
 
 import { query } from '../config/database.js';
+import { decryptPiiFields } from '../utils/piiCrypto.js';
 import { generateResume } from '../utils/resumeGenerator.js';
 
 /**
@@ -61,6 +62,7 @@ async function getExtendedProfileForResume(studentId) {
   if (result.rows.length === 0) return {};
 
   const ep = result.rows[0];
+  decryptPiiFields(ep); // decrypt Aadhaar/PAN/passport before they go into the resume (C-3)
   return {
     ...ep,
     height_cm: ep.height_cm || ep.student_height,

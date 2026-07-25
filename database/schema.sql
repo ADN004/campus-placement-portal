@@ -94,7 +94,7 @@ CREATE TABLE placement_officers (
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     college_id INTEGER NOT NULL REFERENCES colleges(id) ON DELETE CASCADE,
     officer_name VARCHAR(255) NOT NULL,
-    phone_number VARCHAR(20) NOT NULL UNIQUE,
+    phone_number VARCHAR(20) NOT NULL,  -- unique among ACTIVE officers only (partial index below)
     designation VARCHAR(100),
     officer_email VARCHAR(255),
     college_email VARCHAR(255),
@@ -114,6 +114,14 @@ CREATE TABLE placement_officers (
 -- (Also in database/migrations/009_fix_officer_active_constraint.sql)
 CREATE UNIQUE INDEX IF NOT EXISTS placement_officers_one_active_per_college
   ON placement_officers (college_id)
+  WHERE is_active = TRUE;
+
+-- A phone number (also the officer's login id) is unique among SERVING
+-- officers only. A table-wide UNIQUE would keep a retired officer's number
+-- claimed forever, blocking re-appointment or reuse of a shared office number.
+-- (Also in database/migrations/010_fix_officer_phone_constraint.sql)
+CREATE UNIQUE INDEX IF NOT EXISTS placement_officers_one_active_phone
+  ON placement_officers (phone_number)
   WHERE is_active = TRUE;
 
 CREATE INDEX idx_po_user ON placement_officers(user_id);

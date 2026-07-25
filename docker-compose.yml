@@ -82,8 +82,6 @@ services:
       JWT_SECRET: ${JWT_SECRET:-your_super_secret_jwt_key_change_this}
       JWT_EXPIRE: ${JWT_EXPIRE:-7d}
       JWT_COOKIE_EXPIRE: ${JWT_COOKIE_EXPIRE:-7}
-      # Encrypts Aadhaar/PAN/passport at rest — C-3. Back it up; loss is unrecoverable.
-      PII_ENCRYPTION_KEY: ${PII_ENCRYPTION_KEY:-}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
       MAX_FILE_SIZE: ${MAX_FILE_SIZE:-5242880}
       UPLOAD_PATH: ${UPLOAD_PATH:-./uploads}

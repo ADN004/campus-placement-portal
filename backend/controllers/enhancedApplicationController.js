@@ -9,7 +9,6 @@
  */
 
 import { query, transaction } from '../config/database.js';
-import { encryptPiiField, decryptPiiFields } from '../utils/piiCrypto.js';
 
 // Normalize branch name for comparison: lowercase, & → and, collapse spaces
 const normalizeBranch = (b) => b?.toLowerCase().replace(/&/g, 'and').replace(/\s+/g, ' ').trim() || '';
@@ -101,7 +100,6 @@ export const checkApplicationReadiness = async (req, res) => {
     }
 
     const student = studentResult.rows[0];
-    decryptPiiFields(student); // decrypt Aadhaar/PAN/passport for display (C-3)
 
     // Get job requirements from template OR from jobs table
     const requirementsResult = await query(
@@ -494,10 +492,7 @@ async function updateExtendedProfileFromTier2(client, studentId, tier2Data, sect
       return !!value;
     }
 
-    // This is the only write path for the government-ID numbers, so encrypt
-    // them here before they are persisted. Non-PII fields pass through
-    // unchanged. See backend/utils/piiCrypto.js (C-3).
-    return encryptPiiField(fieldName, value);
+    return value;
   };
 
   // CRITICAL FIX: Ensure student_extended_profiles row exists
@@ -569,7 +564,6 @@ async function updateSectionCompletionInTransaction(client, studentId, sectionNa
 
   if (profileResult.rows.length === 0) return;
   const profile = profileResult.rows[0];
-  decryptPiiFields(profile); // decrypt Aadhaar/PAN/passport (C-3)
 
   let isCompleted = false;
   let completionPercentage = 0;
@@ -672,7 +666,6 @@ export const submitEnhancedApplication = async (req, res) => {
       }
 
       const student = studentResult.rows[0];
-      decryptPiiFields(student); // decrypt Aadhaar/PAN/passport for display (C-3)
 
       // Check if job exists
       const jobResult = await client.query(
@@ -826,7 +819,6 @@ export const submitEnhancedApplication = async (req, res) => {
       );
 
       const updatedStudent = updatedProfileResult.rows[0] || student;
-      decryptPiiFields(updatedStudent); // decrypt Aadhaar/PAN/passport for the snapshot below (C-3)
 
       // Validate required extended profile sections are actually filled
       if (requirements) {
@@ -1051,7 +1043,6 @@ export const getMissingFields = async (req, res) => {
     }
 
     const student = studentResult.rows[0];
-    decryptPiiFields(student); // decrypt Aadhaar/PAN/passport for display (C-3)
 
     // Get job requirements
     const requirementsResult = await query(

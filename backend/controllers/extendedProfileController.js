@@ -9,7 +9,6 @@
  */
 
 import { query } from '../config/database.js';
-import { decryptPiiFields } from '../utils/piiCrypto.js';
 
 /**
  * Helper function to get student ID from user ID
@@ -650,7 +649,6 @@ export const checkJobEligibility = async (req, res) => {
     }
 
     const student = studentResult.rows[0];
-    decryptPiiFields(student); // decrypt Aadhaar/PAN/passport (C-3)
 
     // Get job requirements
     const requirementsResult = await query(
@@ -710,7 +708,6 @@ async function updateSectionCompletion(studentId, sectionName) {
   if (profileResult.rows.length === 0) return;
 
   const profile = profileResult.rows[0];
-  decryptPiiFields(profile); // decrypt Aadhaar/PAN/passport (C-3)
   let isCompleted = false;
   let completionPercentage = 0;
 

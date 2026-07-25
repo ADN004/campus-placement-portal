@@ -1,5 +1,4 @@
 import { query } from '../config/database.js';
-import { decryptPiiFields } from '../utils/piiCrypto.js';
 import logActivity from '../middleware/activityLogger.js';
 
 // @desc    Get student dashboard data
@@ -828,7 +827,6 @@ const checkJobEligibility = async (jobId, student) => {
     );
 
     const extendedProfile = extendedProfileResult.rows.length > 0 ? extendedProfileResult.rows[0] : {};
-    decryptPiiFields(extendedProfile); // decrypt Aadhaar/PAN/passport (C-3)
 
     // Get job requirement templates for specific field requirements
     const requirementsResult = await query(

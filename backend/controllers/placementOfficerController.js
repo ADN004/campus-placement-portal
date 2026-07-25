@@ -1,5 +1,4 @@
 import { query, transaction } from '../config/database.js';
-import { decryptPiiFields } from '../utils/piiCrypto.js';
 import logActivity from '../middleware/activityLogger.js';
 import ExcelJS from 'exceljs';
 import { sendVerificationEmail, sendRegistrationRejectedEmail } from '../config/emailService.js';
@@ -2321,9 +2320,6 @@ export const getJobApplicants = async (req, res) => {
       ORDER BY c.college_name ASC, s.branch ASC, s.prn ASC`,
       queryParams
     );
-
-    // Decrypt Aadhaar/PAN/passport for each applicant before returning (C-3)
-    decryptPiiFields(applicantsResult.rows);
 
     // Parse allowed_branches if it's a string
     const applicants = applicantsResult.rows.map((applicant) => ({

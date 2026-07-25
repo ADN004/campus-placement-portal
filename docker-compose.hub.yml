@@ -96,10 +96,6 @@ services:
       JWT_SECRET: ${JWT_SECRET:-change_this_to_a_long_random_string}
       JWT_EXPIRE: ${JWT_EXPIRE:-7d}
       JWT_COOKIE_EXPIRE: ${JWT_COOKIE_EXPIRE:-7}
-      # Encrypts student ID numbers (Aadhaar/PAN/passport) at rest — C-3.
-      # Must be set in the env file; if empty the app boots but any encrypt/
-      # decrypt of these fields fails loudly. Back it up — loss is unrecoverable.
-      PII_ENCRYPTION_KEY: ${PII_ENCRYPTION_KEY:-}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
       MAX_FILE_SIZE: ${MAX_FILE_SIZE:-5242880}
       UPLOAD_PATH: ./uploads

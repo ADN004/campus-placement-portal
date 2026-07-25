@@ -154,6 +154,15 @@ export default function ManageAllStudents() {
     initializeData();
   }, []);
 
+  // Lock page scroll while the details modal is open so the wheel only moves
+  // the modal, never the list behind it.
+  useEffect(() => {
+    if (!showDetailsModal) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [showDetailsModal]);
+
   const fetchArchivedYears = async () => {
     try {
       const res = await superAdminAPI.getArchivedYears();
@@ -1273,7 +1282,7 @@ export default function ManageAllStudents() {
                 </tr>
               ) : (
                 students.map((student) => (
-                  <tr key={student.id} className="hover:bg-gradient-to-r hover:from-indigo-50/50 hover:to-purple-50/50 transition-all duration-200 group">
+                  <tr key={student.id} className="hover:bg-red-100 transition-all duration-200 group">
                     <td className="px-6 py-5 whitespace-nowrap text-sm font-bold text-gray-900 group-hover:text-indigo-700 transition-colors">
                       {student.prn}
                     </td>
@@ -1452,9 +1461,9 @@ export default function ManageAllStudents() {
 
       {/* Student Details Modal */}
       {showDetailsModal && selectedStudent && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-50 p-4 pt-20 overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-50 p-4 pt-20 overflow-y-auto overscroll-contain">
           <div className="bg-white rounded-lg w-full max-w-2xl">
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+            <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
               <h2 className="text-2xl font-bold">Student Details</h2>
               <button
                 onClick={() => {

@@ -163,6 +163,15 @@ export default function ManageStudents() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  // Lock page scroll while the details modal is open so the wheel only moves
+  // the modal, never the list behind it.
+  useEffect(() => {
+    if (!showDetailsModal) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [showDetailsModal]);
+
   useEffect(() => {
     fetchStudents();
   }, [currentPage, pageSize, activeTab, debouncedSearch, advancedFilters, filterDocuments, filterDistricts, showArchived, archivedYear]);
@@ -1698,7 +1707,7 @@ export default function ManageStudents() {
                       className={`border-b border-gray-200 transition-colors ${
                         selectedStudents.includes(student.id)
                           ? 'bg-amber-200 hover:bg-amber-300'
-                          : `hover:bg-blue-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`
+                          : `hover:bg-red-100 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`
                       }`}
                     >
                       {getPendingStudentsInView().length > 0 && (
@@ -1893,8 +1902,20 @@ export default function ManageStudents() {
       {/* Student Details Modal */}
       {showDetailsModal && selectedStudent && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <GlassCard variant="elevated" className="p-8 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-            <h2 className="text-3xl font-bold mb-6 text-gray-900">Student Details</h2>
+          <GlassCard variant="elevated" hover={false} className="w-full max-w-3xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
+            {/* Fixed header with always-visible close */}
+            <div className="flex items-center justify-between px-8 pt-6 pb-4 border-b border-gray-200 shrink-0">
+              <h2 className="text-3xl font-bold text-gray-900">Student Details</h2>
+              <button
+                onClick={() => setShowDetailsModal(false)}
+                className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+                title="Close"
+              >
+                <X size={26} />
+              </button>
+            </div>
+            {/* Scrollable body — overscroll-contain stops the page behind from scrolling */}
+            <div className="flex-1 overflow-y-auto overscroll-contain px-8 py-6">
             <div className="space-y-6">
               {/* Student Photo */}
               <div className="flex justify-center mb-6">
@@ -2051,6 +2072,7 @@ export default function ManageStudents() {
               >
                 Close
               </button>
+            </div>
             </div>
           </GlassCard>
         </div>

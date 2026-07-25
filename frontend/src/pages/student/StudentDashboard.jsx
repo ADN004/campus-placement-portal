@@ -346,7 +346,7 @@ export default function StudentDashboard() {
   return (
     <div>
       {/* Correction requested by placement officer / super admin */}
-      {dashboard?.correction_requested && (
+      {dashboard?.profile?.correction_requested && (
         <div className="mb-6 rounded-2xl border-l-4 border-amber-500 bg-amber-50 p-5">
           <div className="flex items-start gap-4">
             <div className="bg-amber-500 rounded-xl p-2.5 shadow shrink-0">
@@ -354,9 +354,9 @@ export default function StudentDashboard() {
             </div>
             <div className="flex-1">
               <h3 className="font-bold text-amber-900 text-lg">Your placement officer asked you to correct something</h3>
-              {dashboard.correction_note && (
+              {dashboard.profile.correction_note && (
                 <div className="mt-2 p-3 bg-white/70 border border-amber-200 rounded-lg text-amber-900 text-sm">
-                  {dashboard.correction_note}
+                  {dashboard.profile.correction_note}
                 </div>
               )}
               <ul className="mt-3 text-sm text-amber-800 list-disc list-inside space-y-1">
@@ -365,13 +365,13 @@ export default function StudentDashboard() {
                   <Link to="/student/profile" className="font-bold underline">Profile</Link> page
                   {' '}(your name, branch, date of birth and other registration details are unlocked while this is open).
                 </li>
-                {dashboard.correction_photo_required && (
+                {dashboard.profile.correction_photo_required && (
                   <li className="font-semibold">Your photo was removed — upload a new one below before you can finish.</li>
                 )}
               </ul>
 
               <div className="mt-4 flex flex-wrap items-center gap-3">
-                {dashboard.correction_photo_required && (
+                {dashboard.profile.correction_photo_required && (
                   <label className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm cursor-pointer ${photoUploading ? 'bg-gray-300 text-gray-600' : 'bg-amber-600 hover:bg-amber-700 text-white'}`}>
                     <Camera size={18} />
                     {photoUploading ? 'Uploading…' : 'Upload new photo'}
@@ -380,8 +380,8 @@ export default function StudentDashboard() {
                 )}
                 <button
                   onClick={handleResolveCorrection}
-                  disabled={resolvingCorrection || dashboard.correction_photo_required}
-                  title={dashboard.correction_photo_required ? 'Upload your new photo first' : ''}
+                  disabled={resolvingCorrection || dashboard.profile.correction_photo_required}
+                  title={dashboard.profile.correction_photo_required ? 'Upload your new photo first' : ''}
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm bg-green-600 hover:bg-green-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <CheckCircle size={18} />

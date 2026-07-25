@@ -587,7 +587,7 @@ export default function ManagePlacementOfficers() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <ModalScrollLock />
           <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto overscroll-contain">
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4">
+            <div className="sticky top-0 z-20 bg-white border-b border-gray-200 px-6 py-4">
               <div className="flex justify-between items-center">
                 <h2 className="text-2xl font-bold text-gray-900">Officer Details</h2>
                 <button
@@ -784,7 +784,7 @@ export default function ManagePlacementOfficers() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <ModalScrollLock />
           <div className="bg-white rounded-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto overscroll-contain">
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4">
+            <div className="sticky top-0 z-20 bg-white border-b border-gray-200 px-6 py-4">
               <div className="flex justify-between items-center">
                 <div>
                   <h2 className="text-2xl font-bold text-gray-900">Officer History</h2>
@@ -895,7 +895,7 @@ export default function ManagePlacementOfficers() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <ModalScrollLock />
           <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto overscroll-contain">
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4">
+            <div className="sticky top-0 z-20 bg-white border-b border-gray-200 px-6 py-4">
               <div className="flex justify-between items-center">
                 <h2 className="text-2xl font-bold text-gray-900">Add Placement Officer</h2>
                 <button

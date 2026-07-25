@@ -612,7 +612,7 @@ export default function CreateJobRequest() {
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <ModalScrollLock />
           <GlassCard variant="elevated" hover={false} className="w-full max-w-4xl max-h-[90vh] overflow-y-auto overscroll-contain">
-            <div className="sticky top-0 bg-white/95 backdrop-blur-xl border-b border-gray-200 px-8 py-6 rounded-t-3xl">
+            <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-xl border-b border-gray-200 px-8 py-6 rounded-t-3xl">
               <div className="flex items-center gap-3">
                 <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-3 shadow-lg">
                   <Plus className="text-white" size={28} />
@@ -1230,7 +1230,7 @@ export default function CreateJobRequest() {
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <ModalScrollLock />
           <GlassCard variant="elevated" hover={false} className="w-full max-w-3xl max-h-[90vh] overflow-y-auto overscroll-contain">
-            <div className="sticky top-0 bg-white/95 backdrop-blur-xl border-b border-gray-200 px-8 py-6 rounded-t-3xl flex justify-between items-start">
+            <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-xl border-b border-gray-200 px-8 py-6 rounded-t-3xl flex justify-between items-start">
               <div>
                 <h2 className="text-3xl font-bold text-gray-900">{selectedRequest.job_title}</h2>
                 <div className="mt-3">{getStatusBadge(selectedRequest.status, selectedRequest.job_deleted)}</div>

@@ -1693,7 +1693,7 @@ export default function JobEligibleStudents() {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
           <ModalScrollLock />
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto overscroll-contain">
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center rounded-t-2xl">
+            <div className="sticky top-0 z-20 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center rounded-t-2xl">
               <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                 <Edit size={20} className="text-indigo-600" />
                 Edit Job

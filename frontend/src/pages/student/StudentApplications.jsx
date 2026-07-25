@@ -519,7 +519,7 @@ function ApplicationDetailsModal({ application, onClose }) {
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <GlassCard hover={false} className="w-full max-w-3xl max-h-[90vh] overflow-y-auto overscroll-contain p-0">
         {/* Header */}
-        <div className="sticky top-0 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 px-8 py-6 flex justify-between items-center rounded-t-3xl">
+        <div className="sticky top-0 z-20 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 px-8 py-6 flex justify-between items-center rounded-t-3xl">
           <h2 className="text-3xl font-bold text-white">Application Details</h2>
           <button onClick={onClose} className="bg-white/20 hover:bg-white/30 text-white rounded-xl p-2 transition-all">
             <XCircle size={28} />

@@ -1461,9 +1461,9 @@ export default function ManageAllStudents() {
 
       {/* Student Details Modal */}
       {showDetailsModal && selectedStudent && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-50 p-4 pt-20 overflow-y-auto overscroll-contain">
-          <div className="bg-white rounded-lg w-full max-w-2xl">
-            <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="shrink-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
               <h2 className="text-2xl font-bold">Student Details</h2>
               <button
                 onClick={() => {
@@ -1476,7 +1476,7 @@ export default function ManageAllStudents() {
               </button>
             </div>
 
-            <div className="p-6 space-y-4">
+            <div className="flex-1 overflow-y-auto overscroll-contain p-6 space-y-4">
               {/* Student Photo */}
               <div className="flex justify-center mb-6">
                 <div className="relative">
@@ -1559,7 +1559,7 @@ export default function ManageAllStudents() {
               </div>
             </div>
 
-            <div className="border-t border-gray-200 px-6 py-4 flex justify-end">
+            <div className="shrink-0 border-t border-gray-200 px-6 py-4 flex justify-end">
               <button
                 onClick={() => {
                   setShowDetailsModal(false);

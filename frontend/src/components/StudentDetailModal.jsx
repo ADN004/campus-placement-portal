@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { X, User, GraduationCap, Users, FileText, CheckCircle, XCircle } from 'lucide-react';
+import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import { superAdminAPI, placementOfficerAPI } from '../services/api';
 import ResumeDownloadButton from './ResumeDownloadButton';
 
 const StudentDetailModal = ({ isOpen, onClose, studentId, applicationId, userRole = 'super-admin' }) => {
+  useBodyScrollLock(isOpen);
   const [student, setStudent] = useState(null);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('basic');

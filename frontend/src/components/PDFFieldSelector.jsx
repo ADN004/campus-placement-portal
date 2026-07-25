@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { FileText, X, Check, PenLine, Building2 } from 'lucide-react';
+import useBodyScrollLock from '../hooks/useBodyScrollLock';
 
 const PDFFieldSelector = ({ onExport, onClose, applicantCount, exportType = 'enhanced' }) => {
+  useBodyScrollLock(true);
   const [headerLine1, setHeaderLine1] = useState('');
   const [headerLine2, setHeaderLine2] = useState('');
   const [selectedFields, setSelectedFields] = useState([

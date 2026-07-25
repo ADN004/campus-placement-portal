@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import ModalScrollLock from '../../components/ModalScrollLock';
 import { superAdminAPI, commonAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import {
@@ -1008,7 +1009,8 @@ export default function ManageJobs() {
       {/* Job Create/Edit Modal */}
       {showJobModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+          <ModalScrollLock />
+          <div className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto overscroll-contain">
             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4">
               <h2 className="text-2xl font-bold">
                 {editMode ? 'Edit Job' : 'Create New Job'}
@@ -1509,7 +1511,8 @@ export default function ManageJobs() {
       {/* Job Details Modal */}
       {showDetailsModal && selectedJob && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+          <ModalScrollLock />
+          <div className="bg-white rounded-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto overscroll-contain">
             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
               <h2 className="text-2xl font-bold">{selectedJob.title}</h2>
               <div className="flex items-center space-x-3">
@@ -1676,6 +1679,7 @@ export default function ManageJobs() {
       {/* Delete Confirmation Modal */}
       {showDeleteModal && jobToDelete && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <ModalScrollLock />
           <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
             <div className="bg-gradient-to-r from-red-600 to-orange-600 px-6 py-4 rounded-t-2xl">
               <h2 className="text-2xl font-bold text-white">Delete Job</h2>
@@ -1768,6 +1772,7 @@ export default function ManageJobs() {
       {/* Export Applicants Modal */}
       {showExportModal && exportTargetJob && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+          <ModalScrollLock />
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
             <div className="border-b border-gray-200 px-6 py-4 flex justify-between items-center rounded-t-2xl">
               <div>

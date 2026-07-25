@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import ModalScrollLock from '../../components/ModalScrollLock';
 import { placementOfficerAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import {
@@ -282,7 +283,8 @@ export default function ManageCollegeBranches() {
       {/* Edit Branches Modal */}
       {showEditModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+          <ModalScrollLock />
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto overscroll-contain">
             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 z-10">
               <div className="flex items-center justify-between">
                 <div>
@@ -358,7 +360,7 @@ export default function ManageCollegeBranches() {
                 <h3 className="text-sm font-medium text-gray-700 mb-2">
                   Available Branch Templates
                 </h3>
-                <div className="border border-gray-200 rounded-lg p-4 max-h-[300px] overflow-y-auto">
+                <div className="border border-gray-200 rounded-lg p-4 max-h-[300px] overflow-y-auto overscroll-contain">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {branchTemplates.map((branch, idx) => (
                       <button

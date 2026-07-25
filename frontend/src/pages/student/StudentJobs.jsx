@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { studentAPI } from '../../services/api';
 import { motion } from 'framer-motion';
+import useBodyScrollLock from '../../hooks/useBodyScrollLock';
 import {
   Briefcase,
   MapPin,
@@ -522,6 +523,7 @@ function JobCard({ job, onViewDetails, onApply }) {
 
 // Job Details Modal Component
 function JobDetailsModal({ job, onClose, onApply }) {
+  useBodyScrollLock(true);
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString('en-IN', {
@@ -540,7 +542,7 @@ function JobDetailsModal({ job, onClose, onApply }) {
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <GlassCard className="w-full max-w-4xl max-h-[90vh] overflow-y-auto p-0">
+      <GlassCard hover={false} className="w-full max-w-4xl max-h-[90vh] overflow-y-auto overscroll-contain p-0">
         {/* Header */}
         <div className="sticky top-0 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 px-8 py-6 flex justify-between items-center rounded-t-3xl">
           <h2 className="text-3xl font-bold text-white">{job.title}</h2>

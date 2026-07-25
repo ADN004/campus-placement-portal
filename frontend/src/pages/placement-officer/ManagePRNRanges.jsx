@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import ModalScrollLock from '../../components/ModalScrollLock';
 import { placementOfficerAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import { Plus, Edit2, Trash2, Save, X, Lock, Hash, Calendar, BookOpen, Shield, Eye, Download, ToggleLeft, ToggleRight, AlertCircle, User, Filter, ChevronDown, ChevronRight, Globe } from 'lucide-react';
@@ -619,7 +620,8 @@ export default function ManagePRNRanges() {
       {/* Add/Edit Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <GlassCard variant="elevated" className="p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <ModalScrollLock />
+          <GlassCard variant="elevated" hover={false} className="p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto overscroll-contain">
             <div className="flex items-center gap-3 mb-6">
               <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-3 shadow-lg">
                 {editingId ? <Edit2 className="text-white" size={24} /> : <Plus className="text-white" size={24} />}
@@ -733,7 +735,8 @@ export default function ManagePRNRanges() {
       {/* Add Single PRN Modal */}
       {showAddSingleModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <GlassCard variant="elevated" className="p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <ModalScrollLock />
+          <GlassCard variant="elevated" hover={false} className="p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto overscroll-contain">
             <div className="flex items-center gap-3 mb-6">
               <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-3 shadow-lg">
                 <User className="text-white" size={24} />
@@ -816,6 +819,7 @@ export default function ManagePRNRanges() {
       {/* Disable PRN Range Modal */}
       {showDisableModal && selectedRange && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <ModalScrollLock />
           <GlassCard variant="elevated" className="p-8 w-full max-w-md">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Disable PRN Range</h2>
 
@@ -877,6 +881,7 @@ export default function ManagePRNRanges() {
       {/* View Students in Range Modal */}
       {showViewStudentsModal && selectedRange && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <ModalScrollLock />
           <GlassCard variant="elevated" className="p-0 w-full max-w-5xl max-h-[90vh] flex flex-col">
             <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
               <div>

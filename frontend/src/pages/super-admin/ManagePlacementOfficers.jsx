@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import ModalScrollLock from '../../components/ModalScrollLock';
 import { superAdminAPI, commonAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import {
@@ -584,7 +585,8 @@ export default function ManagePlacementOfficers() {
     {/* Officer Details Modal */}
     {showDetailsModal && selectedOfficer && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <ModalScrollLock />
+          <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto overscroll-contain">
             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4">
               <div className="flex justify-between items-center">
                 <h2 className="text-2xl font-bold text-gray-900">Officer Details</h2>
@@ -780,7 +782,8 @@ export default function ManagePlacementOfficers() {
       {/* Officer History Modal */}
       {showHistoryModal && selectedOfficer && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+          <ModalScrollLock />
+          <div className="bg-white rounded-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto overscroll-contain">
             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4">
               <div className="flex justify-between items-center">
                 <div>
@@ -890,7 +893,8 @@ export default function ManagePlacementOfficers() {
       {/* Add Officer Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <ModalScrollLock />
+          <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto overscroll-contain">
             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4">
               <div className="flex justify-between items-center">
                 <h2 className="text-2xl font-bold text-gray-900">Add Placement Officer</h2>
@@ -1009,6 +1013,7 @@ export default function ManagePlacementOfficers() {
       {/* Remove Officer Confirmation Modal */}
       {showRemoveModal && selectedOfficer && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <ModalScrollLock />
           <div className="bg-white rounded-lg w-full max-w-md">
             <div className="px-6 py-4 border-b border-gray-200">
               <h2 className="text-xl font-bold text-gray-900">Remove Placement Officer</h2>
@@ -1070,6 +1075,7 @@ export default function ManagePlacementOfficers() {
       {/* Clear History Warning Modal */}
       {showClearHistoryModal && selectedOfficer && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <ModalScrollLock />
           <div className="bg-white rounded-lg w-full max-w-md">
             <div className="px-6 py-4 border-b border-gray-200">
               <h2 className="text-xl font-bold text-red-900">⚠️ Clear Officer History</h2>
@@ -1146,6 +1152,7 @@ export default function ManagePlacementOfficers() {
       {/* Reset Password Confirmation Modal */}
       {showResetPasswordModal && selectedOfficer && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <ModalScrollLock />
           <div className="bg-white rounded-lg w-full max-w-md">
             <div className="px-6 py-4 border-b border-gray-200">
               <h2 className="text-xl font-bold text-gray-900">Reset Password to Default</h2>

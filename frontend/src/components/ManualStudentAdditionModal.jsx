@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, User, AlertTriangle, CheckCircle, Building2, Briefcase, MapPin, Calendar, DollarSign, FileText } from 'lucide-react';
+import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import { toast } from 'react-hot-toast';
 
 const ManualStudentAdditionModal = ({
@@ -10,6 +11,7 @@ const ManualStudentAdditionModal = ({
   api, // Pass either superAdminAPI or placementOfficerAPI
   userRole = 'placement-officer' // 'placement-officer' or 'super-admin'
 }) => {
+  useBodyScrollLock(isOpen);
   const [step, setStep] = useState(1); // 1: Enter PRN, 2: Confirm & Fill Details
   const [prn, setPrn] = useState('');
   const [collegeId, setCollegeId] = useState(null); // For super admin with multiple PRN matches

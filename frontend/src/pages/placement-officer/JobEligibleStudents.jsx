@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import ModalScrollLock from '../../components/ModalScrollLock';
 import { placementOfficerAPI, commonAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import {
@@ -1483,6 +1484,7 @@ export default function JobEligibleStudents() {
         const jobColleges = allColleges.filter((c) => targetIds.includes(Number(c.id)));
         return (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+            <ModalScrollLock />
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
               <div className="border-b border-gray-200 px-6 py-4 flex justify-between items-center rounded-t-2xl">
                 <div>
@@ -1551,6 +1553,7 @@ export default function JobEligibleStudents() {
           className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[150] flex items-center justify-center p-4"
           onClick={() => setShowExportModal(false)}
         >
+          <ModalScrollLock />
           <div
             className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
             onClick={(e) => e.stopPropagation()}
@@ -1571,7 +1574,7 @@ export default function JobEligibleStudents() {
               </button>
             </div>
 
-            <div className="p-4 space-y-1 max-h-[70vh] overflow-y-auto">
+            <div className="p-4 space-y-1 max-h-[70vh] overflow-y-auto overscroll-contain">
               {/* College filter for host POs */}
               {isHost && (() => {
                 const targetIds = Array.isArray(selectedJob?.target_colleges)
@@ -1688,7 +1691,8 @@ export default function JobEligibleStudents() {
       {/* Edit Job Modal (host POs only) */}
       {showEditJobModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <ModalScrollLock />
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto overscroll-contain">
             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center rounded-t-2xl">
               <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                 <Edit size={20} className="text-indigo-600" />

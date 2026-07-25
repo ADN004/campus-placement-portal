@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { X, Mail, Save } from 'lucide-react';
+import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import GoogleEmailButton from './GoogleEmailButton';
 import usePortalMode from '../hooks/usePortalMode';
 
@@ -19,6 +20,7 @@ import usePortalMode from '../hooks/usePortalMode';
  *   onClose       — close without changes
  */
 export default function UpdateStudentEmailModal({ currentEmail, studentName, onSubmit, onClose }) {
+  useBodyScrollLock(true);
   const [email, setEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const portalMode = usePortalMode();

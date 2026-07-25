@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import useBodyScrollLock from '../hooks/useBodyScrollLock';
 
 const PlacementDetailsForm = ({ isOpen, onClose, onSubmit, application }) => {
+  useBodyScrollLock(isOpen);
   const [formData, setFormData] = useState({
     placement_package: '',
     joining_date: '',

@@ -13,6 +13,8 @@ import {
   Calendar,
   ArrowRight,
   CheckCircle,
+  FileEdit,
+  Camera,
   XCircle,
   Clock,
   AlertCircle,
@@ -130,6 +132,8 @@ export default function StudentDashboard() {
   const [showExtendedProfilePrompt, setShowExtendedProfilePrompt] = useState(false);
   const [extendedProfileCompletion, setExtendedProfileCompletion] = useState(100);
   const [showResumePrompt, setShowResumePrompt] = useState(false);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [resolvingCorrection, setResolvingCorrection] = useState(false);
 
   useEffect(() => {
     fetchDashboard();
@@ -201,6 +205,45 @@ export default function StudentDashboard() {
       setVerificationStatus(response.data.data);
     } catch (error) {
       console.error('Failed to fetch verification status:', error);
+    }
+  };
+
+  const handleCorrectionPhoto = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // allow re-selecting the same file
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please choose an image file');
+      return;
+    }
+    setPhotoUploading(true);
+    try {
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      await studentAPI.reuploadPhoto(base64);
+      toast.success('New photo uploaded');
+      fetchDashboard();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to upload photo');
+    } finally {
+      setPhotoUploading(false);
+    }
+  };
+
+  const handleResolveCorrection = async () => {
+    setResolvingCorrection(true);
+    try {
+      const res = await studentAPI.resolveCorrection();
+      toast.success(res.data?.message || 'Corrections saved');
+      fetchDashboard();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Could not mark as done');
+    } finally {
+      setResolvingCorrection(false);
     }
   };
 
@@ -302,6 +345,54 @@ export default function StudentDashboard() {
 
   return (
     <div>
+      {/* Correction requested by placement officer / super admin */}
+      {dashboard?.correction_requested && (
+        <div className="mb-6 rounded-2xl border-l-4 border-amber-500 bg-amber-50 p-5">
+          <div className="flex items-start gap-4">
+            <div className="bg-amber-500 rounded-xl p-2.5 shadow shrink-0">
+              <FileEdit className="text-white" size={24} />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-bold text-amber-900 text-lg">Your placement officer asked you to correct something</h3>
+              {dashboard.correction_note && (
+                <div className="mt-2 p-3 bg-white/70 border border-amber-200 rounded-lg text-amber-900 text-sm">
+                  {dashboard.correction_note}
+                </div>
+              )}
+              <ul className="mt-3 text-sm text-amber-800 list-disc list-inside space-y-1">
+                <li>
+                  Edit your details on the{' '}
+                  <Link to="/student/profile" className="font-bold underline">Profile</Link> page
+                  {' '}(your name, branch, date of birth and other registration details are unlocked while this is open).
+                </li>
+                {dashboard.correction_photo_required && (
+                  <li className="font-semibold">Your photo was removed — upload a new one below before you can finish.</li>
+                )}
+              </ul>
+
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                {dashboard.correction_photo_required && (
+                  <label className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm cursor-pointer ${photoUploading ? 'bg-gray-300 text-gray-600' : 'bg-amber-600 hover:bg-amber-700 text-white'}`}>
+                    <Camera size={18} />
+                    {photoUploading ? 'Uploading…' : 'Upload new photo'}
+                    <input type="file" accept="image/*" className="hidden" disabled={photoUploading} onChange={handleCorrectionPhoto} />
+                  </label>
+                )}
+                <button
+                  onClick={handleResolveCorrection}
+                  disabled={resolvingCorrection || dashboard.correction_photo_required}
+                  title={dashboard.correction_photo_required ? 'Upload your new photo first' : ''}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm bg-green-600 hover:bg-green-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <CheckCircle size={18} />
+                  {resolvingCorrection ? 'Saving…' : "I've made the corrections"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Extended Profile Prompt Modal */}
       {showExtendedProfilePrompt && (
         <ExtendedProfilePromptModal

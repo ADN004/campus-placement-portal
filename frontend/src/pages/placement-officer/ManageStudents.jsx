@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { placementOfficerAPI } from '../../services/api';
 import toast from 'react-hot-toast';
-import { Check, X, Ban, Shield, Eye, Search, Download, Filter, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Users, Settings, XCircle, Lock, Unlock, GraduationCap, FileText, MailWarning } from 'lucide-react';
+import { Check, X, Ban, Shield, Eye, Search, Download, Filter, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Users, Settings, XCircle, Lock, Unlock, GraduationCap, FileText, MailWarning, FileEdit } from 'lucide-react';
 import DashboardHeader from '../../components/DashboardHeader';
 import GlassCard from '../../components/GlassCard';
 import { BRANCH_SHORT_NAMES } from '../../constants/branches';
@@ -70,6 +70,10 @@ export default function ManageStudents() {
   // Modals
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showBlacklistModal, setShowBlacklistModal] = useState(false);
+  const [showCorrectionModal, setShowCorrectionModal] = useState(false);
+  const [correctionNote, setCorrectionNote] = useState('');
+  const [correctionRequirePhoto, setCorrectionRequirePhoto] = useState(false);
+  const [correctionSubmitting, setCorrectionSubmitting] = useState(false);
   const [emailFixStudent, setEmailFixStudent] = useState(null);
   const [showWhitelistModal, setShowWhitelistModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
@@ -466,6 +470,31 @@ export default function ManageStudents() {
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to reject some students');
       fetchStudents();
+    }
+  };
+
+  const openCorrectionModal = (student) => {
+    setSelectedStudent(student);
+    setCorrectionNote('');
+    setCorrectionRequirePhoto(false);
+    setShowCorrectionModal(true);
+  };
+
+  const confirmCorrection = async () => {
+    if (!correctionNote.trim()) {
+      toast.error('Please describe what the student needs to correct');
+      return;
+    }
+    setCorrectionSubmitting(true);
+    try {
+      const res = await placementOfficerAPI.requestStudentCorrection(selectedStudent.id, correctionNote.trim(), correctionRequirePhoto);
+      toast.success(res.data?.message || 'Correction requested');
+      setShowCorrectionModal(false);
+      fetchStudents();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to request correction');
+    } finally {
+      setCorrectionSubmitting(false);
     }
   };
 
@@ -1761,6 +1790,13 @@ export default function ManageStudents() {
                                 <MailWarning size={24} />
                               </button>
                               <button
+                                onClick={() => openCorrectionModal(student)}
+                                className="text-amber-600 hover:text-amber-800 transform hover:scale-125 transition-all"
+                                title="Send back for correction (photo / details)"
+                              >
+                                <FileEdit size={24} />
+                              </button>
+                              <button
                                 onClick={() => handleBlacklist(student)}
                                 className="text-red-600 hover:text-red-800 transform hover:scale-125 transition-all"
                                 title="Blacklist"
@@ -2032,6 +2068,57 @@ export default function ManageStudents() {
           }}
           onClose={() => setEmailFixStudent(null)}
         />
+      )}
+
+      {showCorrectionModal && selectedStudent && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <GlassCard variant="elevated" className="p-8 w-full max-w-md">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="bg-amber-100 rounded-xl p-2.5"><FileEdit className="text-amber-700" size={22} /></div>
+              <h2 className="text-2xl font-bold text-gray-900">Send back for correction</h2>
+            </div>
+            <p className="text-sm text-gray-600 mb-4">
+              <strong>{selectedStudent.student_name || selectedStudent.name}</strong> stays approved and
+              signed in — they'll be asked to fix what you note below. No re-approval needed.
+            </p>
+            <label className="block text-sm font-bold text-gray-700 mb-2">What should they correct? *</label>
+            <textarea
+              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-amber-100 focus:border-amber-400 transition-all text-gray-900"
+              rows="3"
+              value={correctionNote}
+              onChange={(e) => setCorrectionNote(e.target.value)}
+              placeholder="e.g. Your branch is wrong, and your photo is not a clear passport photo — please fix both."
+            />
+            <label className="flex items-start gap-3 mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl cursor-pointer">
+              <input
+                type="checkbox"
+                checked={correctionRequirePhoto}
+                onChange={(e) => setCorrectionRequirePhoto(e.target.checked)}
+                className="mt-1"
+              />
+              <span className="text-sm text-amber-900">
+                <strong>Take down their photo and require a new one.</strong> The current photo is removed
+                immediately (use this for a wrong or inappropriate image) and the student must upload a
+                replacement before they can mark the correction done.
+              </span>
+            </label>
+            <div className="flex space-x-3 mt-6">
+              <button
+                onClick={() => setShowCorrectionModal(false)}
+                className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 bg-white hover:bg-gray-50 font-bold rounded-xl transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmCorrection}
+                disabled={correctionSubmitting || !correctionNote.trim()}
+                className="flex-1 px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl transition-all disabled:opacity-50"
+              >
+                {correctionSubmitting ? 'Sending…' : 'Send for correction'}
+              </button>
+            </div>
+          </GlassCard>
+        </div>
       )}
 
       {showBlacklistModal && selectedStudent && (

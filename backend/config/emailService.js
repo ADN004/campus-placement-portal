@@ -479,6 +479,60 @@ export const sendRegistrationRejectedEmail = async (email, studentName, reason) 
   }
 };
 
+/**
+ * Notify an approved student that their placement officer has asked them to
+ * correct something (and possibly re-upload their photo). The student stays
+ * approved — they just sign in, fix it, and mark it done.
+ */
+export const sendCorrectionRequestEmail = async (email, studentName, note, photoRequired) => {
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+
+  const mailOptions = {
+    from: process.env.EMAIL_FROM,
+    to: email,
+    subject: 'Action needed: correction requested - State Placement Cell',
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background-color: #D97706; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
+          .content { background-color: #f9f9f9; padding: 30px; border: 1px solid #ddd; }
+          .note { background-color: #FFFBEB; border: 1px solid #FDE68A; border-radius: 5px; padding: 15px; margin: 15px 0; }
+          .button { display: inline-block; background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-top: 10px; }
+          .footer { text-align: center; padding: 20px; font-size: 12px; color: #666; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>State Placement Cell</h1>
+          </div>
+          <div class="content">
+            <p>Dear ${studentName},</p>
+            <p>Your placement officer has asked you to correct something on your profile. Your account is still active — just sign in and make the change.</p>
+            <div class="note"><strong>What to fix:</strong> ${note}</div>
+            ${photoRequired ? '<p><strong>Your photo has been removed and must be uploaded again.</strong></p>' : ''}
+            <p>Once you have made the correction${photoRequired ? ' and uploaded a new photo' : ''}, click <strong>“I've made the corrections”</strong> on your dashboard.</p>
+            <a class="button" href="${frontendUrl}/login">Sign In</a>
+            <p style="margin-top: 20px;">If you're unsure what to change, please contact your college placement officer.</p>
+          </div>
+          <div class="footer">
+            <p>&copy; 2025 State Placement Cell. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `,
+  };
+
+  const info = await transporter.sendMail(mailOptions);
+  console.log('✅ Correction request email sent:', info.messageId);
+  return { success: true, messageId: info.messageId };
+};
+
 // ============================================
 // PLACEMENT DRIVE & RESULT EMAILS
 // ============================================

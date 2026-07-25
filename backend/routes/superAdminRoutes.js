@@ -1,4 +1,5 @@
 import express from 'express';
+import { requestStudentCorrection } from '../controllers/correctionController.js';
 import {
   getDashboard,
   getProfile,
@@ -228,6 +229,7 @@ router.post('/students/custom-export', customExportStudents);
 router.post('/students/enhanced-export', enhancedCustomExport);
 router.post('/students/bulk-delete-photos', bulkDeleteStudentPhotos);
 router.put('/students/:id/blacklist', blacklistStudent);
+router.post('/students/:id/request-correction', requestStudentCorrection);
 router.put('/students/:id/email', updateStudentEmailByStaff);
 router.put('/students/:id/whitelist', whitelistStudent);
 router.delete('/students/:id', deleteStudent);

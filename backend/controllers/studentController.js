@@ -410,7 +410,13 @@ export const updateProfile = async (req, res) => {
       backlogs_sem5,
       backlogs_sem6,
       backlog_count,
-      backlog_details
+      backlog_details,
+      // Registration identity fields — normally not student-editable, but
+      // unlocked while a staff correction is outstanding (PRN never changes).
+      student_name,
+      branch,
+      date_of_birth,
+      gender
     } = req.body;
 
     // Get current student data first
@@ -478,6 +484,21 @@ export const updateProfile = async (req, res) => {
     const updateFields = [];
     const updateValues = [];
     let paramCount = 1;
+
+    // Registration identity fields are editable ONLY while a correction is
+    // outstanding (a placement officer flagged a wrong detail). Attempts to
+    // change them otherwise are silently ignored, so the normal profile page
+    // can't touch them.
+    if (currentStudent.correction_requested) {
+      const coreFields = { student_name, branch, date_of_birth, gender };
+      for (const [field, value] of Object.entries(coreFields)) {
+        if (value !== undefined && value !== null && String(value).trim() !== '') {
+          updateFields.push(`${field} = $${paramCount}`);
+          updateValues.push(typeof value === 'string' ? value.trim() : value);
+          paramCount++;
+        }
+      }
+    }
 
     // Mobile number validation and update
     if (mobile_number !== undefined) {

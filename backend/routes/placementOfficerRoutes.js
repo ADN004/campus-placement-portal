@@ -1,4 +1,5 @@
 import express from 'express';
+import { requestStudentCorrection } from '../controllers/correctionController.js';
 import {
   getDashboard,
   getProfile,
@@ -91,6 +92,7 @@ router.put('/students/bulk-reject', bulkRejectStudents);
 router.put('/students/:id/approve', approveStudent);
 router.put('/students/:id/reject', rejectStudent);
 router.put('/students/:id/blacklist', blacklistStudent);
+router.post('/students/:id/request-correction', requestStudentCorrection);
 router.put('/students/:id/email', updateStudentEmailByStaff);
 router.post('/students/:id/whitelist-request', requestWhitelist);
 router.get('/branches', getBranchesForNotifications); // Get branches for notifications

@@ -20,6 +20,11 @@ import {
   updateStudentResume,
   downloadOwnResume,
 } from '../controllers/resumeController.js';
+import {
+  reuploadStudentPhoto,
+  resolveStudentCorrection,
+  getCorrectionStatus,
+} from '../controllers/correctionController.js';
 import { protect, authorize, checkStudentApproval } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -32,6 +37,11 @@ router.use(authorize('student'));
 router.get('/dashboard', getDashboard);
 router.get('/profile', getProfile);
 router.put('/profile', updateProfile);
+
+// Send-back-for-correction (student side)
+router.get('/correction-status', getCorrectionStatus);
+router.post('/photo', reuploadStudentPhoto);
+router.post('/correction/resolve', resolveStudentCorrection);
 router.get('/notifications', getNotifications);
 router.put('/notifications/:id/read', markNotificationRead);
 router.post('/resend-verification', resendVerificationEmail);

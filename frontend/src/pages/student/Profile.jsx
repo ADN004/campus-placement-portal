@@ -114,6 +114,11 @@ export default function StudentProfile() {
   const [backlogLocked, setBacklogLocked] = useState(false);
   const [backlogUnlockEnd, setBacklogUnlockEnd] = useState(null);
   const [formData, setFormData] = useState({
+    // Registration identity fields — only editable while a correction is open
+    student_name: '',
+    branch: '',
+    date_of_birth: '',
+    gender: '',
     mobile_number: '',
     height: '',
     weight: '',
@@ -163,6 +168,10 @@ export default function StudentProfile() {
       const profileData = response.data.data;
       setProfile(profileData);
       setFormData({
+        student_name: profileData.student_name || '',
+        branch: profileData.branch || '',
+        date_of_birth: profileData.date_of_birth ? String(profileData.date_of_birth).split('T')[0] : '',
+        gender: profileData.gender || '',
         mobile_number: profileData.mobile_number || '',
         height: profileData.height || '',
         weight: profileData.weight || '',
@@ -250,6 +259,10 @@ export default function StudentProfile() {
 
   const handleCancel = () => {
     setFormData({
+      student_name: profile.student_name || '',
+      branch: profile.branch || '',
+      date_of_birth: profile.date_of_birth ? String(profile.date_of_birth).split('T')[0] : '',
+      gender: profile.gender || '',
       mobile_number: profile.mobile_number || '',
       height: profile.height || '',
       weight: profile.weight || '',
@@ -355,12 +368,14 @@ export default function StudentProfile() {
 
               <form onSubmit={handleSubmit} className="space-y-8">
                 {/* Read-only Fields Section */}
-                <div className="bg-gradient-to-br from-gray-50 to-blue-50 p-6 rounded-2xl border-2 border-gray-200">
+                <div className={`bg-gradient-to-br p-6 rounded-2xl border-2 ${editMode && profile?.correction_requested ? 'from-amber-50 to-yellow-50 border-amber-300' : 'from-gray-50 to-blue-50 border-gray-200'}`}>
                   <h3 className="text-base font-bold text-gray-800 mb-5 flex items-center">
-                    <div className="bg-gray-700 rounded-lg p-2 mr-3">
+                    <div className={`rounded-lg p-2 mr-3 ${editMode && profile?.correction_requested ? 'bg-amber-600' : 'bg-gray-700'}`}>
                       <Lock size={18} className="text-white" />
                     </div>
-                    Read-Only Information (Cannot be changed)
+                    {editMode && profile?.correction_requested
+                      ? 'Correction requested — these details are unlocked so you can fix them'
+                      : 'Read-Only Information (Cannot be changed)'}
                   </h3>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -370,19 +385,29 @@ export default function StudentProfile() {
                     </div>
                     <div className="bg-white rounded-xl p-4 border border-gray-100">
                       <label className="text-sm font-semibold text-gray-600 mb-1 block">Full Name</label>
-                      <p className="text-gray-900 font-bold text-lg">{profile?.student_name || 'Not set'}</p>
+                      {editMode && profile?.correction_requested ? (
+                        <input type="text" name="student_name" value={formData.student_name} onChange={handleChange}
+                          className="w-full px-3 py-2 border-2 border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-200 focus:border-amber-400 font-bold text-gray-900" />
+                      ) : (
+                        <p className="text-gray-900 font-bold text-lg">{profile?.student_name || 'Not set'}</p>
+                      )}
                     </div>
                     <div className="bg-white rounded-xl p-4 border border-gray-100">
                       <label className="text-sm font-semibold text-gray-600 mb-1 block">Date of Birth</label>
-                      <p className="text-gray-900 font-bold text-lg">
-                        {profile?.date_of_birth
-                          ? new Date(profile.date_of_birth).toLocaleDateString('en-IN', {
-                              year: 'numeric',
-                              month: 'long',
-                              day: 'numeric',
-                            })
-                          : 'Not set'}
-                      </p>
+                      {editMode && profile?.correction_requested ? (
+                        <input type="date" name="date_of_birth" value={formData.date_of_birth} onChange={handleChange}
+                          className="w-full px-3 py-2 border-2 border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-200 focus:border-amber-400 font-bold text-gray-900" />
+                      ) : (
+                        <p className="text-gray-900 font-bold text-lg">
+                          {profile?.date_of_birth
+                            ? new Date(profile.date_of_birth).toLocaleDateString('en-IN', {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric',
+                              })
+                            : 'Not set'}
+                        </p>
+                      )}
                     </div>
                     <div className="bg-white rounded-xl p-4 border border-gray-100">
                       <label className="text-sm font-semibold text-gray-600 mb-1 block">Age</label>
@@ -390,13 +415,28 @@ export default function StudentProfile() {
                     </div>
                     <div className="bg-white rounded-xl p-4 border border-gray-100">
                       <label className="text-sm font-semibold text-gray-600 mb-1 block">Gender</label>
-                      <p className="text-gray-900 font-bold text-lg">{profile?.gender || 'Not set'}</p>
+                      {editMode && profile?.correction_requested ? (
+                        <select name="gender" value={formData.gender} onChange={handleChange}
+                          className="w-full px-3 py-2 border-2 border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-200 focus:border-amber-400 font-bold text-gray-900">
+                          <option value="">Select</option>
+                          <option value="Male">Male</option>
+                          <option value="Female">Female</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      ) : (
+                        <p className="text-gray-900 font-bold text-lg">{profile?.gender || 'Not set'}</p>
+                      )}
                     </div>
                     <div className="bg-white rounded-xl p-4 border border-gray-100">
                       <label className="text-sm font-semibold text-gray-600 mb-1 block">Branch/Department</label>
-                      <p className="text-gray-900 font-bold text-lg">
-                        {profile?.branch} {BRANCH_SHORT_NAMES[profile?.branch] ? <span className="text-blue-600">({BRANCH_SHORT_NAMES[profile?.branch]})</span> : ''}
-                      </p>
+                      {editMode && profile?.correction_requested ? (
+                        <input type="text" name="branch" value={formData.branch} onChange={handleChange}
+                          className="w-full px-3 py-2 border-2 border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-200 focus:border-amber-400 font-bold text-gray-900" />
+                      ) : (
+                        <p className="text-gray-900 font-bold text-lg">
+                          {profile?.branch} {BRANCH_SHORT_NAMES[profile?.branch] ? <span className="text-blue-600">({BRANCH_SHORT_NAMES[profile?.branch]})</span> : ''}
+                        </p>
+                      )}
                     </div>
                     <div className="bg-white rounded-xl p-4 border border-gray-100">
                       <label className="text-sm font-semibold text-gray-600 mb-1 block">College</label>

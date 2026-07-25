@@ -22,6 +22,7 @@ import {
   Unlock,
   GraduationCap,
   MailWarning,
+  FileEdit,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import useSkeleton from '../../hooks/useSkeleton';
@@ -84,6 +85,10 @@ export default function ManageAllStudents() {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showBlacklistModal, setShowBlacklistModal] = useState(false);
+  const [showCorrectionModal, setShowCorrectionModal] = useState(false);
+  const [correctionNote, setCorrectionNote] = useState('');
+  const [correctionRequirePhoto, setCorrectionRequirePhoto] = useState(false);
+  const [correctionSubmitting, setCorrectionSubmitting] = useState(false);
   const [emailFixStudent, setEmailFixStudent] = useState(null);
   const [showWhitelistModal, setShowWhitelistModal] = useState(false);
   const [showCustomExportModal, setShowCustomExportModal] = useState(false);
@@ -430,6 +435,31 @@ export default function ManageAllStudents() {
       toast.error(error.response?.data?.message || 'Failed to delete student');
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const openCorrectionModal = (student) => {
+    setSelectedStudent(student);
+    setCorrectionNote('');
+    setCorrectionRequirePhoto(false);
+    setShowCorrectionModal(true);
+  };
+
+  const confirmCorrection = async () => {
+    if (!correctionNote.trim()) {
+      toast.error('Please describe what the student needs to correct');
+      return;
+    }
+    setCorrectionSubmitting(true);
+    try {
+      const res = await superAdminAPI.requestStudentCorrection(selectedStudent.id, correctionNote.trim(), correctionRequirePhoto);
+      toast.success(res.data?.message || 'Correction requested');
+      setShowCorrectionModal(false);
+      fetchStudents();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to request correction');
+    } finally {
+      setCorrectionSubmitting(false);
     }
   };
 
@@ -1308,6 +1338,15 @@ export default function ManageAllStudents() {
                             <Ban size={18} />
                           </button>
                         )}
+                        {student.registration_status === 'approved' && !student.is_blacklisted && (
+                          <button
+                            onClick={() => openCorrectionModal(student)}
+                            className="p-2 text-amber-600 hover:text-white hover:bg-gradient-to-r hover:from-amber-500 hover:to-yellow-500 rounded-xl transition-all duration-200 hover:shadow-lg transform hover:scale-110"
+                            title="Send back for correction (photo / details)"
+                          >
+                            <FileEdit size={18} />
+                          </button>
+                        )}
                         <button
                           onClick={() => setEmailFixStudent(student)}
                           className={`p-2 rounded-xl transition-all duration-200 hover:shadow-lg transform hover:scale-110 ${
@@ -1587,6 +1626,57 @@ export default function ManageAllStudents() {
           }}
           onClose={() => setEmailFixStudent(null)}
         />
+      )}
+
+      {showCorrectionModal && selectedStudent && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="bg-amber-100 rounded-xl p-2.5"><FileEdit className="text-amber-700" size={22} /></div>
+              <h2 className="text-xl font-bold text-gray-900">Send back for correction</h2>
+            </div>
+            <p className="text-sm text-gray-600 mb-4">
+              <strong>{selectedStudent.name || selectedStudent.student_name}</strong> stays approved and
+              signed in — they'll be asked to fix what you note below. No re-approval needed.
+            </p>
+            <label className="block text-sm font-bold text-gray-700 mb-2">What should they correct? *</label>
+            <textarea
+              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-amber-100 focus:border-amber-400 transition-all text-gray-900"
+              rows="3"
+              value={correctionNote}
+              onChange={(e) => setCorrectionNote(e.target.value)}
+              placeholder="e.g. Your branch is wrong, and your photo is not a clear passport photo — please fix both."
+            />
+            <label className="flex items-start gap-3 mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl cursor-pointer">
+              <input
+                type="checkbox"
+                checked={correctionRequirePhoto}
+                onChange={(e) => setCorrectionRequirePhoto(e.target.checked)}
+                className="mt-1"
+              />
+              <span className="text-sm text-amber-900">
+                <strong>Take down their photo and require a new one.</strong> The current photo is removed
+                immediately (use for a wrong or inappropriate image); the student must upload a replacement
+                before marking the correction done.
+              </span>
+            </label>
+            <div className="flex space-x-3 mt-6">
+              <button
+                onClick={() => setShowCorrectionModal(false)}
+                className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 bg-white hover:bg-gray-50 font-bold rounded-xl transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmCorrection}
+                disabled={correctionSubmitting || !correctionNote.trim()}
+                className="flex-1 px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl transition-all disabled:opacity-50"
+              >
+                {correctionSubmitting ? 'Sending…' : 'Send for correction'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {showBlacklistModal && selectedStudent && (

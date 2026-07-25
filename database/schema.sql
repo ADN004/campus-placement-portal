@@ -238,6 +238,14 @@ CREATE TABLE students (
     photo_deleted_at TIMESTAMP,
     photo_deleted_by INTEGER REFERENCES users(id),
 
+    -- Send-back-for-correction (post-approval; student stays approved). See
+    -- migration 011.
+    correction_requested BOOLEAN NOT NULL DEFAULT FALSE,
+    correction_note TEXT,
+    correction_photo_required BOOLEAN NOT NULL DEFAULT FALSE,
+    correction_requested_at TIMESTAMP,
+    correction_requested_by INTEGER REFERENCES users(id),
+
     -- Email Verification
     email_verified BOOLEAN DEFAULT FALSE,
     email_verification_token VARCHAR(255),

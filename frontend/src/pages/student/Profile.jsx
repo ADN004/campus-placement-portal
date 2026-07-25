@@ -225,6 +225,11 @@ export default function StudentProfile() {
       toast.error('Please choose an image file');
       return;
     }
+    // Same limit as registration (max 500KB) — fail fast before uploading
+    if (file.size > 500 * 1024) {
+      toast.error('Photo size must be less than 500KB');
+      return;
+    }
     setPhotoUploading(true);
     try {
       const base64 = await new Promise((resolve, reject) => {
@@ -395,6 +400,7 @@ export default function StudentProfile() {
                   {photoUploading ? 'Uploading…' : 'Upload new photo'}
                   <input type="file" accept="image/*" className="hidden" disabled={photoUploading} onChange={handleCorrectionPhoto} />
                 </label>
+                <p className="text-xs text-red-700 mt-1.5">Max 500KB, JPG/PNG — same as registration.</p>
               </div>
             ) : (
               <p className="text-sm text-red-800 mb-4">

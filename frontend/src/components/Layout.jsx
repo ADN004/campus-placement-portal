@@ -1,5 +1,6 @@
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import CorrectionGate from './CorrectionGate';
 import {
   Home,
   Briefcase,
@@ -124,6 +125,8 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 relative overflow-x-hidden">
+      {/* Blocks students with an outstanding correction from every page but Profile */}
+      {user?.role === 'student' && <CorrectionGate />}
       {/* Animated Background Orbs */}
       <div className="fixed inset-0 pointer-events-none">
         <GradientOrb color="blue" size="xl" position={{ top: '10%', right: '10%' }} animationDuration="8s" />

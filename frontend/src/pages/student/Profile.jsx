@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { studentAPI } from '../../services/api';
+import { studentAPI, commonAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
-import { User, Lock, Edit, Save, X, GraduationCap, FileText, Users, CheckCircle2, Shield, Calendar, UserCircle } from 'lucide-react';
+import { User, Lock, Edit, Save, X, GraduationCap, FileText, Users, CheckCircle2, Shield, Calendar, UserCircle, AlertTriangle, Camera } from 'lucide-react';
 import ChangePassword from '../../components/ChangePassword';
 import { Link } from 'react-router-dom';
 import api from '../../services/api';
@@ -113,6 +113,10 @@ export default function StudentProfile() {
   const [cgpaUnlockEnd, setCgpaUnlockEnd] = useState(null);
   const [backlogLocked, setBacklogLocked] = useState(false);
   const [backlogUnlockEnd, setBacklogUnlockEnd] = useState(null);
+  // Correction workflow
+  const [collegeBranches, setCollegeBranches] = useState([]);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [resolvingCorrection, setResolvingCorrection] = useState(false);
   const [formData, setFormData] = useState({
     // Registration identity fields — only editable while a correction is open
     student_name: '',
@@ -194,11 +198,62 @@ export default function StudentProfile() {
         backlogs_sem6: profileData.backlogs_sem6 !== undefined ? String(profileData.backlogs_sem6) : '0',
         backlog_details: profileData.backlog_details || '',
       });
+      // Load this college's branches for the Branch dropdown (used only while a
+      // correction has unlocked the field)
+      if (profileData.college_id) {
+        commonAPI.getCollegeBranches(profileData.college_id)
+          .then((r) => {
+            let b = r.data?.data?.branches ?? [];
+            if (typeof b === 'string') { try { b = JSON.parse(b); } catch { b = []; } }
+            setCollegeBranches(Array.isArray(b) ? b : []);
+          })
+          .catch(() => setCollegeBranches([]));
+      }
     } catch (error) {
       toast.error('Failed to load profile');
       console.error(error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCorrectionPhoto = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please choose an image file');
+      return;
+    }
+    setPhotoUploading(true);
+    try {
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      await studentAPI.reuploadPhoto(base64);
+      toast.success('New photo uploaded');
+      fetchProfile();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to upload photo');
+    } finally {
+      setPhotoUploading(false);
+    }
+  };
+
+  const handleResolveCorrection = async () => {
+    setResolvingCorrection(true);
+    try {
+      const res = await studentAPI.resolveCorrection();
+      toast.success(res.data?.message || 'Corrections saved');
+      setEditMode(false);
+      fetchProfile();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Could not mark as done');
+    } finally {
+      setResolvingCorrection(false);
     }
   };
 
@@ -316,6 +371,50 @@ export default function StudentProfile() {
         />
       </motion.div>
 
+      {/* Correction requested — the one thing they must act on */}
+      {profile?.correction_requested && (
+        <div className="mb-8 rounded-2xl border-2 border-red-300 bg-red-50 overflow-hidden">
+          <div className="bg-red-600 px-6 py-4 flex items-center gap-3">
+            <AlertTriangle className="text-white shrink-0" size={26} />
+            <h2 className="text-xl font-bold text-white">Your placement officer asked you to correct this</h2>
+          </div>
+          <div className="p-6">
+            {profile.correction_note && (
+              <div className="p-4 bg-white border border-red-200 rounded-xl text-gray-900 font-medium mb-4">
+                {profile.correction_note}
+              </div>
+            )}
+
+            {profile.correction_photo_required ? (
+              <div className="mb-4">
+                <p className="text-sm font-bold text-red-700 mb-2">
+                  Your photo was removed — upload a clear new one to continue.
+                </p>
+                <label className={`inline-flex items-center gap-2 px-5 py-3 rounded-xl font-bold text-white cursor-pointer ${photoUploading ? 'bg-gray-400' : 'bg-red-600 hover:bg-red-700'}`}>
+                  <Camera size={18} />
+                  {photoUploading ? 'Uploading…' : 'Upload new photo'}
+                  <input type="file" accept="image/*" className="hidden" disabled={photoUploading} onChange={handleCorrectionPhoto} />
+                </label>
+              </div>
+            ) : (
+              <p className="text-sm text-red-800 mb-4">
+                Fix what's noted above{editMode ? '' : <> — click <strong>Edit Profile</strong> below to change any locked detail</>}, then confirm you're done.
+              </p>
+            )}
+
+            <button
+              onClick={handleResolveCorrection}
+              disabled={resolvingCorrection || profile.correction_photo_required}
+              title={profile.correction_photo_required ? 'Upload your new photo first' : ''}
+              className="inline-flex items-center gap-2 px-5 py-3 rounded-xl font-bold text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <CheckCircle2 size={18} />
+              {resolvingCorrection ? 'Saving…' : "I've made the corrections"}
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Profile Card */}
         <div className="lg:col-span-2 space-y-6">
@@ -374,7 +473,7 @@ export default function StudentProfile() {
                       <Lock size={18} className="text-white" />
                     </div>
                     {editMode && profile?.correction_requested
-                      ? 'Correction requested — these details are unlocked so you can fix them'
+                      ? 'Registration Details (editable while your correction is open)'
                       : 'Read-Only Information (Cannot be changed)'}
                   </h3>
 
@@ -430,8 +529,17 @@ export default function StudentProfile() {
                     <div className="bg-white rounded-xl p-4 border border-gray-100">
                       <label className="text-sm font-semibold text-gray-600 mb-1 block">Branch/Department</label>
                       {editMode && profile?.correction_requested ? (
-                        <input type="text" name="branch" value={formData.branch} onChange={handleChange}
-                          className="w-full px-3 py-2 border-2 border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-200 focus:border-amber-400 font-bold text-gray-900" />
+                        <select name="branch" value={formData.branch} onChange={handleChange}
+                          className="w-full px-3 py-2 border-2 border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-200 focus:border-amber-400 font-bold text-gray-900">
+                          <option value="">Select branch</option>
+                          {/* Current value first, in case it isn't in the college list */}
+                          {formData.branch && !collegeBranches.includes(formData.branch) && (
+                            <option value={formData.branch}>{formData.branch}</option>
+                          )}
+                          {collegeBranches.map((b) => (
+                            <option key={b} value={b}>{b}{BRANCH_SHORT_NAMES[b] ? ` (${BRANCH_SHORT_NAMES[b]})` : ''}</option>
+                          ))}
+                        </select>
                       ) : (
                         <p className="text-gray-900 font-bold text-lg">
                           {profile?.branch} {BRANCH_SHORT_NAMES[profile?.branch] ? <span className="text-blue-600">({BRANCH_SHORT_NAMES[profile?.branch]})</span> : ''}

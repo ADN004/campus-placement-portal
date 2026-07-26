@@ -106,7 +106,7 @@ Three containers per environment, orchestrated by Docker Compose. The database i
 <br>
 
 - **College-scoped everything** — officers see and manage only their own college's students, ranges, branches, and jobs.
-- **Student lifecycle management**: approve/reject registrations (approval triggers the verification email), blacklist with reason, manually add students to job applications, and drill into full student detail modals.
+- **Student lifecycle management**: approve/reject registrations (approval triggers the verification email), blacklist with reason, manually add students to job applications, correct a student's login email, and drill into full student detail modals.
 - **Send-back-for-correction** — a post-approval alternative to rejection: flag an already-approved student to fix a wrong or inappropriate photo (optionally taken down on the spot) or bad details. The student stays approved — keeping their login and existing applications — but hits a **blocking gate on every page except their profile** until they re-upload/correct, with no re-approval round-trip. Available to placement officers and the super admin.
 - **College-scoped PRN ranges** — officers manage whitelist ranges for their own college alongside the global admin ranges.
 - **College branch management** — per-college branch lists (stored as JSONB) drive registration dropdowns and eligibility checks.
@@ -124,6 +124,7 @@ Three containers per environment, orchestrated by Docker Compose. The database i
 <br>
 
 - **State-wide governance**: 5 regions, 60 colleges (seeded with official branch lists), officer appointments, and a multi-admin system with profile management.
+- **Bulk import of colleges & placement officers** — download a pre-formatted `.xlsx` template, fill it, and upload it back. Every import runs a **dry-run validation first** that previews, row by row, exactly what will be created versus skipped; a separate **commit** step then applies it. Colleges are processed before officers, so one file can create a college and its officer together; already-existing records are reported as *skipped* rather than erroring, and an officer-conflict choice (`skip` / `replace`) governs colleges that already have an active officer. `.xlsx` only, 2 MB cap, parsed entirely in memory.
 - **Job management** — create/edit jobs with the full eligibility engine (below), **soft-delete with mandatory reason** (history preserved in `deleted_jobs_history`), and per-job views of applicants and eligible-but-not-applied students.
 - **Job request approvals** — review officer-submitted postings, approve into live jobs, or reject with feedback.
 - **Whitelist request approvals** — officers request PRN additions; admins adjudicate.

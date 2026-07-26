@@ -7,6 +7,7 @@ import useSkeleton from '../../hooks/useSkeleton';
 import AnimatedSection from '../../components/animation/AnimatedSection';
 import TablePageSkeleton from '../../components/skeletons/TablePageSkeleton';
 import ExceptedPrnList from '../../components/ExceptedPrnList';
+import { getPassoutYearOptions } from '../../utils/passoutYears';
 
 export default function ManagePRNRanges() {
   const [ranges, setRanges] = useState([]);
@@ -436,16 +437,16 @@ export default function ManagePRNRanges() {
                 />
               </div>
               <div>
-                <label className="label">Year (Optional)</label>
+                <label className="label">Passout Year (Optional)</label>
                 <select
                   className="input"
                   value={formData.year}
                   onChange={(e) => setFormData({ ...formData, year: e.target.value })}
                 >
-                  <option value="">Select Year</option>
-                  {Array.from({ length: 10 }, (_, i) => 2020 + i).map((year) => (
-                    <option key={year} value={year}>
-                      {year}
+                  <option value="">Select Passout Year</option>
+                  {getPassoutYearOptions(formData.year).map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
                     </option>
                   ))}
                 </select>
@@ -513,16 +514,16 @@ export default function ManagePRNRanges() {
                 />
               </div>
               <div>
-                <label className="label">Year (Optional)</label>
+                <label className="label">Passout Year (Optional)</label>
                 <select
                   className="input"
                   value={formData.year}
                   onChange={(e) => setFormData({ ...formData, year: e.target.value })}
                 >
-                  <option value="">Select Year</option>
-                  {Array.from({ length: 10 }, (_, i) => 2020 + i).map((year) => (
-                    <option key={year} value={year}>
-                      {year}
+                  <option value="">Select Passout Year</option>
+                  {getPassoutYearOptions(formData.year).map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
                     </option>
                   ))}
                 </select>

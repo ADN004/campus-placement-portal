@@ -9,6 +9,7 @@ import useSkeletonLoading from '../../hooks/useSkeletonLoading';
 import TablePageSkeleton from '../../components/skeletons/TablePageSkeleton';
 import AnimatedSection from '../../components/animation/AnimatedSection';
 import ExceptedPrnList from '../../components/ExceptedPrnList';
+import { getPassoutYearOptions } from '../../utils/passoutYears';
 
 export default function ManagePRNRanges() {
   const [prnRanges, setPrnRanges] = useState([]);
@@ -664,7 +665,7 @@ export default function ManagePRNRanges() {
 
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-2">
-                  Year <span className="text-red-600">*</span>
+                  Passout Year <span className="text-red-600">*</span>
                 </label>
                 <select
                   name="year"
@@ -673,10 +674,10 @@ export default function ManagePRNRanges() {
                   className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all duration-200 text-gray-900 font-medium"
                   required
                 >
-                  <option value="">Select Year</option>
-                  {Array.from({ length: 26 }, (_, i) => 2025 + i).map((year) => (
-                    <option key={year} value={year}>
-                      {year}
+                  <option value="">Select Passout Year</option>
+                  {getPassoutYearOptions(formData.year).map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
                     </option>
                   ))}
                 </select>
@@ -764,7 +765,7 @@ export default function ManagePRNRanges() {
 
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-2">
-                  Year <span className="text-red-600">*</span>
+                  Passout Year <span className="text-red-600">*</span>
                 </label>
                 <select
                   name="year"
@@ -773,10 +774,10 @@ export default function ManagePRNRanges() {
                   className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all duration-200 text-gray-900 font-medium"
                   required
                 >
-                  <option value="">Select Year</option>
-                  {Array.from({ length: 26 }, (_, i) => 2025 + i).map((year) => (
-                    <option key={year} value={year}>
-                      {year}
+                  <option value="">Select Passout Year</option>
+                  {getPassoutYearOptions(formData.year).map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
                     </option>
                   ))}
                 </select>

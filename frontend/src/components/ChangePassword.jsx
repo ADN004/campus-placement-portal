@@ -3,6 +3,7 @@ import { authAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { Lock, Eye, EyeOff, Check, X, AlertCircle, Shield } from 'lucide-react';
+import Modal from './Modal';
 
 export default function ChangePassword({ onClose }) {
   const { user, checkAuth } = useAuth();
@@ -24,15 +25,6 @@ export default function ChangePassword({ onClose }) {
     newPassword: '',
     confirmPassword: '',
   });
-
-  // Lock the page behind the modal so wheel/touch scrolling stays inside it
-  useEffect(() => {
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, []);
 
   const togglePasswordVisibility = (field) => {
     setShowPasswords((prev) => ({
@@ -214,10 +206,14 @@ export default function ChangePassword({ onClose }) {
   );
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto overscroll-contain">
+    <Modal
+      onClose={onClose}
+      labelledBy="change-password-title"
+      overlayClassName="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      panelClassName="bg-white rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto overscroll-contain"
+    >
         <div className="border-b border-gray-200 px-6 py-4 bg-gradient-to-r from-blue-50 to-indigo-50 sticky top-0 z-10 rounded-t-2xl">
-          <h2 className="text-2xl font-bold text-gray-900 flex items-center">
+          <h2 id="change-password-title" className="text-2xl font-bold text-gray-900 flex items-center">
             <Shield className="mr-3 text-blue-600" size={28} />
             Change Password
           </h2>
@@ -443,7 +439,6 @@ export default function ChangePassword({ onClose }) {
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 }

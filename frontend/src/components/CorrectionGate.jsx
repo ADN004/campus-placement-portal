@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { studentAPI } from '../services/api';
 import { AlertTriangle, ArrowRight } from 'lucide-react';
+import Modal from './Modal';
 
 /**
  * Blocking gate for students with an outstanding "send back for correction".
@@ -31,11 +32,15 @@ export default function CorrectionGate() {
   if (!correction?.correction_requested || onProfile) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg border-t-8 border-red-600 overflow-hidden">
+    <Modal
+      labelledBy="correction-gate-title"
+      closeOnEscape={false}
+      overlayClassName="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+      panelClassName="bg-white rounded-2xl shadow-2xl w-full max-w-lg border-t-8 border-red-600 overflow-hidden"
+    >
         <div className="bg-red-600 px-6 py-5 flex items-center gap-3">
           <AlertTriangle className="text-white shrink-0" size={28} />
-          <h2 className="text-xl font-bold text-white">Action required before you can continue</h2>
+          <h2 id="correction-gate-title" className="text-xl font-bold text-white">Action required before you can continue</h2>
         </div>
         <div className="p-6">
           <p className="text-gray-700 mb-3">
@@ -60,7 +65,6 @@ export default function CorrectionGate() {
             <ArrowRight size={18} />
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

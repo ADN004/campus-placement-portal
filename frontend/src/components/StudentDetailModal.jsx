@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { X, User, GraduationCap, Users, FileText, CheckCircle, XCircle } from 'lucide-react';
-import useBodyScrollLock from '../hooks/useBodyScrollLock';
+import Modal from './Modal';
 import { superAdminAPI, placementOfficerAPI } from '../services/api';
 import ResumeDownloadButton from './ResumeDownloadButton';
 
 const StudentDetailModal = ({ isOpen, onClose, studentId, applicationId, userRole = 'super-admin' }) => {
-  useBodyScrollLock(isOpen);
   const [student, setStudent] = useState(null);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('basic');
@@ -40,12 +39,15 @@ const StudentDetailModal = ({ isOpen, onClose, studentId, applicationId, userRol
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+    <Modal
+      onClose={onClose}
+      labelledBy="student-detail-title"
+      panelClassName="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+    >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Student Details</h2>
+            <h2 id="student-detail-title" className="text-2xl font-bold text-gray-900">Student Details</h2>
             {student && (
               <p className="text-sm text-gray-600 mt-1">
                 {student.prn} - {student.name}
@@ -243,8 +245,7 @@ const StudentDetailModal = ({ isOpen, onClose, studentId, applicationId, userRol
             <p className="text-gray-500">Failed to load student details</p>
           </div>
         )}
-      </div>
-    </div>
+    </Modal>
   );
 };
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import ModalScrollLock from '../../components/ModalScrollLock';
+import Modal from '../../components/Modal';
 import { Link } from 'react-router-dom';
 import { superAdminAPI } from '../../services/api';
 import toast from 'react-hot-toast';
@@ -701,11 +701,14 @@ export default function ManageColleges() {
 
       {/* Add / Edit College Modal */}
       {showCollegeModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <ModalScrollLock />
-          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
+        <Modal
+          onClose={() => setShowCollegeModal(false)}
+          labelledBy="college-modal-title"
+          overlayClassName="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          panelClassName="bg-white rounded-lg shadow-xl max-w-lg w-full"
+        >
             <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-              <h2 className="text-xl font-bold text-gray-900">
+              <h2 id="college-modal-title" className="text-xl font-bold text-gray-900">
                 {editingCollege ? 'Edit College' : 'Add College'}
               </h2>
               <button
@@ -837,8 +840,7 @@ export default function ManageColleges() {
                 )}
               </button>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
 
       {/* Mode Switch Modal */}
@@ -848,11 +850,14 @@ export default function ManageColleges() {
         const codeMatches =
           chosen && modeSwitchConfirmCode.trim().toUpperCase() === chosen.college_code.toUpperCase();
         return (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <ModalScrollLock />
-            <div className="bg-white rounded-lg shadow-xl max-w-xl w-full max-h-[90vh] overflow-y-auto overscroll-contain">
+          <Modal
+            onClose={() => setShowModeSwitchModal(false)}
+            labelledBy="mode-switch-title"
+            overlayClassName="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+            panelClassName="bg-white rounded-lg shadow-xl max-w-xl w-full max-h-[90vh] overflow-y-auto overscroll-contain"
+          >
               <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-                <h2 className="text-xl font-bold text-gray-900">Switch to Single-College Mode</h2>
+                <h2 id="mode-switch-title" className="text-xl font-bold text-gray-900">Switch to Single-College Mode</h2>
                 <button
                   onClick={() => setShowModeSwitchModal(false)}
                   className="text-gray-400 hover:text-gray-600"
@@ -943,8 +948,7 @@ export default function ManageColleges() {
                   )}
                 </button>
               </div>
-            </div>
-          </div>
+          </Modal>
         );
       })()}
 
@@ -958,11 +962,14 @@ export default function ManageColleges() {
 
       {/* Manage Regions Modal */}
       {showRegionModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <ModalScrollLock />
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto overscroll-contain">
+        <Modal
+          onClose={() => setShowRegionModal(false)}
+          labelledBy="region-modal-title"
+          overlayClassName="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          panelClassName="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto overscroll-contain"
+        >
             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
-              <h2 className="text-xl font-bold text-gray-900">Manage Regions</h2>
+              <h2 id="region-modal-title" className="text-xl font-bold text-gray-900">Manage Regions</h2>
               <button
                 onClick={() => {
                   setShowRegionModal(false);
@@ -1061,8 +1068,7 @@ export default function ManageColleges() {
                 ))}
               </div>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

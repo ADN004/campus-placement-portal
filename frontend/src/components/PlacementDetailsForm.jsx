@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import useBodyScrollLock from '../hooks/useBodyScrollLock';
+import Modal from './Modal';
 import { X } from 'lucide-react';
 
 const PlacementDetailsForm = ({ isOpen, onClose, onSubmit, application }) => {
-  useBodyScrollLock(isOpen);
   const [formData, setFormData] = useState({
     placement_package: '',
     joining_date: '',
@@ -30,8 +29,11 @@ const PlacementDetailsForm = ({ isOpen, onClose, onSubmit, application }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl p-6 border border-gray-200 max-w-md w-full max-h-[90vh] overflow-y-auto overscroll-contain shadow-2xl">
+    <Modal
+      onClose={onClose}
+      title="Placement Details"
+      panelClassName="bg-white rounded-2xl p-6 border border-gray-200 max-w-md w-full max-h-[90vh] overflow-y-auto overscroll-contain shadow-2xl"
+    >
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold">Placement Details</h3>
           <button
@@ -115,8 +117,7 @@ const PlacementDetailsForm = ({ isOpen, onClose, onSubmit, application }) => {
           </button>
         </div>
       </form>
-      </div>
-    </div>
+    </Modal>
   );
 };
 

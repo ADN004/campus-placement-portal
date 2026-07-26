@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, User, AlertTriangle, CheckCircle, Building2, Briefcase, MapPin, Calendar, DollarSign, FileText } from 'lucide-react';
-import useBodyScrollLock from '../hooks/useBodyScrollLock';
+import Modal from './Modal';
 import { toast } from 'react-hot-toast';
 
 const ManualStudentAdditionModal = ({
@@ -11,7 +11,6 @@ const ManualStudentAdditionModal = ({
   api, // Pass either superAdminAPI or placementOfficerAPI
   userRole = 'placement-officer' // 'placement-officer' or 'super-admin'
 }) => {
-  useBodyScrollLock(isOpen);
   const [step, setStep] = useState(1); // 1: Enter PRN, 2: Confirm & Fill Details
   const [prn, setPrn] = useState('');
   const [collegeId, setCollegeId] = useState(null); // For super admin with multiple PRN matches
@@ -144,12 +143,15 @@ const ManualStudentAdditionModal = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+    <Modal
+      onClose={onClose}
+      labelledBy="manual-add-title"
+      panelClassName="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+    >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-indigo-50 to-purple-50">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Manually Add Student</h2>
+            <h2 id="manual-add-title" className="text-2xl font-bold text-gray-900">Manually Add Student</h2>
             <p className="text-sm text-gray-600 mt-1">
               Add student who didn't apply but got selected
             </p>
@@ -438,8 +440,7 @@ const ManualStudentAdditionModal = ({
             </>
           )}
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 };
 

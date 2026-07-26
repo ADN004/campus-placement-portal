@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import { FileText, X, Check, PenLine, Building2 } from 'lucide-react';
-import useBodyScrollLock from '../hooks/useBodyScrollLock';
+import Modal from './Modal';
 
 const PDFFieldSelector = ({ onExport, onClose, applicantCount, exportType = 'enhanced' }) => {
-  useBodyScrollLock(true);
   const [headerLine1, setHeaderLine1] = useState('');
   const [headerLine2, setHeaderLine2] = useState('');
   const [selectedFields, setSelectedFields] = useState([
@@ -77,14 +76,18 @@ const PDFFieldSelector = ({ onExport, onClose, applicantCount, exportType = 'enh
     : 'bg-gradient-to-r from-purple-600 to-indigo-600';
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+    <Modal
+      onClose={onClose}
+      labelledBy="pdf-export-title"
+      overlayClassName="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      panelClassName="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+    >
         {/* Header */}
         <div className={`${headerColor} text-white p-6 flex items-center justify-between`}>
           <div className="flex items-center space-x-3">
             {exportType === 'selected_only' ? <Check size={24} /> : <FileText size={24} />}
             <div>
-              <h2 className="text-xl font-bold">
+              <h2 id="pdf-export-title" className="text-xl font-bold">
                 {exportType === 'selected_only' ? 'Export Selected Students Only' : 'Customize PDF Export'}
               </h2>
               <p className="text-sm opacity-90">
@@ -224,8 +227,7 @@ const PDFFieldSelector = ({ onExport, onClose, applicantCount, exportType = 'enh
             <span>Export PDF</span>
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 };
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { studentAPI } from '../services/api';
 import { GraduationCap, X, Clock } from 'lucide-react';
-import ModalScrollLock from './ModalScrollLock';
+import Modal from './Modal';
 
 export default function CgpaUnlockPopup() {
   const [show, setShow] = useState(false);
@@ -66,9 +66,12 @@ export default function CgpaUnlockPopup() {
   if (!show) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm animate-fadeIn">
-      <ModalScrollLock />
-      <div className="bg-white rounded-2xl shadow-2xl border border-blue-100 max-w-sm w-full overflow-hidden">
+    <Modal
+      onClose={handleDismiss}
+      title="CGPA Update Notice"
+      overlayClassName="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm animate-fadeIn"
+      panelClassName="bg-white rounded-2xl shadow-2xl border border-blue-100 max-w-sm w-full overflow-hidden"
+    >
         {/* Header bar */}
         <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -105,7 +108,6 @@ export default function CgpaUnlockPopup() {
             Got it
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

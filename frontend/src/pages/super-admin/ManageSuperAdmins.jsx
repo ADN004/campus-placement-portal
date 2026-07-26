@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { superAdminAPI } from '../../services/api';
 import toast from 'react-hot-toast';
-import { UserPlus, Shield, CheckCircle, XCircle, Mail, Trash2 } from 'lucide-react';
+import { UserPlus, Shield, CheckCircle, XCircle, X, Mail, Trash2 } from 'lucide-react';
+import ModalScrollLock from '../../components/ModalScrollLock';
 import useSkeleton from '../../hooks/useSkeleton';
 import AnimatedSection from '../../components/animation/AnimatedSection';
 import TablePageSkeleton from '../../components/skeletons/TablePageSkeleton';
@@ -239,9 +240,20 @@ export default function ManageSuperAdmins() {
       {/* Add Admin Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg w-full max-w-md p-6">
-            <h2 className="text-2xl font-bold mb-6">Add New Super Admin</h2>
-            <form onSubmit={handleAddAdmin} className="space-y-4">
+          <ModalScrollLock />
+          <div className="bg-white rounded-lg w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <h2 className="text-2xl font-bold">Add New Super Admin</h2>
+              <button
+                type="button"
+                onClick={() => setShowAddModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+                aria-label="Close"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            <form onSubmit={handleAddAdmin} className="flex-1 overflow-y-auto overscroll-contain p-6 space-y-4">
               <div>
                 <label className="label">
                   <Mail size={16} className="inline mr-2" />

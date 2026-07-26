@@ -9,6 +9,7 @@ import {
   Eye,
   CheckCircle,
   XCircle,
+  X,
   ToggleLeft,
   ToggleRight,
   Building2,
@@ -1011,10 +1012,18 @@ export default function ManageJobs() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <ModalScrollLock />
           <div className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto overscroll-contain">
-            <div className="sticky top-0 z-20 bg-white border-b border-gray-200 px-6 py-4">
+            <div className="sticky top-0 z-20 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
               <h2 className="text-2xl font-bold">
                 {editMode ? 'Edit Job' : 'Create New Job'}
               </h2>
+              <button
+                type="button"
+                onClick={() => { setShowJobModal(false); setEditMode(false); setSelectedJob(null); }}
+                className="text-gray-400 hover:text-gray-600"
+                aria-label="Close"
+              >
+                <X size={24} />
+              </button>
             </div>
 
             <form onSubmit={handleSubmit} className="p-6 space-y-6">

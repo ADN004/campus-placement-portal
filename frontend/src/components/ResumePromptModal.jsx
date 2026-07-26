@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FileText, CheckCircle, X, ChevronRight } from 'lucide-react';
+import ModalScrollLock from './ModalScrollLock';
 
 export default function ResumePromptModal({ onClose }) {
   const navigate = useNavigate();
@@ -22,6 +23,7 @@ export default function ResumePromptModal({ onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fadeIn">
+      <ModalScrollLock />
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"

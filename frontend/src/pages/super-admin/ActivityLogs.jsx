@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import {
   Search,
   Filter,
+  X,
   Download,
   Eye,
   Calendar,
@@ -612,9 +613,10 @@ export default function ActivityLogs() {
                     setShowDetailsModal(false);
                     setSelectedLog(null);
                   }}
-                  className="text-gray-500 hover:text-gray-700"
+                  className="text-gray-400 hover:text-gray-600"
+                  aria-label="Close"
                 >
-                  ×
+                  <X size={24} />
                 </button>
               </div>
             </div>

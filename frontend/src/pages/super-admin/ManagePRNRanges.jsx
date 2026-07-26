@@ -2,11 +2,12 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { superAdminAPI } from '../../services/api';
 import toast from 'react-hot-toast';
-import { Plus, Trash2, ToggleLeft, ToggleRight, AlertCircle, Eye, Download, ExternalLink, Edit2, Filter, Search, ChevronDown, ChevronRight, Building2, Globe } from 'lucide-react';
+import { Plus, Trash2, ToggleLeft, ToggleRight, AlertCircle, X, Eye, Download, ExternalLink, Edit2, Filter, Search, ChevronDown, ChevronRight, Building2, Globe } from 'lucide-react';
 import useSkeleton from '../../hooks/useSkeleton';
 import AnimatedSection from '../../components/animation/AnimatedSection';
 import TablePageSkeleton from '../../components/skeletons/TablePageSkeleton';
 import ExceptedPrnList from '../../components/ExceptedPrnList';
+import ModalScrollLock from '../../components/ModalScrollLock';
 import { getPassoutYearOptions } from '../../utils/passoutYears';
 
 export default function ManagePRNRanges() {
@@ -410,10 +411,21 @@ export default function ManagePRNRanges() {
 
       {/* Add Range Modal */}
       {showAddRange && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">{editingRange ? 'Update PRN Range' : 'Add PRN Range'}</h2>
-            <form onSubmit={handleAddRange} className="space-y-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <ModalScrollLock />
+          <div className="bg-white rounded-lg w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <h2 className="text-xl font-bold">{editingRange ? 'Update PRN Range' : 'Add PRN Range'}</h2>
+              <button
+                type="button"
+                onClick={() => { setShowAddRange(false); setEditingRange(null); setFormData({ range_start: '', range_end: '', single_prn: '', description: '', year: '', exceptions: '' }); }}
+                className="text-gray-400 hover:text-gray-600"
+                aria-label="Close"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            <form onSubmit={handleAddRange} className="flex-1 overflow-y-auto overscroll-contain p-6 space-y-4">
               <div>
                 <label className="label">Range Start</label>
                 <input
@@ -498,10 +510,21 @@ export default function ManagePRNRanges() {
 
       {/* Add Single PRN Modal */}
       {showAddSingle && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">{editingRange ? 'Update Single PRN' : 'Add Single PRN'}</h2>
-            <form onSubmit={handleAddSingle} className="space-y-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <ModalScrollLock />
+          <div className="bg-white rounded-lg w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <h2 className="text-xl font-bold">{editingRange ? 'Update Single PRN' : 'Add Single PRN'}</h2>
+              <button
+                type="button"
+                onClick={() => { setShowAddSingle(false); setEditingRange(null); setFormData({ range_start: '', range_end: '', single_prn: '', description: '', year: '', exceptions: '' }); }}
+                className="text-gray-400 hover:text-gray-600"
+                aria-label="Close"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            <form onSubmit={handleAddSingle} className="flex-1 overflow-y-auto overscroll-contain p-6 space-y-4">
               <div>
                 <label className="label">PRN</label>
                 <input
@@ -733,9 +756,18 @@ export default function ManagePRNRanges() {
       {/* Disable PRN Range Modal */}
       {showDisableModal && selectedRange && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg w-full max-w-md">
-            <div className="px-6 py-4 border-b border-gray-200">
+          <ModalScrollLock />
+          <div className="bg-white rounded-lg w-full max-w-md max-h-[90vh] overflow-y-auto overscroll-contain">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
               <h2 className="text-xl font-bold text-gray-900">Disable PRN Range</h2>
+              <button
+                type="button"
+                onClick={() => { setShowDisableModal(false); setSelectedRange(null); setDisableReason(''); }}
+                className="text-gray-400 hover:text-gray-600"
+                aria-label="Close"
+              >
+                <X size={24} />
+              </button>
             </div>
 
             <div className="p-6 space-y-4">
@@ -798,7 +830,8 @@ export default function ManagePRNRanges() {
       {/* View Students in Range Modal */}
       {showViewStudentsModal && selectedRange && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] flex flex-col">
+          <ModalScrollLock />
+          <div className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
               <div>
                 <h2 className="text-xl font-bold text-gray-900">Students in PRN Range</h2>
@@ -819,13 +852,14 @@ export default function ManagePRNRanges() {
                   setSelectedRange(null);
                   setRangeStudents([]);
                 }}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-gray-400 hover:text-gray-600"
+                aria-label="Close"
               >
-                <AlertCircle size={24} className="rotate-45" />
+                <X size={24} />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex-1 overflow-y-auto overscroll-contain p-6">
               {loadingStudents ? (
                 <div className="flex items-center justify-center h-64">
                   <div className="text-center">

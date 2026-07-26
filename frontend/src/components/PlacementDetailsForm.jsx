@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
+import { X } from 'lucide-react';
 
 const PlacementDetailsForm = ({ isOpen, onClose, onSubmit, application }) => {
   useBodyScrollLock(isOpen);
@@ -30,8 +31,18 @@ const PlacementDetailsForm = ({ isOpen, onClose, onSubmit, application }) => {
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl p-6 border border-gray-200 max-w-md w-full shadow-2xl">
-        <h3 className="text-lg font-semibold mb-4">Placement Details</h3>
+      <div className="bg-white rounded-2xl p-6 border border-gray-200 max-w-md w-full max-h-[90vh] overflow-y-auto overscroll-contain shadow-2xl">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold">Placement Details</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600"
+            aria-label="Close"
+          >
+            <X size={22} />
+          </button>
+        </div>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">

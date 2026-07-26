@@ -8,6 +8,7 @@ import {
   Clock,
   CheckCircle,
   XCircle,
+  X,
   Building2,
   IndianRupee,
   Calendar,
@@ -613,16 +614,26 @@ export default function CreateJobRequest() {
           <ModalScrollLock />
           <GlassCard variant="elevated" hover={false} className="w-full max-w-4xl max-h-[90vh] overflow-y-auto overscroll-contain">
             <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-xl border-b border-gray-200 px-8 py-6 rounded-t-3xl">
-              <div className="flex items-center gap-3">
-                <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-3 shadow-lg">
-                  <Plus className="text-white" size={28} />
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-3 shadow-lg">
+                    <Plus className="text-white" size={28} />
+                  </div>
+                  <div>
+                    <h2 className="text-3xl font-bold text-gray-900">Create Job Request</h2>
+                    <p className="text-sm text-gray-600 mt-1 font-medium">
+                      Submit a job posting for Super Admin approval
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h2 className="text-3xl font-bold text-gray-900">Create Job Request</h2>
-                  <p className="text-sm text-gray-600 mt-1 font-medium">
-                    Submit a job posting for Super Admin approval
-                  </p>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  className="shrink-0 text-gray-400 hover:text-gray-600"
+                  aria-label="Close"
+                >
+                  <X size={28} />
+                </button>
               </div>
             </div>
 

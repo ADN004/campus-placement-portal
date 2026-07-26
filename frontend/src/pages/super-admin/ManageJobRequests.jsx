@@ -5,10 +5,11 @@ import useSkeleton from '../../hooks/useSkeleton';
 import AnimatedSection from '../../components/animation/AnimatedSection';
 import TablePageSkeleton from '../../components/skeletons/TablePageSkeleton';
 import {
-  CheckCircle, XCircle, Briefcase, Building, MapPin, Calendar, User,
+  CheckCircle, XCircle, X, Briefcase, Building, MapPin, Calendar, User,
   DollarSign, Clock, GraduationCap, AlertCircle, FileText, Globe,
   Target, BookOpen, Ruler, Weight, FileCheck, Users, Home, Award
 } from 'lucide-react';
+import ModalScrollLock from '../../components/ModalScrollLock';
 
 export default function ManageJobRequests() {
   const [jobRequests, setJobRequests] = useState([]);
@@ -493,14 +494,25 @@ export default function ManageJobRequests() {
       {/* Approve Modal */}
       {showApproveModal && selectedRequest && (
         <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
-          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl transform transition-all">
+          <ModalScrollLock />
+          <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto overscroll-contain shadow-2xl transform transition-all">
             {/* Header */}
             <div className="bg-gradient-to-r from-green-500 to-emerald-500 px-6 py-5 rounded-t-2xl">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-white/20 backdrop-blur-sm rounded-lg">
-                  <CheckCircle className="text-white" size={24} />
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-white/20 backdrop-blur-sm rounded-lg">
+                    <CheckCircle className="text-white" size={24} />
+                  </div>
+                  <h2 className="text-2xl font-bold text-white">Approve Job Request</h2>
                 </div>
-                <h2 className="text-2xl font-bold text-white">Approve Job Request</h2>
+                <button
+                  type="button"
+                  onClick={() => setShowApproveModal(false)}
+                  className="shrink-0 text-white/80 hover:text-white"
+                  aria-label="Close"
+                >
+                  <X size={24} />
+                </button>
               </div>
             </div>
 
@@ -560,14 +572,25 @@ export default function ManageJobRequests() {
       {/* Reject Modal */}
       {showRejectModal && selectedRequest && (
         <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
-          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl transform transition-all">
+          <ModalScrollLock />
+          <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto overscroll-contain shadow-2xl transform transition-all">
             {/* Header */}
             <div className="bg-gradient-to-r from-red-500 to-rose-500 px-6 py-5 rounded-t-2xl">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-white/20 backdrop-blur-sm rounded-lg">
-                  <XCircle className="text-white" size={24} />
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-white/20 backdrop-blur-sm rounded-lg">
+                    <XCircle className="text-white" size={24} />
+                  </div>
+                  <h2 className="text-2xl font-bold text-white">Reject Job Request</h2>
                 </div>
-                <h2 className="text-2xl font-bold text-white">Reject Job Request</h2>
+                <button
+                  type="button"
+                  onClick={() => setShowRejectModal(false)}
+                  className="shrink-0 text-white/80 hover:text-white"
+                  aria-label="Close"
+                >
+                  <X size={24} />
+                </button>
               </div>
             </div>
 

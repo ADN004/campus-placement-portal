@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { superAdminAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import { Lock, Unlock, Search, ShieldCheck, AlertTriangle, X, UserCheck } from 'lucide-react';
-import ModalScrollLock from '../../components/ModalScrollLock';
+import Modal from '../../components/Modal';
 import useSkeleton from '../../hooks/useSkeleton';
 import AnimatedSection from '../../components/animation/AnimatedSection';
 import TablePageSkeleton from '../../components/skeletons/TablePageSkeleton';
@@ -275,11 +275,14 @@ export default function ManageCollegeLocks() {
 
       {/* Lock reason modal */}
       {lockTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <ModalScrollLock />
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto overscroll-contain p-6">
+        <Modal
+          onClose={() => setLockTarget(null)}
+          labelledBy="lock-reason-title"
+          overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          panelClassName="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto overscroll-contain p-6"
+        >
             <div className="flex items-start justify-between mb-4">
-              <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+              <h2 id="lock-reason-title" className="text-lg font-bold text-gray-900 flex items-center gap-2">
                 <AlertTriangle className="w-5 h-5 text-red-500" />
                 Lock {LOCK_LABELS[lockTarget.lockType]}
               </h2>
@@ -320,17 +323,19 @@ export default function ManageCollegeLocks() {
                 <Lock className="w-4 h-4" /> {submitting ? 'Locking…' : 'Confirm Lock'}
               </button>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
 
       {/* Allowed-PRNs editor modal */}
       {allowTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <ModalScrollLock />
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto overscroll-contain p-6">
+        <Modal
+          onClose={() => setAllowTarget(null)}
+          labelledBy="allow-prns-title"
+          overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          panelClassName="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto overscroll-contain p-6"
+        >
             <div className="flex items-start justify-between mb-4">
-              <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+              <h2 id="allow-prns-title" className="text-lg font-bold text-gray-900 flex items-center gap-2">
                 <UserCheck className="w-5 h-5 text-indigo-600" />
                 PRNs allowed past the lock
               </h2>
@@ -365,8 +370,7 @@ export default function ManageCollegeLocks() {
                 <UserCheck className="w-4 h-4" /> {savingAllow ? 'Saving…' : 'Save Allowed PRNs'}
               </button>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

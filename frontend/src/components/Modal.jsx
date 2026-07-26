@@ -36,7 +36,11 @@ import useBodyScrollLock from '../hooks/useBodyScrollLock';
  *   describedBy     — optional id of descriptive text (aria-describedby).
  *   panelClassName  — classes for the dialog panel (the white card).
  *   overlayClassName— classes for the backdrop/centering layer.
- *   closeOnBackdrop — close when the backdrop itself is clicked (default true).
+ *   closeOnBackdrop — close when the backdrop itself is clicked. Default FALSE,
+ *                     to match this app's existing modals (which close via
+ *                     their ✕/Cancel buttons and Escape, not an outside click,
+ *                     so a form isn't lost to a stray click). Pass true only
+ *                     for modals that intentionally dismiss on backdrop.
  *   closeOnEscape   — close on Escape (default true).
  *   initialFocusRef — optional ref to focus on open (else the first focusable).
  */
@@ -58,7 +62,7 @@ export default function Modal({
   children,
   panelClassName = 'bg-white rounded-lg shadow-xl max-w-md w-full',
   overlayClassName = 'fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4',
-  closeOnBackdrop = true,
+  closeOnBackdrop = false,
   closeOnEscape = true,
   initialFocusRef,
 }) {

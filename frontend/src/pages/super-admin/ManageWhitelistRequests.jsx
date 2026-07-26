@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import ModalScrollLock from '../../components/ModalScrollLock';
+import Modal from '../../components/Modal';
 import { superAdminAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import {
@@ -389,13 +389,16 @@ export default function ManageWhitelistRequests() {
 
       {/* Details Modal */}
       {showDetailsModal && selectedRequest && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <ModalScrollLock />
-          <div className="bg-white rounded-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto overscroll-contain">
+        <Modal
+          onClose={() => setShowDetailsModal(false)}
+          labelledBy="whitelist-details-title"
+          overlayClassName="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          panelClassName="bg-white rounded-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto overscroll-contain"
+        >
             <div className="sticky top-0 z-20 bg-white border-b border-gray-200 px-6 py-4">
               <div className="flex justify-between items-center">
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-900">Whitelist Request Details</h2>
+                  <h2 id="whitelist-details-title" className="text-2xl font-bold text-gray-900">Whitelist Request Details</h2>
                   <p className="text-sm text-gray-600 mt-1">
                     Request ID: #{selectedRequest.id}
                   </p>
@@ -576,17 +579,19 @@ export default function ManageWhitelistRequests() {
                 </button>
               </div>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
 
       {/* Action Confirmation Modal */}
       {showActionModal && selectedRequest && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <ModalScrollLock />
-          <div className="bg-white rounded-lg w-full max-w-md">
+        <Modal
+          onClose={() => setShowActionModal(false)}
+          labelledBy="whitelist-action-title"
+          overlayClassName="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          panelClassName="bg-white rounded-lg w-full max-w-md"
+        >
             <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-xl font-bold text-gray-900">
+              <h2 id="whitelist-action-title" className="text-xl font-bold text-gray-900">
                 {actionType === 'approve' ? 'Approve' : 'Reject'} Whitelist Request
               </h2>
             </div>
@@ -647,8 +652,7 @@ export default function ManageWhitelistRequests() {
                 {actionType === 'approve' ? 'Approve Request' : 'Reject Request'}
               </button>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

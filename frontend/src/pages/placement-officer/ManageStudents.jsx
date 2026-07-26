@@ -10,6 +10,7 @@ import useSkeletonLoading from '../../hooks/useSkeletonLoading';
 import TablePageSkeleton from '../../components/skeletons/TablePageSkeleton';
 import UpdateStudentEmailModal from '../../components/UpdateStudentEmailModal';
 import AnimatedSection from '../../components/animation/AnimatedSection';
+import { passoutYearFromAcademicYear } from '../../utils/passoutYears';
 
 export default function ManageStudents() {
   const navigate = useNavigate();
@@ -1350,7 +1351,7 @@ export default function ManageStudents() {
             >
               <option value="">All passed-out batches</option>
               {archivedYears.map((y) => (
-                <option key={y} value={y}>{y}</option>
+                <option key={y} value={y}>{y} (passout {passoutYearFromAcademicYear(y)})</option>
               ))}
             </select>
             <span className="text-sm text-amber-800">

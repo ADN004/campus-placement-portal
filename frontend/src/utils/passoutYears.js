@@ -27,3 +27,17 @@ export function getPassoutYearOptions(selected) {
     label: y === current ? `${y} (current)` : String(y),
   }));
 }
+
+/**
+ * Passout year (single) for an academic-year span: "2026-27" -> "2027".
+ *
+ * The passout year is the year the academic span ends — the same value staff
+ * pick as "Passout Year" on a PRN range. Used to show the link between the
+ * academic-year reset / archived batches ("2026-27") and PRN ranges ("2027")
+ * so the two never get mixed up. Returns '' if it can't parse a start year.
+ */
+export function passoutYearFromAcademicYear(academicYear) {
+  if (!academicYear) return '';
+  const start = parseInt(String(academicYear).trim().split('-')[0], 10);
+  return Number.isNaN(start) ? '' : String(start + 1);
+}

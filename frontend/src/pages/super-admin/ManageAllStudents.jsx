@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { superAdminAPI, commonAPI } from '../../services/api';
+import { passoutYearFromAcademicYear } from '../../utils/passoutYears';
 import {
   Users,
   Search,
@@ -892,7 +893,7 @@ export default function ManageAllStudents() {
               >
                 <option value="">All passed-out batches</option>
                 {archivedYears.map((y) => (
-                  <option key={y} value={y}>{y}</option>
+                  <option key={y} value={y}>{y} (passout {passoutYearFromAcademicYear(y)})</option>
                 ))}
               </select>
               <span className="text-sm text-amber-800">

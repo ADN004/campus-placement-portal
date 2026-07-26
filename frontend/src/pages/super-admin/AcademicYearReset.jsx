@@ -23,6 +23,7 @@ import useSkeleton from '../../hooks/useSkeleton';
 import TablePageSkeleton from '../../components/skeletons/TablePageSkeleton';
 import AnimatedSection from '../../components/animation/AnimatedSection';
 import { useNavigate } from 'react-router-dom';
+import { passoutYearFromAcademicYear } from '../../utils/passoutYears';
 
 export default function AcademicYearReset() {
   const navigate = useNavigate();
@@ -231,6 +232,10 @@ export default function AcademicYearReset() {
             />
             <p className="text-xs text-gray-500 mt-2">
               This will be recorded as the reason for disabling PRN ranges.
+            </p>
+            <p className="text-xs text-gray-600 mt-1">
+              Graduates the <strong>passout&nbsp;year {passoutYearFromAcademicYear(academicYear) || '—'}</strong> batch — the same
+              &ldquo;Passout Year&rdquo; set on their PRN ranges.
             </p>
           </div>
 

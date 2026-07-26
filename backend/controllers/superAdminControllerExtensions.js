@@ -541,6 +541,12 @@ export const enhancedCustomExport = async (req, res) => {
     const params = [];
     let paramCount = 0;
 
+    // Archived export = genuinely passed-out (year-stamped) students only, never
+    // accounts deactivated for other reasons (e.g. a disabled PRN range).
+    if (showArchived) {
+      queryText += ` AND s.archived_academic_year IS NOT NULL`;
+    }
+
     // Passed-out batch filter (archived export only)
     if (showArchived && academic_year) {
       paramCount++;

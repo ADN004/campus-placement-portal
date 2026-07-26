@@ -403,6 +403,12 @@ export const getStudents = async (req, res) => {
     const params = [collegeId];
     let paramCount = 1;
 
+    // Archived view = genuinely passed-out (year-stamped) students only, never
+    // accounts deactivated for other reasons (e.g. a disabled PRN range).
+    if (showArchived) {
+      queryText += ` AND s.archived_academic_year IS NOT NULL`;
+    }
+
     // Passed-out batch filter (archived view only)
     if (showArchived && academic_year) {
       paramCount++;

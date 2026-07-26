@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import useBodyScrollLock from '../hooks/useBodyScrollLock';
+import Modal from './Modal';
 import { superAdminAPI } from '../services/api';
 import toast from 'react-hot-toast';
 import {
@@ -22,7 +22,6 @@ import {
  * Nothing is written to the database until the admin confirms a clean file.
  */
 export default function BulkImportModal({ onClose, onImported }) {
-  useBodyScrollLock(true);
   const [step, setStep] = useState('upload'); // upload | preview | done
   const [file, setFile] = useState(null);
   const [dragActive, setDragActive] = useState(false);
@@ -177,11 +176,15 @@ export default function BulkImportModal({ onClose, onImported }) {
   const totalOk = preview ? preview.summary.colleges.ok + preview.summary.officers.ok : 0;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto overscroll-contain">
+    <Modal
+      onClose={onClose}
+      labelledBy="bulk-import-title"
+      overlayClassName="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      panelClassName="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto overscroll-contain"
+    >
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
           <div>
-            <h2 className="text-xl font-bold text-gray-900">Bulk Import</h2>
+            <h2 id="bulk-import-title" className="text-xl font-bold text-gray-900">Bulk Import</h2>
             <p className="text-sm text-gray-600">Create colleges and placement officers from an Excel file</p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600" disabled={busy}>
@@ -386,7 +389,6 @@ export default function BulkImportModal({ onClose, onImported }) {
             </button>
           </div>
         )}
-      </div>
-    </div>
+    </Modal>
   );
 }

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { commonAPI } from '../../services/api';
+import Modal from '../../components/Modal';
 import { UserPlus, CheckCircle, XCircle, Upload, X, Mail, ShieldCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { BRANCH_SHORT_NAMES } from '../../constants/branches';
@@ -325,12 +326,16 @@ export default function StudentRegisterPage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 py-12 px-4 relative overflow-hidden">
       {/* Registration Success Modal */}
       {showSuccessModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center animate-in fade-in zoom-in duration-300">
+        <Modal
+          onClose={handleSuccessModalClose}
+          labelledBy="register-success-title"
+          overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4"
+          panelClassName="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center animate-in fade-in zoom-in duration-300"
+        >
             <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-5">
               <ShieldCheck className="text-green-600" size={32} />
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-3">Registration Successful!</h2>
+            <h2 id="register-success-title" className="text-2xl font-bold text-gray-900 mb-3">Registration Successful!</h2>
             <p className="text-gray-600 mb-2">
               Your account has been created and is now pending approval from your college's Placement Officer.
             </p>
@@ -346,8 +351,7 @@ export default function StudentRegisterPage() {
             >
               OK, Got it
             </button>
-          </div>
-        </div>
+        </Modal>
       )}
 
       {/* Enhanced Animated Background */}

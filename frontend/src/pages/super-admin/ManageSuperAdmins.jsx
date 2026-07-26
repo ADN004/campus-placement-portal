@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { superAdminAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import { UserPlus, Shield, CheckCircle, XCircle, X, Mail, Trash2 } from 'lucide-react';
-import ModalScrollLock from '../../components/ModalScrollLock';
+import Modal from '../../components/Modal';
 import useSkeleton from '../../hooks/useSkeleton';
 import AnimatedSection from '../../components/animation/AnimatedSection';
 import TablePageSkeleton from '../../components/skeletons/TablePageSkeleton';
@@ -239,11 +239,14 @@ export default function ManageSuperAdmins() {
 
       {/* Add Admin Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <ModalScrollLock />
-          <div className="bg-white rounded-lg w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden">
+        <Modal
+          onClose={() => setShowAddModal(false)}
+          labelledBy="add-super-admin-title"
+          overlayClassName="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          panelClassName="bg-white rounded-lg w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden"
+        >
             <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-gray-200">
-              <h2 className="text-2xl font-bold">Add New Super Admin</h2>
+              <h2 id="add-super-admin-title" className="text-2xl font-bold">Add New Super Admin</h2>
               <button
                 type="button"
                 onClick={() => setShowAddModal(false)}
@@ -313,8 +316,7 @@ export default function ManageSuperAdmins() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

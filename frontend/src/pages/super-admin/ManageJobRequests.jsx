@@ -9,7 +9,7 @@ import {
   DollarSign, Clock, GraduationCap, AlertCircle, FileText, Globe,
   Target, BookOpen, Ruler, Weight, FileCheck, Users, Home, Award
 } from 'lucide-react';
-import ModalScrollLock from '../../components/ModalScrollLock';
+import Modal from '../../components/Modal';
 
 export default function ManageJobRequests() {
   const [jobRequests, setJobRequests] = useState([]);
@@ -493,9 +493,12 @@ export default function ManageJobRequests() {
 
       {/* Approve Modal */}
       {showApproveModal && selectedRequest && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
-          <ModalScrollLock />
-          <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto overscroll-contain shadow-2xl transform transition-all">
+        <Modal
+          onClose={() => setShowApproveModal(false)}
+          labelledBy="approve-request-title"
+          overlayClassName="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn"
+          panelClassName="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto overscroll-contain shadow-2xl transform transition-all"
+        >
             {/* Header */}
             <div className="bg-gradient-to-r from-green-500 to-emerald-500 px-6 py-5 rounded-t-2xl">
               <div className="flex items-center justify-between gap-3">
@@ -503,7 +506,7 @@ export default function ManageJobRequests() {
                   <div className="p-2 bg-white/20 backdrop-blur-sm rounded-lg">
                     <CheckCircle className="text-white" size={24} />
                   </div>
-                  <h2 className="text-2xl font-bold text-white">Approve Job Request</h2>
+                  <h2 id="approve-request-title" className="text-2xl font-bold text-white">Approve Job Request</h2>
                 </div>
                 <button
                   type="button"
@@ -565,15 +568,17 @@ export default function ManageJobRequests() {
                 </button>
               </div>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
 
       {/* Reject Modal */}
       {showRejectModal && selectedRequest && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
-          <ModalScrollLock />
-          <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto overscroll-contain shadow-2xl transform transition-all">
+        <Modal
+          onClose={() => setShowRejectModal(false)}
+          labelledBy="reject-request-title"
+          overlayClassName="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn"
+          panelClassName="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto overscroll-contain shadow-2xl transform transition-all"
+        >
             {/* Header */}
             <div className="bg-gradient-to-r from-red-500 to-rose-500 px-6 py-5 rounded-t-2xl">
               <div className="flex items-center justify-between gap-3">
@@ -581,7 +586,7 @@ export default function ManageJobRequests() {
                   <div className="p-2 bg-white/20 backdrop-blur-sm rounded-lg">
                     <XCircle className="text-white" size={24} />
                   </div>
-                  <h2 className="text-2xl font-bold text-white">Reject Job Request</h2>
+                  <h2 id="reject-request-title" className="text-2xl font-bold text-white">Reject Job Request</h2>
                 </div>
                 <button
                   type="button"
@@ -657,8 +662,7 @@ export default function ManageJobRequests() {
                 </button>
               </div>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

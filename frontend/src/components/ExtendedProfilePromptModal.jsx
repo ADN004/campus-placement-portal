@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FileText, CheckCircle, X, ChevronRight } from 'lucide-react';
-import ModalScrollLock from './ModalScrollLock';
+import Modal from './Modal';
 
 export default function ExtendedProfilePromptModal({ onClose, profileCompletion }) {
   const navigate = useNavigate();
@@ -22,18 +22,15 @@ export default function ExtendedProfilePromptModal({ onClose, profileCompletion 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fadeIn">
-      <ModalScrollLock />
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={handleSkip}
-      ></div>
-
-      {/* Modal */}
-      <div className={`relative z-10 w-full max-w-md transform transition-all duration-400 ${
+    <Modal
+      onClose={handleSkip}
+      labelledBy="extended-profile-prompt-title"
+      closeOnBackdrop={true}
+      overlayClassName="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fadeIn"
+      panelClassName={`relative z-10 w-full max-w-md transform transition-all duration-400 ${
         isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
-      }`}>
+      }`}
+    >
         <div className="bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-200">
           {/* Header */}
           <div className="relative bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-4">
@@ -49,7 +46,7 @@ export default function ExtendedProfilePromptModal({ onClose, profileCompletion 
                 <FileText className="text-white" size={24} />
               </div>
               <div>
-                <h2 className="text-lg font-bold text-white">Complete Your Extended Profile</h2>
+                <h2 id="extended-profile-prompt-title" className="text-lg font-bold text-white">Complete Your Extended Profile</h2>
                 <p className="text-sm text-white/80">Unlock all job opportunities</p>
               </div>
             </div>
@@ -109,17 +106,6 @@ export default function ExtendedProfilePromptModal({ onClose, profileCompletion 
             </p>
           </div>
         </div>
-      </div>
-
-      <style jsx>{`
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        .animate-fadeIn {
-          animation: fadeIn 0.2s ease-out;
-        }
-      `}</style>
-    </div>
+    </Modal>
   );
 }

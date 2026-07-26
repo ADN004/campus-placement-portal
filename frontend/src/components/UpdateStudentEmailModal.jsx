@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { X, Mail, Save } from 'lucide-react';
-import useBodyScrollLock from '../hooks/useBodyScrollLock';
+import Modal from './Modal';
 import GoogleEmailButton from './GoogleEmailButton';
 import usePortalMode from '../hooks/usePortalMode';
 
@@ -20,7 +20,6 @@ import usePortalMode from '../hooks/usePortalMode';
  *   onClose       — close without changes
  */
 export default function UpdateStudentEmailModal({ currentEmail, studentName, onSubmit, onClose }) {
-  useBodyScrollLock(true);
   const [email, setEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const portalMode = usePortalMode();
@@ -43,12 +42,15 @@ export default function UpdateStudentEmailModal({ currentEmail, studentName, onS
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+    <Modal
+      onClose={onClose}
+      labelledBy="update-email-title"
+      panelClassName="bg-white rounded-lg shadow-xl max-w-md w-full"
+    >
         <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Mail className="h-5 w-5 text-blue-600" aria-hidden="true" />
-            <h2 className="text-lg font-bold text-gray-900">Update Email Address</h2>
+            <h2 id="update-email-title" className="text-lg font-bold text-gray-900">Update Email Address</h2>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600" disabled={submitting}>
             <X className="h-6 w-6" />
@@ -116,7 +118,6 @@ export default function UpdateStudentEmailModal({ currentEmail, studentName, onS
             )}
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

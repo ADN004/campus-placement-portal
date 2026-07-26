@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import ModalScrollLock from '../../components/ModalScrollLock';
+import Modal from '../../components/Modal';
 import { placementOfficerAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import {
@@ -282,13 +282,16 @@ export default function ManageCollegeBranches() {
 
       {/* Edit Branches Modal */}
       {showEditModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <ModalScrollLock />
-          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto overscroll-contain">
+        <Modal
+          onClose={handleCloseModal}
+          labelledBy="po-branches-title"
+          overlayClassName="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          panelClassName="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto overscroll-contain"
+        >
             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 z-10">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900">Manage Branches</h2>
+                  <h2 id="po-branches-title" className="text-xl font-bold text-gray-900">Manage Branches</h2>
                   <p className="text-sm text-gray-600">{collegeData?.college_name}</p>
                 </div>
                 <button
@@ -410,8 +413,7 @@ export default function ManageCollegeBranches() {
                 )}
               </button>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

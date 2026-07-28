@@ -1,14 +1,20 @@
 /**
  * Email Service Module
  *
- * This module handles all email functionality for the State Placement Cell.
- * Uses Nodemailer with Gmail SMTP or custom SMTP service.
+ * Handles all transactional email for the State Placement Cell.
+ * Uses Nodemailer with Gmail SMTP (or custom SMTP) in production; captures to
+ * logs everywhere else.
  *
- * Features:
- * - Email verification for new students
- * - Password reset emails
- * - Generic notification emails
- * - HTML email templates with branding
+ * All messages share one cross-client-safe HTML shell (see renderEmail):
+ *  - table-based layout with inline styles (Gmail / Outlook / Apple Mail safe)
+ *  - solid-colour header with a CSS gradient as progressive enhancement
+ *    (Outlook shows the solid colour, so the white title is never invisible)
+ *  - a 🎓 emblem + wordmark header, or an image if EMAIL_LOGO_URL is set
+ *  - a preheader line (the grey inbox preview text)
+ *  - a "bulletproof" button and a consistent, dynamic-year footer
+ *
+ * Each email is split into a pure build*(...) => { subject, html } function
+ * (renderable/testable without sending) and a thin send*(...) wrapper.
  *
  * @module config/emailService
  */
@@ -23,44 +29,27 @@ dotenv.config();
 // ============================================
 
 /**
- * Environment-aware email transport (fail-safe by design)
+ * Environment-aware email transport (fail-safe by design).
  *
- * Real SMTP delivery requires BOTH:
- *   - APP_ENV=production
- *   - EMAIL_MODE=smtp (the default when APP_ENV=production)
- *
- * In any other environment (staging, development, unset), emails are
- * composed normally but captured to the application logs via nodemailer's
- * jsonTransport instead of being delivered. This guarantees a staging
- * deployment can NEVER email real students, even if production SMTP
- * credentials are present in its environment file.
- *
- * EMAIL_MODE values:
- *   'smtp' - real delivery (only honored when APP_ENV=production)
- *   'log'  - capture emails to logs (forced for non-production)
+ * Real SMTP delivery requires BOTH APP_ENV=production AND EMAIL_MODE=smtp.
+ * In any other environment emails are composed normally but captured to the
+ * application logs via nodemailer's jsonTransport instead of being delivered,
+ * so a staging deploy can NEVER email a real student even with prod creds.
  */
 const APP_ENV = process.env.APP_ENV || 'production';
 const EMAIL_MODE = process.env.EMAIL_MODE || (APP_ENV === 'production' ? 'smtp' : 'log');
 const isRealDeliveryEnabled = APP_ENV === 'production' && EMAIL_MODE === 'smtp';
 
-/**
- * Nodemailer Transporter
- *
- * Configured with Gmail or custom SMTP service.
- * For Gmail: Use App Password, not regular password.
- * Enable 2FA and generate App Password at:
- * https://support.google.com/accounts/answer/185833
- */
 const smtpTransporter = nodemailer.createTransport(
   isRealDeliveryEnabled
     ? {
         service: process.env.EMAIL_SERVICE || 'gmail',
         auth: {
           user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASSWORD,  // Gmail App Password
+          pass: process.env.EMAIL_PASSWORD, // Gmail App Password
         },
       }
-    : { jsonTransport: true }  // composes the full message, delivers nowhere
+    : { jsonTransport: true } // composes the full message, delivers nowhere
 );
 
 const transporter = isRealDeliveryEnabled
@@ -83,1041 +72,438 @@ if (!isRealDeliveryEnabled) {
 }
 
 // ============================================
-// EMAIL VERIFICATION
+// SHARED, CROSS-CLIENT-SAFE TEMPLATE
 // ============================================
 
+const BRAND = {
+  name: 'State Placement Cell',
+  sub: 'Kerala Polytechnics',
+  // Drop-in for a real logo later: set EMAIL_LOGO_URL to a hosted PNG/JPG and
+  // it replaces the 🎓 emblem automatically.
+  logoUrl: process.env.EMAIL_LOGO_URL || '',
+  // FRONTEND_URL doubles as the "visit the portal" link target.
+  siteUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
+};
+
+const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+
+/** Accent palettes per message type (header + button gradient). */
+const ACCENTS = {
+  indigo: { from: '#4f46e5', to: '#4338ca', tintBg: '#eef2ff', tintBorder: '#6366f1' },
+  red: { from: '#dc2626', to: '#b91c1c', tintBg: '#fef2f2', tintBorder: '#ef4444' },
+  amber: { from: '#d97706', to: '#b45309', tintBg: '#fffbeb', tintBorder: '#f59e0b' },
+  blue: { from: '#2563eb', to: '#1d4ed8', tintBg: '#eff6ff', tintBorder: '#3b82f6' },
+  green: { from: '#059669', to: '#047857', tintBg: '#ecfdf5', tintBorder: '#10b981' },
+  violet: { from: '#7c3aed', to: '#6d28d9', tintBg: '#f5f3ff', tintBorder: '#8b5cf6' },
+  slate: { from: '#6366f1', to: '#4f46e5', tintBg: '#f8fafc', tintBorder: '#94a3b8' },
+};
+
+/** A bulletproof, gradient-with-solid-fallback button. */
+function emailButton(url, label, accent) {
+  return `
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:28px auto;">
+          <tr>
+            <td align="center" bgcolor="${accent.from}" style="border-radius:8px;background-color:${accent.from};background-image:linear-gradient(135deg,${accent.from} 0%,${accent.to} 100%);">
+              <a href="${url}" target="_blank" style="display:inline-block;padding:14px 36px;font-family:${FONT};font-size:15px;font-weight:700;line-height:1;color:#ffffff;text-decoration:none;border-radius:8px;">${label}</a>
+            </td>
+          </tr>
+        </table>`;
+}
+
+/** An accent-tinted callout box (notes, warnings, highlights). */
+function emailCallout(html, accent) {
+  return `
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:18px 0;">
+          <tr>
+            <td style="background-color:${accent.tintBg};border-left:4px solid ${accent.tintBorder};border-radius:6px;padding:14px 16px;font-family:${FONT};font-size:14px;line-height:1.6;color:#334155;">${html}</td>
+          </tr>
+        </table>`;
+}
+
+/** A table-based (Outlook-safe) label/value detail list. Skips empty values. */
+function emailDetailList(rows) {
+  const body = rows
+    .filter(([, value]) => value !== undefined && value !== null && value !== '')
+    .map(
+      ([label, value]) => `
+            <tr>
+              <td style="padding:10px 0;border-bottom:1px solid #e5e7eb;font-family:${FONT};font-size:14px;font-weight:600;color:#64748b;width:150px;vertical-align:top;">${label}</td>
+              <td style="padding:10px 0;border-bottom:1px solid #e5e7eb;font-family:${FONT};font-size:14px;color:#0f172a;">${value}</td>
+            </tr>`
+    )
+    .join('');
+  return `
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0;">${body}
+        </table>`;
+}
+
+/** Turn an array of strings into a clean checklist. */
+function emailList(items) {
+  return `
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:10px 0;">
+          ${items
+            .map(
+              (item) => `<tr>
+            <td width="22" valign="top" style="font-family:${FONT};font-size:15px;color:#64748b;line-height:1.6;">•</td>
+            <td style="font-family:${FONT};font-size:15px;color:#334155;line-height:1.6;padding-bottom:6px;">${item}</td>
+          </tr>`
+            )
+            .join('')}
+        </table>`;
+}
+
 /**
- * Send Email Verification Link
- *
- * Sends a verification email to newly registered/approved students.
- * The verification link expires in 24 hours.
- *
- * @async
- * @function sendVerificationEmail
- * @param {string} email - Recipient email address
- * @param {string} verificationToken - Unique verification token
- * @param {string} studentName - Student's name for personalization
- * @returns {Promise<Object>} Email send result
- * @returns {boolean} return.success - Whether email was sent successfully
- * @returns {string} return.messageId - Email message ID from mail server
- * @throws {Error} If email fails to send
- *
- * @example
- * await sendVerificationEmail(
- *   'student@example.com',
- *   'abc123def456',
- *   'John Doe'
- * );
+ * The shared shell. Wraps `bodyHtml` (already-formatted inner HTML) in the
+ * branded, cross-client-safe frame.
  */
+function renderEmail({ accent, preheader = '', heading, bodyHtml }) {
+  const year = new Date().getFullYear();
+  const emblem = BRAND.logoUrl
+    ? `<img src="${BRAND.logoUrl}" width="56" height="56" alt="${BRAND.name}" style="display:block;margin:0 auto 8px;border:0;outline:none;text-decoration:none;" />`
+    : `<div style="font-size:42px;line-height:42px;margin-bottom:4px;">🎓</div>`;
+
+  return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="color-scheme" content="light" />
+  <title>${BRAND.name}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f1f5f9;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;mso-hide:all;">${preheader}&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;</div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f1f5f9;">
+    <tr>
+      <td align="center" style="padding:24px 12px;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;background-color:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;">
+          <tr>
+            <td align="center" bgcolor="${accent.from}" style="background-color:${accent.from};background-image:linear-gradient(135deg,${accent.from} 0%,${accent.to} 100%);padding:34px 24px;">
+              ${emblem}
+              <div style="font-family:${FONT};font-size:22px;font-weight:700;letter-spacing:0.3px;color:#ffffff;">${BRAND.name}</div>
+              <div style="font-family:${FONT};font-size:13px;color:#ffffff;opacity:0.9;margin-top:2px;">${BRAND.sub}</div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:36px 32px;font-family:${FONT};font-size:15px;line-height:1.65;color:#334155;">
+              ${heading ? `<h1 style="margin:0 0 16px;font-family:${FONT};font-size:20px;font-weight:700;color:#0f172a;">${heading}</h1>` : ''}
+              ${bodyHtml}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:22px 32px;background-color:#f8fafc;border-top:1px solid #e2e8f0;text-align:center;font-family:${FONT};font-size:12px;line-height:1.6;color:#94a3b8;">
+              <div style="font-weight:600;color:#64748b;">${BRAND.name} — ${BRAND.sub}</div>
+              <div style="margin-top:4px;">This is an automated message. Please do not reply to this email.</div>
+              <div style="margin-top:6px;">&copy; ${year} ${BRAND.name}. All rights reserved.</div>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+/** Shared send helper: composes, sends, logs, and normalises the result. */
+async function dispatch(kind, { to, subject, html }) {
+  const mailOptions = { from: process.env.EMAIL_FROM, to, subject, html };
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`✅ ${kind} email sent:`, info.messageId);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error(`❌ Email send error (${kind}):`, error);
+    throw new Error(`Failed to send ${kind} email: ${error.message}`);
+  }
+}
+
+const p = (html) => `<p style="margin:0 0 14px;font-family:${FONT};font-size:15px;line-height:1.65;color:#334155;">${html}</p>`;
+const muted = (html) => `<p style="margin:0 0 8px;font-family:${FONT};font-size:13px;line-height:1.6;color:#94a3b8;">${html}</p>`;
+const linkText = (url) =>
+  `<p style="margin:0 0 4px;word-break:break-all;font-family:${FONT};font-size:13px;line-height:1.5;color:#4f46e5;">${url}</p>`;
+
+// ============================================
+// EMAIL BUILDERS + SENDERS
+// ============================================
+
+/** Account verification (welcome). */
+export function buildVerificationEmail(verificationUrl, studentName) {
+  const accent = ACCENTS.indigo;
+  return {
+    subject: 'Verify Your Email — State Placement Cell',
+    html: renderEmail({
+      accent,
+      preheader: 'Confirm your email to activate your State Placement Cell account.',
+      heading: `Hello ${studentName},`,
+      bodyHtml: `
+              ${p('Welcome to the <strong>State Placement Cell</strong>! Your account has been approved by your placement officer.')}
+              ${p('Please confirm your email address to finish setting up your account and unlock every feature of the portal.')}
+              ${emailButton(verificationUrl, 'Verify Email Address', accent)}
+              ${muted('Button not working? Copy and paste this link into your browser:')}
+              ${linkText(verificationUrl)}
+              ${emailCallout('<strong>Heads up:</strong> this link expires in 24 hours for your security.', ACCENTS.amber)}
+              ${muted("If you didn't create this account, you can safely ignore this email — it will stay inactive.")}`,
+    }),
+  };
+}
+
 export const sendVerificationEmail = async (email, verificationToken, studentName) => {
-  // Construct verification URL using frontend URL (support both local and production)
-  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-  const verificationUrl = `${frontendUrl}/verify-email?token=${verificationToken}`;
-
-  const mailOptions = {
-    from: process.env.EMAIL_FROM,
-    to: email,
-    subject: 'Verify Your Email - State Placement Cell',
-    html: `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <style>
-          body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            line-height: 1.6;
-            color: #333333;
-            margin: 0;
-            padding: 0;
-            background-color: #f5f5f5;
-          }
-          .container {
-            max-width: 600px;
-            margin: 0 auto;
-            background-color: #ffffff;
-          }
-          .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: #ffffff !important;
-            padding: 30px 20px;
-            text-align: center;
-            border-radius: 0;
-          }
-          .header h1 {
-            margin: 0;
-            font-size: 24px;
-            font-weight: 600;
-            color: #ffffff !important;
-          }
-          .content {
-            background-color: #ffffff;
-            padding: 40px 30px;
-            border-left: 1px solid #e0e0e0;
-            border-right: 1px solid #e0e0e0;
-          }
-          .content h2 {
-            color: #1a1a1a;
-            font-size: 20px;
-            margin-bottom: 20px;
-          }
-          .content p {
-            color: #4a5568;
-            font-size: 16px;
-            line-height: 1.8;
-            margin-bottom: 16px;
-          }
-          .button-container {
-            text-align: center;
-            margin: 35px 0;
-          }
-          .button {
-            display: inline-block;
-            padding: 16px 40px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: #ffffff !important;
-            text-decoration: none;
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 16px;
-            letter-spacing: 0.5px;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-            transition: all 0.3s ease;
-          }
-          .button:hover {
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
-            transform: translateY(-2px);
-          }
-          .link-box {
-            word-break: break-all;
-            background-color: #f7fafc;
-            padding: 15px;
-            border-radius: 6px;
-            border: 1px solid #e2e8f0;
-            font-size: 13px;
-            color: #4a5568;
-            margin: 20px 0;
-          }
-          .note {
-            background-color: #fff3cd;
-            border-left: 4px solid #ffc107;
-            padding: 12px 16px;
-            margin: 20px 0;
-            border-radius: 4px;
-          }
-          .note strong {
-            color: #856404;
-          }
-          .footer {
-            background-color: #f8f9fa;
-            text-align: center;
-            padding: 25px 20px;
-            font-size: 13px;
-            color: #6c757d;
-            border-top: 1px solid #e0e0e0;
-          }
-          @media only screen and (max-width: 600px) {
-            .content {
-              padding: 25px 20px;
-            }
-            .button {
-              padding: 14px 30px;
-              font-size: 15px;
-            }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>State Placement Cell</h1>
-          </div>
-          <div class="content">
-            <h2>Hello ${studentName},</h2>
-            <p>Welcome to the State Placement Cell! Your account has been approved by your placement officer.</p>
-            <p>Please verify your email address to complete your registration and access all features.</p>
-            <div class="button-container">
-              <a href="${verificationUrl}" class="button" style="color: #ffffff !important;">Verify Email Address</a>
-            </div>
-            <p style="font-size: 14px; color: #718096;">Or copy and paste this link in your browser:</p>
-            <div class="link-box">${verificationUrl}</div>
-            <div class="note">
-              <strong>Note:</strong> This link will expire in 24 hours for security reasons.
-            </div>
-            <p style="font-size: 14px; color: #718096;">If you didn't create this account, please ignore this email and the account will remain inactive.</p>
-          </div>
-          <div class="footer">
-            <p style="margin: 0;">&copy; 2025 State Placement Cell. All rights reserved.</p>
-            <p style="margin: 8px 0 0 0; font-size: 12px;">This is an automated email. Please do not reply.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `,
-  };
-
-  try {
-    const info = await transporter.sendMail(mailOptions);
-    console.log('✅ Email sent:', info.messageId);
-    return { success: true, messageId: info.messageId };
-  } catch (error) {
-    console.error('❌ Email send error:', error);
-    throw new Error(`Failed to send verification email: ${error.message}`);
-  }
+  const verificationUrl = `${BRAND.siteUrl}/verify-email?token=${verificationToken}`;
+  return dispatch('verification', { to: email, ...buildVerificationEmail(verificationUrl, studentName) });
 };
 
-// ============================================
-// PASSWORD RESET
-// ============================================
+/** Password reset. */
+export function buildPasswordResetEmail(resetUrl, userName) {
+  const accent = ACCENTS.red;
+  return {
+    subject: 'Reset Your Password — State Placement Cell',
+    html: renderEmail({
+      accent,
+      preheader: 'Reset the password for your State Placement Cell account.',
+      heading: `Hello ${userName},`,
+      bodyHtml: `
+              ${p('We received a request to reset the password for your State Placement Cell account.')}
+              ${p('Click the button below to choose a new password.')}
+              ${emailButton(resetUrl, 'Reset Password', accent)}
+              ${muted('Button not working? Copy and paste this link into your browser:')}
+              ${linkText(resetUrl)}
+              ${emailCallout('<strong>This link expires in 1 hour.</strong> If it lapses, just request a new reset.', ACCENTS.amber)}
+              ${muted("If you didn't request this, you can ignore this email — your password won't change.")}`,
+    }),
+  };
+}
 
-/**
- * Send Password Reset Email
- *
- * Sends a password reset link to users who requested it.
- * The reset link expires in 1 hour for security.
- *
- * @async
- * @function sendPasswordResetEmail
- * @param {string} email - Recipient email address
- * @param {string} resetToken - Unique password reset token
- * @param {string} userName - User's name for personalization
- * @returns {Promise<Object>} Email send result
- * @returns {boolean} return.success - Whether email was sent successfully
- * @returns {string} return.messageId - Email message ID from mail server
- * @throws {Error} If email fails to send
- *
- * @example
- * await sendPasswordResetEmail(
- *   'user@example.com',
- *   'reset_token_xyz',
- *   'Jane Smith'
- * );
- */
 export const sendPasswordResetEmail = async (email, resetToken, userName) => {
-  // Construct password reset URL using frontend URL
-  const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
-
-  const mailOptions = {
-    from: process.env.EMAIL_FROM,
-    to: email,
-    subject: 'Password Reset Request - State Placement Cell',
-    html: `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background-color: #DC2626; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
-          .content { background-color: #f9f9f9; padding: 30px; border: 1px solid #ddd; }
-          .button { display: inline-block; padding: 12px 30px; background-color: #DC2626; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
-          .footer { text-align: center; padding: 20px; font-size: 12px; color: #666; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>Password Reset Request</h1>
-          </div>
-          <div class="content">
-            <h2>Hello ${userName},</h2>
-            <p>We received a request to reset your password for your State Placement Cell account.</p>
-            <p style="text-align: center;">
-              <a href="${resetUrl}" class="button">Reset Password</a>
-            </p>
-            <p>Or copy and paste this link in your browser:</p>
-            <p style="word-break: break-all; background-color: #e9e9e9; padding: 10px; border-radius: 3px;">${resetUrl}</p>
-            <p><strong>Note:</strong> This link will expire in 1 hour.</p>
-            <p>If you didn't request a password reset, please ignore this email and your password will remain unchanged.</p>
-          </div>
-          <div class="footer">
-            <p>&copy; 2025 State Placement Cell. All rights reserved.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `,
-  };
-
-  try {
-    const info = await transporter.sendMail(mailOptions);
-    console.log('✅ Password reset email sent:', info.messageId);
-    return { success: true, messageId: info.messageId };
-  } catch (error) {
-    console.error('❌ Email send error:', error);
-    throw new Error(`Failed to send password reset email: ${error.message}`);
-  }
+  const resetUrl = `${BRAND.siteUrl}/reset-password?token=${resetToken}`;
+  return dispatch('password reset', { to: email, ...buildPasswordResetEmail(resetUrl, userName) });
 };
 
-// ============================================
-// NOTIFICATION EMAILS
-// ============================================
+/** Generic notification — `message` is caller-supplied inner HTML. */
+export function buildNotificationEmail(subject, message) {
+  const accent = ACCENTS.indigo;
+  return {
+    subject,
+    html: renderEmail({
+      accent,
+      preheader: typeof subject === 'string' ? subject : 'A new update from the State Placement Cell.',
+      bodyHtml: `<div style="font-family:${FONT};font-size:15px;line-height:1.65;color:#334155;">${message}</div>`,
+    }),
+  };
+}
 
-/**
- * Send Generic Notification Email
- *
- * Sends a customizable notification email for various purposes.
- * Used for announcements, updates, and custom notifications.
- *
- * @async
- * @function sendNotificationEmail
- * @param {string} email - Recipient email address
- * @param {string} subject - Email subject line
- * @param {string} message - Email message content (can include HTML)
- * @returns {Promise<Object>} Email send result
- * @returns {boolean} return.success - Whether email was sent successfully
- * @returns {string} return.messageId - Email message ID from mail server
- * @throws {Error} If email fails to send
- *
- * @example
- * await sendNotificationEmail(
- *   'student@example.com',
- *   'Important Placement Drive Update',
- *   '<p>The placement drive scheduled for tomorrow has been moved to next week.</p>'
- * );
- */
 export const sendNotificationEmail = async (email, subject, message) => {
-  const mailOptions = {
-    from: process.env.EMAIL_FROM,
-    to: email,
-    subject: subject,
-    html: `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background-color: #4F46E5; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
-          .content { background-color: #f9f9f9; padding: 30px; border: 1px solid #ddd; }
-          .footer { text-align: center; padding: 20px; font-size: 12px; color: #666; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>State Placement Cell</h1>
-          </div>
-          <div class="content">
-            ${message}
-          </div>
-          <div class="footer">
-            <p>&copy; 2025 State Placement Cell. All rights reserved.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `,
-  };
-
-  try {
-    const info = await transporter.sendMail(mailOptions);
-    console.log('✅ Notification email sent:', info.messageId);
-    return { success: true, messageId: info.messageId };
-  } catch (error) {
-    console.error('❌ Email send error:', error);
-    throw new Error(`Failed to send notification email: ${error.message}`);
-  }
+  return dispatch('notification', { to: email, ...buildNotificationEmail(subject, message) });
 };
 
-/**
- * Registration rejected email — tells the student why their REGISTRATION
- * was rejected and that they can register again with corrected details.
- * (Distinct from sendRejectionEmail below, which is about job applications.)
- */
+/** Registration rejected (a student's REGISTRATION, not a job application). */
+export function buildRegistrationRejectedEmail(registerUrl, studentName, reason) {
+  const accent = ACCENTS.red;
+  return {
+    subject: 'Registration Update — State Placement Cell',
+    html: renderEmail({
+      accent,
+      preheader: 'Your registration needs a change — you can register again.',
+      heading: `Dear ${studentName},`,
+      bodyHtml: `
+              ${p('Your registration on the State Placement Cell portal was <strong>not approved</strong> by your placement officer.')}
+              ${reason ? emailCallout(`<strong>Reason:</strong> ${reason}`, ACCENTS.red) : ''}
+              ${p('Please register again with the corrected details — your PRN will be accepted for a fresh registration.')}
+              ${emailButton(registerUrl, 'Register Again', ACCENTS.indigo)}
+              ${muted('If you believe this was a mistake, please contact your college placement officer.')}`,
+    }),
+  };
+}
+
 export const sendRegistrationRejectedEmail = async (email, studentName, reason) => {
-  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-
-  const mailOptions = {
-    from: process.env.EMAIL_FROM,
+  return dispatch('registration rejected', {
     to: email,
-    subject: 'Registration Update - State Placement Cell',
-    html: `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background-color: #DC2626; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
-          .content { background-color: #f9f9f9; padding: 30px; border: 1px solid #ddd; }
-          .reason { background-color: #FEF2F2; border: 1px solid #FECACA; border-radius: 5px; padding: 15px; margin: 15px 0; }
-          .button { display: inline-block; background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-top: 10px; }
-          .footer { text-align: center; padding: 20px; font-size: 12px; color: #666; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>State Placement Cell</h1>
-          </div>
-          <div class="content">
-            <p>Dear ${studentName},</p>
-            <p>Your registration on the State Placement Cell portal was <strong>not approved</strong> by your placement officer.</p>
-            ${reason ? `<div class="reason"><strong>Reason:</strong> ${reason}</div>` : ''}
-            <p>Please register again with the corrected details — your PRN will be accepted for a fresh registration.</p>
-            <a class="button" href="${frontendUrl}/register">Register Again</a>
-            <p style="margin-top: 20px;">If you believe this was a mistake, please contact your college placement officer.</p>
-          </div>
-          <div class="footer">
-            <p>&copy; 2025 State Placement Cell. All rights reserved.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `,
-  };
-
-  try {
-    const info = await transporter.sendMail(mailOptions);
-    console.log('✅ Registration rejected email sent:', info.messageId);
-    return { success: true, messageId: info.messageId };
-  } catch (error) {
-    console.error('❌ Email send error:', error);
-    throw new Error(`Failed to send registration rejected email: ${error.message}`);
-  }
+    ...buildRegistrationRejectedEmail(`${BRAND.siteUrl}/register`, studentName, reason),
+  });
 };
 
-/**
- * Notify an approved student that their placement officer has asked them to
- * correct something (and possibly re-upload their photo). The student stays
- * approved — they just sign in, fix it, and mark it done.
- */
+/** Post-approval "please fix something" (send-back-for-correction). */
+export function buildCorrectionRequestEmail(loginUrl, studentName, note, photoRequired) {
+  const accent = ACCENTS.amber;
+  return {
+    subject: 'Action Needed: Correction Requested — State Placement Cell',
+    html: renderEmail({
+      accent,
+      preheader: 'Your placement officer asked you to correct something on your profile.',
+      heading: `Dear ${studentName},`,
+      bodyHtml: `
+              ${p('Your placement officer has asked you to correct something on your profile. Your account is still active — just sign in and make the change.')}
+              ${emailCallout(`<strong>What to fix:</strong> ${note}`, accent)}
+              ${photoRequired ? p('<strong>Your photo has been removed and must be uploaded again.</strong>') : ''}
+              ${p(`Once you've made the correction${photoRequired ? ' and uploaded a new photo' : ''}, click <strong>“I've made the corrections”</strong> on your dashboard.`)}
+              ${emailButton(loginUrl, 'Sign In & Fix', ACCENTS.indigo)}
+              ${muted("If you're unsure what to change, please contact your college placement officer.")}`,
+    }),
+  };
+}
+
 export const sendCorrectionRequestEmail = async (email, studentName, note, photoRequired) => {
-  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-
-  const mailOptions = {
-    from: process.env.EMAIL_FROM,
+  return dispatch('correction request', {
     to: email,
-    subject: 'Action needed: correction requested - State Placement Cell',
-    html: `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background-color: #D97706; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
-          .content { background-color: #f9f9f9; padding: 30px; border: 1px solid #ddd; }
-          .note { background-color: #FFFBEB; border: 1px solid #FDE68A; border-radius: 5px; padding: 15px; margin: 15px 0; }
-          .button { display: inline-block; background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-top: 10px; }
-          .footer { text-align: center; padding: 20px; font-size: 12px; color: #666; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>State Placement Cell</h1>
-          </div>
-          <div class="content">
-            <p>Dear ${studentName},</p>
-            <p>Your placement officer has asked you to correct something on your profile. Your account is still active — just sign in and make the change.</p>
-            <div class="note"><strong>What to fix:</strong> ${note}</div>
-            ${photoRequired ? '<p><strong>Your photo has been removed and must be uploaded again.</strong></p>' : ''}
-            <p>Once you have made the correction${photoRequired ? ' and uploaded a new photo' : ''}, click <strong>“I've made the corrections”</strong> on your dashboard.</p>
-            <a class="button" href="${frontendUrl}/login">Sign In</a>
-            <p style="margin-top: 20px;">If you're unsure what to change, please contact your college placement officer.</p>
-          </div>
-          <div class="footer">
-            <p>&copy; 2025 State Placement Cell. All rights reserved.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `,
-  };
-
-  const info = await transporter.sendMail(mailOptions);
-  console.log('✅ Correction request email sent:', info.messageId);
-  return { success: true, messageId: info.messageId };
+    ...buildCorrectionRequestEmail(`${BRAND.siteUrl}/login`, studentName, note, photoRequired),
+  });
 };
 
-// ============================================
-// PLACEMENT DRIVE & RESULT EMAILS
-// ============================================
+/** Placement drive scheduled. */
+export function buildDriveScheduleEmail(studentName, jobDetails, driveDetails) {
+  const accent = ACCENTS.blue;
+  const driveDate = new Date(driveDetails.drive_date).toLocaleDateString('en-IN', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+  return {
+    subject: `Placement Drive Scheduled — ${jobDetails.company_name}`,
+    html: renderEmail({
+      accent,
+      preheader: `${jobDetails.company_name} drive on ${driveDate}.`,
+      heading: `Hello ${studentName},`,
+      bodyHtml: `
+              ${p('Good news — a placement drive has been scheduled for the following opportunity:')}
+              ${emailCallout(
+                `<div style="font-size:16px;font-weight:700;color:#1e40af;margin-bottom:6px;">${jobDetails.company_name}</div>` +
+                  emailDetailList([
+                    ['Position', jobDetails.job_title],
+                    ['Date', driveDate],
+                    ['Time', driveDetails.drive_time],
+                    ['Location', driveDetails.drive_location],
+                  ]),
+                accent
+              )}
+              ${driveDetails.additional_instructions ? emailCallout(`<strong>Important instructions:</strong><br/>${driveDetails.additional_instructions}`, ACCENTS.amber) : ''}
+              ${p('<strong>Please make sure to:</strong>')}
+              ${emailList([
+                'Arrive at least 15 minutes before the scheduled time',
+                'Bring multiple copies of your resume',
+                'Carry your ID card and required documents',
+                'Dress professionally',
+              ])}
+              ${p('Best of luck for the drive!')}`,
+    }),
+  };
+}
 
-/**
- * Send Drive Schedule Notification Email
- *
- * Notifies students about upcoming placement drive with date, time, and location.
- *
- * @async
- * @function sendDriveScheduleEmail
- * @param {string} email - Student email address
- * @param {string} studentName - Student's name
- * @param {Object} jobDetails - Job information
- * @param {string} jobDetails.job_title - Job title
- * @param {string} jobDetails.company_name - Company name
- * @param {Object} driveDetails - Drive schedule information
- * @param {string} driveDetails.drive_date - Date of drive
- * @param {string} driveDetails.drive_time - Time of drive
- * @param {string} driveDetails.drive_location - Location of drive
- * @param {string} driveDetails.additional_instructions - Additional instructions
- * @returns {Promise<Object>} Email send result
- */
 export const sendDriveScheduleEmail = async (email, studentName, jobDetails, driveDetails) => {
-  const mailOptions = {
-    from: process.env.EMAIL_FROM,
-    to: email,
-    subject: `Placement Drive Scheduled - ${jobDetails.company_name}`,
-    html: `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <style>
-          body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            line-height: 1.6;
-            color: #333333;
-            margin: 0;
-            padding: 0;
-            background-color: #f5f5f5;
-          }
-          .container {
-            max-width: 600px;
-            margin: 0 auto;
-            background-color: #ffffff;
-          }
-          .header {
-            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-            color: #ffffff !important;
-            padding: 30px 20px;
-            text-align: center;
-          }
-          .header h1 {
-            margin: 0;
-            font-size: 24px;
-            font-weight: 600;
-            color: #ffffff !important;
-          }
-          .content {
-            background-color: #ffffff;
-            padding: 40px 30px;
-            border-left: 1px solid #e0e0e0;
-            border-right: 1px solid #e0e0e0;
-          }
-          .info-box {
-            background-color: #eff6ff;
-            border-left: 4px solid #3b82f6;
-            padding: 20px;
-            margin: 25px 0;
-            border-radius: 4px;
-          }
-          .info-box h3 {
-            margin: 0 0 15px 0;
-            color: #1e40af;
-            font-size: 18px;
-          }
-          .detail-row {
-            display: flex;
-            padding: 10px 0;
-            border-bottom: 1px solid #e5e7eb;
-          }
-          .detail-row:last-child {
-            border-bottom: none;
-          }
-          .detail-label {
-            font-weight: 600;
-            color: #374151;
-            width: 140px;
-            flex-shrink: 0;
-          }
-          .detail-value {
-            color: #1f2937;
-            flex: 1;
-          }
-          .note {
-            background-color: #fef3c7;
-            border-left: 4px solid #f59e0b;
-            padding: 15px;
-            margin: 20px 0;
-            border-radius: 4px;
-          }
-          .footer {
-            background-color: #f8f9fa;
-            text-align: center;
-            padding: 25px 20px;
-            font-size: 13px;
-            color: #6c757d;
-            border-top: 1px solid #e0e0e0;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>Placement Drive Scheduled</h1>
-          </div>
-          <div class="content">
-            <h2>Hello ${studentName},</h2>
-            <p>Great news! A placement drive has been scheduled for the following opportunity:</p>
-
-            <div class="info-box">
-              <h3>${jobDetails.company_name}</h3>
-              <div class="detail-row">
-                <div class="detail-label">Position:</div>
-                <div class="detail-value">${jobDetails.job_title}</div>
-              </div>
-              <div class="detail-row">
-                <div class="detail-label">Date:</div>
-                <div class="detail-value">${new Date(driveDetails.drive_date).toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
-              </div>
-              <div class="detail-row">
-                <div class="detail-label">Time:</div>
-                <div class="detail-value">${driveDetails.drive_time}</div>
-              </div>
-              <div class="detail-row">
-                <div class="detail-label">Location:</div>
-                <div class="detail-value">${driveDetails.drive_location}</div>
-              </div>
-            </div>
-
-            ${driveDetails.additional_instructions ? `
-              <div class="note">
-                <strong>Important Instructions:</strong>
-                <p style="margin: 10px 0 0 0;">${driveDetails.additional_instructions}</p>
-              </div>
-            ` : ''}
-
-            <p><strong>Please make sure to:</strong></p>
-            <ul>
-              <li>Arrive at least 15 minutes before the scheduled time</li>
-              <li>Bring multiple copies of your resume</li>
-              <li>Carry your ID card and necessary documents</li>
-              <li>Dress professionally</li>
-            </ul>
-
-            <p>Best of luck for the placement drive!</p>
-          </div>
-          <div class="footer">
-            <p style="margin: 0;">&copy; 2025 State Placement Cell. All rights reserved.</p>
-            <p style="margin: 8px 0 0 0; font-size: 12px;">This is an automated email. Please do not reply.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `,
-  };
-
-  try {
-    const info = await transporter.sendMail(mailOptions);
-    console.log('✅ Drive schedule email sent:', info.messageId);
-    return { success: true, messageId: info.messageId };
-  } catch (error) {
-    console.error('❌ Email send error:', error);
-    throw new Error(`Failed to send drive schedule email: ${error.message}`);
-  }
+  return dispatch('drive schedule', { to: email, ...buildDriveScheduleEmail(studentName, jobDetails, driveDetails) });
 };
 
-/**
- * Send Selection Notification Email
- *
- * Congratulates students on being selected for a job position.
- *
- * @async
- * @function sendSelectionEmail
- * @param {string} email - Student email address
- * @param {string} studentName - Student's name
- * @param {Object} jobDetails - Job information
- * @param {Object} placementDetails - Placement details
- * @returns {Promise<Object>} Email send result
- */
-export const sendSelectionEmail = async (email, studentName, jobDetails, placementDetails) => {
-  const mailOptions = {
-    from: process.env.EMAIL_FROM,
-    to: email,
+/** Selected / placed. */
+export function buildSelectionEmail(studentName, jobDetails, placementDetails) {
+  const accent = ACCENTS.green;
+  return {
     subject: `Congratulations! Selected at ${jobDetails.company_name}`,
-    html: `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <style>
-          body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            line-height: 1.6;
-            color: #333333;
-            margin: 0;
-            padding: 0;
-            background-color: #f5f5f5;
-          }
-          .container {
-            max-width: 600px;
-            margin: 0 auto;
-            background-color: #ffffff;
-          }
-          .header {
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-            color: #ffffff !important;
-            padding: 30px 20px;
-            text-align: center;
-          }
-          .header h1 {
-            margin: 0;
-            font-size: 28px;
-            font-weight: 600;
-            color: #ffffff !important;
-          }
-          .content {
-            background-color: #ffffff;
-            padding: 40px 30px;
-            border-left: 1px solid #e0e0e0;
-            border-right: 1px solid #e0e0e0;
-          }
-          .success-box {
-            background-color: #d1fae5;
-            border-left: 4px solid #10b981;
-            padding: 20px;
-            margin: 25px 0;
-            border-radius: 4px;
-          }
-          .detail-row {
-            display: flex;
-            padding: 10px 0;
-            border-bottom: 1px solid #e5e7eb;
-          }
-          .detail-row:last-child {
-            border-bottom: none;
-          }
-          .detail-label {
-            font-weight: 600;
-            color: #374151;
-            width: 140px;
-            flex-shrink: 0;
-          }
-          .detail-value {
-            color: #1f2937;
-            flex: 1;
-          }
-          .footer {
-            background-color: #f8f9fa;
-            text-align: center;
-            padding: 25px 20px;
-            font-size: 13px;
-            color: #6c757d;
-            border-top: 1px solid #e0e0e0;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>🎉 Congratulations!</h1>
-          </div>
-          <div class="content">
-            <h2>Dear ${studentName},</h2>
-            <p style="font-size: 18px; color: #059669; font-weight: 600;">
-              We are delighted to inform you that you have been selected!
-            </p>
-
-            <div class="success-box">
-              <h3 style="margin: 0 0 15px 0; color: #047857;">Placement Details</h3>
-              <div class="detail-row">
-                <div class="detail-label">Company:</div>
-                <div class="detail-value"><strong>${jobDetails.company_name}</strong></div>
-              </div>
-              <div class="detail-row">
-                <div class="detail-label">Position:</div>
-                <div class="detail-value">${jobDetails.job_title}</div>
-              </div>
-              ${placementDetails.placement_package ? `
-                <div class="detail-row">
-                  <div class="detail-label">Package:</div>
-                  <div class="detail-value">${placementDetails.placement_package} LPA</div>
-                </div>
-              ` : ''}
-              ${placementDetails.placement_location ? `
-                <div class="detail-row">
-                  <div class="detail-label">Location:</div>
-                  <div class="detail-value">${placementDetails.placement_location}</div>
-                </div>
-              ` : ''}
-              ${placementDetails.joining_date ? `
-                <div class="detail-row">
-                  <div class="detail-label">Joining Date:</div>
-                  <div class="detail-value">${new Date(placementDetails.joining_date).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
-                </div>
-              ` : ''}
-            </div>
-
-            <p><strong>Next Steps:</strong></p>
-            <ul>
-              <li>The placement officer will contact you with further details</li>
-              <li>Prepare all required documents for onboarding</li>
-              <li>Check your portal regularly for updates</li>
-            </ul>
-
-            <p>Congratulations once again on this achievement! We wish you all the best for your future endeavors.</p>
-          </div>
-          <div class="footer">
-            <p style="margin: 0;">&copy; 2025 State Placement Cell. All rights reserved.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `,
+    html: renderEmail({
+      accent,
+      preheader: `You've been selected at ${jobDetails.company_name}!`,
+      heading: `Dear ${studentName},`,
+      bodyHtml: `
+              <p style="margin:0 0 14px;font-family:${FONT};font-size:18px;font-weight:700;color:#047857;line-height:1.5;">🎉 We're delighted to tell you that you've been selected!</p>
+              ${emailCallout(
+                `<div style="font-size:16px;font-weight:700;color:#047857;margin-bottom:6px;">Placement Details</div>` +
+                  emailDetailList([
+                    ['Company', `<strong>${jobDetails.company_name}</strong>`],
+                    ['Position', jobDetails.job_title],
+                    ['Package', placementDetails.placement_package ? `${placementDetails.placement_package} LPA` : ''],
+                    ['Location', placementDetails.placement_location],
+                    [
+                      'Joining Date',
+                      placementDetails.joining_date
+                        ? new Date(placementDetails.joining_date).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })
+                        : '',
+                    ],
+                  ]),
+                accent
+              )}
+              ${p('<strong>Next steps:</strong>')}
+              ${emailList([
+                'Your placement officer will contact you with further details',
+                'Prepare the documents required for onboarding',
+                'Check the portal regularly for updates',
+              ])}
+              ${p('Congratulations once again — we wish you a great start to your career!')}`,
+    }),
   };
+}
 
-  try {
-    const info = await transporter.sendMail(mailOptions);
-    console.log('✅ Selection email sent:', info.messageId);
-    return { success: true, messageId: info.messageId };
-  } catch (error) {
-    console.error('❌ Email send error:', error);
-    throw new Error(`Failed to send selection email: ${error.message}`);
-  }
+export const sendSelectionEmail = async (email, studentName, jobDetails, placementDetails) => {
+  return dispatch('selection', { to: email, ...buildSelectionEmail(studentName, jobDetails, placementDetails) });
 };
 
-/**
- * Send Rejection Notification Email
- *
- * Politely informs students that they were not selected.
- *
- * @async
- * @function sendRejectionEmail
- * @param {string} email - Student email address
- * @param {string} studentName - Student's name
- * @param {Object} jobDetails - Job information
- * @returns {Promise<Object>} Email send result
- */
-export const sendRejectionEmail = async (email, studentName, jobDetails) => {
-  const mailOptions = {
-    from: process.env.EMAIL_FROM,
-    to: email,
-    subject: `Application Update - ${jobDetails.company_name}`,
-    html: `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <style>
-          body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            line-height: 1.6;
-            color: #333333;
-            margin: 0;
-            padding: 0;
-            background-color: #f5f5f5;
-          }
-          .container {
-            max-width: 600px;
-            margin: 0 auto;
-            background-color: #ffffff;
-          }
-          .header {
-            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-            color: #ffffff !important;
-            padding: 30px 20px;
-            text-align: center;
-          }
-          .header h1 {
-            margin: 0;
-            font-size: 24px;
-            font-weight: 600;
-            color: #ffffff !important;
-          }
-          .content {
-            background-color: #ffffff;
-            padding: 40px 30px;
-            border-left: 1px solid #e0e0e0;
-            border-right: 1px solid #e0e0e0;
-          }
-          .info-box {
-            background-color: #f3f4f6;
-            border-left: 4px solid #6366f1;
-            padding: 20px;
-            margin: 25px 0;
-            border-radius: 4px;
-          }
-          .footer {
-            background-color: #f8f9fa;
-            text-align: center;
-            padding: 25px 20px;
-            font-size: 13px;
-            color: #6c757d;
-            border-top: 1px solid #e0e0e0;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>Application Update</h1>
-          </div>
-          <div class="content">
-            <h2>Dear ${studentName},</h2>
-            <p>Thank you for your interest in the ${jobDetails.job_title} position at ${jobDetails.company_name}.</p>
-
-            <p>After careful consideration, we regret to inform you that you have not been selected for this particular opportunity at this time.</p>
-
-            <div class="info-box">
-              <p style="margin: 0;"><strong>Please note:</strong> This decision does not reflect on your abilities or potential. The selection process was highly competitive, and many qualified candidates applied.</p>
-            </div>
-
-            <p>We encourage you to:</p>
-            <ul>
-              <li>Continue applying for upcoming opportunities</li>
-              <li>Work on enhancing your skills and resume</li>
-              <li>Seek feedback from your placement officer</li>
-              <li>Stay positive and keep preparing for future drives</li>
-            </ul>
-
-            <p>We wish you all the best in your future endeavors and hope you find the right opportunity soon.</p>
-          </div>
-          <div class="footer">
-            <p style="margin: 0;">&copy; 2025 State Placement Cell. All rights reserved.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `,
+/** Shortlisted for the next round. */
+export function buildShortlistEmail(studentName, jobDetails) {
+  const accent = ACCENTS.violet;
+  return {
+    subject: `Shortlisted for ${jobDetails.company_name} — ${jobDetails.job_title}`,
+    html: renderEmail({
+      accent,
+      preheader: `You've been shortlisted for ${jobDetails.company_name}.`,
+      heading: `Dear ${studentName},`,
+      bodyHtml: `
+              <p style="margin:0 0 14px;font-family:${FONT};font-size:18px;font-weight:700;color:#6d28d9;line-height:1.5;">Congratulations! You've been shortlisted for the next round.</p>
+              ${emailCallout(
+                emailDetailList([
+                  ['Position', jobDetails.job_title],
+                  ['Company', jobDetails.company_name],
+                ]),
+                accent
+              )}
+              ${p('Your application has progressed to the shortlisting stage — an excellent achievement.')}
+              ${p('<strong>What to expect next:</strong>')}
+              ${emailList([
+                "You'll be notified about the placement drive schedule",
+                'Prepare well for the interview rounds',
+                'Review your resume and technical skills',
+                'Check the portal regularly for updates',
+              ])}
+              ${p('Keep it up, and best of luck for the upcoming rounds!')}`,
+    }),
   };
+}
 
-  try {
-    const info = await transporter.sendMail(mailOptions);
-    console.log('✅ Rejection email sent:', info.messageId);
-    return { success: true, messageId: info.messageId };
-  } catch (error) {
-    console.error('❌ Email send error:', error);
-    throw new Error(`Failed to send rejection email: ${error.message}`);
-  }
-};
-
-/**
- * Send Shortlist Notification Email
- *
- * Informs students that they have been shortlisted for the next round.
- *
- * @async
- * @function sendShortlistEmail
- * @param {string} email - Student email address
- * @param {string} studentName - Student's name
- * @param {Object} jobDetails - Job information
- * @returns {Promise<Object>} Email send result
- */
 export const sendShortlistEmail = async (email, studentName, jobDetails) => {
-  const mailOptions = {
-    from: process.env.EMAIL_FROM,
-    to: email,
-    subject: `Shortlisted for ${jobDetails.company_name} - ${jobDetails.job_title}`,
-    html: `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <style>
-          body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            line-height: 1.6;
-            color: #333333;
-            margin: 0;
-            padding: 0;
-            background-color: #f5f5f5;
-          }
-          .container {
-            max-width: 600px;
-            margin: 0 auto;
-            background-color: #ffffff;
-          }
-          .header {
-            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
-            color: #ffffff !important;
-            padding: 30px 20px;
-            text-align: center;
-          }
-          .header h1 {
-            margin: 0;
-            font-size: 24px;
-            font-weight: 600;
-            color: #ffffff !important;
-          }
-          .content {
-            background-color: #ffffff;
-            padding: 40px 30px;
-            border-left: 1px solid #e0e0e0;
-            border-right: 1px solid #e0e0e0;
-          }
-          .success-box {
-            background-color: #f5f3ff;
-            border-left: 4px solid #8b5cf6;
-            padding: 20px;
-            margin: 25px 0;
-            border-radius: 4px;
-          }
-          .footer {
-            background-color: #f8f9fa;
-            text-align: center;
-            padding: 25px 20px;
-            font-size: 13px;
-            color: #6c757d;
-            border-top: 1px solid #e0e0e0;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>Shortlisted!</h1>
-          </div>
-          <div class="content">
-            <h2>Dear ${studentName},</h2>
-            <p style="font-size: 18px; color: #7c3aed; font-weight: 600;">
-              Congratulations! You have been shortlisted for the next round.
-            </p>
+  return dispatch('shortlist', { to: email, ...buildShortlistEmail(studentName, jobDetails) });
+};
 
-            <div class="success-box">
-              <p style="margin: 0 0 10px 0;"><strong>Position:</strong> ${jobDetails.job_title}</p>
-              <p style="margin: 0;"><strong>Company:</strong> ${jobDetails.company_name}</p>
-            </div>
-
-            <p>Your application has progressed to the shortlisting stage. This is an excellent achievement!</p>
-
-            <p><strong>What to expect next:</strong></p>
-            <ul>
-              <li>You will be notified about the placement drive schedule</li>
-              <li>Prepare well for the interview rounds</li>
-              <li>Review your resume and technical skills</li>
-              <li>Check your portal regularly for updates</li>
-            </ul>
-
-            <p>Keep up the great work and best of luck for the upcoming rounds!</p>
-          </div>
-          <div class="footer">
-            <p style="margin: 0;">&copy; 2025 State Placement Cell. All rights reserved.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `,
+/** Not selected for a job (application outcome). */
+export function buildRejectionEmail(studentName, jobDetails) {
+  const accent = ACCENTS.slate;
+  return {
+    subject: `Application Update — ${jobDetails.company_name}`,
+    html: renderEmail({
+      accent,
+      preheader: `An update on your application to ${jobDetails.company_name}.`,
+      heading: `Dear ${studentName},`,
+      bodyHtml: `
+              ${p(`Thank you for your interest in the ${jobDetails.job_title} position at ${jobDetails.company_name}.`)}
+              ${p('After careful consideration, we regret to inform you that you have not been selected for this particular opportunity at this time.')}
+              ${emailCallout('<strong>Please note:</strong> this decision does not reflect on your abilities. The process was highly competitive, with many strong candidates.', accent)}
+              ${p('We encourage you to:')}
+              ${emailList([
+                'Keep applying for upcoming opportunities',
+                'Continue improving your skills and resume',
+                'Seek feedback from your placement officer',
+                'Stay positive and keep preparing for future drives',
+              ])}
+              ${p('We wish you all the best — the right opportunity is on its way.')}`,
+    }),
   };
+}
 
-  try {
-    const info = await transporter.sendMail(mailOptions);
-    console.log('✅ Shortlist email sent:', info.messageId);
-    return { success: true, messageId: info.messageId };
-  } catch (error) {
-    console.error('❌ Email send error:', error);
-    throw new Error(`Failed to send shortlist email: ${error.message}`);
-  }
+export const sendRejectionEmail = async (email, studentName, jobDetails) => {
+  return dispatch('rejection', { to: email, ...buildRejectionEmail(studentName, jobDetails) });
 };
 
 // ============================================
 // TRANSPORTER VERIFICATION
 // ============================================
 
-/**
- * Verify Email Configuration
- *
- * Tests the email transporter configuration on startup.
- * Logs success or error message.
- *
- * @async
- * @function verifyEmailConfiguration
- * @returns {Promise<boolean>} Whether configuration is valid
- */
+/** Tests the transporter configuration on startup. */
 export const verifyEmailConfiguration = async () => {
   try {
     await transporter.verify();
@@ -1128,9 +514,5 @@ export const verifyEmailConfiguration = async () => {
     return false;
   }
 };
-
-// ============================================
-// EXPORTS
-// ============================================
 
 export default transporter;

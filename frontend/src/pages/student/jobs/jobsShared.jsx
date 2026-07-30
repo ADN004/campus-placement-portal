@@ -8,7 +8,7 @@ import {
   X,
 } from 'lucide-react';
 import Modal from '../../../components/Modal';
-import { EmptyState, ErrorState } from '../../../components/student/StudentUI';
+import { EmptyState, ErrorState, formatPackage } from '../../../components/student/StudentUI';
 
 export { SearchField, FilterChips } from '../../../components/student/StudentUI';
 
@@ -93,7 +93,7 @@ export function JobFacts({ job, className = '' }) {
   return (
     <div className={`flex flex-wrap gap-2 ${className}`}>
       {job.location && <Fact>{job.location}</Fact>}
-      {job.salary_package && <Fact strong>{job.salary_package} LPA</Fact>}
+      {job.salary_package && <Fact strong>{formatPackage(job.salary_package)}</Fact>}
       {job.application_deadline && <Fact>{formatDate(job.application_deadline)}</Fact>}
     </div>
   );
@@ -271,7 +271,7 @@ export function JobDetailsModal({ job, onClose, onApply }) {
                 <p className="text-spc-h3 font-bold text-spc-ink break-words">{job.company_name}</p>
                 <div className="flex flex-wrap gap-2 mt-2">
                   {job.location && <Fact>{job.location}</Fact>}
-                  {job.salary_package && <Fact strong>{job.salary_package} LPA</Fact>}
+                  {job.salary_package && <Fact strong>{formatPackage(job.salary_package)}</Fact>}
                   {job.no_of_vacancies && <Fact>{job.no_of_vacancies} vacancies</Fact>}
                 </div>
               </div>

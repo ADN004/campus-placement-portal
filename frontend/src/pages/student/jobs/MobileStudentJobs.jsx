@@ -49,7 +49,7 @@ export default function MobileStudentJobs({
           filters={filters}
           active={filterEligibility}
           onChange={onFilterChange}
-          scroll
+          compact
         />
       </div>
 

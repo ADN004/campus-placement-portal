@@ -352,10 +352,17 @@ export default function Layout() {
             create a nested scroll container, which silently breaks
             `position: sticky` for any child. The new mobile layouts need
             sticky action bars. Other roles keep the identical class list. */}
+        {/* `min-w-0` is load-bearing for students. A flex item defaults to
+            min-width:auto, so it refuses to shrink below its widest child —
+            a nowrap filter chip then pushes the whole content column past the
+            viewport, and the clip on the root hides the overflow instead of
+            letting you reach it. Other roles get this for free because their
+            `overflow-y-auto` makes <main> a scroll container, which is allowed
+            to shrink; dropping that for students is what exposed it. */}
         <main className={`flex-1 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)]
           transition-all duration-300 ${
             isStudent
-              ? `pb-24 sm:pb-24 lg:pb-8 ${
+              ? `min-w-0 pb-24 sm:pb-24 lg:pb-8 ${
                   studentSidebarCollapsed ? 'lg:ml-[96px]' : 'lg:ml-[266px]'
                 }`
               : 'overflow-y-auto lg:ml-[296px]'

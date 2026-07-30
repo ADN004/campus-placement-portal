@@ -1,5 +1,6 @@
 import { CheckCircle, Clock, XCircle, Award, X, Calendar } from 'lucide-react';
 import Modal from '../../../components/Modal';
+import { formatPackage } from '../../../components/student/StudentUI';
 
 /**
  * Pieces shared by the three StudentApplications presenters.
@@ -172,7 +173,7 @@ export function ApplicationDetailsModal({ application, onClose }) {
                 )}
                 {application.salary_package && (
                   <span className="inline-flex items-center rounded-spc-sm bg-spc-teal-soft text-spc-teal text-xs font-bold px-2.5 py-1.5">
-                    ₹{application.salary_package} LPA
+                    ₹{formatPackage(application.salary_package)}
                   </span>
                 )}
               </div>

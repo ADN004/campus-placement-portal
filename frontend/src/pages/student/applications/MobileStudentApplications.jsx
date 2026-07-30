@@ -50,7 +50,7 @@ export default function MobileStudentApplications({
             active={statusFilter}
             onChange={onFilterChange}
             label="Filter by status"
-            scroll
+            compact
           />
         </div>
       )}

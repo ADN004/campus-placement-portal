@@ -64,15 +64,22 @@ export default function StudentSidebar({
         bg-spc-surface border-r border-spc-line lg:border
         transition-all duration-300 ease-in-out`}
     >
-      <nav className="flex-1 overflow-y-auto px-3 py-4">
+      {/* overflow-x-hidden is load-bearing: `overflow-y-auto` forces the
+          horizontal axis to `auto` as well, so anything wider than the rail —
+          a nowrap heading, an escaping tooltip — turns into a horizontal
+          scrollbar and lets the panel scroll sideways into empty space. */}
+      <nav className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4">
         {sections.map((section) => (
           <div key={section.label} className="mb-1">
-            {/* The heading collapses to nothing on the rail rather than
-                unmounting, so the icons below never shift position. */}
+            {/* On the rail the heading keeps its height (so the icons below
+                never shift) but gives up its width — `whitespace-nowrap` alone
+                would still claim the full text width and overflow the 72px. */}
             <p
               className={`text-[11px] font-bold uppercase tracking-[0.13em] text-spc-muted
-                px-3 whitespace-nowrap overflow-hidden transition-all duration-200
-                ${collapsed ? 'lg:opacity-0 lg:h-2 lg:pt-0 lg:pb-0' : 'pt-3 pb-1.5'}`}
+                whitespace-nowrap overflow-hidden transition-all duration-200
+                ${collapsed
+                  ? 'px-3 pt-3 pb-1.5 lg:opacity-0 lg:h-2 lg:w-0 lg:px-0 lg:pt-0 lg:pb-0'
+                  : 'px-3 pt-3 pb-1.5'}`}
             >
               {section.label}
             </p>
@@ -86,7 +93,7 @@ export default function StudentSidebar({
                   to={item.path}
                   onClick={onNavigate}
                   aria-current={isActive ? 'page' : undefined}
-                  title={item.name}
+                  title={collapsed ? item.name : undefined}
                   className={`group relative flex items-center gap-3 rounded-spc-sm mb-0.5
                     min-h-[44px] px-3 ${collapsed ? 'lg:justify-center lg:px-0' : ''}
                     text-spc-sm font-semibold transition-colors
@@ -101,20 +108,6 @@ export default function StudentSidebar({
                   >
                     {item.name}
                   </span>
-
-                  {/* Label stand-in while collapsed — desktop only, since the
-                      rail never appears below lg. */}
-                  {collapsed && (
-                    <span
-                      className="pointer-events-none absolute left-[calc(100%+10px)] top-1/2 -translate-y-1/2
-                        hidden lg:block opacity-0 group-hover:opacity-100 transition-opacity
-                        bg-spc-ink text-spc-surface text-xs font-semibold
-                        px-2.5 py-1.5 rounded-spc-sm whitespace-nowrap z-30 shadow-lg"
-                      role="presentation"
-                    >
-                      {item.name}
-                    </span>
-                  )}
                 </Link>
               );
             })}

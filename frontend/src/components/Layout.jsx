@@ -29,6 +29,8 @@ import GradientOrb from './GradientOrb';
 import StudentBottomNav from './StudentBottomNav';
 import StudentTopBar from './student/StudentTopBar';
 import StudentSidebar from './student/StudentSidebar';
+import useDeviceType from '../hooks/useDeviceType';
+import useBodyScrollLock from '../hooks/useBodyScrollLock';
 
 const DEFAULT_PW_DISMISS_KEY = 'default-password-warning-dismissed';
 const STUDENT_SIDEBAR_COLLAPSED_KEY = 'spc-student-sidebar-collapsed';
@@ -65,6 +67,15 @@ export default function Layout() {
       return false;
     }
   });
+
+  // While the student drawer is open it covers the page, so the page behind it
+  // must not scroll — otherwise a swipe over the backdrop scrolls the content
+  // underneath. Only below `lg`, where the drawer actually overlays; at `lg`
+  // and up the sidebar is permanently on screen and nothing is covered.
+  // Scoped to students because the officer and super-admin shell is frozen
+  // until their own redesign — their drawer has the same bug.
+  const deviceType = useDeviceType();
+  useBodyScrollLock(isStudent && sidebarOpen && deviceType !== 'desktop');
 
   const toggleStudentSidebar = () => {
     setStudentSidebarCollapsed((prev) => {

@@ -3,17 +3,18 @@ import { Navigate, useLocation } from 'react-router-dom';
 /**
  * Routes a student whose registration is still pending to the waiting page.
  *
- * Profile is deliberately left reachable. A placement officer can raise a
- * correction request against a student who hasn't been approved yet, and
- * CorrectionGate locks that student out of every page *except* Profile until
- * they fix it. Redirecting Profile here too would bounce them between the two
- * screens with no way to resolve either.
+ * The waiting page is the only thing they can reach. Profile was briefly
+ * allowed through on the assumption that a correction request might need acting
+ * on, but send-back-for-correction is rejected by the API for anyone who isn't
+ * already approved, so a pending student can never have one. Leaving Profile
+ * open only gave them a window to edit the very details their approval is being
+ * judged on — CGPA and backlog locks don't engage until approval either.
  *
  * Only `pending` is gated. A rejected or blacklisted student keeps the existing
  * behaviour — they land on the dashboard and see the reason on their profile —
  * because telling them they're "being reviewed" would be untrue.
  */
-const REACHABLE_WHILE_PENDING = ['/student/waiting', '/student/profile'];
+const REACHABLE_WHILE_PENDING = ['/student/waiting'];
 
 export default function StudentApprovalGate({ status }) {
   const { pathname } = useLocation();

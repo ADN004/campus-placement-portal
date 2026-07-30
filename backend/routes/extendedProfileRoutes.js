@@ -5,7 +5,7 @@
  */
 
 import express from 'express';
-import { protect, authorize } from '../middleware/auth.js';
+import { protect, authorize, checkStudentApproval, blockPendingStudent } from '../middleware/auth.js';
 import {
   getExtendedProfile,
   updateAcademicExtended,
@@ -23,6 +23,8 @@ const router = express.Router();
 // All routes require authentication and student role
 router.use(protect);
 router.use(authorize('student'));
+// Closed entirely to students awaiting approval — see studentRoutes.
+router.use(blockPendingStudent);
 
 /**
  * @route   GET /api/students/extended-profile
@@ -43,42 +45,42 @@ router.get('/completion', getProfileCompletion);
  * @desc    Update academic extended section
  * @access  Private (Student)
  */
-router.put('/academic', updateAcademicExtended);
+router.put('/academic', checkStudentApproval, updateAcademicExtended);
 
 /**
  * @route   PUT /api/students/extended-profile/physical
  * @desc    Update physical details section
  * @access  Private (Student)
  */
-router.put('/physical', updatePhysicalDetails);
+router.put('/physical', checkStudentApproval, updatePhysicalDetails);
 
 /**
  * @route   PUT /api/students/extended-profile/family
  * @desc    Update family details section
  * @access  Private (Student)
  */
-router.put('/family', updateFamilyDetails);
+router.put('/family', checkStudentApproval, updateFamilyDetails);
 
 /**
  * @route   PUT /api/students/extended-profile/personal
  * @desc    Update personal details section
  * @access  Private (Student)
  */
-router.put('/personal', updatePersonalDetails);
+router.put('/personal', checkStudentApproval, updatePersonalDetails);
 
 /**
  * @route   PUT /api/students/extended-profile/documents
  * @desc    Update document verification section
  * @access  Private (Student)
  */
-router.put('/documents', updateDocumentDetails);
+router.put('/documents', checkStudentApproval, updateDocumentDetails);
 
 /**
  * @route   PUT /api/students/extended-profile/education-preferences
  * @desc    Update education preferences section
  * @access  Private (Student)
  */
-router.put('/education-preferences', updateEducationPreferences);
+router.put('/education-preferences', checkStudentApproval, updateEducationPreferences);
 
 /**
  * @route   GET /api/students/extended-profile/check-eligibility/:jobId

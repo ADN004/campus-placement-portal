@@ -181,6 +181,57 @@ export const authorize = (...roles) => {
  * // Usage in student routes
  * router.get('/jobs', protect, authorize('student'), checkStudentApproval, getJobs);
  */
+/**
+ * Blocks a student whose registration is still pending from every student API.
+ *
+ * A pending student's only legitimate destination is the waiting screen, which
+ * is served entirely by /auth/me — it needs nothing from /api/students. So the
+ * whole surface is closed to them: no reading their record, no notifications,
+ * no resend-verification, no writes of any kind. Email verification isn't a
+ * precondition of approval; it's prompted afterwards.
+ *
+ * Deliberately narrower than checkStudentApproval, which also rejects
+ * blacklisted students. Blacklisted accounts keep their existing behaviour —
+ * they can still read their own record and see why they're restricted — so
+ * applying the broader check across every route would have silently changed
+ * their experience too.
+ */
+export const blockPendingStudent = async (req, res, next) => {
+  try {
+    if (req.user.role !== 'student') {
+      return next();
+    }
+
+    const result = await query(
+      'SELECT registration_status FROM students WHERE user_id = $1',
+      [req.user.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student profile not found',
+      });
+    }
+
+    if (result.rows[0].registration_status === 'pending') {
+      return res.status(403).json({
+        success: false,
+        message: 'Your registration is pending approval from your placement officer',
+        status: 'pending',
+      });
+    }
+
+    next();
+  } catch (error) {
+    console.error('Pending student check error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error checking student status',
+    });
+  }
+};
+
 export const checkStudentApproval = async (req, res, next) => {
   try {
     // Skip check if user is not a student

@@ -59,6 +59,14 @@ export default function Layout() {
   // Officers and super admins keep exactly the shell they have today.
   const isStudent = user?.role === 'student';
 
+  // A pending student can only reach the waiting page, so the navigation is
+  // hidden entirely: every destination in it would bounce straight back, and a
+  // menu full of dead links reads as broken. The top bar keeps the brand and
+  // logout. Reads both shapes — login returns it flat, /auth/me nests it.
+  const isPendingStudent =
+    isStudent &&
+    (user?.profile?.registration_status ?? user?.registration_status) === 'pending';
+
   // Whether the student sidebar is collapsed to the icon rail at `lg` and up.
   // Remembered across visits so the panel stays how the student left it.
   const [studentSidebarCollapsed, setStudentSidebarCollapsed] = useState(() => {
@@ -198,8 +206,11 @@ export default function Layout() {
           : 'min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50'
       }`}
     >
-      {/* Blocks students with an outstanding correction from every page but Profile */}
-      {user?.role === 'student' && <CorrectionGate />}
+      {/* Blocks students with an outstanding correction from every page but
+          Profile. Skipped while pending: corrections are only ever raised
+          against approved students, and the endpoint is now closed to pending
+          ones, so polling it on every navigation would just 403. */}
+      {isStudent && !isPendingStudent && <CorrectionGate />}
       {/* Sends students still awaiting approval to the waiting page */}
       {isStudent && (
         <StudentApprovalGate
@@ -235,6 +246,7 @@ export default function Layout() {
           sidebarOpen={sidebarOpen}
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
           onLogout={handleLogout}
+          showMenu={!isPendingStudent}
         />
       )}
 
@@ -283,7 +295,7 @@ export default function Layout() {
 
       <div className="flex pt-16">
         {/* Students get the grouped, collapsible sidebar. */}
-        {isStudent && (
+        {isStudent && !isPendingStudent && (
           <StudentSidebar
             navigationItems={navigationItems}
             sidebarOpen={sidebarOpen}
@@ -399,7 +411,11 @@ export default function Layout() {
           transition-all duration-300 ${
             isStudent
               ? `spc-vh-main min-w-0 pb-24 sm:pb-24 lg:pb-8 ${
-                  studentSidebarCollapsed ? 'lg:ml-[96px]' : 'lg:ml-[266px]'
+                  isPendingStudent
+                    ? ''
+                    : studentSidebarCollapsed
+                    ? 'lg:ml-[96px]'
+                    : 'lg:ml-[266px]'
                 }`
               : 'min-h-[calc(100vh-4rem)] overflow-y-auto lg:ml-[296px]'
           }`}
@@ -450,7 +466,7 @@ export default function Layout() {
       {/* Student-only mobile/tablet bottom navigation. Hidden while the drawer
           is open — the drawer already lists every destination, and the bar
           would otherwise sit on top of it. */}
-      {isStudent && !sidebarOpen && <StudentBottomNav />}
+      {isStudent && !isPendingStudent && !sidebarOpen && <StudentBottomNav />}
 
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (

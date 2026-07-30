@@ -10,12 +10,13 @@ import { Menu, X, LogOut, GraduationCap } from 'lucide-react';
  * opacity with a 1px top highlight rather than the old 70%, so text on it
  * stays legible.
  */
-export default function StudentTopBar({ user, sidebarOpen, onToggleSidebar, onLogout }) {
+export default function StudentTopBar({ user, sidebarOpen, onToggleSidebar, onLogout, showMenu = true }) {
   return (
     <nav className="fixed w-full top-0 z-30 spc-glass border-b border-spc-line">
       <div className="px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center gap-3">
+            {showMenu && (
             <button
               onClick={onToggleSidebar}
               className="p-2 -ml-2 rounded-spc-sm text-spc-body hover:bg-spc-surface-2 hover:text-spc-ink lg:hidden transition-colors"
@@ -23,6 +24,7 @@ export default function StudentTopBar({ user, sidebarOpen, onToggleSidebar, onLo
             >
               {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
+            )}
 
             <div className="flex items-center gap-2.5">
               <div className="w-9 h-9 rounded-spc-sm bg-spc-teal flex items-center justify-center flex-shrink-0">

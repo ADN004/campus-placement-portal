@@ -25,7 +25,7 @@ import {
   resolveStudentCorrection,
   getCorrectionStatus,
 } from '../controllers/correctionController.js';
-import { protect, authorize, checkStudentApproval } from '../middleware/auth.js';
+import { protect, authorize, checkStudentApproval, blockPendingStudent } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -33,15 +33,25 @@ const router = express.Router();
 router.use(protect);
 router.use(authorize('student'));
 
-// Routes accessible to all students (pending or approved)
+// A student awaiting approval gets nothing from this router. Their only screen
+// is the waiting page, which is served entirely by /auth/me. Reads included:
+// there is no reason for them to pull notifications, dashboard figures or
+// verification quota before an officer has accepted their registration.
+router.use(blockPendingStudent);
+
+// Routes accessible to approved (and blacklisted) students
 router.get('/dashboard', getDashboard);
 router.get('/profile', getProfile);
-router.put('/profile', updateProfile);
+// Approved-only. A pending student's record is what the officer is reviewing,
+// and CGPA/backlog locks in updateProfile only engage once approved — so an
+// unguarded write here would let a student change the numbers their approval
+// is being judged on, and have the new values locked in on approval.
+router.put('/profile', checkStudentApproval, updateProfile);
 
 // Send-back-for-correction (student side)
 router.get('/correction-status', getCorrectionStatus);
-router.post('/photo', reuploadStudentPhoto);
-router.post('/correction/resolve', resolveStudentCorrection);
+router.post('/photo', checkStudentApproval, reuploadStudentPhoto);
+router.post('/correction/resolve', checkStudentApproval, resolveStudentCorrection);
 router.get('/notifications', getNotifications);
 router.put('/notifications/:id/read', markNotificationRead);
 router.post('/resend-verification', resendVerificationEmail);
@@ -51,7 +61,7 @@ router.get('/backlog-lock-status', getBacklogLockStatus);
 
 // Resume Routes (accessible to all students)
 router.get('/resume', getStudentResume);
-router.put('/resume', updateStudentResume);
+router.put('/resume', checkStudentApproval, updateStudentResume);
 router.get('/resume/download', downloadOwnResume);
 
 // Routes that require approved status

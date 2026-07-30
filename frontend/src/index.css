@@ -7,8 +7,14 @@
     @apply bg-gradient-to-br from-gray-50 to-gray-100 text-gray-900 antialiased;
   }
 
-  * {
-    @apply scroll-smooth;
+  /* Smooth scrolling belongs on the scrolling element, not on every node in
+     the tree. Applying it to `*` made each element its own smooth-scroll
+     target, which is a measurable cost on mobile and makes programmatic
+     scrolls feel laggy. Also respects the OS "reduce motion" setting now. */
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
   }
 }
 
@@ -507,4 +513,102 @@
 input[type='password']::-ms-reveal,
 input[type='password']::-ms-clear {
   display: none;
+}
+
+/* ===========================================================================
+   SPC DESIGN SYSTEM — student role
+   ---------------------------------------------------------------------------
+   Everything here is ADDITIVE. No existing class (.btn, .card, .input, .badge,
+   …) is redefined, so the placement-officer and super-admin pages are byte-for
+   -byte unaffected until their own redesign.
+
+   The typeface and the base text styles are deliberately fenced behind
+   `.spc-student`, which Layout.jsx puts on the shell only when
+   user.role === 'student'. Widening the scope later is a one-line change.
+
+   Colour tokens are declared on :root as raw "R G B" channel triplets so
+   Tailwind can apply opacity modifiers (bg-spc-teal/10). Declaring them
+   globally is harmless — they are just unused values for other roles.
+   =========================================================================== */
+
+@font-face {
+  font-family: 'Satoshi';
+  src: url('./assets/fonts/Satoshi-Variable.woff2') format('woff2');
+  font-weight: 300 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* surfaces — warm, blue-free neutrals (kasavu cream) */
+  --spc-ground: 247 245 241;
+  --spc-surface: 255 255 255;
+  --spc-surface-2: 240 237 231;
+  --spc-line: 227 222 213;
+  --spc-line-strong: 207 199 185;
+
+  /* text — every value below measured at AA or better on ground and surface */
+  --spc-ink: 18 33 31;        /* 16.63:1 on white */
+  --spc-body: 58 74 71;       /*  9.33:1 on white */
+  --spc-muted: 94 109 105;    /*  4.99:1 on ground */
+
+  /* primary */
+  --spc-teal: 15 90 86;       /*  8.02:1 on white */
+  --spc-teal-soft: 221 237 234;
+  --spc-on-teal: 255 255 255;      /* 8.02:1 on teal */
+  --spc-on-teal-dim: 182 214 209;  /* 5.17:1 on teal */
+
+  /* accent — used sparingly, never for body copy */
+  --spc-brass: 138 101 22;    /*  5.31:1 on white */
+  --spc-brass-soft: 243 234 214;
+
+  /* semantic — each measured against its own tint */
+  --spc-ok: 22 101 52;        --spc-ok-bg: 220 252 231;   /* 6.49:1 */
+  --spc-warn: 138 82 9;       --spc-warn-bg: 251 238 218; /* 5.57:1 */
+  --spc-bad: 168 30 30;       --spc-bad-bg: 251 230 228;  /* 6.11:1 */
+}
+
+/* The scope. Only the student shell carries this class. */
+.spc-student {
+  font-family: 'Satoshi', ui-sans-serif, system-ui, -apple-system, 'Segoe UI',
+    Roboto, sans-serif;
+  font-weight: 450;
+  /* Digits line up in columns — CGPA, package, dates, stat tiles. This is most
+     of what "the fonts look unaligned" actually meant. */
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color: rgb(var(--spc-body));
+}
+
+/* Calm, static ground for the student area — replaces the animated
+   mix-blend-multiply orbs, which darkened the page by up to 25% and cost a
+   continuous large-blur composite on every phone. */
+.spc-student-bg {
+  background:
+    radial-gradient(1100px 620px at 88% -8%, rgb(var(--spc-teal) / 0.05), transparent 62%),
+    radial-gradient(900px 560px at -6% 108%, rgb(var(--spc-brass) / 0.05), transparent 60%),
+    rgb(var(--spc-ground));
+}
+
+/* Glass, only where something genuinely floats above scrolling content.
+   82–88% opaque (not 60%) so text stays legible, plus a 1px top highlight —
+   the detail that reads as light catching an edge rather than a grey box. */
+.spc-glass {
+  background-color: rgb(var(--spc-surface) / 0.86);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.9);
+}
+
+@supports not (backdrop-filter: blur(1px)) {
+  .spc-glass {
+    background-color: rgb(var(--spc-surface) / 0.98);
+  }
+}
+
+/* Modal panels shouldn't hand their scroll momentum to the page behind them
+   once they hit the end. */
+.spc-scroll-contain {
+  overscroll-behavior-y: contain;
 }

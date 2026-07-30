@@ -129,17 +129,32 @@ export default function Layout() {
   const navigationItems = getNavigationItems();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 relative overflow-x-hidden">
+    <div
+      className={`min-h-screen relative overflow-x-hidden ${
+        isStudent
+          ? 'spc-student spc-student-bg'
+          : 'bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50'
+      }`}
+    >
       {/* Blocks students with an outstanding correction from every page but Profile */}
       {user?.role === 'student' && <CorrectionGate />}
-      {/* Animated Background Orbs */}
-      <div className="fixed inset-0 pointer-events-none">
-        <GradientOrb color="blue" size="xl" position={{ top: '10%', right: '10%' }} animationDuration="8s" />
-        <GradientOrb color="purple" size="lg" position={{ bottom: '15%', left: '5%' }} animationDuration="10s" delay="2s" />
-        <GradientOrb color="pink" size="md" position={{ top: '50%', left: '50%' }} animationDuration="12s" delay="4s" />
-        <GradientOrb color="cyan" size="lg" position={{ top: '30%', left: '15%' }} animationDuration="9s" delay="1s" />
-        <GradientOrb color="indigo" size="md" position={{ bottom: '25%', right: '20%' }} animationDuration="11s" delay="3s" />
-      </div>
+      {/* Animated Background Orbs — every role except students.
+          The orbs render with mix-blend-multiply, which darkens whatever sits
+          beneath them: measured, the page ground goes #eff6ff → #cadefd under
+          one orb and → #bcc0fb where two overlap. Combined with translucent
+          cards that pushed muted body text to 3.92:1, below the 4.5 minimum.
+          They also cost a continuous large-blur composite on every phone.
+          Students get the calm static ground from .spc-student-bg instead;
+          other roles keep this exactly as it was until their own redesign. */}
+      {!isStudent && (
+        <div className="fixed inset-0 pointer-events-none">
+          <GradientOrb color="blue" size="xl" position={{ top: '10%', right: '10%' }} animationDuration="8s" />
+          <GradientOrb color="purple" size="lg" position={{ bottom: '15%', left: '5%' }} animationDuration="10s" delay="2s" />
+          <GradientOrb color="pink" size="md" position={{ top: '50%', left: '50%' }} animationDuration="12s" delay="4s" />
+          <GradientOrb color="cyan" size="lg" position={{ top: '30%', left: '15%' }} animationDuration="9s" delay="1s" />
+          <GradientOrb color="indigo" size="md" position={{ bottom: '25%', right: '20%' }} animationDuration="11s" delay="3s" />
+        </div>
+      )}
 
       {/* Top Navbar - Glassmorphic */}
       <nav className="fixed w-full top-0 z-30 bg-white/70 backdrop-blur-xl border-b border-gray-200 shadow-sm">
@@ -268,11 +283,16 @@ export default function Layout() {
             content needs matching bottom padding or the last card sits under it.
             Both the sm: and lg: overrides are spelled out because `sm:p-6` /
             `lg:p-8` would otherwise reset padding-bottom at those breakpoints.
-            `lg:pb-8` restores exactly the desktop value (p-8), so the desktop
-            shell is unchanged. */}
-        <main className={`flex-1 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] overflow-y-auto
-          lg:ml-[296px] transition-all duration-300${
-            isStudent ? ' pb-24 sm:pb-24 lg:pb-8' : ''
+            `lg:pb-8` restores exactly the desktop value (p-8).
+
+            `overflow-y-auto` is dropped for students only. It never actually
+            scrolled — this element has min-height, not height — but it did
+            create a nested scroll container, which silently breaks
+            `position: sticky` for any child. The new mobile layouts need
+            sticky action bars. Other roles keep the identical class list. */}
+        <main className={`flex-1 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)]
+          lg:ml-[296px] transition-all duration-300 ${
+            isStudent ? 'pb-24 sm:pb-24 lg:pb-8' : 'overflow-y-auto'
           }`}
         >
           <div className="max-w-[1400px] mx-auto">

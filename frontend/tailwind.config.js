@@ -6,7 +6,58 @@ export default {
   ],
   theme: {
     extend: {
+      // ---------------------------------------------------------------------
+      // SPC design system (student role). Everything below is ADDITIVE — no
+      // existing key is redefined, so placement-officer and super-admin pages
+      // are unaffected. Colours read the CSS custom properties declared in
+      // index.css and keep Tailwind's opacity modifiers working
+      // (e.g. bg-spc-teal/10, text-spc-muted).
+      // ---------------------------------------------------------------------
+      fontFamily: {
+        satoshi: ['Satoshi', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
+      },
+      fontSize: {
+        'spc-display': ['1.75rem', { lineHeight: '1.1', letterSpacing: '-0.03em' }],      // 28 — phone page title
+        'spc-display-lg': ['2.375rem', { lineHeight: '1.06', letterSpacing: '-0.034em' }], // 38 — desktop page title
+        'spc-h1': ['1.375rem', { lineHeight: '1.15', letterSpacing: '-0.026em' }],        // 22
+        'spc-h1-lg': ['1.625rem', { lineHeight: '1.15', letterSpacing: '-0.028em' }],     // 26
+        'spc-h2': ['1.125rem', { lineHeight: '1.25', letterSpacing: '-0.016em' }],        // 18
+        'spc-h3': ['1rem', { lineHeight: '1.35', letterSpacing: '-0.012em' }],            // 16
+        'spc-body': ['0.96875rem', { lineHeight: '1.55' }],                               // 15.5
+        'spc-sm': ['0.875rem', { lineHeight: '1.5' }],                                    // 14
+        'spc-xs': ['0.8125rem', { lineHeight: '1.45' }],                                  // 13 — floor for body copy
+        'spc-label': ['0.75rem', { lineHeight: '1.3', letterSpacing: '0.11em' }],         // 12 — hard minimum, caps only
+        'spc-metric': ['1.875rem', { lineHeight: '1', letterSpacing: '-0.03em' }],        // 30
+        'spc-metric-lg': ['2.25rem', { lineHeight: '1', letterSpacing: '-0.032em' }],     // 36
+      },
+      borderRadius: {
+        'spc-sm': '10px',   // controls — buttons, inputs, chips
+        spc: '14px',        // cards
+        'spc-lg': '18px',   // panels, sheets
+      },
       colors: {
+        spc: {
+          ground: 'rgb(var(--spc-ground) / <alpha-value>)',
+          surface: 'rgb(var(--spc-surface) / <alpha-value>)',
+          'surface-2': 'rgb(var(--spc-surface-2) / <alpha-value>)',
+          line: 'rgb(var(--spc-line) / <alpha-value>)',
+          'line-strong': 'rgb(var(--spc-line-strong) / <alpha-value>)',
+          ink: 'rgb(var(--spc-ink) / <alpha-value>)',
+          body: 'rgb(var(--spc-body) / <alpha-value>)',
+          muted: 'rgb(var(--spc-muted) / <alpha-value>)',
+          teal: 'rgb(var(--spc-teal) / <alpha-value>)',
+          'teal-soft': 'rgb(var(--spc-teal-soft) / <alpha-value>)',
+          'on-teal': 'rgb(var(--spc-on-teal) / <alpha-value>)',
+          'on-teal-dim': 'rgb(var(--spc-on-teal-dim) / <alpha-value>)',
+          brass: 'rgb(var(--spc-brass) / <alpha-value>)',
+          'brass-soft': 'rgb(var(--spc-brass-soft) / <alpha-value>)',
+          ok: 'rgb(var(--spc-ok) / <alpha-value>)',
+          'ok-bg': 'rgb(var(--spc-ok-bg) / <alpha-value>)',
+          warn: 'rgb(var(--spc-warn) / <alpha-value>)',
+          'warn-bg': 'rgb(var(--spc-warn-bg) / <alpha-value>)',
+          bad: 'rgb(var(--spc-bad) / <alpha-value>)',
+          'bad-bg': 'rgb(var(--spc-bad-bg) / <alpha-value>)',
+        },
         primary: {
           50: '#eff6ff',
           100: '#dbeafe',

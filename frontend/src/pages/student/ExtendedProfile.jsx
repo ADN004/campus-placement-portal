@@ -159,8 +159,8 @@ const ExtendedProfile = () => {
 
   // Lock scroll during skeleton
   useEffect(() => {
-    document.body.style.overflow = showSkeleton ? 'hidden' : 'auto';
-    return () => { document.body.style.overflow = 'auto'; };
+    document.body.style.overflow = showSkeleton ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
   }, [showSkeleton]);
 
   const fetchProfile = async () => {

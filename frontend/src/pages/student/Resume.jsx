@@ -195,8 +195,8 @@ export default function StudentResume() {
   }, []);
 
   useEffect(() => {
-    document.body.style.overflow = showSkeleton ? 'hidden' : 'auto';
-    return () => { document.body.style.overflow = 'auto'; };
+    document.body.style.overflow = showSkeleton ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
   }, [showSkeleton]);
 
   useEffect(() => {

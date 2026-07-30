@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import GradientOrb from './GradientOrb';
+import StudentBottomNav from './StudentBottomNav';
 
 const DEFAULT_PW_DISMISS_KEY = 'default-password-warning-dismissed';
 
@@ -47,6 +48,10 @@ export default function Layout() {
   });
 
   const showDefaultPasswordWarning = user?.using_default_password === true && !pwWarningDismissed;
+
+  // Students get a thumb-reachable bottom tab bar below `lg`. Officers and
+  // super admins keep exactly the shell they have today.
+  const isStudent = user?.role === 'student';
 
   const dismissPwWarning = () => {
     setPwWarningDismissed(true);
@@ -259,8 +264,16 @@ export default function Layout() {
             iPad rotating to landscape, or a window dragged wider — left the
             margin off while the sidebar was showing, hiding the leftmost
             296px of the page underneath it. */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] overflow-y-auto
-          lg:ml-[296px] transition-all duration-300"
+        {/* The student bottom tab bar is fixed over the page below `lg`, so the
+            content needs matching bottom padding or the last card sits under it.
+            Both the sm: and lg: overrides are spelled out because `sm:p-6` /
+            `lg:p-8` would otherwise reset padding-bottom at those breakpoints.
+            `lg:pb-8` restores exactly the desktop value (p-8), so the desktop
+            shell is unchanged. */}
+        <main className={`flex-1 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] overflow-y-auto
+          lg:ml-[296px] transition-all duration-300${
+            isStudent ? ' pb-24 sm:pb-24 lg:pb-8' : ''
+          }`}
         >
           <div className="max-w-[1400px] mx-auto">
             {/* Default-password warning — informational, never blocking. */}
@@ -304,6 +317,9 @@ export default function Layout() {
           </div>
         </main>
       </div>
+
+      {/* Student-only mobile/tablet bottom navigation */}
+      {isStudent && <StudentBottomNav />}
 
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (

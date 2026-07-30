@@ -418,6 +418,22 @@
     bottom: 80px;
   }
 
+  /* Keep the banner and toggle clear of the student bottom tab bar (58px tall
+     plus the safe-area inset). The attribute is set by StudentBottomNav only
+     while that bar is actually on screen, so officers, super admins and desktop
+     view are unaffected. */
+  body[data-student-tabbar] .dvs-banner {
+    bottom: calc(58px + env(safe-area-inset-bottom, 0px));
+  }
+
+  body[data-student-tabbar] .dvs-toggle {
+    bottom: calc(78px + env(safe-area-inset-bottom, 0px));
+  }
+
+  body[data-student-tabbar] .dvs-banner ~ .dvs-toggle {
+    bottom: calc(138px + env(safe-area-inset-bottom, 0px));
+  }
+
 /* Desktop view switcher slide-up animation */
 @keyframes dvs-slideUp {
   from {

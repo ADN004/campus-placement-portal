@@ -1,16 +1,23 @@
 import { Monitor, Smartphone, X } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import useDesktopView from '../hooks/useDesktopView';
+import { isMobileReadyRoute } from '../config/mobileReadyRoutes';
 
 /**
  * DesktopViewSwitcher — prompts mobile users to switch to desktop view.
  *
  * Behaviour:
  *  - On desktop/PC devices: renders nothing at all.
+ *  - On routes that already have a real mobile/tablet design: renders nothing,
+ *    and releases any forced 1280px viewport (see config/mobileReadyRoutes).
  *  - On mobile (first visit): shows a non-intrusive bottom banner.
  *  - After choosing: remembers preference in localStorage.
  *  - Always renders a small sticky toggle button so users can switch back.
  */
 export default function DesktopViewSwitcher() {
+  const { pathname } = useLocation();
+  const suppressed = isMobileReadyRoute(pathname);
+
   const {
     isMobile,
     isDesktopView,
@@ -18,10 +25,10 @@ export default function DesktopViewSwitcher() {
     switchToDesktop,
     switchToMobile,
     dismissBanner,
-  } = useDesktopView();
+  } = useDesktopView({ enabled: !suppressed });
 
-  // Don't render anything on desktop devices
-  if (!isMobile) return null;
+  // Don't render anything on desktop devices, or where a mobile design exists
+  if (suppressed || !isMobile) return null;
 
   return (
     <>

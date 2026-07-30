@@ -6,6 +6,9 @@ import { useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
 import LoadingSpinner from './components/LoadingSpinner';
 import StagingBanner from './components/StagingBanner';
+// Rendered inside the Router (not in main.jsx) so it can tell which route is
+// active and stand down on routes that have their own mobile design.
+import DesktopViewSwitcher from './components/DesktopViewSwitcher';
 
 // Auth Pages (lazy loaded)
 const RoleSelectionPage = lazy(() => import('./pages/auth/RoleSelectionPage'));
@@ -151,6 +154,7 @@ function App() {
         )}
       </Routes>
       </Suspense>
+      <DesktopViewSwitcher />
     </Router>
   );
 }

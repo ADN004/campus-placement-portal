@@ -92,6 +92,12 @@ function setViewport(width) {
 /**
  * Custom hook to manage desktop/mobile view switching.
  *
+ * Options:
+ *   enabled — when false the whole mechanism stands down: no detection, no
+ *             banner, and the viewport meta is restored to device width so a
+ *             previously saved "desktop" preference cannot override a page that
+ *             has its own mobile design. Defaults to true (unchanged behaviour).
+ *
  * Returns:
  *   isMobile        — true if device is mobile/tablet
  *   isDesktopView   — true if desktop view is currently active
@@ -100,13 +106,24 @@ function setViewport(width) {
  *   switchToMobile   — function to switch back to mobile view
  *   dismissBanner    — function to dismiss the banner without choosing
  */
-export default function useDesktopView() {
+export default function useDesktopView({ enabled = true } = {}) {
   const [isMobile, setIsMobile] = useState(false);
   const [isDesktopView, setIsDesktopView] = useState(false);
   const [showBanner, setShowBanner] = useState(false);
 
   // Detect device and apply saved preference on mount
   useEffect(() => {
+    if (!enabled) {
+      // Suppressed for this page — undo any forced viewport and hide everything.
+      // The stored preference is left untouched so it applies again as soon as
+      // the user lands on a page that still needs desktop view.
+      setIsMobile(false);
+      setIsDesktopView(false);
+      setShowBanner(false);
+      setViewport('device');
+      return;
+    }
+
     const mobile = detectMobileDevice();
     setIsMobile(mobile);
 
@@ -135,7 +152,7 @@ export default function useDesktopView() {
       // Show banner unless user already dismissed it this session
       setShowBanner(bannerDismissed !== 'true');
     }
-  }, []);
+  }, [enabled]);
 
   const switchToDesktop = useCallback(() => {
     setIsDesktopView(true);

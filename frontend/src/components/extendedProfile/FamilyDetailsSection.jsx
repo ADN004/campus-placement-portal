@@ -11,13 +11,13 @@ const FamilyDetailsSection = ({ formData, setFormData, onSave, saving, isComplet
       {mode === 'full' && (
         <div className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-3">
-            <div className="bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl p-3 shadow-lg">
-              <Users className="text-white" size={28} />
+            <div className="bg-spc-teal-soft rounded-spc-sm p-2.5">
+              <Users className="text-spc-teal" size={28} />
             </div>
-            <h2 className="text-3xl font-bold text-gray-900">Family Details</h2>
+            <h2 className="text-spc-h1-lg font-extrabold text-spc-ink">Family Details</h2>
           </div>
           {isCompleted && (
-            <span className="flex items-center bg-green-100 text-green-800 font-bold px-5 py-2.5 rounded-xl border-2 border-green-200">
+            <span className="inline-flex items-center gap-2 rounded-spc-sm bg-spc-ok-bg text-spc-ok text-spc-xs font-bold px-3 py-1.5">
               <CheckCircle className="mr-2" size={20} />
               Completed
             </span>
@@ -27,24 +27,24 @@ const FamilyDetailsSection = ({ formData, setFormData, onSave, saving, isComplet
 
       {mode === 'compact' && (
         <div className="flex items-center gap-3 mb-6">
-          <div className="bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl p-2.5 shadow-lg">
-            <Users className="text-white" size={22} />
+          <div className="bg-spc-teal-soft rounded-spc-sm p-2">
+            <Users className="text-spc-teal" size={22} />
           </div>
-          <h3 className="text-2xl font-bold text-gray-900">Family Details</h3>
+          <h3 className="text-spc-h1 font-extrabold text-spc-ink">Family Details</h3>
         </div>
       )}
 
       {/* Father Details */}
-      <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-6 rounded-2xl border-2 border-blue-100 mb-6">
-        <h3 className="text-xl font-bold text-gray-800 mb-5 flex items-center">
-          <div className="bg-gradient-to-br from-blue-500 to-cyan-600 rounded-lg p-2 mr-3">
-            <User size={20} className="text-white" />
+      <div className="rounded-spc bg-spc-surface-2 p-5 mb-6">
+        <h3 className="text-spc-h2 font-bold text-spc-ink mb-5 flex items-center">
+          <div className="bg-spc-teal-soft rounded-spc-sm p-2 mr-3">
+            <User size={20} className="text-spc-teal" />
           </div>
           Father's Details
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">
+            <label className="block text-spc-label font-bold uppercase text-spc-muted mb-1.5">
               Name
             </label>
             <input
@@ -52,12 +52,12 @@ const FamilyDetailsSection = ({ formData, setFormData, onSave, saving, isComplet
               name="father_name"
               value={formData.father_name}
               onChange={handleChange}
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium bg-white"
+              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-line-strong outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
               placeholder="John Doe"
             />
           </div>
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">
+            <label className="block text-spc-label font-bold uppercase text-spc-muted mb-1.5">
               Occupation
             </label>
             <input
@@ -65,12 +65,12 @@ const FamilyDetailsSection = ({ formData, setFormData, onSave, saving, isComplet
               name="father_occupation"
               value={formData.father_occupation}
               onChange={handleChange}
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium bg-white"
+              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-line-strong outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
               placeholder="Engineer"
             />
           </div>
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">
+            <label className="block text-spc-label font-bold uppercase text-spc-muted mb-1.5">
               Annual Income (₹)
             </label>
             <input
@@ -78,7 +78,7 @@ const FamilyDetailsSection = ({ formData, setFormData, onSave, saving, isComplet
               name="father_annual_income"
               value={formData.father_annual_income}
               onChange={handleChange}
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium bg-white"
+              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-line-strong outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
               placeholder="500000"
             />
           </div>
@@ -86,16 +86,16 @@ const FamilyDetailsSection = ({ formData, setFormData, onSave, saving, isComplet
       </div>
 
       {/* Mother Details */}
-      <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-6 rounded-2xl border-2 border-purple-100 mb-6">
-        <h3 className="text-xl font-bold text-gray-800 mb-5 flex items-center">
-          <div className="bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg p-2 mr-3">
-            <User size={20} className="text-white" />
+      <div className="rounded-spc bg-spc-surface-2 p-5 mb-6">
+        <h3 className="text-spc-h2 font-bold text-spc-ink mb-5 flex items-center">
+          <div className="bg-spc-teal-soft rounded-spc-sm p-2 mr-3">
+            <User size={20} className="text-spc-teal" />
           </div>
           Mother's Details
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">
+            <label className="block text-spc-label font-bold uppercase text-spc-muted mb-1.5">
               Name
             </label>
             <input
@@ -103,12 +103,12 @@ const FamilyDetailsSection = ({ formData, setFormData, onSave, saving, isComplet
               name="mother_name"
               value={formData.mother_name}
               onChange={handleChange}
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-purple-100 focus:border-purple-500 outline-none transition-all font-medium bg-white"
+              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-line-strong outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
               placeholder="Jane Doe"
             />
           </div>
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">
+            <label className="block text-spc-label font-bold uppercase text-spc-muted mb-1.5">
               Occupation
             </label>
             <input
@@ -116,12 +116,12 @@ const FamilyDetailsSection = ({ formData, setFormData, onSave, saving, isComplet
               name="mother_occupation"
               value={formData.mother_occupation}
               onChange={handleChange}
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-purple-100 focus:border-purple-500 outline-none transition-all font-medium bg-white"
+              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-line-strong outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
               placeholder="Teacher"
             />
           </div>
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">
+            <label className="block text-spc-label font-bold uppercase text-spc-muted mb-1.5">
               Annual Income (₹)
             </label>
             <input
@@ -129,7 +129,7 @@ const FamilyDetailsSection = ({ formData, setFormData, onSave, saving, isComplet
               name="mother_annual_income"
               value={formData.mother_annual_income}
               onChange={handleChange}
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-purple-100 focus:border-purple-500 outline-none transition-all font-medium bg-white"
+              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-line-strong outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
               placeholder="400000"
             />
           </div>
@@ -137,16 +137,16 @@ const FamilyDetailsSection = ({ formData, setFormData, onSave, saving, isComplet
       </div>
 
       {/* Siblings */}
-      <div className="bg-gradient-to-br from-indigo-50 to-purple-50 p-6 rounded-2xl border-2 border-indigo-100 mb-8">
-        <h3 className="text-xl font-bold text-gray-800 mb-5 flex items-center">
-          <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg p-2 mr-3">
-            <Users size={20} className="text-white" />
+      <div className="mb-6">
+        <h3 className="text-spc-h2 font-bold text-spc-ink mb-5 flex items-center">
+          <div className="bg-spc-teal-soft rounded-spc-sm p-2 mr-3">
+            <Users size={20} className="text-spc-teal" />
           </div>
           Siblings
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">
+            <label className="block text-spc-label font-bold uppercase text-spc-muted mb-1.5">
               Number of Siblings
             </label>
             <input
@@ -156,11 +156,11 @@ const FamilyDetailsSection = ({ formData, setFormData, onSave, saving, isComplet
               onChange={handleChange}
               min="0"
               max="10"
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all font-medium bg-white"
+              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-line-strong outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
             />
           </div>
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">
+            <label className="block text-spc-label font-bold uppercase text-spc-muted mb-1.5">
               Siblings Details
             </label>
             <input
@@ -168,7 +168,7 @@ const FamilyDetailsSection = ({ formData, setFormData, onSave, saving, isComplet
               name="siblings_details"
               value={formData.siblings_details}
               onChange={handleChange}
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all font-medium bg-white"
+              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-line-strong outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
               placeholder="1 brother (engineer), 1 sister (doctor)"
             />
           </div>
@@ -180,11 +180,10 @@ const FamilyDetailsSection = ({ formData, setFormData, onSave, saving, isComplet
           <button
             onClick={onSave}
             disabled={saving}
-            className={`px-8 py-4 rounded-xl font-bold text-lg shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 flex items-center space-x-2 ${
-              saving ? 'bg-gray-400 cursor-not-allowed' :
-              isCompleted
-                ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white'
-                : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white'
+            className={`inline-flex items-center justify-center gap-2 min-h-[48px] px-6 rounded-spc-sm text-spc-sm font-bold transition-opacity ${
+              saving
+                ? 'bg-spc-muted text-white cursor-not-allowed'
+                : 'bg-spc-teal text-spc-on-teal hover:opacity-95'
             }`}
           >
             {saving ? (

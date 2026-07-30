@@ -17,13 +17,13 @@ const PersonalDetailsSection = ({ formData, setFormData, onSave, saving, isCompl
       {mode === 'full' && (
         <div className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-3">
-            <div className="bg-gradient-to-br from-orange-500 to-red-600 rounded-xl p-3 shadow-lg">
-              <User className="text-white" size={28} />
+            <div className="bg-spc-teal-soft rounded-spc-sm p-2.5">
+              <User className="text-spc-teal" size={28} />
             </div>
-            <h2 className="text-3xl font-bold text-gray-900">Personal Details</h2>
+            <h2 className="text-spc-h1-lg font-extrabold text-spc-ink">Personal Details</h2>
           </div>
           {isCompleted && (
-            <span className="flex items-center bg-green-100 text-green-800 font-bold px-5 py-2.5 rounded-xl border-2 border-green-200">
+            <span className="inline-flex items-center gap-2 rounded-spc-sm bg-spc-ok-bg text-spc-ok text-spc-xs font-bold px-3 py-1.5">
               <CheckCircle className="mr-2" size={20} />
               Completed
             </span>
@@ -33,24 +33,24 @@ const PersonalDetailsSection = ({ formData, setFormData, onSave, saving, isCompl
 
       {mode === 'compact' && (
         <div className="flex items-center gap-3 mb-6">
-          <div className="bg-gradient-to-br from-orange-500 to-red-600 rounded-xl p-2.5 shadow-lg">
-            <User className="text-white" size={22} />
+          <div className="bg-spc-teal-soft rounded-spc-sm p-2">
+            <User className="text-spc-teal" size={22} />
           </div>
-          <h3 className="text-2xl font-bold text-gray-900">Personal Details</h3>
+          <h3 className="text-spc-h1 font-extrabold text-spc-ink">Personal Details</h3>
         </div>
       )}
 
-      <div className="bg-gradient-to-br from-orange-50 to-red-50 p-6 rounded-2xl border-2 border-orange-100 mb-8">
+      <div className="mb-6">
         <div className="space-y-5">
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">
+            <label className="block text-spc-label font-bold uppercase text-spc-muted mb-1.5">
               District
             </label>
             <select
               name="district"
               value={formData.district}
               onChange={handleChange}
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-orange-100 focus:border-orange-500 outline-none transition-all font-medium bg-white"
+              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-line-strong outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
             >
               <option value="">Select District</option>
               {districts.map(district => (
@@ -60,7 +60,7 @@ const PersonalDetailsSection = ({ formData, setFormData, onSave, saving, isCompl
           </div>
 
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">
+            <label className="block text-spc-label font-bold uppercase text-spc-muted mb-1.5">
               Permanent Address
             </label>
             <textarea
@@ -68,13 +68,13 @@ const PersonalDetailsSection = ({ formData, setFormData, onSave, saving, isCompl
               value={formData.permanent_address}
               onChange={handleChange}
               rows="4"
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-orange-100 focus:border-orange-500 outline-none transition-all font-medium bg-white"
+              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-line-strong outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
               placeholder="Enter your complete address..."
             />
           </div>
 
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">
+            <label className="block text-spc-label font-bold uppercase text-spc-muted mb-1.5">
               Interests & Hobbies
             </label>
             <textarea
@@ -82,7 +82,7 @@ const PersonalDetailsSection = ({ formData, setFormData, onSave, saving, isCompl
               value={formData.interests_hobbies}
               onChange={handleChange}
               rows="4"
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-orange-100 focus:border-orange-500 outline-none transition-all font-medium bg-white"
+              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-line-strong outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
               placeholder="e.g., Reading, Coding, Sports, Music..."
             />
           </div>
@@ -94,11 +94,10 @@ const PersonalDetailsSection = ({ formData, setFormData, onSave, saving, isCompl
           <button
             onClick={onSave}
             disabled={saving}
-            className={`px-8 py-4 rounded-xl font-bold text-lg shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 flex items-center space-x-2 ${
-              saving ? 'bg-gray-400 cursor-not-allowed' :
-              isCompleted
-                ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white'
-                : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white'
+            className={`inline-flex items-center justify-center gap-2 min-h-[48px] px-6 rounded-spc-sm text-spc-sm font-bold transition-opacity ${
+              saving
+                ? 'bg-spc-muted text-white cursor-not-allowed'
+                : 'bg-spc-teal text-spc-on-teal hover:opacity-95'
             }`}
           >
             {saving ? (

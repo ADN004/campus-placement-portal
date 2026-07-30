@@ -1,102 +1,33 @@
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
-import { motion } from 'framer-motion';
-import {
-  GraduationCap,
-  User,
-  Users,
-  FileText,
-  Lightbulb,
-  CheckCircle,
-  Loader,
-  Activity
-} from 'lucide-react';
-import GradientOrb from '../../components/GradientOrb';
-import DashboardHeader from '../../components/DashboardHeader';
-import GlassCard from '../../components/GlassCard';
-import AcademicExtendedSection from '../../components/extendedProfile/AcademicExtendedSection';
-import PhysicalDetailsSection from '../../components/extendedProfile/PhysicalDetailsSection';
-import FamilyDetailsSection from '../../components/extendedProfile/FamilyDetailsSection';
-import PersonalDetailsSection from '../../components/extendedProfile/PersonalDetailsSection';
-import DocumentVerificationSection from '../../components/extendedProfile/DocumentVerificationSection';
-import EducationPreferencesSection from '../../components/extendedProfile/EducationPreferencesSection';
+import { GraduationCap, User, Users, FileText, Lightbulb, Activity } from 'lucide-react';
+import useDeviceType from '../../hooks/useDeviceType';
+import DesktopExtendedProfile, {
+  DesktopExtendedProfileSkeleton,
+} from './extendedProfile/DesktopExtendedProfile';
+import TabletExtendedProfile, {
+  TabletExtendedProfileSkeleton,
+} from './extendedProfile/TabletExtendedProfile';
+import MobileExtendedProfile, {
+  MobileExtendedProfileSkeleton,
+} from './extendedProfile/MobileExtendedProfile';
 
-// Skeleton for extended profile page
-function ExtendedProfileSkeleton() {
-  return (
-    <div className="min-h-screen">
-      {/* Header skeleton */}
-      <div className="mb-8">
-        <div className="h-10 w-52 bg-gray-200/70 rounded-xl animate-pulse mb-2" />
-        <div className="h-5 w-96 bg-gray-200/50 rounded-lg animate-pulse" />
-      </div>
-
-      {/* Completion card skeleton */}
-      <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-8 border border-gray-200/50 mb-8">
-        <div className="flex items-center justify-between">
-          <div className="flex-1">
-            <div className="h-7 w-48 bg-gray-200/70 rounded-lg animate-pulse mb-3" />
-            <div className="h-4 w-80 bg-gray-200/50 rounded animate-pulse mb-2" />
-            <div className="h-3 w-64 bg-gray-200/50 rounded animate-pulse" />
-          </div>
-          <div className="h-32 w-32 bg-gray-200/70 rounded-full animate-pulse" />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Navigation skeleton */}
-        <div className="lg:col-span-1">
-          <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-6 border border-gray-200/50">
-            <div className="h-6 w-24 bg-gray-200/70 rounded-lg animate-pulse mb-6" />
-            <div className="space-y-3">
-              {[...Array(6)].map((_, i) => (
-                <div key={i} className="flex items-center justify-between p-4 bg-gray-50/50 rounded-xl">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 bg-gray-200/70 rounded-xl animate-pulse" />
-                    <div>
-                      <div className="h-4 w-28 bg-gray-200/70 rounded animate-pulse mb-1" />
-                      <div className="h-3 w-36 bg-gray-200/50 rounded animate-pulse" />
-                    </div>
-                  </div>
-                  <div className="h-6 w-12 bg-gray-200/70 rounded-full animate-pulse" />
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Content skeleton */}
-        <div className="lg:col-span-2">
-          <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-8 border border-gray-200/50">
-            <div className="h-7 w-48 bg-gray-200/70 rounded-lg animate-pulse mb-6" />
-            <div className="space-y-5">
-              {[...Array(4)].map((_, i) => (
-                <div key={i}>
-                  <div className="h-4 w-32 bg-gray-200/70 rounded animate-pulse mb-2" />
-                  <div className="h-12 w-full bg-gray-100/70 rounded-xl animate-pulse" />
-                </div>
-              ))}
-              <div className="h-12 w-36 bg-blue-100/70 rounded-xl animate-pulse mt-4" />
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0 },
-};
-
+/**
+ * ExtendedProfile — container.
+ *
+ * Owns every piece of state, effect, API call and handler; renders exactly one
+ * of the three device presenters with the same data and the *same* handler
+ * functions. The six section forms are the existing components in
+ * components/extendedProfile, unchanged apart from styling.
+ */
 const ExtendedProfile = () => {
   const [loading, setLoading] = useState(true);
   const [showSkeleton, setShowSkeleton] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeSection, setActiveSection] = useState('academic_extended');
   const [completion, setCompletion] = useState({ overall_completion: 0, sections: [] });
+  const deviceType = useDeviceType();
 
   // Form states for each section
   const [academicForm, setAcademicForm] = useState({
@@ -279,45 +210,39 @@ const ExtendedProfile = () => {
   const sections = [
     {
       id: 'academic_extended',
-      name: 'Academic Extended',
+      name: 'Academic',
       icon: GraduationCap,
       description: 'SSLC and 12th details',
-      gradient: 'from-blue-500 to-cyan-600'
     },
     {
       id: 'physical_details',
-      name: 'Physical Details',
+      name: 'Physical details',
       icon: Activity,
-      description: 'Height, weight, and physical status',
-      gradient: 'from-green-500 to-emerald-600'
+      description: 'Height, weight and physical status',
     },
     {
       id: 'family_details',
-      name: 'Family Details',
+      name: 'Family details',
       icon: Users,
-      description: 'Parents and siblings information',
-      gradient: 'from-purple-500 to-pink-600'
+      description: 'Parents and siblings',
     },
     {
       id: 'personal_details',
-      name: 'Personal Details',
+      name: 'Personal details',
       icon: User,
       description: 'District, address, interests',
-      gradient: 'from-orange-500 to-red-600'
     },
     {
       id: 'document_verification',
       name: 'Documents',
       icon: FileText,
-      description: 'PAN, Aadhar, Passport',
-      gradient: 'from-indigo-500 to-purple-600'
+      description: 'PAN, Aadhaar, passport',
     },
     {
       id: 'education_preferences',
-      name: 'Education Preferences',
+      name: 'Education plans',
       icon: Lightbulb,
       description: 'Higher education preferences',
-      gradient: 'from-yellow-500 to-orange-600'
     }
   ];
 
@@ -331,203 +256,39 @@ const ExtendedProfile = () => {
     return section?.is_completed || false;
   };
 
-  if (loading || showSkeleton) return <ExtendedProfileSkeleton />;
+  if (loading || showSkeleton) {
+    if (deviceType === 'mobile') return <MobileExtendedProfileSkeleton />;
+    if (deviceType === 'tablet') return <TabletExtendedProfileSkeleton />;
+    return <DesktopExtendedProfileSkeleton />;
+  }
 
-  return (
-    <div>
-      <GradientOrb color="blue" position="top-right" />
-      <GradientOrb color="indigo" position="bottom-left" delay="2s" />
-      <GradientOrb color="purple" position="center" delay="4s" />
+  // Identical props for all three presenters — same values, same functions.
+  const presenterProps = {
+    completion,
+    sections,
+    activeSection,
+    onSelectSection: setActiveSection,
+    getSectionCompletion,
+    getSectionStatus,
+    academicForm,
+    setAcademicForm,
+    physicalForm,
+    setPhysicalForm,
+    familyForm,
+    setFamilyForm,
+    personalForm,
+    setPersonalForm,
+    documentForm,
+    setDocumentForm,
+    educationForm,
+    setEducationForm,
+    onSave: handleSaveSection,
+    saving,
+  };
 
-      {/* Header */}
-      <motion.div className="mb-8" variants={fadeUp} initial="hidden" animate="visible" transition={{ duration: 0.4, delay: 0 }}>
-        <DashboardHeader
-          icon={FileText}
-          title="Extended Profile"
-          subtitle="Complete your profile to apply for jobs that require additional information"
-        />
-      </motion.div>
-
-      {/* Overall Completion Card */}
-      <motion.div variants={fadeUp} initial="hidden" animate="visible" transition={{ duration: 0.4, delay: 0.1 }}>
-        <GlassCard className="p-8 mb-8">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Profile Completion</h2>
-              <p className="text-gray-600 font-medium">
-                Fill at least one field in each section to complete your profile
-              </p>
-              <p className="text-sm text-gray-500 mt-1">
-                Higher field completion percentage increases your job match accuracy
-              </p>
-            </div>
-            <div className="text-center">
-              <div className="relative inline-flex items-center justify-center">
-                <svg className="w-32 h-32 transform -rotate-90">
-                  <circle
-                    cx="64"
-                    cy="64"
-                    r="56"
-                    stroke="currentColor"
-                    strokeWidth="8"
-                    fill="transparent"
-                    className="text-gray-200"
-                  />
-                  <circle
-                    cx="64"
-                    cy="64"
-                    r="56"
-                    stroke="currentColor"
-                    strokeWidth="8"
-                    fill="transparent"
-                    strokeDasharray={`${2 * Math.PI * 56}`}
-                    strokeDashoffset={`${2 * Math.PI * 56 * (1 - completion.overall_completion / 100)}`}
-                    className="text-blue-600 transition-all duration-1000"
-                    strokeLinecap="round"
-                  />
-                </svg>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                    {completion.overall_completion}%
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </GlassCard>
-      </motion.div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Section Navigation */}
-        <motion.div className="lg:col-span-1" variants={fadeUp} initial="hidden" animate="visible" transition={{ duration: 0.4, delay: 0.2 }}>
-          <GlassCard className="p-6 sticky top-6">
-            <h3 className="text-xl font-bold text-gray-900 mb-6">Sections</h3>
-            <div className="space-y-3">
-              {sections.map((section, index) => {
-                const Icon = section.icon;
-                const completionPercentage = getSectionCompletion(section.id);
-                const isComplete = getSectionStatus(section.id);
-
-                return (
-                  <motion.button
-                    key={section.id}
-                    variants={fadeUp}
-                    initial="hidden"
-                    animate="visible"
-                    transition={{ duration: 0.3, delay: 0.25 + index * 0.05 }}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => setActiveSection(section.id)}
-                    className={`w-full text-left p-4 rounded-xl transition-all duration-300 ${
-                      activeSection === section.id
-                        ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-500 shadow-lg'
-                        : 'bg-white/50 border-2 border-white/20 hover:bg-white/80 hover:border-gray-300'
-                    }`}
-                    style={{ willChange: 'transform' }}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3 flex-1 min-w-0">
-                        <div className={`bg-gradient-to-br ${section.gradient} rounded-xl p-2.5 shadow-lg flex-shrink-0`}>
-                          <Icon className="text-white" size={20} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className={`font-bold text-sm mb-0.5 ${
-                            activeSection === section.id ? 'text-blue-900' : 'text-gray-800'
-                          }`}>
-                            {section.name}
-                          </div>
-                          <div className="text-xs text-gray-500 truncate">{section.description}</div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 ml-3">
-                        <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
-                          isComplete
-                            ? 'text-green-700 bg-green-100'
-                            : 'text-blue-600 bg-blue-100'
-                        }`}>
-                          {completionPercentage}%
-                        </span>
-                        {isComplete && (
-                          <div className="bg-green-500 rounded-full p-1.5">
-                            <CheckCircle className="text-white" size={16} />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </motion.button>
-                );
-              })}
-            </div>
-          </GlassCard>
-        </motion.div>
-
-        {/* Section Content */}
-        <motion.div className="lg:col-span-2" variants={fadeUp} initial="hidden" animate="visible" transition={{ duration: 0.4, delay: 0.3 }}>
-          <GlassCard className="p-8">
-            {activeSection === 'academic_extended' && (
-              <AcademicExtendedSection
-                formData={academicForm}
-                setFormData={setAcademicForm}
-                onSave={() => handleSaveSection('academic_extended')}
-                saving={saving}
-                isCompleted={getSectionStatus('academic_extended')}
-              />
-            )}
-
-            {activeSection === 'physical_details' && (
-              <PhysicalDetailsSection
-                formData={physicalForm}
-                setFormData={setPhysicalForm}
-                onSave={() => handleSaveSection('physical_details')}
-                saving={saving}
-                isCompleted={getSectionStatus('physical_details')}
-              />
-            )}
-
-            {activeSection === 'family_details' && (
-              <FamilyDetailsSection
-                formData={familyForm}
-                setFormData={setFamilyForm}
-                onSave={() => handleSaveSection('family_details')}
-                saving={saving}
-                isCompleted={getSectionStatus('family_details')}
-              />
-            )}
-
-            {activeSection === 'personal_details' && (
-              <PersonalDetailsSection
-                formData={personalForm}
-                setFormData={setPersonalForm}
-                onSave={() => handleSaveSection('personal_details')}
-                saving={saving}
-                isCompleted={getSectionStatus('personal_details')}
-              />
-            )}
-
-            {activeSection === 'document_verification' && (
-              <DocumentVerificationSection
-                formData={documentForm}
-                setFormData={setDocumentForm}
-                onSave={() => handleSaveSection('document_verification')}
-                saving={saving}
-                isCompleted={getSectionStatus('document_verification')}
-              />
-            )}
-
-            {activeSection === 'education_preferences' && (
-              <EducationPreferencesSection
-                formData={educationForm}
-                setFormData={setEducationForm}
-                onSave={() => handleSaveSection('education_preferences')}
-                saving={saving}
-                isCompleted={getSectionStatus('education_preferences')}
-              />
-            )}
-          </GlassCard>
-        </motion.div>
-      </div>
-    </div>
-  );
+  if (deviceType === 'mobile') return <MobileExtendedProfile {...presenterProps} />;
+  if (deviceType === 'tablet') return <TabletExtendedProfile {...presenterProps} />;
+  return <DesktopExtendedProfile {...presenterProps} />;
 };
 
 export default ExtendedProfile;

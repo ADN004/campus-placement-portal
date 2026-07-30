@@ -11,13 +11,13 @@ const AcademicExtendedSection = ({ formData, setFormData, onSave, saving, isComp
       {mode === 'full' && (
         <div className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-3">
-            <div className="bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl p-3 shadow-lg">
-              <GraduationCap className="text-white" size={28} />
+            <div className="bg-spc-teal-soft rounded-spc-sm p-2.5">
+              <GraduationCap className="text-spc-teal" size={28} />
             </div>
-            <h2 className="text-3xl font-bold text-gray-900">Academic Extended Details</h2>
+            <h2 className="text-spc-h1-lg font-extrabold text-spc-ink">Academic Extended Details</h2>
           </div>
           {isCompleted && (
-            <span className="flex items-center bg-green-100 text-green-800 font-bold px-5 py-2.5 rounded-xl border-2 border-green-200">
+            <span className="inline-flex items-center gap-2 rounded-spc-sm bg-spc-ok-bg text-spc-ok text-spc-xs font-bold px-3 py-1.5">
               <CheckCircle className="mr-2" size={20} />
               Completed
             </span>
@@ -27,24 +27,24 @@ const AcademicExtendedSection = ({ formData, setFormData, onSave, saving, isComp
 
       {mode === 'compact' && (
         <div className="flex items-center gap-3 mb-6">
-          <div className="bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl p-2.5 shadow-lg">
-            <GraduationCap className="text-white" size={22} />
+          <div className="bg-spc-teal-soft rounded-spc-sm p-2">
+            <GraduationCap className="text-spc-teal" size={22} />
           </div>
-          <h3 className="text-2xl font-bold text-gray-900">Academic Extended Details</h3>
+          <h3 className="text-spc-h1 font-extrabold text-spc-ink">Academic Extended Details</h3>
         </div>
       )}
 
       {/* SSLC Section */}
-      <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-6 rounded-2xl border-2 border-blue-100 mb-6">
-        <h3 className="text-xl font-bold text-gray-800 mb-5 flex items-center">
-          <div className="bg-gradient-to-br from-blue-500 to-cyan-600 rounded-lg p-2 mr-3">
-            <GraduationCap size={20} className="text-white" />
+      <div className="rounded-spc bg-spc-surface-2 p-5 mb-6">
+        <h3 className="text-spc-h2 font-bold text-spc-ink mb-5 flex items-center">
+          <div className="bg-spc-teal-soft rounded-spc-sm p-2 mr-3">
+            <GraduationCap size={20} className="text-spc-teal" />
           </div>
           SSLC Details
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">
+            <label className="block text-spc-label font-bold uppercase text-spc-muted mb-1.5">
               SSLC Marks (%)
             </label>
             <input
@@ -55,12 +55,12 @@ const AcademicExtendedSection = ({ formData, setFormData, onSave, saving, isComp
               min="0"
               max="100"
               step="0.01"
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium bg-white"
+              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-line-strong outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
               placeholder="85.5"
             />
           </div>
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">
+            <label className="block text-spc-label font-bold uppercase text-spc-muted mb-1.5">
               SSLC Year
             </label>
             <input
@@ -70,12 +70,12 @@ const AcademicExtendedSection = ({ formData, setFormData, onSave, saving, isComp
               onChange={handleChange}
               min="2000"
               max="2030"
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium bg-white"
+              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-line-strong outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
               placeholder="2020"
             />
           </div>
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">
+            <label className="block text-spc-label font-bold uppercase text-spc-muted mb-1.5">
               Board
             </label>
             <input
@@ -83,7 +83,7 @@ const AcademicExtendedSection = ({ formData, setFormData, onSave, saving, isComp
               name="sslc_board"
               value={formData.sslc_board}
               onChange={handleChange}
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium bg-white"
+              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-line-strong outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
               placeholder="CBSE"
             />
           </div>
@@ -91,17 +91,17 @@ const AcademicExtendedSection = ({ formData, setFormData, onSave, saving, isComp
       </div>
 
       {/* 12th Section */}
-      <div className="bg-gradient-to-br from-indigo-50 to-purple-50 p-6 rounded-2xl border-2 border-indigo-100 mb-8">
-        <h3 className="text-xl font-bold text-gray-800 mb-2 flex items-center">
-          <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg p-2 mr-3">
-            <GraduationCap size={20} className="text-white" />
+      <div className="mb-6">
+        <h3 className="text-spc-h2 font-bold text-spc-ink mb-2 flex items-center">
+          <div className="bg-spc-teal-soft rounded-spc-sm p-2 mr-3">
+            <GraduationCap size={20} className="text-spc-teal" />
           </div>
           12th Details
         </h3>
-        <p className="text-sm text-gray-600 font-medium mb-5 ml-11">Optional - If applicable</p>
+        <p className="text-spc-xs text-spc-muted mb-5 ml-11">Optional - If applicable</p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">
+            <label className="block text-spc-label font-bold uppercase text-spc-muted mb-1.5">
               12th Marks (%)
             </label>
             <input
@@ -112,12 +112,12 @@ const AcademicExtendedSection = ({ formData, setFormData, onSave, saving, isComp
               min="0"
               max="100"
               step="0.01"
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all font-medium bg-white"
+              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-line-strong outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
               placeholder="82.0"
             />
           </div>
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">
+            <label className="block text-spc-label font-bold uppercase text-spc-muted mb-1.5">
               12th Year
             </label>
             <input
@@ -127,12 +127,12 @@ const AcademicExtendedSection = ({ formData, setFormData, onSave, saving, isComp
               onChange={handleChange}
               min="2000"
               max="2030"
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all font-medium bg-white"
+              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-line-strong outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
               placeholder="2022"
             />
           </div>
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">
+            <label className="block text-spc-label font-bold uppercase text-spc-muted mb-1.5">
               Board
             </label>
             <input
@@ -140,7 +140,7 @@ const AcademicExtendedSection = ({ formData, setFormData, onSave, saving, isComp
               name="twelfth_board"
               value={formData.twelfth_board}
               onChange={handleChange}
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all font-medium bg-white"
+              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-line-strong outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
               placeholder="State Board"
             />
           </div>
@@ -152,11 +152,10 @@ const AcademicExtendedSection = ({ formData, setFormData, onSave, saving, isComp
           <button
             onClick={onSave}
             disabled={saving}
-            className={`px-8 py-4 rounded-xl font-bold text-lg shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 flex items-center space-x-2 ${
-              saving ? 'bg-gray-400 cursor-not-allowed' :
-              isCompleted
-                ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white'
-                : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white'
+            className={`inline-flex items-center justify-center gap-2 min-h-[48px] px-6 rounded-spc-sm text-spc-sm font-bold transition-opacity ${
+              saving
+                ? 'bg-spc-muted text-white cursor-not-allowed'
+                : 'bg-spc-teal text-spc-on-teal hover:opacity-95'
             }`}
           >
             {saving ? (

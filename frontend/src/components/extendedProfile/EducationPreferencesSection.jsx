@@ -14,13 +14,13 @@ const EducationPreferencesSection = ({ formData, setFormData, onSave, saving, is
       {mode === 'full' && (
         <div className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-3">
-            <div className="bg-gradient-to-br from-yellow-500 to-orange-600 rounded-xl p-3 shadow-lg">
-              <Lightbulb className="text-white" size={28} />
+            <div className="bg-spc-teal-soft rounded-spc-sm p-2.5">
+              <Lightbulb className="text-spc-teal" size={28} />
             </div>
-            <h2 className="text-3xl font-bold text-gray-900">Education Preferences</h2>
+            <h2 className="text-spc-h1-lg font-extrabold text-spc-ink">Education Preferences</h2>
           </div>
           {isCompleted && (
-            <span className="flex items-center bg-green-100 text-green-800 font-bold px-5 py-2.5 rounded-xl border-2 border-green-200">
+            <span className="inline-flex items-center gap-2 rounded-spc-sm bg-spc-ok-bg text-spc-ok text-spc-xs font-bold px-3 py-1.5">
               <CheckCircle className="mr-2" size={20} />
               Completed
             </span>
@@ -30,68 +30,68 @@ const EducationPreferencesSection = ({ formData, setFormData, onSave, saving, is
 
       {mode === 'compact' && (
         <div className="flex items-center gap-3 mb-6">
-          <div className="bg-gradient-to-br from-yellow-500 to-orange-600 rounded-xl p-2.5 shadow-lg">
-            <Lightbulb className="text-white" size={22} />
+          <div className="bg-spc-teal-soft rounded-spc-sm p-2">
+            <Lightbulb className="text-spc-teal" size={22} />
           </div>
-          <h3 className="text-2xl font-bold text-gray-900">Education Preferences</h3>
+          <h3 className="text-spc-h1 font-extrabold text-spc-ink">Education Preferences</h3>
         </div>
       )}
 
-      <div className="bg-gradient-to-br from-yellow-50 to-orange-50 p-6 rounded-2xl border-2 border-yellow-100 mb-6">
-        <h3 className="text-xl font-bold text-gray-800 mb-5 flex items-center">
-          <div className="bg-gradient-to-br from-yellow-500 to-orange-600 rounded-lg p-2 mr-3">
-            <GraduationCap size={20} className="text-white" />
+      <div className="rounded-spc bg-spc-surface-2 p-5 mb-6">
+        <h3 className="text-spc-h2 font-bold text-spc-ink mb-5 flex items-center">
+          <div className="bg-spc-teal-soft rounded-spc-sm p-2 mr-3">
+            <GraduationCap size={20} className="text-spc-teal" />
           </div>
           Higher Education Interest
         </h3>
         <div className="space-y-4">
-          <label className="flex items-center space-x-4 cursor-pointer bg-white p-4 rounded-xl border-2 border-gray-200 hover:border-yellow-300 transition-all">
+          <label className="flex items-center gap-3 min-h-[56px] px-4 cursor-pointer rounded-spc-sm bg-spc-surface border border-spc-line hover:border-spc-line-strong transition-colors">
             <input
               type="checkbox"
               name="interested_in_btech"
               checked={formData.interested_in_btech}
               onChange={handleChange}
-              className="w-6 h-6 text-yellow-600 border-2 border-gray-300 rounded-lg focus:ring-4 focus:ring-yellow-100"
+              className="h-5 w-5 rounded border-spc-line-strong text-spc-teal focus:ring-spc-teal flex-shrink-0"
             />
-            <span className="text-base font-bold text-gray-800 flex-1">
+            <span className="text-spc-sm font-semibold text-spc-ink flex-1">
               Interested in B.Tech
             </span>
             {formData.interested_in_btech && (
-              <div className="bg-green-500 rounded-full p-1.5">
+              <div className="bg-spc-ok rounded-full p-1">
                 <CheckCircle className="text-white" size={18} />
               </div>
             )}
           </label>
-          <label className="flex items-center space-x-4 cursor-pointer bg-white p-4 rounded-xl border-2 border-gray-200 hover:border-orange-300 transition-all">
+          <label className="flex items-center gap-3 min-h-[56px] px-4 cursor-pointer rounded-spc-sm bg-spc-surface border border-spc-line hover:border-spc-line-strong transition-colors">
             <input
               type="checkbox"
               name="interested_in_mtech"
               checked={formData.interested_in_mtech}
               onChange={handleChange}
-              className="w-6 h-6 text-orange-600 border-2 border-gray-300 rounded-lg focus:ring-4 focus:ring-orange-100"
+              className="h-5 w-5 rounded border-spc-line-strong text-spc-teal focus:ring-spc-teal flex-shrink-0"
             />
-            <span className="text-base font-bold text-gray-800 flex-1">
+            <span className="text-spc-sm font-semibold text-spc-ink flex-1">
               Interested in M.Tech
             </span>
             {formData.interested_in_mtech && (
-              <div className="bg-green-500 rounded-full p-1.5">
+              <div className="bg-spc-ok rounded-full p-1">
                 <CheckCircle className="text-white" size={18} />
               </div>
             )}
           </label>
-          <label className="flex items-center space-x-4 cursor-pointer bg-white p-4 rounded-xl border-2 border-gray-200 hover:border-red-300 transition-all">
+          <label className="flex items-center gap-3 min-h-[56px] px-4 cursor-pointer rounded-spc-sm bg-spc-surface border border-spc-line hover:border-spc-line-strong transition-colors">
             <input
               type="checkbox"
               name="not_interested_in_higher_education"
               checked={formData.not_interested_in_higher_education}
               onChange={handleChange}
-              className="w-6 h-6 text-red-600 border-2 border-gray-300 rounded-lg focus:ring-4 focus:ring-red-100"
+              className="h-5 w-5 rounded border-spc-line-strong text-spc-teal focus:ring-spc-teal flex-shrink-0"
             />
-            <span className="text-base font-bold text-gray-800 flex-1">
+            <span className="text-spc-sm font-semibold text-spc-ink flex-1">
               Not Interested in Higher Education
             </span>
             {formData.not_interested_in_higher_education && (
-              <div className="bg-green-500 rounded-full p-1.5">
+              <div className="bg-spc-ok rounded-full p-1">
                 <CheckCircle className="text-white" size={18} />
               </div>
             )}
@@ -100,15 +100,15 @@ const EducationPreferencesSection = ({ formData, setFormData, onSave, saving, is
       </div>
 
       {(formData.interested_in_btech || formData.interested_in_mtech) && (
-        <div className="bg-gradient-to-br from-indigo-50 to-purple-50 p-6 rounded-2xl border-2 border-indigo-100 mb-8">
-          <label className="block text-sm font-bold text-gray-700 mb-3">
+        <div className="mb-6">
+          <label className="block text-spc-label font-bold uppercase text-spc-muted mb-2">
             Preferred Study Mode
           </label>
           <select
             name="preferred_study_mode"
             value={formData.preferred_study_mode}
             onChange={handleChange}
-            className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all font-medium bg-white"
+            className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-line-strong outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
           >
             <option value="">Select Study Mode</option>
             <option value="full-time">Full Time</option>
@@ -123,11 +123,10 @@ const EducationPreferencesSection = ({ formData, setFormData, onSave, saving, is
           <button
             onClick={onSave}
             disabled={saving}
-            className={`px-8 py-4 rounded-xl font-bold text-lg shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 flex items-center space-x-2 ${
-              saving ? 'bg-gray-400 cursor-not-allowed' :
-              isCompleted
-                ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white'
-                : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white'
+            className={`inline-flex items-center justify-center gap-2 min-h-[48px] px-6 rounded-spc-sm text-spc-sm font-bold transition-opacity ${
+              saving
+                ? 'bg-spc-muted text-white cursor-not-allowed'
+                : 'bg-spc-teal text-spc-on-teal hover:opacity-95'
             }`}
           >
             {saving ? (

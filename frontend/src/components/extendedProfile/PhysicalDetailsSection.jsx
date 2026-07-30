@@ -14,13 +14,13 @@ const PhysicalDetailsSection = ({ formData, setFormData, onSave, saving, isCompl
       {mode === 'full' && (
         <div className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-3">
-            <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl p-3 shadow-lg">
-              <Activity className="text-white" size={28} />
+            <div className="bg-spc-teal-soft rounded-spc-sm p-2.5">
+              <Activity className="text-spc-teal" size={28} />
             </div>
-            <h2 className="text-3xl font-bold text-gray-900">Physical Details</h2>
+            <h2 className="text-spc-h1-lg font-extrabold text-spc-ink">Physical Details</h2>
           </div>
           {isCompleted && (
-            <span className="flex items-center bg-green-100 text-green-800 font-bold px-5 py-2.5 rounded-xl border-2 border-green-200">
+            <span className="inline-flex items-center gap-2 rounded-spc-sm bg-spc-ok-bg text-spc-ok text-spc-xs font-bold px-3 py-1.5">
               <CheckCircle className="mr-2" size={20} />
               Completed
             </span>
@@ -30,17 +30,17 @@ const PhysicalDetailsSection = ({ formData, setFormData, onSave, saving, isCompl
 
       {mode === 'compact' && (
         <div className="flex items-center gap-3 mb-6">
-          <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl p-2.5 shadow-lg">
-            <Activity className="text-white" size={22} />
+          <div className="bg-spc-teal-soft rounded-spc-sm p-2">
+            <Activity className="text-spc-teal" size={22} />
           </div>
-          <h3 className="text-2xl font-bold text-gray-900">Physical Details</h3>
+          <h3 className="text-spc-h1 font-extrabold text-spc-ink">Physical Details</h3>
         </div>
       )}
 
-      <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-6 rounded-2xl border-2 border-green-100 mb-6">
+      <div className="rounded-spc bg-spc-surface-2 p-5 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">
+            <label className="block text-spc-label font-bold uppercase text-spc-muted mb-1.5">
               Height (cm)
             </label>
             <input
@@ -50,12 +50,12 @@ const PhysicalDetailsSection = ({ formData, setFormData, onSave, saving, isCompl
               onChange={handleChange}
               min="100"
               max="250"
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-green-100 focus:border-green-500 outline-none transition-all font-medium bg-white"
+              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-line-strong outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
               placeholder="170"
             />
           </div>
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">
+            <label className="block text-spc-label font-bold uppercase text-spc-muted mb-1.5">
               Weight (kg)
             </label>
             <input
@@ -66,30 +66,30 @@ const PhysicalDetailsSection = ({ formData, setFormData, onSave, saving, isCompl
               min="30"
               max="200"
               step="0.1"
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-green-100 focus:border-green-500 outline-none transition-all font-medium bg-white"
+              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-line-strong outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
               placeholder="65.5"
             />
           </div>
         </div>
       </div>
 
-      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-2xl border-2 border-blue-100 mb-6">
+      <div className="rounded-spc bg-spc-surface-2 p-5 mb-6">
         <label className="flex items-center space-x-3 cursor-pointer">
           <input
             type="checkbox"
             name="physically_handicapped"
             checked={formData.physically_handicapped}
             onChange={handleChange}
-            className="w-6 h-6 text-blue-600 border-2 border-gray-300 rounded-lg focus:ring-4 focus:ring-blue-100"
+            className="h-5 w-5 rounded border-spc-line-strong text-spc-teal focus:ring-spc-teal flex-shrink-0"
           />
-          <span className="text-base font-bold text-gray-800">
+          <span className="text-spc-sm font-semibold text-spc-ink">
             I have a physical disability
           </span>
         </label>
 
         {formData.physically_handicapped && (
           <div className="mt-5">
-            <label className="block text-sm font-bold text-gray-700 mb-2">
+            <label className="block text-spc-label font-bold uppercase text-spc-muted mb-1.5">
               Disability Details
             </label>
             <textarea
@@ -97,7 +97,7 @@ const PhysicalDetailsSection = ({ formData, setFormData, onSave, saving, isCompl
               value={formData.handicap_details}
               onChange={handleChange}
               rows="4"
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium bg-white"
+              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-line-strong outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
               placeholder="Please describe your disability..."
             />
           </div>
@@ -109,11 +109,10 @@ const PhysicalDetailsSection = ({ formData, setFormData, onSave, saving, isCompl
           <button
             onClick={onSave}
             disabled={saving}
-            className={`px-8 py-4 rounded-xl font-bold text-lg shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 flex items-center space-x-2 ${
-              saving ? 'bg-gray-400 cursor-not-allowed' :
-              isCompleted
-                ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white'
-                : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white'
+            className={`inline-flex items-center justify-center gap-2 min-h-[48px] px-6 rounded-spc-sm text-spc-sm font-bold transition-opacity ${
+              saving
+                ? 'bg-spc-muted text-white cursor-not-allowed'
+                : 'bg-spc-teal text-spc-on-teal hover:opacity-95'
             }`}
           >
             {saving ? (

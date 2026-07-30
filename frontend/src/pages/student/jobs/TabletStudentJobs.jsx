@@ -40,7 +40,7 @@ export default function TabletStudentJobs({
       <Header count={filteredJobs.length} total={jobs.length} />
 
       <div className="sticky top-16 z-10 -mx-6 px-6 pt-2 pb-4 bg-spc-ground space-y-3">
-        <SearchField value={searchQuery} onChange={onSearchChange} size="lg" />
+        <SearchField placeholder="Search by company, title, or location…" value={searchQuery} onChange={onSearchChange} size="lg" />
         <FilterChips filters={filters} active={filterEligibility} onChange={onFilterChange} />
       </div>
 

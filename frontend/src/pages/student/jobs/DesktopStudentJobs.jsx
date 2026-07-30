@@ -46,7 +46,7 @@ export default function DesktopStudentJobs({
         className="flex items-center gap-3 flex-wrap mb-7"
       >
         <div className="w-full xl:w-[340px] xl:flex-shrink-0">
-          <SearchField value={searchQuery} onChange={onSearchChange} size="lg" />
+          <SearchField placeholder="Search by company, title, or location…" value={searchQuery} onChange={onSearchChange} size="lg" />
         </div>
         <FilterChips filters={filters} active={filterEligibility} onChange={onFilterChange} />
       </motion.div>

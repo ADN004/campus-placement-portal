@@ -44,7 +44,7 @@ export default function MobileStudentJobs({
           margins let the solid ground run edge to edge so cards scroll under
           it cleanly. */}
       <div className="sticky top-16 z-10 -mx-4 px-4 pt-2 pb-3 bg-spc-ground space-y-2.5">
-        <SearchField value={searchQuery} onChange={onSearchChange} />
+        <SearchField placeholder="Search by company, title, or location…" value={searchQuery} onChange={onSearchChange} />
         <FilterChips
           filters={filters}
           active={filterEligibility}

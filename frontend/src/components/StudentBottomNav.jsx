@@ -7,9 +7,14 @@ import useDeviceType from '../hooks/useDeviceType';
  * StudentBottomNav — thumb-reachable tab bar for the student area.
  *
  * Only rendered for role === 'student', and only below `lg` (at `lg` and up the
- * permanent sidebar is on screen, so the desktop shell is untouched). The
- * destinations are a subset of the student sidebar items — the sidebar stays the
- * complete list, this is the shortcut to the five screens used constantly.
+ * sidebar is on screen). The destinations are a subset of the student sidebar
+ * items — the sidebar stays the complete list, this is the shortcut to the five
+ * screens used constantly.
+ *
+ * It floats: inset from the screen edges with its own radius, so it reads as a
+ * control hovering above the page rather than a strip welded to the bottom.
+ * That also means it keeps the glass treatment, since it genuinely overlays
+ * scrolling content.
  */
 const TABS = [
   { name: 'Home', path: '/student/dashboard', icon: Home },
@@ -38,10 +43,13 @@ export default function StudentBottomNav() {
   return (
     <nav
       aria-label="Student sections"
-      className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white/90 backdrop-blur-xl border-t border-gray-200 shadow-[0_-2px_12px_rgba(0,0,0,0.06)]"
-      style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      className="lg:hidden fixed bottom-0 inset-x-0 z-30 px-3 pt-2"
+      style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px))' }}
     >
-      <ul className="flex items-stretch">
+      <ul
+        className="flex items-stretch gap-1 p-1.5 rounded-spc-lg spc-glass
+          border border-spc-line shadow-[0_10px_28px_-14px_rgba(18,33,31,0.45)]"
+      >
         {TABS.map((tab) => {
           const isActive = location.pathname === tab.path;
           const Icon = tab.icon;
@@ -50,18 +58,14 @@ export default function StudentBottomNav() {
               <Link
                 to={tab.path}
                 aria-current={isActive ? 'page' : undefined}
-                className={`flex flex-col items-center justify-center gap-1 min-h-[58px] px-1 py-2 transition-colors ${
-                  isActive ? 'text-blue-600' : 'text-gray-500 active:text-blue-600'
-                }`}
+                className={`flex flex-col items-center justify-center gap-1 min-h-[52px] px-1 py-1.5
+                  rounded-spc-sm transition-colors
+                  ${isActive
+                    ? 'bg-spc-teal text-spc-on-teal'
+                    : 'text-spc-muted active:bg-spc-surface-2'}`}
               >
-                <span
-                  className={`flex items-center justify-center rounded-lg px-3 py-0.5 transition-colors ${
-                    isActive ? 'bg-blue-50' : 'bg-transparent'
-                  }`}
-                >
-                  <Icon size={21} />
-                </span>
-                <span className="text-[11px] font-semibold leading-none">{tab.name}</span>
+                <Icon size={20} />
+                <span className="text-[11px] font-bold leading-none">{tab.name}</span>
               </Link>
             </li>
           );

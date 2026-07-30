@@ -27,8 +27,11 @@ import {
 import { useState } from 'react';
 import GradientOrb from './GradientOrb';
 import StudentBottomNav from './StudentBottomNav';
+import StudentTopBar from './student/StudentTopBar';
+import StudentSidebar from './student/StudentSidebar';
 
 const DEFAULT_PW_DISMISS_KEY = 'default-password-warning-dismissed';
+const STUDENT_SIDEBAR_COLLAPSED_KEY = 'spc-student-sidebar-collapsed';
 
 export default function Layout() {
   const { user, logout } = useAuth();
@@ -49,9 +52,31 @@ export default function Layout() {
 
   const showDefaultPasswordWarning = user?.using_default_password === true && !pwWarningDismissed;
 
-  // Students get a thumb-reachable bottom tab bar below `lg`. Officers and
-  // super admins keep exactly the shell they have today.
+  // Students get their own chrome (top bar, grouped sidebar, bottom tab bar).
+  // Officers and super admins keep exactly the shell they have today.
   const isStudent = user?.role === 'student';
+
+  // Whether the student sidebar is collapsed to the icon rail at `lg` and up.
+  // Remembered across visits so the panel stays how the student left it.
+  const [studentSidebarCollapsed, setStudentSidebarCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem(STUDENT_SIDEBAR_COLLAPSED_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleStudentSidebar = () => {
+    setStudentSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(STUDENT_SIDEBAR_COLLAPSED_KEY, String(next));
+      } catch {
+        // Ignore — private browsing / storage disabled
+      }
+      return next;
+    });
+  };
 
   const dismissPwWarning = () => {
     setPwWarningDismissed(true);
@@ -156,7 +181,18 @@ export default function Layout() {
         </div>
       )}
 
+      {/* Students get their own top bar; every other role keeps this one. */}
+      {isStudent && (
+        <StudentTopBar
+          user={user}
+          sidebarOpen={sidebarOpen}
+          onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+          onLogout={handleLogout}
+        />
+      )}
+
       {/* Top Navbar - Glassmorphic */}
+      {!isStudent && (
       <nav className="fixed w-full top-0 z-30 bg-white/70 backdrop-blur-xl border-b border-gray-200 shadow-sm">
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
@@ -196,9 +232,23 @@ export default function Layout() {
           </div>
         </div>
       </nav>
+      )}
 
       <div className="flex pt-16">
+        {/* Students get the grouped, collapsible sidebar. */}
+        {isStudent && (
+          <StudentSidebar
+            navigationItems={navigationItems}
+            sidebarOpen={sidebarOpen}
+            onNavigate={() => setSidebarOpen(false)}
+            collapsed={studentSidebarCollapsed}
+            onToggleCollapse={toggleStudentSidebar}
+            user={user}
+          />
+        )}
+
         {/* Floating Glassmorphic Sidebar */}
+        {!isStudent && (
         <aside
           className={`${
             sidebarOpen ? 'translate-x-0' : '-translate-x-full'
@@ -270,6 +320,7 @@ export default function Layout() {
             </div>
           </div>
         </aside>
+        )}
 
         {/* Main Content */}
         {/* The lg: margin is unconditional on purpose: at lg the sidebar is
@@ -291,8 +342,12 @@ export default function Layout() {
             `position: sticky` for any child. The new mobile layouts need
             sticky action bars. Other roles keep the identical class list. */}
         <main className={`flex-1 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)]
-          lg:ml-[296px] transition-all duration-300 ${
-            isStudent ? 'pb-24 sm:pb-24 lg:pb-8' : 'overflow-y-auto'
+          transition-all duration-300 ${
+            isStudent
+              ? `pb-24 sm:pb-24 lg:pb-8 ${
+                  studentSidebarCollapsed ? 'lg:ml-[96px]' : 'lg:ml-[266px]'
+                }`
+              : 'overflow-y-auto lg:ml-[296px]'
           }`}
         >
           <div className="max-w-[1400px] mx-auto">

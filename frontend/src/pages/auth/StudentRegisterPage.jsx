@@ -66,6 +66,7 @@ export default function StudentRegisterPage() {
   });
 
   const { registerStudent } = useAuth();
+  const [signedInAfterRegister, setSignedInAfterRegister] = useState(false);
   const navigate = useNavigate();
   const portalMode = usePortalMode();
 
@@ -313,13 +314,16 @@ export default function StudentRegisterPage() {
     setLoading(false);
 
     if (result.success) {
+      setSignedInAfterRegister(Boolean(result.signedIn));
       setShowSuccessModal(true);
     }
   };
 
   const handleSuccessModalClose = () => {
     setShowSuccessModal(false);
-    navigate('/login');
+    // Registration issues a session, so go straight to the waiting screen.
+    // Falls back to the login form if no session came back.
+    navigate(signedInAfterRegister ? '/student/waiting' : '/login');
   };
 
   return (
@@ -349,7 +353,7 @@ export default function StudentRegisterPage() {
               onClick={handleSuccessModalClose}
               className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white font-semibold py-3 px-6 rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-200 shadow-lg hover:shadow-xl"
             >
-              OK, Got it
+              {signedInAfterRegister ? 'Continue' : 'OK, Got it'}
             </button>
         </Modal>
       )}

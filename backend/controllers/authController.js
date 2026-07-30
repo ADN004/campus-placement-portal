@@ -958,13 +958,27 @@ export const registerStudent = async (req, res) => {
         }
       }
 
-      res.status(201).json({
-        success: true,
-        message: replaceTarget
+      // Issue a session with the success response so the student lands on the
+      // waiting screen instead of being bounced back to the login form to type
+      // credentials they were only just given. This grants nothing extra: the
+      // account is pending, and blockPendingStudent closes every student router
+      // to it, so the token can reach /auth/me and logout and nothing else.
+      // The same session was already obtainable by logging in with the PRN and
+      // the default password, which the login page prints on screen.
+      sendTokenResponse(
+        {
+          id: result.userId,
+          email,
+          role: 'student',
+          registration_status: 'pending',
+          using_default_password: true,
+        },
+        201,
+        res,
+        replaceTarget
           ? 'Corrected registration submitted! Your previous rejected registration was replaced and your account is pending approval from your placement officer again.'
-          : 'Registration successful! Your account is pending approval from your placement officer. You will receive an email verification link after approval.',
-        data: result,
-      });
+          : 'Registration successful! Your account is pending approval from your placement officer. You will receive an email verification link after approval.'
+      );
     } catch (transactionError) {
       // Clean up uploaded image if database transaction fails
       if (photoCloudinaryId) {

@@ -91,7 +91,21 @@ export const AuthProvider = ({ children }) => {
   const registerStudent = async (data) => {
     try {
       const response = await authAPI.registerStudent(data);
-      return { success: true };
+
+      // Registration now returns a session, so the student can be shown the
+      // waiting screen instead of being sent to the login form to re-enter
+      // credentials they were just issued. The account is pending, so this
+      // session can reach nothing but /auth/me. If an older backend responds
+      // without a token, nothing here runs and the caller falls back to the
+      // login page.
+      const { token, user: registered } = response?.data || {};
+      if (token && registered) {
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(registered));
+        setUser(registered);
+      }
+
+      return { success: true, signedIn: Boolean(token && registered) };
     } catch (error) {
       const message = error.response?.data?.message || 'Registration failed';
       toast.error(message);

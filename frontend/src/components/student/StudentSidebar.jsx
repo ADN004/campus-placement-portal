@@ -75,7 +75,7 @@ export default function StudentSidebar({
                 never shift) but gives up its width — `whitespace-nowrap` alone
                 would still claim the full text width and overflow the 72px. */}
             <p
-              className={`text-[11px] font-bold uppercase tracking-[0.13em] text-spc-muted
+              className={`text-xs font-bold uppercase tracking-[0.13em] text-spc-muted
                 whitespace-nowrap overflow-hidden transition-all duration-200
                 ${collapsed
                   ? 'px-3 pt-3 pb-1.5 lg:opacity-0 lg:h-2 lg:w-0 lg:px-0 lg:pt-0 lg:pb-0'
@@ -123,7 +123,7 @@ export default function StudentSidebar({
           </div>
           <div className="min-w-0">
             <p className="text-spc-xs font-semibold text-spc-ink truncate">{user.email}</p>
-            <p className="text-[11px] text-spc-muted">Student</p>
+            <p className="text-xs text-spc-muted">Student</p>
           </div>
         </div>
 

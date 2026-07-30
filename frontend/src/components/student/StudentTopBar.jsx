@@ -32,7 +32,7 @@ export default function StudentTopBar({ user, sidebarOpen, onToggleSidebar, onLo
                 <h1 className="text-spc-h3 font-extrabold text-spc-ink leading-tight truncate">
                   State Placement Cell
                 </h1>
-                <p className="hidden sm:block text-[11px] font-bold uppercase tracking-[0.13em] text-spc-brass leading-tight">
+                <p className="hidden sm:block text-xs font-bold uppercase tracking-[0.13em] text-spc-brass leading-tight">
                   Kerala Polytechnics
                 </p>
               </div>
@@ -44,7 +44,7 @@ export default function StudentTopBar({ user, sidebarOpen, onToggleSidebar, onLo
               <span className="text-spc-xs font-semibold text-spc-ink truncate max-w-[220px]">
                 {user.email}
               </span>
-              <span className="text-[11px] font-bold uppercase tracking-[0.11em] text-spc-muted">
+              <span className="text-xs font-bold uppercase tracking-[0.11em] text-spc-muted">
                 Student
               </span>
             </div>

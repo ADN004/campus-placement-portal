@@ -65,7 +65,7 @@ export default function StudentBottomNav() {
                     : 'text-spc-muted active:bg-spc-surface-2'}`}
               >
                 <Icon size={20} />
-                <span className="text-[11px] font-bold leading-none">{tab.name}</span>
+                <span className="text-xs font-bold leading-none">{tab.name}</span>
               </Link>
             </li>
           );

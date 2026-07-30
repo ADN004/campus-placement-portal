@@ -122,7 +122,7 @@ export default function StudentSidebar({
             <User size={16} className="text-spc-on-teal" />
           </div>
           <div className="min-w-0">
-            <p className="text-spc-xs font-semibold text-spc-ink truncate">{user.name || user.email}</p>
+            <p className="text-spc-xs font-semibold text-spc-ink truncate">{user.profile?.name || user.profile?.student_name || user.email}</p>
             <p className="text-xs text-spc-muted">Student</p>
           </div>
         </div>

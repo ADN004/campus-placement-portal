@@ -284,8 +284,11 @@ export function ActionPanel({
   showActions = true,
   showChecklist = true,
   bare = false,
+  equal = false,
 }) {
-  const buttonWidth = stacked ? 'w-full' : '';
+  // `equal` makes buttons share a row evenly — used on phones, where two
+  // natural-width buttons wrap awkwardly.
+  const buttonWidth = stacked ? 'w-full' : equal ? 'flex-1 min-w-0' : '';
   const shell = bare ? '' : 'rounded-spc bg-spc-surface border border-spc-line p-4';
 
   return (

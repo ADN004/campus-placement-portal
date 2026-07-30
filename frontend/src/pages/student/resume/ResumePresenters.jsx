@@ -34,12 +34,23 @@ function Header({ size }) {
 }
 
 export function MobileResume({ actionProps, sectionProps }) {
+  const { editMode } = actionProps;
+
   return (
-    <div className="pb-32">
+    <div className={editMode ? 'pb-28' : ''}>
       <Header size="sm" />
 
-      {/* The checklist of what's still missing stays inline; only the buttons
-          move to the bottom bar. */}
+      {/* Download and Edit sit in the page, side by side, rather than in a
+          permanent bottom bar. Stacked and pinned they were ~110px of fixed
+          chrome on top of the 84px tab bar — a third of a phone screen given
+          over to two buttons you press occasionally. Only Save and Cancel earn
+          a pinned bar, and only while you're actually editing. */}
+      {!editMode && (
+        <div className="mb-4">
+          <ActionPanel {...actionProps} showChecklist={false} bare equal />
+        </div>
+      )}
+
       {!actionProps.canDownload && (
         <div className="mb-4">
           <ActionPanel {...actionProps} showActions={false} bare />
@@ -48,12 +59,14 @@ export function MobileResume({ actionProps, sectionProps }) {
 
       <ResumeSections {...sectionProps} />
 
-      <div
-        className="spc-above-tabbar fixed inset-x-0 z-20 px-4 pt-3 bg-spc-surface border-t border-spc-line"
-        style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px))' }}
-      >
-        <ActionPanel {...actionProps} stacked showChecklist={false} bare />
-      </div>
+      {editMode && (
+        <div
+          className="spc-above-tabbar fixed inset-x-0 z-20 px-4 pt-3 bg-spc-surface border-t border-spc-line"
+          style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px))' }}
+        >
+          <ActionPanel {...actionProps} showChecklist={false} bare equal />
+        </div>
+      )}
     </div>
   );
 }

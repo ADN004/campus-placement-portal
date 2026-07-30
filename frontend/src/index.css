@@ -669,7 +669,19 @@ body[data-student-tabbar] .spc-above-tabbar {
   min-height: calc(100dvh - 4rem);
 }
 
+/* Below `lg` the drawer is full-bleed from under the top bar (4rem) to the
+   bottom edge. It was sized `100vh - 88px` at every width, but the 88px is only
+   correct at `lg`, where the panel floats with a 12px gutter below it. On a
+   phone that left a ~24px strip at the bottom with the blurred backdrop showing
+   through under the drawer. */
 .spc-vh-drawer {
-  height: calc(100vh - 88px);
-  height: calc(100dvh - 88px);
+  height: calc(100vh - 4rem);
+  height: calc(100dvh - 4rem);
+}
+
+@media (min-width: 1024px) {
+  .spc-vh-drawer {
+    height: calc(100vh - 88px);
+    height: calc(100dvh - 88px);
+  }
 }

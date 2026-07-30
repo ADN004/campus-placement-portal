@@ -1,3 +1,4 @@
+import { Navigate } from 'react-router-dom';
 import { Clock, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -11,6 +12,15 @@ import { useAuth } from '../../context/AuthContext';
  */
 export default function WaitingPage() {
   const { user } = useAuth();
+
+  // Nothing in the app links here — it is reachable only by typing the URL, and
+  // it had no guard, so an already-approved student who did that was told their
+  // registration was pending. Send anyone who isn't actually waiting to their
+  // dashboard. `replace` keeps this page out of the back history.
+  const status = user?.profile?.registration_status;
+  if (status && status !== 'pending') {
+    return <Navigate to="/student/dashboard" replace />;
+  }
 
   return (
     <div className="flex items-center justify-center py-10 sm:py-16">

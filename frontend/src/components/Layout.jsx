@@ -191,10 +191,10 @@ export default function Layout() {
 
   return (
     <div
-      className={`min-h-screen relative ${
+      className={`relative ${
         isStudent
-          ? 'spc-student spc-student-bg spc-clip-x'
-          : 'overflow-x-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50'
+          ? 'spc-vh-screen spc-student spc-student-bg spc-clip-x'
+          : 'min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50'
       }`}
     >
       {/* Blocks students with an outstanding correction from every page but Profile */}
@@ -384,13 +384,13 @@ export default function Layout() {
             letting you reach it. Other roles get this for free because their
             `overflow-y-auto` makes <main> a scroll container, which is allowed
             to shrink; dropping that for students is what exposed it. */}
-        <main className={`flex-1 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)]
+        <main className={`flex-1 p-4 sm:p-6 lg:p-8
           transition-all duration-300 ${
             isStudent
-              ? `min-w-0 pb-24 sm:pb-24 lg:pb-8 ${
+              ? `spc-vh-main min-w-0 pb-24 sm:pb-24 lg:pb-8 ${
                   studentSidebarCollapsed ? 'lg:ml-[96px]' : 'lg:ml-[266px]'
                 }`
-              : 'overflow-y-auto lg:ml-[296px]'
+              : 'min-h-[calc(100vh-4rem)] overflow-y-auto lg:ml-[296px]'
           }`}
         >
           <div className="max-w-[1400px] mx-auto">

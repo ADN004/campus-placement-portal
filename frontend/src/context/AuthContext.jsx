@@ -47,6 +47,26 @@ export const AuthProvider = ({ children }) => {
       setUser(user);
 
       toast.success('Login successful!');
+
+      // The login response carries only id, email, role and the default-password
+      // flag. The fuller record — name, college, region — comes from /auth/me,
+      // which otherwise only ran on a page refresh, so anything showing the
+      // user's name fell back to their email until they reloaded. Hydrate in the
+      // background: the redirect below doesn't wait on it, and a failure just
+      // leaves the smaller object in place.
+      authAPI
+        .getMe()
+        .then((me) => {
+          const full = me?.data?.data;
+          if (full) {
+            setUser(full);
+            localStorage.setItem('user', JSON.stringify(full));
+          }
+        })
+        .catch(() => {
+          // Non-fatal — the session is already valid.
+        });
+
       return { success: true, user };
     } catch (error) {
       const message = error.response?.data?.message || 'Login failed';

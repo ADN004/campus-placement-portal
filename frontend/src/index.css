@@ -647,3 +647,29 @@ body[data-student-tabbar] .spc-staging-banner {
 body[data-student-tabbar] .spc-above-tabbar {
   bottom: calc(84px + env(safe-area-inset-bottom, 0px));
 }
+
+/* ---- dynamic viewport height -------------------------------------------
+   Mobile browsers report `100vh` as the *large* viewport: the height the page
+   would have with the address bar hidden. While the bar is showing, the real
+   visible area is shorter, so anything sized with 100vh runs off the bottom of
+   the screen. In the student drawer that pushed its footer below the fold and
+   left the blurred backdrop showing beneath it, and it made the page feel
+   locked as the bar collapsed and expanded during a scroll.
+
+   `dvh` tracks the viewport as the bar moves. The `vh` line stays first as the
+   fallback for browsers without `dvh`, so they keep today's behaviour rather
+   than losing the height entirely. */
+.spc-vh-screen {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.spc-vh-main {
+  min-height: calc(100vh - 4rem);
+  min-height: calc(100dvh - 4rem);
+}
+
+.spc-vh-drawer {
+  height: calc(100vh - 88px);
+  height: calc(100dvh - 88px);
+}

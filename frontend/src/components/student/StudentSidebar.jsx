@@ -59,7 +59,7 @@ export default function StudentSidebar({
       className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         lg:translate-x-0 fixed z-20 flex flex-col
         w-[280px] ${collapsed ? 'lg:w-[72px]' : 'lg:w-[242px]'}
-        h-[calc(100vh-88px)] top-16 left-0 rounded-none
+        spc-vh-drawer top-16 left-0 rounded-none
         lg:left-3 lg:top-[76px] lg:rounded-spc-lg lg:shadow-lg
         bg-spc-surface border-r border-spc-line lg:border
         transition-all duration-300 ease-in-out`}

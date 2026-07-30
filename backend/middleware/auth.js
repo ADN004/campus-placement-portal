@@ -297,6 +297,10 @@ export const sendTokenResponse = (user, statusCode, res, message = 'Success') =>
       role: user.role,
       // Drives the "you're still on the default password" warning banner.
       using_default_password: user.using_default_password === true,
+      // Students only. Lets the client send a still-pending student straight to
+      // the waiting screen rather than flashing the dashboard while /auth/me
+      // loads the fuller record.
+      ...(user.registration_status ? { registration_status: user.registration_status } : {}),
     },
   });
 };

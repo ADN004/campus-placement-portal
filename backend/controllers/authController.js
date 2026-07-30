@@ -152,12 +152,24 @@ export const login = async (req, res) => {
         });
       }
 
-      if (status !== 'approved') {
+      // `pending` is allowed to authenticate so the portal can show the waiting
+      // screen and, if an officer has raised one, let the student act on a
+      // correction request. Everything else that isn't approved — blacklisted,
+      // or any future status — stays locked out here.
+      //
+      // This does not widen what a pending student can do: eligible-jobs,
+      // apply and my-applications are behind checkStudentApproval, and every
+      // other student route reads only that student's own record.
+      if (status !== 'approved' && status !== 'pending') {
         return res.status(401).json({
           success: false,
           message: 'Your registration is pending approval from your placement officer',
         });
       }
+
+      // Surfaced in the login response so the client can route straight to the
+      // waiting screen instead of flashing the dashboard first.
+      user.registration_status = status;
     }
 
     // Check if user is active

@@ -201,7 +201,15 @@ export default function Layout() {
       {/* Blocks students with an outstanding correction from every page but Profile */}
       {user?.role === 'student' && <CorrectionGate />}
       {/* Sends students still awaiting approval to the waiting page */}
-      {isStudent && <StudentApprovalGate status={user?.profile?.registration_status} />}
+      {isStudent && (
+        <StudentApprovalGate
+          /* The login response carries registration_status directly; /auth/me
+             nests the fuller record under `profile`. Reading both means the
+             redirect happens on the first render after sign-in rather than
+             after the profile hydrates. */
+          status={user?.profile?.registration_status ?? user?.registration_status}
+        />
+      )}
       {/* Animated Background Orbs — every role except students.
           The orbs render with mix-blend-multiply, which darkens whatever sits
           beneath them: measured, the page ground goes #eff6ff → #cadefd under

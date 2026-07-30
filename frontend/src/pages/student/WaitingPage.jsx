@@ -21,7 +21,8 @@ export default function WaitingPage() {
   const [refreshing, setRefreshing] = useState(false);
 
   const profile = user?.profile;
-  const status = profile?.registration_status;
+  // Same dual read as StudentApprovalGate — login gives it flat, /auth/me nests it.
+  const status = profile?.registration_status ?? user?.registration_status;
 
   if (status && status !== 'pending') {
     return <Navigate to="/student/dashboard" replace />;

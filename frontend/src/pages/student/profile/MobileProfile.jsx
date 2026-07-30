@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import PinnedActionBar from '../../../components/student/PinnedActionBar';
 import {
   CorrectionBanner,
   EditActions,
@@ -126,12 +127,10 @@ export default function MobileProfile({
         <StatusNotice status={profile?.registration_status} />
       </div>
 
-      {/* Thumb-reachable save bar — only while editing. */}
+      {/* Thumb-reachable save bar — only while editing. It takes the tab bar's
+          place for the duration. */}
       {editMode && (
-        <div
-          className="spc-above-tabbar fixed inset-x-0 z-20 px-4 pt-3 bg-spc-surface border-t border-spc-line"
-          style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px))' }}
-        >
+        <PinnedActionBar>
           <EditActions
             editMode
             saving={saving}
@@ -139,7 +138,7 @@ export default function MobileProfile({
             onCancel={onCancel}
             full
           />
-        </div>
+        </PinnedActionBar>
       )}
     </div>
   );

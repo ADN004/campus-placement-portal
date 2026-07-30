@@ -43,7 +43,7 @@ export default function StudentBottomNav() {
   return (
     <nav
       aria-label="Student sections"
-      className="lg:hidden fixed bottom-0 inset-x-0 z-30 px-3 pt-2"
+      className="spc-tabbar lg:hidden fixed bottom-0 inset-x-0 z-30 px-3 pt-2"
       style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px))' }}
     >
       <ul

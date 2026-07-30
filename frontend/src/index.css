@@ -638,17 +638,12 @@ body[data-student-tabbar] .spc-staging-banner {
   bottom: auto;
 }
 
-/* A page-level action bar that must sit above the student bottom tab bar
-   rather than underneath it. Both are position:fixed at the bottom, so without
-   this they stack on top of each other and the page's own buttons disappear.
-   The attribute is set by StudentBottomNav only while that bar is on screen —
-   when the drawer is open the bar unmounts and this drops back to the edge. */
-.spc-above-tabbar {
-  bottom: 0;
-}
-
-body[data-student-tabbar] .spc-above-tabbar {
-  bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+/* While a page shows its own pinned action bar (editing a profile or resume),
+   the tab bar steps aside. Stacking the two left a transparent strip between
+   them that page content scrolled through; offsetting one above the other only
+   moved the seam. PinnedActionBar sets the attribute while it is mounted. */
+body[data-spc-actionbar] .spc-tabbar {
+  display: none;
 }
 
 /* ---- dynamic viewport height -------------------------------------------

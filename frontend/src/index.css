@@ -688,3 +688,33 @@ body[data-student-tabbar] .spc-above-tabbar {
     height: calc(100dvh - 88px);
   }
 }
+
+/* ---- waiting page ------------------------------------------------------
+   Kasavu pinstripe: the fine gold warp threads of Kerala handloom cotton,
+   drawn as a repeating gradient so it stays crisp at any pixel density and
+   needs no image request. Used on the teal panel of the pending-approval
+   screen. */
+.spc-kasavu {
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgb(var(--spc-brass) / 0.85) 0 1px,
+    transparent 1px 7px
+  );
+}
+
+/* Slow halo on the step currently in progress — the page's one piece of
+   motion, so "under review" reads as something actively happening rather than
+   a dead end. */
+@keyframes spc-pulse {
+  0% { box-shadow: 0 0 0 0 rgb(var(--spc-teal) / 0.4); }
+  70% { box-shadow: 0 0 0 14px rgb(var(--spc-teal) / 0); }
+  100% { box-shadow: 0 0 0 0 rgb(var(--spc-teal) / 0); }
+}
+
+.spc-pulse {
+  animation: spc-pulse 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spc-pulse { animation: none; }
+}

@@ -1,6 +1,7 @@
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import CorrectionGate from './CorrectionGate';
+import StudentApprovalGate from './StudentApprovalGate';
 import {
   Home,
   Briefcase,
@@ -199,6 +200,8 @@ export default function Layout() {
     >
       {/* Blocks students with an outstanding correction from every page but Profile */}
       {user?.role === 'student' && <CorrectionGate />}
+      {/* Sends students still awaiting approval to the waiting page */}
+      {isStudent && <StudentApprovalGate status={user?.profile?.registration_status} />}
       {/* Animated Background Orbs — every role except students.
           The orbs render with mix-blend-multiply, which darkens whatever sits
           beneath them: measured, the page ground goes #eff6ff → #cadefd under

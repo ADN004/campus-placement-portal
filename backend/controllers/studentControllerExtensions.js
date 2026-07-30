@@ -1,5 +1,6 @@
 import { query } from '../config/database.js';
 import { sendVerificationEmail } from '../config/emailService.js';
+import { buildVerificationDetails } from '../utils/studentEmailDetails.js';
 import logActivity from '../middleware/activityLogger.js';
 import crypto from 'crypto';
 import {
@@ -69,7 +70,8 @@ export const resendVerificationEmail = async (req, res) => {
 
     // Send verification email
     try {
-      await sendVerificationEmail(student.email, verificationToken, student.student_name);
+      const verificationDetails = await buildVerificationDetails(student);
+      await sendVerificationEmail(student.email, verificationToken, student.student_name, verificationDetails);
     } catch (emailError) {
       console.error('Error sending verification email:', emailError);
       return res.status(500).json({

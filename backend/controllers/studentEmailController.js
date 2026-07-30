@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { query, transaction } from '../config/database.js';
 import logActivity from '../middleware/activityLogger.js';
 import { sendVerificationEmail } from '../config/emailService.js';
+import { buildVerificationDetails } from '../utils/studentEmailDetails.js';
 import { isDisposableEmail, DISPOSABLE_EMAIL_MESSAGE } from '../utils/emailPolicy.js';
 import { DAY_AWARE_COUNT_SQL } from '../utils/verificationEmailPolicy.js';
 
@@ -98,7 +99,9 @@ const changeStudentEmail = async (student, rawEmail, req, actorLabel) => {
   let emailSent = false;
   if (isApproved) {
     try {
-      await sendVerificationEmail(newEmail, newToken, student.student_name);
+      const verificationDetails = await buildVerificationDetails(student);
+      verificationDetails.email = newEmail;
+      await sendVerificationEmail(newEmail, newToken, student.student_name, verificationDetails);
       emailSent = true;
     } catch (emailError) {
       console.error('Verification email send failed after email change:', emailError.message);

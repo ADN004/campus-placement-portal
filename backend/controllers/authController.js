@@ -1129,7 +1129,8 @@ export const resendVerificationEmail = async (req, res) => {
     const studentResult = await query(
       `SELECT s.id, s.email, s.student_name, s.email_verified, s.registration_status,
               s.email_verification_token, s.verification_email_sent_count,
-              s.last_verification_email_sent_at
+              s.last_verification_email_sent_at,
+              s.prn, s.branch, s.college_id, s.created_at
        FROM students s
        WHERE s.email = $1`,
       [email]
@@ -1186,12 +1187,15 @@ export const resendVerificationEmail = async (req, res) => {
 
     // Send verification email
     const { sendVerificationEmail } = await import('../config/emailService.js');
+    const { buildVerificationDetails } = await import('../utils/studentEmailDetails.js');
+    const verificationDetails = await buildVerificationDetails(student);
 
     try {
       await sendVerificationEmail(
         student.email,
         newVerificationToken,
-        student.student_name
+        student.student_name,
+        verificationDetails
       );
 
       res.status(200).json({

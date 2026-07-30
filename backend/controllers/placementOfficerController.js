@@ -2,6 +2,7 @@ import { query, transaction } from '../config/database.js';
 import logActivity from '../middleware/activityLogger.js';
 import ExcelJS from 'exceljs';
 import { sendVerificationEmail, sendRegistrationRejectedEmail } from '../config/emailService.js';
+import { buildVerificationDetails } from '../utils/studentEmailDetails.js';
 import { generateStudentPDF } from '../utils/pdfGenerator.js';
 import { BRANCH_SHORT_NAMES } from '../constants/branches.js';
 import { singleCollegeJobApprovalRequired } from '../utils/portalMode.js';
@@ -641,10 +642,12 @@ export const approveStudent = async (req, res) => {
           [studentId]
         );
 
+        const verificationDetails = await buildVerificationDetails(student);
         await sendVerificationEmail(
           student.email,
           student.email_verification_token,
-          student.student_name
+          student.student_name,
+          verificationDetails
         );
         console.log(`✅ Verification email sent to ${student.email}`);
       } catch (emailError) {

@@ -21,8 +21,15 @@
 
 import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 dotenv.config();
+
+// Banner / logo image files live here for CID embedding — drop e.g.
+// welcome-header.png into backend/assets/email/ and it is used automatically.
+const ASSET_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'assets', 'email');
 
 // ============================================
 // TRANSPORTER CONFIGURATION
@@ -85,7 +92,7 @@ const BRAND = {
   siteUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
 };
 
-const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+const FONT = "'Poppins',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 
 /** Accent palettes per message type (header + button gradient). */
 const ACCENTS = {
@@ -153,14 +160,78 @@ function emailList(items) {
 }
 
 /**
- * The shared shell. Wraps `bodyHtml` (already-formatted inner HTML) in the
- * branded, cross-client-safe frame.
+ * If a banner image file exists in ASSET_DIR, return a nodemailer attachment
+ * descriptor for CID embedding; otherwise null (header falls back to the emblem
+ * + wordmark). Drop e.g. welcome-header.png into backend/assets/email/.
  */
-function renderEmail({ accent, preheader = '', heading, bodyHtml }) {
+function bannerAttachment(baseName) {
+  for (const ext of ['png', 'jpg', 'jpeg']) {
+    const filename = `${baseName}.${ext}`;
+    try {
+      const filePath = path.join(ASSET_DIR, filename);
+      if (fs.existsSync(filePath)) {
+        return { filename, path: filePath, cid: baseName };
+      }
+    } catch {
+      /* non-fatal — fall back to the emblem header */
+    }
+  }
+  return null;
+}
+
+/**
+ * A highlighted "account details" card: an uppercase title over label/value
+ * rows. Any row whose value is empty is skipped.
+ */
+function emailAccountCard(title, rows, accent) {
+  const body = rows
+    .filter(([, value]) => value !== undefined && value !== null && value !== '')
+    .map(
+      ([label, value]) => `
+              <tr>
+                <td style="padding:9px 0;border-bottom:1px solid #eceafb;font-family:${FONT};font-size:13px;font-weight:600;color:#6b7280;width:150px;vertical-align:top;">${label}</td>
+                <td style="padding:9px 0;border-bottom:1px solid #eceafb;font-family:${FONT};font-size:14px;font-weight:600;color:#0f172a;">${value}</td>
+              </tr>`
+    )
+    .join('');
+  return `
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 6px;background-color:${accent.tintBg};border:1px solid ${accent.tintBorder}44;border-radius:10px;">
+          <tr>
+            <td style="padding:16px 18px 10px;">
+              <div style="font-family:${FONT};font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:${accent.from};margin-bottom:8px;">${title}</div>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${body}
+              </table>
+            </td>
+          </tr>
+        </table>`;
+}
+
+/**
+ * The shared shell. Wraps `bodyHtml` in the branded, cross-client-safe frame.
+ * If `bannerCid` is given, a full-width banner image is the header (via CID);
+ * otherwise the emblem + wordmark header is used. Poppins loads as a
+ * progressive enhancement (Apple / iOS Mail); every other client uses the
+ * inline system-font fallback.
+ */
+function renderEmail({ accent, preheader = '', heading, bodyHtml, bannerCid = null }) {
   const year = new Date().getFullYear();
   const emblem = BRAND.logoUrl
     ? `<img src="${BRAND.logoUrl}" width="56" height="56" alt="${BRAND.name}" style="display:block;margin:0 auto 8px;border:0;outline:none;text-decoration:none;" />`
     : `<div style="font-size:42px;line-height:42px;margin-bottom:4px;">🎓</div>`;
+
+  const header = bannerCid
+    ? `<tr>
+            <td style="padding:0;font-size:0;line-height:0;">
+              <img src="cid:${bannerCid}" width="600" alt="${BRAND.name} — ${BRAND.sub}" style="display:block;width:100%;max-width:600px;height:auto;border:0;outline:none;text-decoration:none;" />
+            </td>
+          </tr>`
+    : `<tr>
+            <td align="center" bgcolor="${accent.from}" style="background-color:${accent.from};background-image:linear-gradient(135deg,${accent.from} 0%,${accent.to} 100%);padding:34px 24px;">
+              ${emblem}
+              <div style="font-family:${FONT};font-size:22px;font-weight:700;letter-spacing:0.3px;color:#ffffff;">${BRAND.name}</div>
+              <div style="font-family:${FONT};font-size:13px;color:#ffffff;opacity:0.9;margin-top:2px;">${BRAND.sub}</div>
+            </td>
+          </tr>`;
 
   return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en">
@@ -170,6 +241,10 @@ function renderEmail({ accent, preheader = '', heading, bodyHtml }) {
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <meta name="color-scheme" content="light" />
   <title>${BRAND.name}</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+    body, table, td, div, p, a, h1 { font-family: ${FONT}; }
+  </style>
 </head>
 <body style="margin:0;padding:0;background-color:#f1f5f9;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
   <div style="display:none;max-height:0;overflow:hidden;opacity:0;mso-hide:all;">${preheader}&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;</div>
@@ -177,13 +252,7 @@ function renderEmail({ accent, preheader = '', heading, bodyHtml }) {
     <tr>
       <td align="center" style="padding:24px 12px;">
         <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;background-color:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;">
-          <tr>
-            <td align="center" bgcolor="${accent.from}" style="background-color:${accent.from};background-image:linear-gradient(135deg,${accent.from} 0%,${accent.to} 100%);padding:34px 24px;">
-              ${emblem}
-              <div style="font-family:${FONT};font-size:22px;font-weight:700;letter-spacing:0.3px;color:#ffffff;">${BRAND.name}</div>
-              <div style="font-family:${FONT};font-size:13px;color:#ffffff;opacity:0.9;margin-top:2px;">${BRAND.sub}</div>
-            </td>
-          </tr>
+          ${header}
           <tr>
             <td style="padding:36px 32px;font-family:${FONT};font-size:15px;line-height:1.65;color:#334155;">
               ${heading ? `<h1 style="margin:0 0 16px;font-family:${FONT};font-size:20px;font-weight:700;color:#0f172a;">${heading}</h1>` : ''}
@@ -206,8 +275,9 @@ function renderEmail({ accent, preheader = '', heading, bodyHtml }) {
 }
 
 /** Shared send helper: composes, sends, logs, and normalises the result. */
-async function dispatch(kind, { to, subject, html }) {
+async function dispatch(kind, { to, subject, html, attachments }) {
   const mailOptions = { from: process.env.EMAIL_FROM, to, subject, html };
+  if (attachments && attachments.length) mailOptions.attachments = attachments;
   try {
     const info = await transporter.sendMail(mailOptions);
     console.log(`✅ ${kind} email sent:`, info.messageId);
@@ -227,30 +297,48 @@ const linkText = (url) =>
 // EMAIL BUILDERS + SENDERS
 // ============================================
 
-/** Account verification (welcome). */
-export function buildVerificationEmail(verificationUrl, studentName) {
+/**
+ * Account verification (welcome) with a personalised "your account" card.
+ * `details` may carry { prn, college, branch, email, registeredOn } — any
+ * missing field is simply left out of the card.
+ */
+export function buildVerificationEmail(verificationUrl, studentName, details = {}) {
   const accent = ACCENTS.indigo;
+  const banner = bannerAttachment('welcome-header');
+  const registeredOn = details.registeredOn
+    ? new Date(details.registeredOn).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })
+    : '';
   return {
-    subject: 'Verify Your Email — State Placement Cell',
+    subject: 'Verify Your Account — State Placement Cell',
+    attachments: banner ? [banner] : [],
     html: renderEmail({
       accent,
-      preheader: 'Confirm your email to activate your State Placement Cell account.',
-      heading: `Hello ${studentName},`,
+      bannerCid: banner ? banner.cid : null,
+      preheader: 'Your account is ready — verify your email to activate it.',
+      heading: `Hi ${studentName},`,
       bodyHtml: `
-              ${p('Welcome to the <strong>State Placement Cell</strong>! Your account has been approved by your placement officer.')}
-              ${p('Please confirm your email address to finish setting up your account and unlock every feature of the portal.')}
-              ${emailButton(verificationUrl, 'Verify Email Address', accent)}
+              ${p('Your account at <strong>The State Placement Cell</strong> has been approved and created. Please review your details below and verify your email to activate your account.')}
+              ${emailAccountCard('Your account', [
+                ['Register No. (PRN)', details.prn],
+                ['College', details.college],
+                ['Branch', details.branch],
+                ['Registered Email', details.email],
+                ['Registered On', registeredOn],
+              ], accent)}
+              ${emailButton(verificationUrl, 'Verify My Account', accent)}
               ${muted('Button not working? Copy and paste this link into your browser:')}
               ${linkText(verificationUrl)}
-              ${emailCallout('<strong>Heads up:</strong> this link expires in 24 hours for your security.', ACCENTS.amber)}
-              ${muted("If you didn't create this account, you can safely ignore this email — it will stay inactive.")}`,
+              ${emailCallout('This link expires in 24 hours. If any detail above is incorrect, please contact your placement officer before verifying.', ACCENTS.amber)}`,
     }),
   };
 }
 
-export const sendVerificationEmail = async (email, verificationToken, studentName) => {
+export const sendVerificationEmail = async (email, verificationToken, studentName, details = {}) => {
   const verificationUrl = `${BRAND.siteUrl}/verify-email?token=${verificationToken}`;
-  return dispatch('verification', { to: email, ...buildVerificationEmail(verificationUrl, studentName) });
+  return dispatch('verification', {
+    to: email,
+    ...buildVerificationEmail(verificationUrl, studentName, { email, ...details }),
+  });
 };
 
 /** Password reset. */

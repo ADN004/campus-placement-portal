@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ChevronRight, ChevronDown, AlertCircle } from 'lucide-react';
+import { ChevronRight, ChevronDown } from 'lucide-react';
 import {
   formatDate,
   StatusPill,
+  VerificationNotice,
   buildProfileRows,
   HIGHLIGHT_TEXT,
   VerifiedChip,
@@ -74,44 +75,16 @@ export default function MobileStudentDashboard({
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.34, delay: 0.05 }}
-          className="mb-6 rounded-spc bg-spc-warn-bg p-4"
+          className="mb-6"
         >
-          <div className="flex items-start gap-3">
-            <AlertCircle className="text-spc-warn flex-shrink-0 mt-0.5" size={20} />
-            <div className="min-w-0">
-              <h2 className="text-spc-h3 font-bold text-spc-ink">Verify your email</h2>
-              <p className="text-spc-xs text-spc-body mt-1">
-                We&apos;ve sent a link to <span className="font-bold break-all">{profile.email}</span>.
-                Check your inbox and spam folder.
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-4 space-y-2.5">
-            <button
-              onClick={onResendVerification}
-              disabled={resending || !verificationStatus?.can_resend}
-              className="w-full min-h-[48px] rounded-spc-sm bg-spc-teal text-spc-on-teal
-                text-spc-sm font-bold active:opacity-90 transition-opacity
-                disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {resending ? 'Sending…' : 'Resend verification email'}
-            </button>
-            <button
-              onClick={onOpenEmailModal}
-              className="w-full min-h-[48px] rounded-spc-sm bg-spc-surface text-spc-ink
-                border border-spc-line-strong text-spc-sm font-bold active:bg-spc-surface-2 transition-colors"
-            >
-              Update email address
-            </button>
-          </div>
-
-          {verificationStatus && !verificationStatus.can_resend && (
-            <p className="text-xs text-spc-body mt-3 bg-spc-surface/70 rounded-spc-sm p-2.5">
-              Maximum verification emails sent for today (
-              {verificationStatus.verification_email_sent_count}/5). Please try again tomorrow.
-            </p>
-          )}
+          <VerificationNotice
+            variant="mobile"
+            email={profile.email}
+            verificationStatus={verificationStatus}
+            resending={resending}
+            onResend={onResendVerification}
+            onUpdateEmail={onOpenEmailModal}
+          />
         </motion.div>
       )}
 

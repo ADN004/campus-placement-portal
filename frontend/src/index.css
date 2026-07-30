@@ -612,3 +612,16 @@ input[type='password']::-ms-clear {
 .spc-scroll-contain {
   overscroll-behavior-y: contain;
 }
+
+/* Horizontal clipping that doesn't break `position: sticky`.
+   `overflow-x: hidden` forces the other axis to compute to `auto`, which turns
+   the element into a scroll container — sticky descendants then anchor to a box
+   that never scrolls, so they simply scroll away. `overflow-x: clip` clips
+   without creating that scroll container.
+   The `hidden` line first is the fallback: browsers without `clip` support keep
+   the old behaviour (no horizontal scroll, sticky just doesn't stick) rather
+   than falling back to `visible` and allowing sideways page scroll. */
+.spc-clip-x {
+  overflow-x: hidden;
+  overflow-x: clip;
+}

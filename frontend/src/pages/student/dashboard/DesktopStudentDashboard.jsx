@@ -1,9 +1,10 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { AlertCircle, ArrowRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import {
   formatDate,
   StatusPill,
+  VerificationNotice,
   buildProfileRows,
   HIGHLIGHT_TEXT,
   VerifiedChip,
@@ -66,46 +67,16 @@ export default function DesktopStudentDashboard({
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.06 }}
-          className="mb-8 rounded-spc bg-spc-warn-bg p-6"
+          className="mb-8"
         >
-          <div className="flex items-start gap-4">
-            <AlertCircle className="text-spc-warn flex-shrink-0 mt-0.5" size={24} />
-            <div className="min-w-0 flex-1">
-              <h2 className="text-spc-h1 font-bold text-spc-ink">Verify your email address</h2>
-              <p className="text-spc-body text-spc-body mt-1.5 max-w-[70ch]">
-                Please verify your email to access all features. We&apos;ve sent a verification link
-                to <span className="font-bold">{profile.email}</span>. Check your inbox and spam
-                folder.
-              </p>
-
-              <div className="flex flex-wrap items-center gap-3 mt-4">
-                <button
-                  onClick={onResendVerification}
-                  disabled={resending || !verificationStatus?.can_resend}
-                  className="min-h-[44px] rounded-spc-sm bg-spc-teal text-spc-on-teal
-                    text-spc-sm font-bold px-5 hover:opacity-95 transition-opacity
-                    disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {resending ? 'Sending…' : 'Resend verification email'}
-                </button>
-                <button
-                  onClick={onOpenEmailModal}
-                  className="min-h-[44px] rounded-spc-sm bg-spc-surface text-spc-ink
-                    border border-spc-line-strong text-spc-sm font-bold px-5
-                    hover:bg-spc-surface-2 transition-colors"
-                >
-                  Update email address
-                </button>
-              </div>
-
-              {verificationStatus && !verificationStatus.can_resend && (
-                <p className="text-spc-xs text-spc-body mt-3 bg-spc-surface/70 rounded-spc-sm p-2.5 inline-block">
-                  Maximum verification emails sent for today (
-                  {verificationStatus.verification_email_sent_count}/5). Please try again tomorrow.
-                </p>
-              )}
-            </div>
-          </div>
+          <VerificationNotice
+            variant="desktop"
+            email={profile.email}
+            verificationStatus={verificationStatus}
+            resending={resending}
+            onResend={onResendVerification}
+            onUpdateEmail={onOpenEmailModal}
+          />
         </motion.div>
       )}
 
@@ -271,7 +242,10 @@ export default function DesktopStudentDashboard({
                 </div>
                 <p className="text-spc-h3 font-bold text-spc-ink mt-4">{action.title}</p>
                 <p className="text-spc-xs text-spc-muted mt-1 leading-snug">{action.description}</p>
-                <span className="flex items-center gap-1 text-spc-xs font-bold text-spc-teal mt-4 pt-4 border-t border-spc-line">
+                {/* mt-auto, not mt-4: "Update Profile" has no count and a
+                    one-line description, so without this its Open row floats
+                    up while the others sit lower. */}
+                <span className="flex items-center gap-1 text-spc-xs font-bold text-spc-teal mt-auto pt-4 border-t border-spc-line">
                   <span>Open</span>
                   <ArrowRight size={15} className="group-hover:translate-x-0.5 transition-transform" />
                 </span>

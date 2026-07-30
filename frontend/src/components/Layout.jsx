@@ -166,10 +166,10 @@ export default function Layout() {
 
   return (
     <div
-      className={`min-h-screen relative overflow-x-hidden ${
+      className={`min-h-screen relative ${
         isStudent
-          ? 'spc-student spc-student-bg'
-          : 'bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50'
+          ? 'spc-student spc-student-bg spc-clip-x'
+          : 'overflow-x-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50'
       }`}
     >
       {/* Blocks students with an outstanding correction from every page but Profile */}

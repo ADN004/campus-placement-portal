@@ -1,4 +1,4 @@
-import { CheckCircle, XCircle, Clock, ChevronRight } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, ChevronRight, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 /**
@@ -20,6 +20,125 @@ export function formatDate(dateString) {
     month: 'short',
     day: 'numeric',
   });
+}
+
+/* ------------------------------------------------- email verification box */
+
+/**
+ * "Last sent 3:45 pm", or with the date if it wasn't today. Returns null when
+ * the timestamp is missing or unparseable, so the caller can omit the line.
+ */
+function formatSentAt(iso) {
+  if (!iso) return null;
+  const sent = new Date(iso);
+  if (Number.isNaN(sent.getTime())) return null;
+  const time = sent.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
+  const isToday = sent.toDateString() === new Date().toDateString();
+  return isToday ? `Last sent ${time}` : `Last sent ${formatDate(iso)}, ${time}`;
+}
+
+/**
+ * The email-verification notice, shared by all three presenters so the wording
+ * can never drift between devices. Only the button layout differs by variant.
+ *
+ * `last_verification_email_sent_at` and `verification_emails_remaining_today`
+ * already come back from GET /students/verification-status — the UI just wasn't
+ * showing them. Surfacing the send time matters because it tells a student the
+ * mail definitely left our side, which points them at the real cause: a full
+ * mailbox silently rejects new mail, and that is invisible from in here.
+ */
+export function VerificationNotice({
+  email,
+  verificationStatus,
+  resending,
+  onResend,
+  onUpdateEmail,
+  variant = 'mobile',
+}) {
+  const sentAt = formatSentAt(verificationStatus?.last_verification_email_sent_at);
+  const remaining = verificationStatus?.verification_emails_remaining_today;
+  const atCap = verificationStatus && !verificationStatus.can_resend;
+
+  const pad = variant === 'desktop' ? 'p-6' : variant === 'tablet' ? 'p-5' : 'p-4';
+  const titleSize = variant === 'desktop' ? 'text-spc-h1' : variant === 'tablet' ? 'text-spc-h2' : 'text-spc-h3';
+  const bodySize = variant === 'mobile' ? 'text-spc-xs' : 'text-spc-sm';
+  const buttons =
+    variant === 'mobile' ? 'flex-col' : 'flex-row flex-wrap items-center';
+  const buttonWidth = variant === 'mobile' ? 'w-full' : '';
+
+  return (
+    <div className={`rounded-spc bg-spc-warn-bg ${pad}`}>
+      <div className="flex items-start gap-3">
+        <AlertCircle className="text-spc-warn flex-shrink-0 mt-0.5" size={variant === 'mobile' ? 20 : 23} />
+        <div className="min-w-0 flex-1">
+          <h2 className={`${titleSize} font-bold text-spc-ink`}>Verify your email address</h2>
+          <p className={`${bodySize} text-spc-body mt-1`}>
+            We&apos;ve sent a verification link to{' '}
+            <span className="font-bold break-all">{email}</span>.
+          </p>
+
+          {(sentAt || typeof remaining === 'number') && (
+            <p className="text-xs text-spc-muted font-semibold mt-1.5">
+              {sentAt}
+              {sentAt && typeof remaining === 'number' && ' · '}
+              {typeof remaining === 'number' && `${remaining} of 5 sends left today`}
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className={`flex gap-2.5 mt-4 ${buttons}`}>
+        <button
+          onClick={onResend}
+          disabled={resending || !verificationStatus?.can_resend}
+          className={`${buttonWidth} min-h-[48px] rounded-spc-sm bg-spc-teal text-spc-on-teal
+            text-spc-sm font-bold px-5 hover:opacity-95 transition-opacity
+            disabled:opacity-50 disabled:cursor-not-allowed`}
+        >
+          {resending ? 'Sending…' : 'Resend verification email'}
+        </button>
+        <button
+          onClick={onUpdateEmail}
+          className={`${buttonWidth} min-h-[48px] rounded-spc-sm bg-spc-surface text-spc-ink
+            border border-spc-line-strong text-spc-sm font-bold px-5
+            hover:bg-spc-surface-2 transition-colors`}
+        >
+          Update email address
+        </button>
+      </div>
+
+      {atCap && (
+        <p className="text-xs text-spc-body mt-3 bg-spc-surface/70 rounded-spc-sm p-2.5">
+          Maximum verification emails sent for today (
+          {verificationStatus.verification_email_sent_count}/5). Please try again tomorrow.
+        </p>
+      )}
+
+      {/* The actual troubleshooting. Ordered by how often each one is the
+          cause, and every line ends in something the student can do. */}
+      <div className="mt-4 pt-4 border-t border-spc-warn/20">
+        <p className="text-spc-label font-bold uppercase text-spc-warn">Not arriving?</p>
+        <ul className="mt-2 space-y-1.5 text-xs text-spc-body">
+          <li className="flex gap-2">
+            <span aria-hidden="true" className="text-spc-warn font-bold">·</span>
+            <span>Check your spam or junk folder — it often lands there first.</span>
+          </li>
+          <li className="flex gap-2">
+            <span aria-hidden="true" className="text-spc-warn font-bold">·</span>
+            <span>
+              <span className="font-bold">Is your mailbox full?</span> A mailbox that is out of
+              storage rejects new mail silently, so nothing arrives and no warning is shown. Free up
+              space and resend, or switch to a different address.
+            </span>
+          </li>
+          <li className="flex gap-2">
+            <span aria-hidden="true" className="text-spc-warn font-bold">·</span>
+            <span>Wrong address? Update it above and we&apos;ll send a fresh link.</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+  );
 }
 
 /* ------------------------------------------------------------------ status */

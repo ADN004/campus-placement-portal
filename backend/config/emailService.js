@@ -274,6 +274,19 @@ function renderEmail({ accent, preheader = '', heading, bodyHtml, bannerCid = nu
 </html>`;
 }
 
+/**
+ * Renders the shell and, when a matching banner image exists in ASSET_DIR,
+ * attaches it (CID) too. Each build*() spreads this into its return:
+ *   { subject, ...shell({ bannerName, accent, preheader, heading, bodyHtml }) }
+ */
+function shell({ bannerName, accent, preheader, heading, bodyHtml }) {
+  const banner = bannerName ? bannerAttachment(bannerName) : null;
+  return {
+    attachments: banner ? [banner] : [],
+    html: renderEmail({ accent, preheader, heading, bodyHtml, bannerCid: banner ? banner.cid : null }),
+  };
+}
+
 /** Shared send helper: composes, sends, logs, and normalises the result. */
 async function dispatch(kind, { to, subject, html, attachments }) {
   const mailOptions = { from: process.env.EMAIL_FROM, to, subject, html };
@@ -304,16 +317,14 @@ const linkText = (url) =>
  */
 export function buildVerificationEmail(verificationUrl, studentName, details = {}) {
   const accent = ACCENTS.indigo;
-  const banner = bannerAttachment('welcome-header');
   const registeredOn = details.registeredOn
     ? new Date(details.registeredOn).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })
     : '';
   return {
     subject: 'Verify Your Account — State Placement Cell',
-    attachments: banner ? [banner] : [],
-    html: renderEmail({
+    ...shell({
+      bannerName: 'welcome-header',
       accent,
-      bannerCid: banner ? banner.cid : null,
       preheader: 'Your account is ready — verify your email to activate it.',
       heading: `Hi ${studentName},`,
       bodyHtml: `
@@ -346,7 +357,8 @@ export function buildPasswordResetEmail(resetUrl, userName) {
   const accent = ACCENTS.red;
   return {
     subject: 'Reset Your Password — State Placement Cell',
-    html: renderEmail({
+    ...shell({
+      bannerName: 'reset-header',
       accent,
       preheader: 'Reset the password for your State Placement Cell account.',
       heading: `Hello ${userName},`,
@@ -372,7 +384,8 @@ export function buildNotificationEmail(subject, message) {
   const accent = ACCENTS.indigo;
   return {
     subject,
-    html: renderEmail({
+    ...shell({
+      bannerName: 'notification-header',
       accent,
       preheader: typeof subject === 'string' ? subject : 'A new update from the State Placement Cell.',
       bodyHtml: `<div style="font-family:${FONT};font-size:15px;line-height:1.65;color:#334155;">${message}</div>`,
@@ -389,7 +402,8 @@ export function buildRegistrationRejectedEmail(registerUrl, studentName, reason)
   const accent = ACCENTS.red;
   return {
     subject: 'Registration Update — State Placement Cell',
-    html: renderEmail({
+    ...shell({
+      bannerName: 'registration-rejected-header',
       accent,
       preheader: 'Your registration needs a change — you can register again.',
       heading: `Dear ${studentName},`,
@@ -415,7 +429,8 @@ export function buildCorrectionRequestEmail(loginUrl, studentName, note, photoRe
   const accent = ACCENTS.amber;
   return {
     subject: 'Action Needed: Correction Requested — State Placement Cell',
-    html: renderEmail({
+    ...shell({
+      bannerName: 'correction-header',
       accent,
       preheader: 'Your placement officer asked you to correct something on your profile.',
       heading: `Dear ${studentName},`,
@@ -448,7 +463,8 @@ export function buildDriveScheduleEmail(studentName, jobDetails, driveDetails) {
   });
   return {
     subject: `Placement Drive Scheduled — ${jobDetails.company_name}`,
-    html: renderEmail({
+    ...shell({
+      bannerName: 'drive-header',
       accent,
       preheader: `${jobDetails.company_name} drive on ${driveDate}.`,
       heading: `Hello ${studentName},`,
@@ -486,7 +502,8 @@ export function buildSelectionEmail(studentName, jobDetails, placementDetails) {
   const accent = ACCENTS.green;
   return {
     subject: `Congratulations! Selected at ${jobDetails.company_name}`,
-    html: renderEmail({
+    ...shell({
+      bannerName: 'selected-header',
       accent,
       preheader: `You've been selected at ${jobDetails.company_name}!`,
       heading: `Dear ${studentName},`,
@@ -528,7 +545,8 @@ export function buildShortlistEmail(studentName, jobDetails) {
   const accent = ACCENTS.violet;
   return {
     subject: `Shortlisted for ${jobDetails.company_name} — ${jobDetails.job_title}`,
-    html: renderEmail({
+    ...shell({
+      bannerName: 'shortlist-header',
       accent,
       preheader: `You've been shortlisted for ${jobDetails.company_name}.`,
       heading: `Dear ${studentName},`,
@@ -563,7 +581,8 @@ export function buildRejectionEmail(studentName, jobDetails) {
   const accent = ACCENTS.slate;
   return {
     subject: `Application Update — ${jobDetails.company_name}`,
-    html: renderEmail({
+    ...shell({
+      bannerName: 'rejection-header',
       accent,
       preheader: `An update on your application to ${jobDetails.company_name}.`,
       heading: `Dear ${studentName},`,

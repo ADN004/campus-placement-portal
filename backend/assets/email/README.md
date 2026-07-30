@@ -1,17 +1,22 @@
-# Email image assets (CID-embedded)
+# Email banner images (CID-embedded)
 
-Drop banner/header PNGs here and they're embedded into the matching email via
-`cid:` — always shown, never blocked, no external hosting needed.
+Drop a banner here and the matching email uses it as a full-width header,
+embedded via `cid:` — always shown, never blocked, no external hosting. Until a
+file exists, that email falls back to the 🎓 emblem + wordmark header.
 
-## Welcome / verification banner
+**Specs for every banner:** header art only (logo + title + illustration — no
+feature cards / footer, those are HTML). ~**1280 × 511** (2.5:1). Keep **under
+~150 KB** (JPG q80 is ideal). Extension may be `.png`, `.jpg`, or `.jpeg` — the
+code auto-detects.
 
-- **File name:** `welcome-header.png` (exact name — the code looks for this)
-- **Design size:** ~**1200 × 480 px** (2.5:1), header art only — logo + "Welcome
-  to State Placement Cell" + illustration. **No** feature cards or footer (those
-  are HTML in the email).
-- **File size:** keep **under ~120 KB** (run through tinypng.com, or export JPG q80
-  and name it `welcome-header.jpg` — update the filename in
-  `config/emailService.js` if you use `.jpg`).
-
-Until a file named `welcome-header.png` exists here, the email automatically
-falls back to the 🎓 emblem + wordmark header — nothing breaks.
+| Email | File base name |
+|---|---|
+| Welcome / verify account | `welcome-header` |
+| Password reset | `reset-header` |
+| Notification (generic) | `notification-header` |
+| Registration rejected | `registration-rejected-header` |
+| Correction requested | `correction-header` |
+| Drive scheduled | `drive-header` |
+| Selected / placed | `selected-header` |
+| Shortlisted | `shortlist-header` |
+| Application rejected | `rejection-header` |

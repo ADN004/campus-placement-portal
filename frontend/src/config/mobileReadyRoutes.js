@@ -17,6 +17,7 @@ export const MOBILE_READY_ROUTES = [
   '/student/jobs',
   '/student/applications',
   '/student/notifications',
+  '/student/profile',
 ];
 
 export function isMobileReadyRoute(pathname) {

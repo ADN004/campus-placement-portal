@@ -626,13 +626,16 @@ input[type='password']::-ms-clear {
   overflow-x: clip;
 }
 
-/* The staging ribbon is pinned bottom-centre, which lands it directly on top of
-   the student bottom tab bar — on staging it visually covers the middle tabs.
-   Lift it clear whenever that bar is on screen. The attribute is set by
-   StudentBottomNav only while the bar is actually visible, so every other role
-   and every desktop view keeps the ribbon exactly where it was. */
+/* Move the staging ribbon to the top for students.
+   Pinned bottom-centre it covered the middle tabs; lifting it just above the
+   tab bar then put it on top of the pinned Save/Cancel bar that Profile and
+   Resume show while editing. The bottom of a student screen has no room left,
+   so it goes under the top bar instead, where nothing competes with it. The
+   attribute is set by StudentBottomNav only while that bar is on screen, so
+   every other role and every desktop view keeps the ribbon where it was. */
 body[data-student-tabbar] .spc-staging-banner {
-  bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  top: calc(4rem + 0.5rem);
+  bottom: auto;
 }
 
 /* A page-level action bar that must sit above the student bottom tab bar

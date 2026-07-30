@@ -285,6 +285,8 @@ export function ActionPanel({
   showChecklist = true,
   bare = false,
   equal = false,
+  showDownload = true,
+  showEditControls = true,
 }) {
   // `equal` makes buttons share a row evenly — used on phones, where two
   // natural-width buttons wrap awkwardly.
@@ -295,6 +297,7 @@ export function ActionPanel({
     <div className={shell}>
       {showActions && (
       <div className={`flex gap-2.5 ${stacked ? 'flex-col' : 'flex-wrap items-center'}`}>
+        {showDownload && (
         <button
           type="button"
           onClick={onDownload}
@@ -306,8 +309,9 @@ export function ActionPanel({
           <Download size={17} />
           <span>{downloading ? 'Downloading…' : 'Download PDF'}</span>
         </button>
+        )}
 
-        {editMode ? (
+        {!showEditControls ? null : editMode ? (
           <>
             <button
               type="button"

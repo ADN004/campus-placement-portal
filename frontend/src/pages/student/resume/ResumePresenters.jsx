@@ -45,11 +45,18 @@ export function MobileResume({ actionProps, sectionProps }) {
           chrome on top of the 84px tab bar — a third of a phone screen given
           over to two buttons you press occasionally. Only Save and Cancel earn
           a pinned bar, and only while you're actually editing. */}
-      {!editMode && (
-        <div className="mb-4">
-          <ActionPanel {...actionProps} showChecklist={false} bare equal />
-        </div>
-      )}
+      {/* Download always lives here. Edit joins it when you're not editing;
+          while you are, Save and Cancel take over the pinned bar below so the
+          row never has to hold three buttons on a phone. */}
+      <div className="mb-4">
+        <ActionPanel
+          {...actionProps}
+          showChecklist={false}
+          showEditControls={!editMode}
+          bare
+          equal
+        />
+      </div>
 
       {!actionProps.canDownload && (
         <div className="mb-4">
@@ -64,7 +71,7 @@ export function MobileResume({ actionProps, sectionProps }) {
           className="spc-above-tabbar fixed inset-x-0 z-20 px-4 pt-3 bg-spc-surface border-t border-spc-line"
           style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px))' }}
         >
-          <ActionPanel {...actionProps} showChecklist={false} bare equal />
+          <ActionPanel {...actionProps} showChecklist={false} showDownload={false} bare equal />
         </div>
       )}
     </div>

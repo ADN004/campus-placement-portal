@@ -390,7 +390,7 @@ export default function StudentRegisterPage() {
                 {/* PRN Field with Validation */}
                 <div className="md:col-span-2">
                   <label htmlFor="prn" className="label">
-                    PRN (Personal Registration Number) *
+                    PRN (Permanent Registration Number) *
                   </label>
                   <div className="relative">
                     <input

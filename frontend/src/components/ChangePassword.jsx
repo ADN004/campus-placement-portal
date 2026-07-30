@@ -5,7 +5,13 @@ import toast from 'react-hot-toast';
 import { Lock, Eye, EyeOff, Check, X, AlertCircle, Shield } from 'lucide-react';
 import Modal from './Modal';
 
-export default function ChangePassword({ onClose }) {
+/**
+ * `variant="spc"` opts into the student design system. It defaults to the
+ * original styling because this modal is also used by the placement-officer and
+ * super-admin profiles, whose look is frozen until those roles are redesigned.
+ */
+export default function ChangePassword({ onClose, variant = 'legacy' }) {
+  const spc = variant === 'spc';
   const { user, checkAuth } = useAuth();
   // Self-service reset covers students and super admins only — placement
   // officers sign in by phone and are reset by the super admin instead.
@@ -212,7 +218,11 @@ export default function ChangePassword({ onClose }) {
       overlayClassName="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
       panelClassName="bg-white rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto overscroll-contain"
     >
-        <div className="border-b border-gray-200 px-6 py-4 bg-gradient-to-r from-blue-50 to-indigo-50 sticky top-0 z-10 rounded-t-2xl">
+        <div className={`px-6 py-4 sticky top-0 z-10 rounded-t-2xl ${
+          spc
+            ? 'border-b border-spc-line bg-spc-surface'
+            : 'border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50'
+        }`}>
           <h2 id="change-password-title" className="text-2xl font-bold text-gray-900 flex items-center">
             <Shield className="mr-3 text-blue-600" size={28} />
             Change Password
@@ -268,7 +278,9 @@ export default function ChangePassword({ onClose }) {
                     type="button"
                     onClick={handleSendResetLink}
                     disabled={resetLoading}
-                    className="text-sm font-semibold text-blue-600 hover:text-blue-800 disabled:opacity-50"
+                    className={`text-sm font-semibold disabled:opacity-50 ${
+                      spc ? 'text-spc-teal hover:underline underline-offset-4' : 'text-blue-600 hover:text-blue-800'
+                    }`}
                   >
                     {resetLoading
                       ? 'Sending reset link…'
@@ -415,7 +427,11 @@ export default function ChangePassword({ onClose }) {
             <button
               type="submit"
               disabled={loading}
-              className="btn btn-primary flex-1 flex items-center justify-center space-x-2"
+              className={`flex-1 flex items-center justify-center space-x-2 ${
+                spc
+                  ? 'min-h-[48px] px-5 rounded-spc-sm bg-spc-teal text-spc-on-teal text-spc-sm font-bold hover:opacity-95 transition-opacity disabled:opacity-50'
+                  : 'btn btn-primary'
+              }`}
             >
               {loading ? (
                 <>

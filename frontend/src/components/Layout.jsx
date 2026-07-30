@@ -24,7 +24,7 @@ import {
   AlertTriangle,
   Lock,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import GradientOrb from './GradientOrb';
 import StudentBottomNav from './StudentBottomNav';
 import StudentTopBar from './student/StudentTopBar';
@@ -75,7 +75,32 @@ export default function Layout() {
   // Scoped to students because the officer and super-admin shell is frozen
   // until their own redesign — their drawer has the same bug.
   const deviceType = useDeviceType();
-  useBodyScrollLock(isStudent && sidebarOpen && deviceType !== 'desktop');
+  const studentDrawerOpen = isStudent && sidebarOpen && deviceType !== 'desktop';
+  useBodyScrollLock(studentDrawerOpen);
+
+  // Make the hardware/browser Back button close the drawer instead of leaving
+  // the page. Opening it pushes a history entry; Back pops that entry and we
+  // close. If it's closed another way (the ✕, or tapping the backdrop) the
+  // entry we pushed is still on the stack, so we pop it ourselves — otherwise
+  // the next Back press would appear to do nothing.
+  useEffect(() => {
+    if (!studentDrawerOpen) return undefined;
+
+    window.history.pushState({ spcDrawer: true }, '');
+    let poppedByBack = false;
+    const onPop = () => {
+      poppedByBack = true;
+      setSidebarOpen(false);
+    };
+    window.addEventListener('popstate', onPop);
+
+    return () => {
+      window.removeEventListener('popstate', onPop);
+      if (!poppedByBack && window.history.state?.spcDrawer) {
+        window.history.back();
+      }
+    };
+  }, [studentDrawerOpen]);
 
   const toggleStudentSidebar = () => {
     setStudentSidebarCollapsed((prev) => {
@@ -411,8 +436,10 @@ export default function Layout() {
         </main>
       </div>
 
-      {/* Student-only mobile/tablet bottom navigation */}
-      {isStudent && <StudentBottomNav />}
+      {/* Student-only mobile/tablet bottom navigation. Hidden while the drawer
+          is open — the drawer already lists every destination, and the bar
+          would otherwise sit on top of it. */}
+      {isStudent && !sidebarOpen && <StudentBottomNav />}
 
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (

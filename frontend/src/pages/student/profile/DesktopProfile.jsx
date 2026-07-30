@@ -68,21 +68,24 @@ export default function DesktopProfile({
         onResolve={onResolveCorrection}
       />
 
+      {/* Full width, above the grid. Keeping it inside the left column pushed
+          that column's first card down while the right column started at the
+          top, so the two never lined up. */}
+      <div className="sticky top-16 z-10 -mx-2 px-2 py-3 mb-2 bg-spc-ground flex items-center justify-between gap-4">
+        <p className="text-spc-label font-bold uppercase text-spc-muted">
+          {editMode ? 'Editing your profile' : 'Profile information'}
+        </p>
+        <EditActions
+          editMode={editMode}
+          saving={saving}
+          onEdit={onEdit}
+          onSave={onSubmit}
+          onCancel={onCancel}
+        />
+      </div>
+
       <div className="grid grid-cols-3 gap-5 items-start">
         <div className="col-span-2 space-y-4">
-          <div className="sticky top-16 z-10 -mx-2 px-2 py-3 bg-spc-ground flex items-center justify-between gap-4">
-            <p className="text-spc-label font-bold uppercase text-spc-muted">
-              {editMode ? 'Editing your profile' : 'Profile information'}
-            </p>
-            <EditActions
-              editMode={editMode}
-              saving={saving}
-              onEdit={onEdit}
-              onSave={onSubmit}
-              onCancel={onCancel}
-            />
-          </div>
-
           <form onSubmit={onSubmit} className="space-y-4">
             <RegistrationDetails
               profile={profile}
@@ -131,7 +134,9 @@ export default function DesktopProfile({
           )}
         </div>
 
-        <div className="col-span-1 space-y-4">
+        {/* Sticky: the form column is far taller, so without this the account
+            column leaves a long empty gutter as you scroll past it. */}
+        <div className="col-span-1 space-y-4 sticky top-32">
           <PhotoSection profile={profile} />
           <SecurityCard onChangePassword={onChangePassword} />
           <AccountInfoCard profile={profile} user={user} />

@@ -45,7 +45,7 @@ export default function MobileProfile({
   onChangePassword,
 }) {
   return (
-    <div className={editMode ? 'pb-24' : ''}>
+    <div className={editMode ? "pb-32" : ""}>
       <motion.header
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
@@ -129,7 +129,7 @@ export default function MobileProfile({
       {/* Thumb-reachable save bar — only while editing. */}
       {editMode && (
         <div
-          className="fixed bottom-0 inset-x-0 z-20 px-4 pt-3 bg-spc-surface border-t border-spc-line"
+          className="spc-above-tabbar fixed inset-x-0 z-20 px-4 pt-3 bg-spc-surface border-t border-spc-line"
           style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px))' }}
         >
           <EditActions

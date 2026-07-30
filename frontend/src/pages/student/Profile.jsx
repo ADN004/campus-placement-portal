@@ -314,7 +314,7 @@ export default function StudentProfile() {
       )}
 
       {/* Change Password Modal */}
-      {showChangePassword && <ChangePassword onClose={handleCloseChangePassword} />}
+      {showChangePassword && <ChangePassword onClose={handleCloseChangePassword} variant="spc" />}
     </>
   );
 }

@@ -35,7 +35,7 @@ function Header({ size }) {
 
 export function MobileResume({ actionProps, sectionProps }) {
   return (
-    <div className="pb-24">
+    <div className="pb-32">
       <Header size="sm" />
 
       {/* The checklist of what's still missing stays inline; only the buttons
@@ -49,7 +49,7 @@ export function MobileResume({ actionProps, sectionProps }) {
       <ResumeSections {...sectionProps} />
 
       <div
-        className="fixed bottom-0 inset-x-0 z-20 px-4 pt-3 bg-spc-surface border-t border-spc-line"
+        className="spc-above-tabbar fixed inset-x-0 z-20 px-4 pt-3 bg-spc-surface border-t border-spc-line"
         style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px))' }}
       >
         <ActionPanel {...actionProps} stacked showChecklist={false} bare />

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Lock,
@@ -606,14 +607,27 @@ export function BacklogsSection({ profile, formData, editMode, onChange, backlog
 /* ------------------------------------------------------------------- photo */
 
 export function PhotoSection({ profile }) {
+  // Tracks a photo whose URL exists but fails to load — a deleted or expired
+  // upload otherwise leaves a broken-image icon and raw alt text on the page.
+  const [failed, setFailed] = useState(false);
+
   if (!profile?.photo_url) return null;
+
   return (
     <SectionCard title="Profile photo" icon={User}>
-      <img
-        src={profile.photo_url}
-        alt="Your profile"
-        className="w-36 h-36 object-cover rounded-spc border border-spc-line"
-      />
+      {failed ? (
+        <div className="w-36 h-36 rounded-spc border border-spc-line bg-spc-surface-2 flex flex-col items-center justify-center gap-2 text-center px-3">
+          <User size={26} className="text-spc-muted" />
+          <span className="text-xs text-spc-muted leading-snug">Photo unavailable</span>
+        </div>
+      ) : (
+        <img
+          src={profile.photo_url}
+          alt="Your profile"
+          onError={() => setFailed(true)}
+          className="w-36 h-36 object-cover rounded-spc border border-spc-line bg-spc-surface-2"
+        />
+      )}
       <p className="text-spc-xs text-spc-muted mt-3">
         Your photo can only be changed if your placement officer requests a correction.
       </p>

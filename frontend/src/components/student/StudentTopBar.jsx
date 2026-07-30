@@ -42,7 +42,7 @@ export default function StudentTopBar({ user, sidebarOpen, onToggleSidebar, onLo
           <div className="flex items-center gap-3">
             <div className="hidden md:flex flex-col items-end min-w-0">
               <span className="text-spc-xs font-semibold text-spc-ink truncate max-w-[220px]">
-                {user.email}
+                {user.name || user.email}
               </span>
               <span className="text-xs font-bold uppercase tracking-[0.11em] text-spc-muted">
                 Student

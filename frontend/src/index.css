@@ -634,3 +634,16 @@ input[type='password']::-ms-clear {
 body[data-student-tabbar] .spc-staging-banner {
   bottom: calc(88px + env(safe-area-inset-bottom, 0px));
 }
+
+/* A page-level action bar that must sit above the student bottom tab bar
+   rather than underneath it. Both are position:fixed at the bottom, so without
+   this they stack on top of each other and the page's own buttons disappear.
+   The attribute is set by StudentBottomNav only while that bar is on screen —
+   when the drawer is open the bar unmounts and this drops back to the edge. */
+.spc-above-tabbar {
+  bottom: 0;
+}
+
+body[data-student-tabbar] .spc-above-tabbar {
+  bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+}

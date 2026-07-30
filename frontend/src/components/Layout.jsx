@@ -53,8 +53,6 @@ export default function Layout() {
     }
   });
 
-  const showDefaultPasswordWarning = user?.using_default_password === true && !pwWarningDismissed;
-
   // Students get their own chrome (top bar, grouped sidebar, bottom tab bar).
   // Officers and super admins keep exactly the shell they have today.
   const isStudent = user?.role === 'student';
@@ -66,6 +64,13 @@ export default function Layout() {
   const isPendingStudent =
     isStudent &&
     (user?.profile?.registration_status ?? user?.registration_status) === 'pending';
+
+  // Hidden while pending: the warning's only action is "Change password", which
+  // opens the profile — and the approval gate sends a pending student straight
+  // back to the waiting page. A prompt you cannot act on is worse than none.
+  // They see it on their first sign-in after approval instead.
+  const showDefaultPasswordWarning =
+    user?.using_default_password === true && !pwWarningDismissed && !isPendingStudent;
 
   // Whether the student sidebar is collapsed to the icon rail at `lg` and up.
   // Remembered across visits so the panel stays how the student left it.

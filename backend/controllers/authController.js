@@ -971,7 +971,11 @@ export const registerStudent = async (req, res) => {
           email,
           role: 'student',
           registration_status: 'pending',
-          using_default_password: true,
+          // Deliberately not flagging using_default_password here. The column
+          // is only written on login, so claiming it in this response made the
+          // "change your password" banner appear until the first refresh, at
+          // which point /auth/me returned the real (false) value and it
+          // vanished. It is set correctly the first time they sign in.
         },
         201,
         res,

@@ -27,7 +27,7 @@ function StagingBanner() {
 
   return (
     <div
-      className="fixed bottom-3 left-1/2 -translate-x-1/2 z-[9999] pointer-events-none select-none"
+      className="spc-staging-banner fixed bottom-3 left-1/2 -translate-x-1/2 z-[9999] pointer-events-none select-none"
       role="status"
       aria-label="Staging environment"
     >

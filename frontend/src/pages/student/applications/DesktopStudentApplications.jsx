@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FileText } from 'lucide-react';
 import { SearchField, FilterChips, EmptyState, ErrorState } from '../../../components/student/StudentUI';
@@ -74,13 +75,13 @@ export default function DesktopStudentApplications({
           }
           action={
             hasNone ? (
-              <a
-                href="/student/jobs"
+              <Link
+                to="/student/jobs"
                 className="inline-flex items-center justify-center min-h-[48px] px-6 rounded-spc-sm
                   bg-spc-teal text-spc-on-teal text-spc-sm font-bold hover:opacity-95 transition-opacity"
               >
                 Browse jobs
-              </a>
+              </Link>
             ) : null
           }
         />

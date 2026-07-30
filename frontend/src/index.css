@@ -625,3 +625,12 @@ input[type='password']::-ms-clear {
   overflow-x: hidden;
   overflow-x: clip;
 }
+
+/* The staging ribbon is pinned bottom-centre, which lands it directly on top of
+   the student bottom tab bar — on staging it visually covers the middle tabs.
+   Lift it clear whenever that bar is on screen. The attribute is set by
+   StudentBottomNav only while the bar is actually visible, so every other role
+   and every desktop view keeps the ribbon exactly where it was. */
+body[data-student-tabbar] .spc-staging-banner {
+  bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+}

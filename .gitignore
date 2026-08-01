@@ -66,5 +66,7 @@ staging-info-update.txt
 MY-WORKFLOW.md
 PROJECT-CONTEXT.md
 
+credentials.txt
+
 # Claude Code configuration (optional - keep if you want to share)
 # .claude/

@@ -684,6 +684,21 @@ body[data-spc-actionbar] .spc-tabbar {
   }
 }
 
+/* Phone dialogs take the whole screen. `inset: 0` alone is not enough — an
+   explicit dvh height is what keeps the pinned footer on screen while the
+   address bar collapses. With top, bottom and height all set, height wins. */
+.spc-sheet-full {
+  height: 100vh;
+  height: 100dvh;
+}
+
+/* Tablet/desktop dialogs cap against the *visible* viewport for the same
+   reason, leaving the backdrop showing around the edges. */
+.spc-dialog-h {
+  max-height: 88vh;
+  max-height: 88dvh;
+}
+
 /* ---- waiting page ------------------------------------------------------
    Kasavu pinstripe: the fine gold warp threads of Kerala handloom cotton,
    drawn as a repeating gradient so it stays crisp at any pixel density and

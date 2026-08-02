@@ -1,45 +1,36 @@
 import { useState, useEffect } from 'react';
 import { studentAPI } from '../services/api';
-import Modal from './Modal';
-import {
-  X,
-  XCircle,
-  AlertCircle,
-  CheckCircle,
-  Loader,
-  AlertTriangle,
-  User,
-  FileText,
-  Home,
-  Users,
-  CreditCard,
-  GraduationCap,
-  ExternalLink,
-} from 'lucide-react';
+import { Loader } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
-import GlassCard from './GlassCard';
-import AcademicExtendedSection from './extendedProfile/AcademicExtendedSection';
-import PhysicalDetailsSection from './extendedProfile/PhysicalDetailsSection';
-import FamilyDetailsSection from './extendedProfile/FamilyDetailsSection';
-import PersonalDetailsSection from './extendedProfile/PersonalDetailsSection';
-import DocumentVerificationSection from './extendedProfile/DocumentVerificationSection';
-import EducationPreferencesSection from './extendedProfile/EducationPreferencesSection';
+import Modal from './Modal';
+import useDeviceType from '../hooks/useDeviceType';
+import {
+  BlockedBody,
+  CollectBody,
+  ExternalFormBody,
+  SubmitBody,
+} from './student/apply/applyShared';
+import { MobileApply, TabletApply, DesktopApply } from './student/apply/ApplyPresenters';
 
 /**
- * Smart Application Modal
+ * Smart Application Modal — container.
  *
  * This modal implements the 3-Tier Hybrid Approach:
  * - Checks Tier 1 (core eligibility) - already done by backend
  * - Validates Tier 2 (extended profile) - collects missing data
  * - Collects Tier 3 (custom fields) - job-specific questions
+ *
+ * All state, data fetching and handlers live here. The three device shells in
+ * ./student/apply/ApplyPresenters receive identical props and call these same
+ * handlers, so the flow behaves the same on a phone as on a desktop.
  */
 export default function SmartApplicationModal({ job, onClose, onSuccess }) {
   const navigate = useNavigate();
+  const deviceType = useDeviceType();
   const [loading, setLoading] = useState(true);
   const [readinessData, setReadinessData] = useState(null);
   const [currentStep, setCurrentStep] = useState('check'); // check, collect, external_form, submit
-  const [formData, setFormData] = useState({});
   const [customFieldResponses, setCustomFieldResponses] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [missingBySection, setMissingBySection] = useState({});
@@ -169,13 +160,6 @@ export default function SmartApplicationModal({ job, onClose, onSuccess }) {
     }
   };
 
-  const handleFieldChange = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
   const handleCustomFieldChange = (fieldName, value) => {
     setCustomFieldResponses(prev => ({
       ...prev,
@@ -196,23 +180,19 @@ export default function SmartApplicationModal({ job, onClose, onSuccess }) {
     }
   };
 
-  const getSectionComponent = (sectionId) => {
-    const components = {
-      academic_extended: AcademicExtendedSection,
-      physical_details: PhysicalDetailsSection,
-      family_details: FamilyDetailsSection,
-      personal_details: PersonalDetailsSection,
-      document_verification: DocumentVerificationSection,
-      education_preferences: EducationPreferencesSection
-    };
-    return components[sectionId];
-  };
-
-  const handleSectionUpdate = (sectionId, data) => {
-    setSectionForms(prev => ({
-      ...prev,
-      [sectionId]: data
-    }));
+  // Section components hand back either a new object or an updater function.
+  const handleSectionChange = (sectionId, dataOrUpdater) => {
+    if (typeof dataOrUpdater === 'function') {
+      setSectionForms(prev => ({
+        ...prev,
+        [sectionId]: dataOrUpdater(prev[sectionId] || {})
+      }));
+    } else {
+      setSectionForms(prev => ({
+        ...prev,
+        [sectionId]: dataOrUpdater
+      }));
+    }
   };
 
   const handleSubmitApplication = async () => {
@@ -235,20 +215,11 @@ export default function SmartApplicationModal({ job, onClose, onSuccess }) {
         Object.assign(tier2_data, sectionForms[sectionId]);
       });
 
-      console.log('=== SUBMITTING APPLICATION ===');
-      console.log('Sections to show:', sectionsToShow);
-      console.log('Section forms:', sectionForms);
-      console.log('Flattened tier2_data:', tier2_data);
-      console.log('tier2_data keys:', Object.keys(tier2_data));
-      console.log('tier2_data values:', Object.values(tier2_data));
-
       const applicationData = {
         tier2_data,
         tier3_custom_responses: customFieldResponses,
         sections_filled: sectionsToShow
       };
-
-      console.log('Application data being sent:', applicationData);
 
       await studentAPI.applyEnhanced(job.id, applicationData);
 
@@ -290,511 +261,101 @@ export default function SmartApplicationModal({ job, onClose, onSuccess }) {
     }
   };
 
-  const getSectionIcon = (sectionName) => {
-    const icons = {
-      physical_details: User,
-      family_details: Users,
-      personal_details: Home,
-      documents: CreditCard,
-      academic_extended: GraduationCap,
-      education_preferences: FileText,
-    };
-    return icons[sectionName] || FileText;
-  };
-
-  const getSectionTitle = (sectionName) => {
-    const titles = {
-      physical_details: 'Physical Details',
-      family_details: 'Family Details',
-      personal_details: 'Personal Details',
-      documents: 'Document Verification',
-      academic_extended: 'Academic Extended',
-      education_preferences: 'Education Preferences',
-    };
-    return titles[sectionName] || sectionName;
-  };
-
-  const renderFieldInput = (field) => {
-    const fieldValue = formData[field.field] || '';
-
-    // Determine input type based on field name
-    if (field.field_type === 'boolean' || field.field.includes('has_') || field.field.includes('is_')) {
-      return (
-        <div className="flex items-center space-x-2">
-          <input
-            type="checkbox"
-            id={field.field}
-            checked={fieldValue === true || fieldValue === 'true'}
-            onChange={(e) => handleFieldChange(field.field, e.target.checked)}
-            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-          />
-          <label htmlFor={field.field} className="text-sm text-gray-700">
-            {field.label}
-          </label>
-        </div>
-      );
-    }
-
-    if (field.field.includes('year')) {
-      return (
-        <input
-          type="number"
-          value={fieldValue}
-          onChange={(e) => handleFieldChange(field.field, e.target.value)}
-          placeholder={field.label}
-          min="1950"
-          max={new Date().getFullYear()}
-          className="input"
-        />
-      );
-    }
-
-    if (field.field.includes('marks') || field.field.includes('percentage')) {
-      return (
-        <input
-          type="number"
-          value={fieldValue}
-          onChange={(e) => handleFieldChange(field.field, e.target.value)}
-          placeholder={field.label}
-          min="0"
-          max="100"
-          step="0.01"
-          className="input"
-        />
-      );
-    }
-
-    if (field.field.includes('height') || field.field.includes('weight')) {
-      return (
-        <input
-          type="number"
-          value={fieldValue}
-          onChange={(e) => handleFieldChange(field.field, e.target.value)}
-          placeholder={field.label}
-          min="0"
-          step="0.01"
-          className="input"
-        />
-      );
-    }
-
-    if (field.field.includes('district') || field.field.includes('state')) {
-      return (
-        <input
-          type="text"
-          value={fieldValue}
-          onChange={(e) => handleFieldChange(field.field, e.target.value)}
-          placeholder={field.label}
-          className="input"
-        />
-      );
-    }
-
-    // Default text input
-    return (
-      <input
-        type="text"
-        value={fieldValue}
-        onChange={(e) => handleFieldChange(field.field, e.target.value)}
-        placeholder={field.label}
-        className="input"
-      />
-    );
-  };
-
-  const renderCustomFieldInput = (customField) => {
-    const value = customFieldResponses[customField.field_name] || '';
-
-    switch (customField.field_type) {
-      case 'boolean':
-        return (
-          <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              id={customField.field_name}
-              checked={value === true || value === 'true' || value === 'yes'}
-              onChange={(e) => handleCustomFieldChange(customField.field_name, e.target.checked ? 'yes' : 'no')}
-              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            />
-            <label htmlFor={customField.field_name} className="text-sm text-gray-700">
-              Yes
-            </label>
-          </div>
-        );
-
-      case 'number':
-        return (
-          <input
-            type="number"
-            value={value}
-            onChange={(e) => handleCustomFieldChange(customField.field_name, e.target.value)}
-            placeholder={customField.field_label}
-            className="input"
-            required={customField.required}
-          />
-        );
-
-      case 'textarea':
-        return (
-          <textarea
-            value={value}
-            onChange={(e) => handleCustomFieldChange(customField.field_name, e.target.value)}
-            placeholder={customField.field_label}
-            rows="3"
-            className="input"
-            required={customField.required}
-          />
-        );
-
-      default:
-        return (
-          <input
-            type="text"
-            value={value}
-            onChange={(e) => handleCustomFieldChange(customField.field_name, e.target.value)}
-            placeholder={customField.field_label}
-            className="input"
-            required={customField.required}
-          />
-        );
-    }
-  };
-
   if (loading) {
     return (
       <Modal
         title="Checking application requirements"
         closeOnEscape={false}
-        overlayClassName="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-        panelClassName="bg-white rounded-lg p-8"
+        overlayClassName="fixed inset-0 z-50 bg-spc-ink/55 backdrop-blur-sm flex items-center justify-center p-6"
+        panelClassName="bg-spc-surface rounded-spc-lg border border-spc-line shadow-2xl px-8 py-9 text-center outline-none"
       >
-          <Loader className="animate-spin text-blue-600 mx-auto" size={48} />
-          <p className="mt-4 text-gray-600">Checking application requirements...</p>
+        <Loader className="animate-spin text-spc-teal mx-auto" size={40} />
+        <p className="mt-4 text-spc-sm font-semibold text-spc-ink">
+          Checking what this job needs…
+        </p>
+        <p className="mt-1 text-spc-xs text-spc-muted">One moment.</p>
       </Modal>
     );
   }
 
-  return (
-    <Modal
-      onClose={onClose}
-      labelledBy="smart-apply-title"
-      overlayClassName="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-      panelClassName="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto overscroll-contain"
-    >
-        {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center z-10">
-          <div>
-            <h2 id="smart-apply-title" className="text-2xl font-bold text-gray-900">Apply for {job.title}</h2>
-            <p className="text-sm text-gray-600">{job.company_name}</p>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700"
-          >
-            <X size={24} />
-          </button>
-        </div>
+  /* ------------------------------------------------------------- body */
 
-        <div className="p-6">
-          {/* Blocked State */}
-          {currentStep === 'blocked' && (
-            <div className="space-y-4">
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start space-x-3">
-                <AlertCircle className="text-red-600 flex-shrink-0 mt-0.5" size={20} />
-                <div>
-                  <h3 className="font-semibold text-red-900">Application Blocked</h3>
-                  <p className="text-sm text-red-800 mt-1">
-                    You do not meet the eligibility criteria for this job.
-                  </p>
-                </div>
-              </div>
+  const dense = deviceType === 'mobile';
+  let body = null;
 
-              {readinessData?.missing_fields?.filter(f => f.blocking).map((field, index) => (
-                <div key={index} className="bg-red-50 border-2 border-red-300 rounded-lg p-4">
-                  <div className="flex items-start space-x-2">
-                    <XCircle className="text-red-600 flex-shrink-0 mt-0.5" size={18} />
-                    <div className="flex-1">
-                      <p className="font-semibold text-red-900">{field.label}</p>
-                      <p className="text-sm text-red-800 mt-1">{field.message}</p>
-                      {field.current_value && field.required_value && (
-                        <div className="mt-2 text-xs bg-white rounded px-2 py-1 inline-block">
-                          <span className="text-gray-600">Your value: </span>
-                          <span className="font-semibold text-red-700">{field.current_value}</span>
-                          <span className="text-gray-600"> | Required: </span>
-                          <span className="font-semibold text-green-700">{field.required_value}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
+  if (currentStep === 'blocked') {
+    body = <BlockedBody readinessData={readinessData} />;
+  } else if (currentStep === 'collect') {
+    body = (
+      <CollectBody
+        dense={dense}
+        hasMissingSections={Object.keys(missingBySection).length > 0}
+        sectionsToShow={sectionsToShow}
+        sectionForms={sectionForms}
+        onSectionChange={handleSectionChange}
+        customFields={readinessData?.custom_fields}
+        customFieldResponses={customFieldResponses}
+        onCustomFieldChange={handleCustomFieldChange}
+        onGoToExtendedProfile={handleGoToExtendedProfile}
+      />
+    );
+  } else if (currentStep === 'external_form') {
+    body = (
+      <ExternalFormBody
+        dense={dense}
+        externalFormOpened={externalFormOpened}
+        onOpenExternalForm={handleOpenExternalForm}
+        formCompletionAcknowledged={formCompletionAcknowledged}
+        onAcknowledgeChange={setFormCompletionAcknowledged}
+      />
+    );
+  } else if (currentStep === 'submit') {
+    body = <SubmitBody />;
+  }
 
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-sm text-blue-900">
-                  <span className="font-semibold">Note:</span> These requirements cannot be changed.
-                  Please apply for other jobs that match your profile.
-                </p>
-              </div>
+  /* ----------------------------------------------------------- actions */
 
-              <button onClick={onClose} className="btn btn-secondary w-full">
-                Close
-              </button>
-            </div>
-          )}
+  let primary = null;
+  let secondary = { label: 'Cancel', disabled: submitting };
 
-          {/* Data Collection Step */}
-          {currentStep === 'collect' && (
-            <div className="space-y-6">
-              {/* Missing Fields Section */}
-              {Object.keys(missingBySection).length > 0 && (
-                <div>
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                    <div className="flex items-start space-x-3">
-                      <AlertTriangle className="text-blue-600 flex-shrink-0 mt-0.5" size={20} />
-                      <div>
-                        <h3 className="font-semibold text-blue-900">Additional Information Required</h3>
-                        <p className="text-sm text-blue-800 mt-1">
-                          This job requires some additional information that you haven't filled in your profile yet.
-                          You can fill it here, or go to your Extended Profile to complete it.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+  if (currentStep === 'blocked') {
+    secondary = { label: 'Close', disabled: false };
+  } else if (currentStep === 'collect') {
+    primary = job.application_form_url
+      ? { label: 'Continue to the company form', onClick: () => setCurrentStep('external_form'), disabled: false }
+      : { label: submitting ? 'Submitting…' : 'Submit application', onClick: handleSubmitApplication, disabled: submitting };
+  } else if (currentStep === 'external_form') {
+    secondary = { label: 'Cancel', disabled: false };
+    primary = {
+      label: submitting ? 'Submitting…' : 'Submit application',
+      onClick: handleSubmitApplication,
+      disabled: !formCompletionAcknowledged || submitting,
+    };
+  } else if (currentStep === 'submit') {
+    primary = {
+      label: submitting ? 'Submitting…' : 'Confirm & submit',
+      onClick: handleSubmitApplication,
+      disabled: submitting,
+    };
+  }
 
-                  <button
-                    onClick={handleGoToExtendedProfile}
-                    className="btn btn-secondary w-full mb-4 flex items-center justify-center space-x-2"
-                  >
-                    <ExternalLink size={16} />
-                    <span>Go to Extended Profile</span>
-                  </button>
+  /* -------------------------------------------------------------- flow */
 
-                  <div className="border-t border-gray-200 pt-4">
-                    <p className="text-sm text-gray-600 mb-4">Or fill the required information here:</p>
+  // Only a genuinely two-screen flow gets a step rail. Showing one for a
+  // single screen, or on the blocked dead end, would be inventing progress.
+  const needsCollection =
+    sectionsToShow.length > 0 || (readinessData?.custom_fields?.length || 0) > 0;
+  const flow =
+    currentStep !== 'blocked' && needsCollection && job.application_form_url
+      ? [
+          { key: 'collect', label: 'Your details' },
+          { key: 'external_form', label: 'Company form' },
+        ]
+      : null;
 
-                    {sectionsToShow.map((sectionId, index) => {
-                      const SectionComponent = getSectionComponent(sectionId);
-                      if (!SectionComponent) return null;
+  const presenterProps = { job, body, flow, currentStep, primary, secondary, onClose };
 
-                      return (
-                        <div key={sectionId} className={index > 0 ? 'mt-6' : ''}>
-                          <GlassCard className="p-6">
-                            <SectionComponent
-                              formData={sectionForms[sectionId] || {}}
-                              setFormData={(dataOrUpdater) => {
-                                // Handle both direct data objects and updater functions
-                                if (typeof dataOrUpdater === 'function') {
-                                  setSectionForms(prev => ({
-                                    ...prev,
-                                    [sectionId]: dataOrUpdater(prev[sectionId] || {})
-                                  }));
-                                } else {
-                                  handleSectionUpdate(sectionId, dataOrUpdater);
-                                }
-                              }}
-                              onSave={() => {}} // No individual save in modal
-                              saving={false}
-                              isCompleted={false}
-                              mode="compact"
-                            />
-                          </GlassCard>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Custom Fields Section */}
-              {readinessData?.custom_fields && readinessData.custom_fields.length > 0 && (
-                <div className="border-t border-gray-200 pt-6">
-                  <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-4">
-                    <h3 className="font-semibold text-purple-900 flex items-center space-x-2">
-                      <FileText size={20} />
-                      <span>Company-Specific Questions</span>
-                    </h3>
-                    <p className="text-sm text-purple-800 mt-1">
-                      Please answer the following questions specific to this job application.
-                    </p>
-                  </div>
-
-                  <div className="space-y-4">
-                    {readinessData.custom_fields.map((customField, index) => (
-                      <div key={index}>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          {customField.field_label}
-                          {customField.required && <span className="text-red-500 ml-1">*</span>}
-                        </label>
-                        {renderCustomFieldInput(customField)}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Actions */}
-              <div className="flex space-x-3 pt-4 border-t">
-                <button
-                  onClick={onClose}
-                  className="btn btn-secondary flex-1"
-                  disabled={submitting}
-                >
-                  Cancel
-                </button>
-                {job.application_form_url ? (
-                  <button
-                    onClick={() => setCurrentStep('external_form')}
-                    className="btn btn-primary flex-1"
-                  >
-                    Continue to External Form
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleSubmitApplication}
-                    className="btn btn-primary flex-1"
-                    disabled={submitting}
-                  >
-                    {submitting ? 'Submitting...' : 'Submit Application'}
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* External Form Step - Must complete external form before submitting */}
-          {currentStep === 'external_form' && (
-            <div className="space-y-6">
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start space-x-3">
-                <AlertTriangle className="text-amber-600 flex-shrink-0 mt-0.5" size={20} />
-                <div>
-                  <h3 className="font-semibold text-amber-900">External Application Form Required</h3>
-                  <p className="text-sm text-amber-800 mt-1">
-                    This job requires you to fill out an external application form. Please complete the form before submitting your application.
-                  </p>
-                </div>
-              </div>
-
-              {/* Instructions */}
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                <h4 className="font-medium text-gray-900 mb-3">Steps to complete:</h4>
-                <ol className="list-decimal list-inside space-y-2 text-sm text-gray-700">
-                  <li>Click the button below to open the external form</li>
-                  <li>Fill out all required fields in the external form</li>
-                  <li>Submit the external form</li>
-                  <li>Return here and confirm that you've completed the form</li>
-                </ol>
-              </div>
-
-              {/* Open Form Button */}
-              <div className="flex flex-col items-center space-y-3">
-                <button
-                  onClick={handleOpenExternalForm}
-                  className="btn btn-primary flex items-center space-x-2 px-6 py-3"
-                >
-                  <ExternalLink size={20} />
-                  <span>{externalFormOpened ? 'Reopen External Form' : 'Open External Form'}</span>
-                </button>
-                {externalFormOpened && (
-                  <p className="text-sm text-green-600 flex items-center space-x-1">
-                    <CheckCircle size={16} />
-                    <span>Form opened in new tab</span>
-                  </p>
-                )}
-              </div>
-
-              {/* Acknowledgment Checkbox */}
-              <div className={`border-2 rounded-lg p-4 transition-colors ${
-                formCompletionAcknowledged
-                  ? 'border-green-300 bg-green-50'
-                  : 'border-gray-200 bg-white'
-              }`}>
-                <label className="flex items-start space-x-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formCompletionAcknowledged}
-                    onChange={(e) => setFormCompletionAcknowledged(e.target.checked)}
-                    className="mt-1 h-5 w-5 rounded border-gray-300 text-green-600 focus:ring-green-500"
-                  />
-                  <div>
-                    <span className="font-medium text-gray-900">
-                      I confirm that I have completed and submitted the external application form
-                    </span>
-                    <p className="text-sm text-gray-600 mt-1">
-                      By checking this box, you acknowledge that you have filled out all required information in the external form.
-                      Providing false information may result in your application being rejected.
-                    </p>
-                  </div>
-                </label>
-              </div>
-
-              {/* Warning if trying to proceed without acknowledgment */}
-              {!formCompletionAcknowledged && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                  <p className="text-sm text-blue-800">
-                    You must complete the external form and check the confirmation box above to proceed with your application.
-                  </p>
-                </div>
-              )}
-
-              {/* Actions */}
-              <div className="flex space-x-3 pt-4 border-t">
-                <button
-                  onClick={onClose}
-                  className="btn btn-secondary flex-1"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSubmitApplication}
-                  className={`btn flex-1 ${
-                    formCompletionAcknowledged
-                      ? 'btn-primary'
-                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  }`}
-                  disabled={!formCompletionAcknowledged || submitting}
-                >
-                  {submitting ? 'Submitting...' : 'Submit Application'}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Ready to Submit (for jobs without external form) */}
-          {currentStep === 'submit' && (
-            <div className="space-y-4">
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start space-x-3">
-                <CheckCircle className="text-green-600 flex-shrink-0 mt-0.5" size={20} />
-                <div>
-                  <h3 className="font-semibold text-green-900">Ready to Apply!</h3>
-                  <p className="text-sm text-green-800 mt-1">
-                    You meet all the requirements for this job. Click submit to complete your application.
-                  </p>
-                </div>
-              </div>
-
-              <p className="text-sm text-gray-600">
-                This action will mark you as applied and cannot be undone.
-              </p>
-
-              <div className="flex space-x-3 pt-4 border-t">
-                <button
-                  onClick={onClose}
-                  className="btn btn-secondary flex-1"
-                  disabled={submitting}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSubmitApplication}
-                  className="btn btn-primary flex-1"
-                  disabled={submitting}
-                >
-                  {submitting ? 'Submitting...' : 'Confirm & Submit Application'}
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-    </Modal>
-  );
+  if (deviceType === 'mobile') return <MobileApply {...presenterProps} />;
+  if (deviceType === 'tablet') return <TabletApply {...presenterProps} />;
+  return <DesktopApply {...presenterProps} />;
 }

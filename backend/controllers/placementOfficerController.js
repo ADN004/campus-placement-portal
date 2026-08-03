@@ -2897,6 +2897,7 @@ export const getStudentsByPRNRange = async (req, res) => {
 export const exportStudentsByPRNRange = async (req, res) => {
   try {
     const rangeId = req.params.id;
+    const format = req.query.format || 'excel'; // 'excel' (default) or 'pdf'
 
     // Get placement officer details
     const officerResult = await query(
@@ -2944,9 +2945,8 @@ export const exportStudentsByPRNRange = async (req, res) => {
       studentsResult = await query(
         `SELECT s.prn, s.student_name as name, s.email, s.mobile_number,
                 s.date_of_birth, s.age, s.gender, s.branch,
-                s.programme_cgpa, s.backlog_count, s.registration_status,
-                s.is_blacklisted, c.college_name, r.region_name,
-                s.has_driving_license, s.has_pan_card, s.created_at
+                s.programme_cgpa, s.backlog_count,
+                c.college_name, r.region_name, s.created_at
          FROM students s
          JOIN colleges c ON s.college_id = c.id
          JOIN regions r ON s.region_id = r.id
@@ -2959,9 +2959,8 @@ export const exportStudentsByPRNRange = async (req, res) => {
       studentsResult = await query(
         `SELECT s.prn, s.student_name as name, s.email, s.mobile_number,
                 s.date_of_birth, s.age, s.gender, s.branch,
-                s.programme_cgpa, s.backlog_count, s.registration_status,
-                s.is_blacklisted, c.college_name, r.region_name,
-                s.has_driving_license, s.has_pan_card, s.created_at
+                s.programme_cgpa, s.backlog_count,
+                c.college_name, r.region_name, s.created_at
          FROM students s
          JOIN colleges c ON s.college_id = c.id
          JOIN regions r ON s.region_id = r.id
@@ -2978,6 +2977,27 @@ export const exportStudentsByPRNRange = async (req, res) => {
         success: false,
         message: 'No students found in this PRN range for your college',
       });
+    }
+
+    // Generate PDF if requested
+    if (format === 'pdf') {
+      const { generatePRNRangeStudentsPDF } = await import('../utils/pdfGenerator.js');
+      const rangeInfo = range.single_prn
+        ? `PRN: ${range.single_prn}`
+        : `PRN Range: ${range.range_start} - ${range.range_end}`;
+
+      // Log before generating: the generator writes straight to the response
+      await logActivity(
+        req.user.id,
+        'EXPORT_PRN_RANGE_STUDENTS',
+        `Exported ${students.length} students as PDF from PRN range: ${range.single_prn || `${range.range_start}-${range.range_end}`}`,
+        'prn_range',
+        rangeId,
+        req,
+        { format: 'pdf', studentCount: students.length }
+      );
+
+      return await generatePRNRangeStudentsPDF(students, { rangeInfo }, res);
     }
 
     // Create Excel workbook
@@ -2999,10 +3019,6 @@ export const exportStudentsByPRNRange = async (req, res) => {
       { header: 'Region', key: 'region_name', width: 20 },
       { header: 'CGPA', key: 'programme_cgpa', width: 10 },
       { header: 'Backlogs', key: 'backlog_count', width: 10 },
-      { header: 'Status', key: 'registration_status', width: 15 },
-      { header: 'Blacklisted', key: 'is_blacklisted', width: 12 },
-      { header: 'Driving License', key: 'has_driving_license', width: 15 },
-      { header: 'PAN Card', key: 'has_pan_card', width: 12 },
       { header: 'Registered On', key: 'created_at', width: 18 },
     ];
 
@@ -3020,9 +3036,6 @@ export const exportStudentsByPRNRange = async (req, res) => {
       worksheet.addRow({
         ...student,
         date_of_birth: student.date_of_birth ? new Date(student.date_of_birth).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' }) : '',
-        is_blacklisted: student.is_blacklisted ? 'Yes' : 'No',
-        has_driving_license: student.has_driving_license ? 'Yes' : 'No',
-        has_pan_card: student.has_pan_card ? 'Yes' : 'No',
         created_at: student.created_at ? new Date(student.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : '',
       });
     });

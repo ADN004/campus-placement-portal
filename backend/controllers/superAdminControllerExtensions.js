@@ -954,9 +954,8 @@ export const exportStudentsByPRNRange = async (req, res) => {
       studentsResult = await query(
         `SELECT s.prn, s.student_name as name, s.email, s.mobile_number,
                 s.date_of_birth, s.age, s.gender, s.branch,
-                s.programme_cgpa, s.backlog_count, s.registration_status,
-                s.is_blacklisted, c.college_name, r.region_name,
-                s.has_driving_license, s.has_pan_card, s.created_at
+                s.programme_cgpa, s.backlog_count,
+                c.college_name, r.region_name, s.created_at
          FROM students s
          JOIN colleges c ON s.college_id = c.id
          JOIN regions r ON s.region_id = r.id
@@ -969,9 +968,8 @@ export const exportStudentsByPRNRange = async (req, res) => {
       studentsResult = await query(
         `SELECT s.prn, s.student_name as name, s.email, s.mobile_number,
                 s.date_of_birth, s.age, s.gender, s.branch,
-                s.programme_cgpa, s.backlog_count, s.registration_status,
-                s.is_blacklisted, c.college_name, r.region_name,
-                s.has_driving_license, s.has_pan_card, s.created_at
+                s.programme_cgpa, s.backlog_count,
+                c.college_name, r.region_name, s.created_at
          FROM students s
          JOIN colleges c ON s.college_id = c.id
          JOIN regions r ON s.region_id = r.id
@@ -1034,10 +1032,6 @@ export const exportStudentsByPRNRange = async (req, res) => {
       { header: 'Branch', key: 'branch', width: 30 },
       { header: 'Programme CGPA', key: 'programme_cgpa', width: 15 },
       { header: 'Backlog Count', key: 'backlog_count', width: 15 },
-      { header: 'Driving License', key: 'has_driving_license', width: 15 },
-      { header: 'PAN Card', key: 'has_pan_card', width: 12 },
-      { header: 'Registration Status', key: 'registration_status', width: 18 },
-      { header: 'Blacklisted', key: 'is_blacklisted', width: 12 },
       { header: 'Registration Date', key: 'created_at', width: 20 },
     ];
 
@@ -1056,10 +1050,6 @@ export const exportStudentsByPRNRange = async (req, res) => {
         branch: student.branch,
         programme_cgpa: student.programme_cgpa,
         backlog_count: student.backlog_count,
-        has_driving_license: student.has_driving_license ? 'Yes' : 'No',
-        has_pan_card: student.has_pan_card ? 'Yes' : 'No',
-        registration_status: student.registration_status,
-        is_blacklisted: student.is_blacklisted ? 'Yes' : 'No',
         created_at: new Date(student.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
       });
     });

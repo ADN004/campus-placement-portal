@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import ModalScrollLock from '../../components/ModalScrollLock';
 import { placementOfficerAPI } from '../../services/api';
 import toast from 'react-hot-toast';
-import { Plus, Edit2, Trash2, Save, X, Lock, Hash, Calendar, BookOpen, Shield, Eye, Download, ToggleLeft, ToggleRight, AlertCircle, User, Filter, ChevronDown, ChevronRight, Globe } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, X, Lock, Hash, Calendar, BookOpen, Shield, Eye, Download, ToggleLeft, ToggleRight, AlertCircle, User, Filter, ChevronDown, ChevronRight, Globe, FileSpreadsheet, FileText } from 'lucide-react';
 import DashboardHeader from '../../components/DashboardHeader';
 import GlassCard from '../../components/GlassCard';
 import useSkeletonLoading from '../../hooks/useSkeletonLoading';
@@ -30,6 +30,7 @@ export default function ManagePRNRanges() {
   const [rangeStudents, setRangeStudents] = useState([]);
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [exportingStudents, setExportingStudents] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
   const [formData, setFormData] = useState({
     start_prn: '',
     end_prn: '',
@@ -252,15 +253,18 @@ export default function ManagePRNRanges() {
 
   const showSkeleton = useSkeletonLoading(loading);
 
-  const handleExportRangeStudents = async () => {
+  const handleExportRangeStudents = async (format) => {
     if (!selectedRange) return;
 
     setExportingStudents(true);
+    setShowExportMenu(false);
     try {
-      const response = await placementOfficerAPI.exportStudentsByPRNRange(selectedRange.id);
+      const response = await placementOfficerAPI.exportStudentsByPRNRange(selectedRange.id, format);
 
       const blob = new Blob([response.data], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        type: format === 'pdf'
+          ? 'application/pdf'
+          : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
       });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -268,13 +272,14 @@ export default function ManagePRNRanges() {
       const rangeLabel = selectedRange.single_prn
         ? selectedRange.single_prn
         : `${selectedRange.start_prn}_${selectedRange.end_prn}`;
-      a.download = `students_prn_range_${rangeLabel}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      const extension = format === 'pdf' ? 'pdf' : 'xlsx';
+      a.download = `students_prn_range_${rangeLabel}_${new Date().toISOString().split('T')[0]}.${extension}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
 
-      toast.success('Students exported successfully');
+      toast.success(`Students exported as ${format === 'pdf' ? 'PDF' : 'Excel'} successfully`);
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to export students');
     } finally {
@@ -982,20 +987,59 @@ export default function ManagePRNRanges() {
                     setShowViewStudentsModal(false);
                     setSelectedRange(null);
                     setRangeStudents([]);
+                    setShowExportMenu(false);
                   }}
                   className="px-6 py-3 border-2 border-gray-300 text-gray-700 bg-white hover:bg-gray-50 font-bold rounded-xl transition-all"
                 >
                   Close
                 </button>
                 {rangeStudents.length > 0 && (
-                  <button
-                    onClick={handleExportRangeStudents}
-                    disabled={exportingStudents}
-                    className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-xl transition-all flex items-center space-x-2 disabled:opacity-50"
-                  >
-                    <Download size={18} />
-                    <span>{exportingStudents ? 'Exporting...' : 'Export to Excel'}</span>
-                  </button>
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowExportMenu(!showExportMenu)}
+                      disabled={exportingStudents}
+                      className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-xl transition-all flex items-center space-x-2 disabled:opacity-50"
+                    >
+                      <Download size={18} />
+                      <span>{exportingStudents ? 'Exporting...' : 'Export'}</span>
+                      <ChevronDown
+                        size={16}
+                        className={`transition-transform ${showExportMenu ? 'rotate-180' : ''}`}
+                      />
+                    </button>
+
+                    {/* Opens upward: this sits in the modal footer */}
+                    {showExportMenu && !exportingStudents && (
+                      <>
+                        <div
+                          className="fixed inset-0 z-10"
+                          onClick={() => setShowExportMenu(false)}
+                        ></div>
+                        <div className="absolute right-0 bottom-full mb-2 w-52 bg-white rounded-lg shadow-lg border border-gray-200 z-20 overflow-hidden">
+                          <button
+                            onClick={() => handleExportRangeStudents('excel')}
+                            className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center space-x-3 transition-colors border-b border-gray-100"
+                          >
+                            <FileSpreadsheet size={18} className="text-green-600" />
+                            <div>
+                              <div className="font-medium text-gray-900">Export as Excel</div>
+                              <div className="text-xs text-gray-500">Spreadsheet format</div>
+                            </div>
+                          </button>
+                          <button
+                            onClick={() => handleExportRangeStudents('pdf')}
+                            className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center space-x-3 transition-colors"
+                          >
+                            <FileText size={18} className="text-red-600" />
+                            <div>
+                              <div className="font-medium text-gray-900">Export as PDF</div>
+                              <div className="text-xs text-gray-500">Professional report format</div>
+                            </div>
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 )}
               </div>
             </div>

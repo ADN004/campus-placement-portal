@@ -75,6 +75,124 @@ const sanitizeCellText = (text) => String(text)
   .replace(/\s+/g, ' ')
   .trim();
 
+// Shrink text until it physically fits maxWidth, marking the cut with an
+// ellipsis. Measuring is the only reliable mechanism here: PDFKit silently
+// ignores `lineBreak: false` once `ellipsis: true` is set and wraps anyway,
+// overflowing fixed row heights and bleeding across rows and pages.
+// Binary search, not a per-character walk: students paste whole paragraphs
+// into free-text fields and a linear scan would measure thousands of times.
+const truncateToWidth = (doc, text, maxWidth) => {
+  if (doc.widthOfString(text) <= maxWidth) return text;
+  let lo = 0;
+  let hi = text.length;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (doc.widthOfString(text.slice(0, mid) + '...') <= maxWidth) lo = mid;
+    else hi = mid - 1;
+  }
+  return text.slice(0, Math.max(1, lo)).trimEnd() + '...';
+};
+
+// Break a label into at most maxLines lines that each fit maxWidth. Used for
+// table headers, which are allowed to wrap inside the header band.
+const wrapToWidth = (doc, text, maxWidth, maxLines = 2) => {
+  const lines = [];
+  let rest = text;
+  while (rest.length && lines.length < maxLines) {
+    if (doc.widthOfString(rest) <= maxWidth) { lines.push(rest); rest = ''; break; }
+    let lo = 1;
+    let hi = rest.length;
+    while (lo < hi) {
+      const mid = Math.ceil((lo + hi) / 2);
+      if (doc.widthOfString(rest.slice(0, mid)) <= maxWidth) lo = mid;
+      else hi = mid - 1;
+    }
+    const cut = lo;
+    const space = rest.lastIndexOf(' ', cut);
+    // Break on a space only when it doesn't strand most of the line
+    const breakAt = (space > 0 && space > cut * 0.65) ? space : cut;
+    lines.push(rest.slice(0, breakAt).trimEnd());
+    rest = rest.slice(breakAt).trimStart();
+  }
+  if (rest.length && lines.length) {
+    lines[lines.length - 1] = truncateToWidth(doc, lines[lines.length - 1] + rest, maxWidth);
+  }
+  return lines.length ? lines : [''];
+};
+
+/**
+ * Size a fixed column set against the width the page actually has, by
+ * measuring the data rather than trusting hardcoded widths. Hardcoded widths
+ * are what put a 980pt table on a 742pt page and pushed five columns clean
+ * off the sheet, where they were generated but could never be printed.
+ * The returned widths always sum to exactly availableWidth.
+ *
+ * @param {PDFDocument} doc - live document, used for font measurement
+ * @param {Array} columns - [{ key, label }]
+ * @param {Array} rows - the dataset, so widths reflect real content
+ * @param {Number} availableWidth - page width minus both margins
+ * @param {Object} options - { rowFont, headerFont, getValue }
+ * @returns {Array<Number>} width per column, in column order
+ */
+const fitTableColumns = (doc, columns, rows, availableWidth, options = {}) => {
+  const {
+    rowFont = 7.5,
+    headerFont = 8,
+    getValue,
+    padding = 6,
+    minWidth = 30,
+    rigidMaxWidth = 90,
+  } = options;
+
+  const ideal = columns.map(col => {
+    doc.font('Helvetica').fontSize(rowFont);
+    let widest = 0;
+    rows.forEach((row, i) => {
+      widest = Math.max(widest, doc.widthOfString(getValue(col, row, i + 1)));
+    });
+    // Headers wrap between words inside the header band, so a column only
+    // needs room for its longest single WORD, not the whole label — sizing
+    // by the full title is what starves the name and email columns.
+    doc.font('Helvetica-Bold').fontSize(headerFont);
+    const headerWord = Math.max(
+      ...String(col.label).split(/\s+/).map(word => doc.widthOfString(word))
+    );
+    return Math.max(widest, headerWord) + padding;
+  });
+
+  const total = ideal.reduce((sum, w) => sum + w, 0);
+
+  // Everything fits: share the slack out proportionally so the table spans
+  // the full width instead of ending in a ragged right edge.
+  if (total <= availableWidth) {
+    const slack = availableWidth - total;
+    return ideal.map(w => w + slack * (w / total));
+  }
+
+  // Too wide for the page: columns whose whole content is narrow (PRNs,
+  // CGPAs, Yes/No, ages) are RIGID and keep exactly what they need — a PRN
+  // missing its last digit is unusable. Only the long-text columns give up
+  // space, in proportion to how much they were asking for.
+  const rigid = [];
+  const flexible = [];
+  ideal.forEach((w, i) => (w <= rigidMaxWidth ? rigid : flexible).push(i));
+  const rigidTotal = rigid.reduce((sum, i) => sum + ideal[i], 0);
+  const flexTotal = flexible.reduce((sum, i) => sum + ideal[i], 0);
+  const flexAvailable = availableWidth - rigidTotal;
+
+  if (flexible.length > 0 && flexAvailable >= flexible.length * minWidth) {
+    const widths = ideal.slice();
+    const scale = flexAvailable / flexTotal;
+    flexible.forEach(i => { widths[i] = ideal[i] * scale; });
+    return widths;
+  }
+
+  // Degenerate case (almost everything rigid, or no room left): plain
+  // proportional scaling for every column.
+  const scale = availableWidth / total;
+  return ideal.map(w => Math.max(minWidth, w * scale));
+};
+
 // Default fields when none selected (for simple exports)
 const DEFAULT_FIELDS = [
   'prn',
@@ -1121,12 +1239,58 @@ export const generateActivityLogsPDF = async (logs, options, res) => {
 
     // Column definitions for activity logs
     const columns = [
-      { key: 'sl_no', label: 'SL NO', width: 60 },
-      { key: 'created_at', label: 'Timestamp', width: 140 },
-      { key: 'user_info', label: 'User Info', width: 200 },
-      { key: 'user_role', label: 'User Role', width: 140 },
-      { key: 'action_type', label: 'Action Type', width: 220 }
+      { key: 'sl_no', label: 'SL NO', align: 'center' },
+      { key: 'created_at', label: 'Timestamp', align: 'left' },
+      { key: 'user_info', label: 'User Info', align: 'left' },
+      { key: 'user_role', label: 'User Role', align: 'left' },
+      { key: 'action_type', label: 'Action Type', align: 'left' }
     ];
+
+    const ROW_FONT = 7;
+    const HEADER_FONT = 8;
+
+    const cellText = (col, log, rowNumber) => {
+      let value;
+      if (col.key === 'sl_no') {
+        value = String(rowNumber);
+      } else if (col.key === 'created_at') {
+        value = log[col.key] ? new Date(log[col.key]).toLocaleString('en-IN', {
+          timeZone: 'Asia/Kolkata',
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        }) : '-';
+      } else if (col.key === 'user_info') {
+        // Display email or phone number
+        value = log.user_email || log.user_phone || '-';
+      } else if (col.key === 'user_role') {
+        // Format role nicely
+        const roleMap = {
+          'super_admin': 'Super Admin',
+          'placement_officer': 'Placement Officer',
+          'student': 'Student'
+        };
+        value = roleMap[log[col.key]] || log[col.key] || '-';
+      } else {
+        value = log[col.key] || '-';
+      }
+      return sanitizeCellText(value) || '-';
+    };
+
+    // The old hardcoded widths totalled 760pt against 741.89pt of usable
+    // page, so the table ran past the right margin. Measure instead.
+    const columnWidths = fitTableColumns(doc, columns, logs, pageWidth, {
+      rowFont: ROW_FONT,
+      headerFont: HEADER_FONT,
+      getValue: cellText,
+    });
+
+    const headerLabels = columns.map((col, i) => {
+      doc.font('Helvetica-Bold').fontSize(HEADER_FONT);
+      return wrapToWidth(doc, col.label, columnWidths[i] - 4, 2);
+    });
 
     // Draw header
     let currentY = 50;
@@ -1150,34 +1314,37 @@ export const generateActivityLogsPDF = async (logs, options, res) => {
     currentY += 25;
 
     // Draw table headers
-    let currentX = margin;
-    const headerHeight = 30;
-    doc.lineWidth(1);
-    doc.strokeColor('#000000');
+    const headerHeight = HEADER_FONT * 2 + 10;
+    const headerLineHeight = HEADER_FONT + 2;
 
-    columns.forEach(col => {
-      doc.rect(currentX, currentY, col.width, headerHeight)
-         .fillAndStroke('#4B5563', '#000000');
-      currentX += col.width;
-    });
-
-    // Draw header text
-    currentX = margin;
-    doc.fontSize(8)
-       .font('Helvetica-Bold')
-       .fillColor('white');
-
-    columns.forEach(col => {
-      doc.text(col.label, currentX + 2, currentY + 10, {
-        width: col.width - 4,
-        align: 'center',
-        lineBreak: false,
-        ellipsis: true
+    const drawTableHead = (startY) => {
+      let x = margin;
+      doc.lineWidth(1).strokeColor('#000000');
+      columns.forEach((col, i) => {
+        doc.rect(x, startY, columnWidths[i], headerHeight)
+           .fillAndStroke('#4B5563', '#000000');
+        x += columnWidths[i];
       });
-      currentX += col.width;
-    });
 
-    currentY += headerHeight;
+      x = margin;
+      doc.fontSize(HEADER_FONT).font('Helvetica-Bold').fillColor('white');
+      columns.forEach((col, i) => {
+        const lines = headerLabels[i];
+        const textY = startY + (headerHeight - lines.length * headerLineHeight) / 2;
+        lines.forEach((line, n) => {
+          doc.text(line, x + 2, textY + n * headerLineHeight, {
+            width: columnWidths[i] - 4,
+            align: 'center',
+            lineBreak: false
+          });
+        });
+        x += columnWidths[i];
+      });
+
+      return startY + headerHeight;
+    };
+
+    currentY = drawTableHead(currentY);
 
     // Track row number and max Y
     let rowNumber = 1;
@@ -1185,36 +1352,11 @@ export const generateActivityLogsPDF = async (logs, options, res) => {
     const rowHeight = 25;
 
     // Draw log rows
-    logs.forEach((log, index) => {
+    logs.forEach((log) => {
       // Check if we need a new page
       if (currentY + rowHeight > maxY) {
         doc.addPage();
-        currentY = 50;
-
-        // Redraw headers on new page
-        currentX = margin;
-        columns.forEach(col => {
-          doc.rect(currentX, currentY, col.width, headerHeight)
-             .fillAndStroke('#4B5563', '#000000');
-          currentX += col.width;
-        });
-
-        currentX = margin;
-        doc.fontSize(8)
-           .font('Helvetica-Bold')
-           .fillColor('white');
-
-        columns.forEach(col => {
-          doc.text(col.label, currentX + 2, currentY + 10, {
-            width: col.width - 4,
-            align: 'center',
-            lineBreak: false,
-            ellipsis: true
-          });
-          currentX += col.width;
-        });
-
-        currentY += headerHeight;
+        currentY = drawTableHead(50);
       }
 
       // Draw row cells
@@ -1222,55 +1364,32 @@ export const generateActivityLogsPDF = async (logs, options, res) => {
       doc.lineWidth(0.5);
       doc.strokeColor('#000000');
 
-      currentX = margin;
-      columns.forEach(col => {
-        doc.rect(currentX, currentY, col.width, rowHeight)
+      let currentX = margin;
+      columns.forEach((col, i) => {
+        doc.rect(currentX, currentY, columnWidths[i], rowHeight)
            .fillAndStroke(fillColor, '#000000');
-        currentX += col.width;
+        currentX += columnWidths[i];
       });
 
       // Draw text content
       currentX = margin;
-      doc.fontSize(7)
+      doc.fontSize(ROW_FONT)
          .font('Helvetica')
          .fillColor('black');
 
-      columns.forEach(col => {
-        let value = '';
+      columns.forEach((col, i) => {
+        const value = truncateToWidth(
+          doc,
+          cellText(col, log, rowNumber),
+          columnWidths[i] - 4
+        );
 
-        if (col.key === 'sl_no') {
-          value = String(rowNumber);
-        } else if (col.key === 'created_at') {
-          value = log[col.key] ? new Date(log[col.key]).toLocaleString('en-IN', {
-            timeZone: 'Asia/Kolkata',
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          }) : '-';
-        } else if (col.key === 'user_info') {
-          // Display email or phone number
-          value = log.user_email || log.user_phone || '-';
-        } else if (col.key === 'user_role') {
-          // Format role nicely
-          const roleMap = {
-            'super_admin': 'Super Admin',
-            'placement_officer': 'Placement Officer',
-            'student': 'Student'
-          };
-          value = roleMap[log[col.key]] || log[col.key] || '-';
-        } else {
-          value = log[col.key] || '-';
-        }
-
-        doc.text(String(value), currentX + 2, currentY + 8, {
-          width: col.width - 4,
-          align: col.key === 'sl_no' ? 'center' : 'left',
-          lineBreak: false,
-          ellipsis: true
+        doc.text(value, currentX + 2, currentY + (rowHeight - ROW_FONT) / 2, {
+          width: columnWidths[i] - 4,
+          align: col.align,
+          lineBreak: false
         });
-        currentX += col.width;
+        currentX += columnWidths[i];
       });
 
       currentY += rowHeight;
@@ -1381,26 +1500,59 @@ export const generatePRNRangeStudentsPDF = async (students, options, res) => {
     const pageWidth = doc.page.width - (2 * margin);
     const pageHeight = doc.page.height;
 
-    // Column definitions
+    // Columns shown in the PDF. Driving Licence, PAN, Registration Status and
+    // Blacklisted are deliberately NOT here: they were the columns falling off
+    // the right edge, and dropping them buys the remaining 13 a larger 7.5pt
+    // face on ordinary A4. All four are still in the Excel export, which has
+    // no page width to run out of.
     const columns = [
-      { key: 'sl_no', label: 'SL NO', width: 35 },
-      { key: 'prn', label: 'PRN', width: 70 },
-      { key: 'name', label: 'Student Name', width: 100 },
-      { key: 'email', label: 'Email', width: 120 },
-      { key: 'mobile_number', label: 'Mobile', width: 70 },
-      { key: 'date_of_birth', label: 'DOB', width: 60 },
-      { key: 'age', label: 'Age', width: 35 },
-      { key: 'gender', label: 'Gender', width: 45 },
-      { key: 'college_name', label: 'College', width: 80 },
-      { key: 'region_name', label: 'Region', width: 60 },
-      { key: 'branch', label: 'Branch', width: 50 },
-      { key: 'programme_cgpa', label: 'CGPA', width: 40 },
-      { key: 'backlog_count', label: 'Backlogs', width: 50 },
-      { key: 'has_driving_license', label: 'DL', width: 30 },
-      { key: 'has_pan_card', label: 'PAN', width: 30 },
-      { key: 'registration_status', label: 'Status', width: 55 },
-      { key: 'is_blacklisted', label: 'Blacklisted', width: 50 }
+      { key: 'sl_no', label: 'SL NO', align: 'center' },
+      { key: 'prn', label: 'PRN', align: 'left' },
+      { key: 'name', label: 'Student Name', align: 'left' },
+      { key: 'email', label: 'Email', align: 'left' },
+      { key: 'mobile_number', label: 'Mobile', align: 'left' },
+      { key: 'date_of_birth', label: 'DOB', align: 'left' },
+      { key: 'age', label: 'Age', align: 'center' },
+      { key: 'gender', label: 'Gender', align: 'left' },
+      { key: 'college_name', label: 'College', align: 'left' },
+      { key: 'region_name', label: 'Region', align: 'left' },
+      { key: 'branch', label: 'Branch', align: 'left' },
+      { key: 'programme_cgpa', label: 'CGPA', align: 'center' },
+      { key: 'backlog_count', label: 'Backlogs', align: 'center' }
     ];
+
+    const ROW_FONT = 7.5;
+    const HEADER_FONT = 8;
+
+    // Every cell holds ONE line of WinAnsi-safe text
+    const cellText = (col, student, rowNumber) => {
+      let value;
+      if (col.key === 'sl_no') {
+        value = String(rowNumber);
+      } else if (col.key === 'date_of_birth') {
+        value = student[col.key]
+          ? new Date(student[col.key]).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })
+          : '-';
+      } else {
+        value = student[col.key] !== null && student[col.key] !== undefined
+          ? String(student[col.key])
+          : '-';
+      }
+      return sanitizeCellText(value) || '-';
+    };
+
+    // Measure the real data instead of guessing: widths always total the
+    // usable width, so no column can be pushed off the page.
+    const columnWidths = fitTableColumns(doc, columns, students, pageWidth, {
+      rowFont: ROW_FONT,
+      headerFont: HEADER_FONT,
+      getValue: cellText,
+    });
+
+    const headerLabels = columns.map((col, i) => {
+      doc.font('Helvetica-Bold').fontSize(HEADER_FONT);
+      return wrapToWidth(doc, col.label, columnWidths[i] - 4, 2);
+    });
 
     // Draw header
     let currentY = 50;
@@ -1436,71 +1588,49 @@ export const generatePRNRangeStudentsPDF = async (students, options, res) => {
     currentY += 20;
 
     // Draw table headers
-    let currentX = margin;
-    const headerHeight = 30;
-    doc.lineWidth(1);
-    doc.strokeColor('#000000');
+    const headerHeight = HEADER_FONT * 2 + 10;
+    const headerLineHeight = HEADER_FONT + 2;
 
-    columns.forEach(col => {
-      doc.rect(currentX, currentY, col.width, headerHeight)
-         .fillAndStroke('#4472C4', '#000000');
-      currentX += col.width;
-    });
-
-    // Draw header text
-    currentX = margin;
-    doc.fontSize(7)
-       .font('Helvetica-Bold')
-       .fillColor('white');
-
-    columns.forEach(col => {
-      doc.text(col.label, currentX + 2, currentY + 10, {
-        width: col.width - 4,
-        align: 'center',
-        lineBreak: false,
-        ellipsis: true
+    const drawTableHead = (startY) => {
+      let x = margin;
+      doc.lineWidth(1).strokeColor('#000000');
+      columns.forEach((col, i) => {
+        doc.rect(x, startY, columnWidths[i], headerHeight)
+           .fillAndStroke('#4472C4', '#000000');
+        x += columnWidths[i];
       });
-      currentX += col.width;
-    });
 
-    currentY += headerHeight;
+      x = margin;
+      doc.fontSize(HEADER_FONT).font('Helvetica-Bold').fillColor('white');
+      columns.forEach((col, i) => {
+        const lines = headerLabels[i];
+        const textY = startY + (headerHeight - lines.length * headerLineHeight) / 2;
+        lines.forEach((line, n) => {
+          doc.text(line, x + 2, textY + n * headerLineHeight, {
+            width: columnWidths[i] - 4,
+            align: 'center',
+            lineBreak: false
+          });
+        });
+        x += columnWidths[i];
+      });
+
+      return startY + headerHeight;
+    };
+
+    currentY = drawTableHead(currentY);
 
     // Track row number and max Y
     let rowNumber = 1;
     const maxY = pageHeight - 80;
-    const rowHeight = 22;
+    const rowHeight = 18;
 
     // Draw student rows
-    students.forEach((student, index) => {
+    students.forEach((student) => {
       // Check if we need a new page
       if (currentY + rowHeight > maxY) {
         doc.addPage();
-        currentY = 50;
-
-        // Redraw headers on new page
-        currentX = margin;
-        columns.forEach(col => {
-          doc.rect(currentX, currentY, col.width, headerHeight)
-             .fillAndStroke('#4472C4', '#000000');
-          currentX += col.width;
-        });
-
-        currentX = margin;
-        doc.fontSize(7)
-           .font('Helvetica-Bold')
-           .fillColor('white');
-
-        columns.forEach(col => {
-          doc.text(col.label, currentX + 2, currentY + 10, {
-            width: col.width - 4,
-            align: 'center',
-            lineBreak: false,
-            ellipsis: true
-          });
-          currentX += col.width;
-        });
-
-        currentY += headerHeight;
+        currentY = drawTableHead(50);
       }
 
       // Draw row cells
@@ -1508,46 +1638,32 @@ export const generatePRNRangeStudentsPDF = async (students, options, res) => {
       doc.lineWidth(0.5);
       doc.strokeColor('#000000');
 
-      currentX = margin;
-      columns.forEach(col => {
-        doc.rect(currentX, currentY, col.width, rowHeight)
+      let currentX = margin;
+      columns.forEach((col, i) => {
+        doc.rect(currentX, currentY, columnWidths[i], rowHeight)
            .fillAndStroke(fillColor, '#000000');
-        currentX += col.width;
+        currentX += columnWidths[i];
       });
 
       // Draw text content
       currentX = margin;
-      doc.fontSize(6.5)
+      doc.fontSize(ROW_FONT)
          .font('Helvetica')
          .fillColor('black');
 
-      columns.forEach(col => {
-        let value = '';
+      columns.forEach((col, i) => {
+        const value = truncateToWidth(
+          doc,
+          cellText(col, student, rowNumber),
+          columnWidths[i] - 4
+        );
 
-        if (col.key === 'sl_no') {
-          value = String(rowNumber);
-        } else if (col.key === 'date_of_birth') {
-          value = student[col.key] ? new Date(student[col.key]).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' }) : '-';
-        } else if (col.key === 'has_driving_license' || col.key === 'has_pan_card') {
-          value = student[col.key] ? 'Yes' : 'No';
-        } else if (col.key === 'is_blacklisted') {
-          value = student[col.key] ? 'Yes' : 'No';
-        } else if (col.key === 'registration_status') {
-          value = student[col.key] || 'Pending';
-        } else {
-          value = student[col.key] !== null && student[col.key] !== undefined ? String(student[col.key]) : '-';
-        }
-
-        const align = (col.key === 'sl_no' || col.key === 'age' || col.key === 'programme_cgpa' ||
-                       col.key === 'backlog_count') ? 'center' : 'left';
-
-        doc.text(value, currentX + 2, currentY + 6, {
-          width: col.width - 4,
-          align: align,
-          lineBreak: false,
-          ellipsis: true
+        doc.text(value, currentX + 2, currentY + (rowHeight - ROW_FONT) / 2, {
+          width: columnWidths[i] - 4,
+          align: col.align,
+          lineBreak: false
         });
-        currentX += col.width;
+        currentX += columnWidths[i];
       });
 
       currentY += rowHeight;

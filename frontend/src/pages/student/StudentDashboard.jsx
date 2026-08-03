@@ -269,6 +269,7 @@ export default function StudentDashboard() {
           currentEmail={profile.email}
           onSubmit={handleUpdateEmail}
           onClose={handleCloseEmailModal}
+          variant="spc"
         />
       )}
 

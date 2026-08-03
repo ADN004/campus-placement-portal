@@ -1,97 +1,44 @@
-import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileText, CheckCircle, X, ChevronRight } from 'lucide-react';
-import Modal from './Modal';
+import { Check, FileText } from 'lucide-react';
+import PromptShell from './student/PromptShell';
+
+const BENEFITS = [
+  'Your resume is ready the moment you apply',
+  'Show your skills, projects and experience',
+  'Officers and admins can download it',
+  'Look prepared next to everyone else',
+];
 
 export default function ResumePromptModal({ onClose }) {
   const navigate = useNavigate();
-  const [isVisible, setIsVisible] = useState(false);
-
-  useEffect(() => {
-    setTimeout(() => setIsVisible(true), 100);
-  }, []);
 
   const handleGoToResume = () => {
     navigate('/student/resume');
     onClose();
   };
 
-  const handleSkip = () => {
-    setIsVisible(false);
-    setTimeout(onClose, 300);
-  };
-
   return (
-    <Modal
-      onClose={handleSkip}
+    <PromptShell
+      onClose={onClose}
       labelledBy="resume-prompt-title"
-      closeOnBackdrop={true}
-      overlayClassName="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fadeIn"
-      panelClassName={`relative z-10 w-full max-w-md transform transition-all duration-400 ${
-        isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
-      }`}
+      title="Build your resume"
+      eyebrow="It takes one sitting"
+      icon={FileText}
+      closeOnBackdrop
+      primary={{ label: 'Build it now', onClick: handleGoToResume }}
+      secondary={{ label: 'Not now', onClick: onClose }}
+      footNote="You can build it any time from My Resume in the menu."
     >
-        <div className="bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-200">
-          {/* Header */}
-          <div className="relative bg-gradient-to-r from-green-600 to-teal-600 px-5 py-4">
-            <button
-              onClick={handleSkip}
-              className="absolute top-3 right-3 text-white/80 hover:text-white hover:bg-white/20 rounded-full p-1 transition-all"
-            >
-              <X size={18} />
-            </button>
-
-            <div className="flex items-center gap-3">
-              <div className="bg-white/20 rounded-xl p-2.5">
-                <FileText className="text-white" size={24} />
-              </div>
-              <div>
-                <h2 id="resume-prompt-title" className="text-lg font-bold text-white">Complete Your Resume</h2>
-                <p className="text-sm text-white/80">Stand out to recruiters</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Content */}
-          <div className="p-5">
-            {/* Benefits */}
-            <div className="mb-4 space-y-2">
-              {[
-                'Have your resume ready when applying',
-                'Showcase skills, projects & experience',
-                'Officers and admins can download it',
-                'Stand out with a professional resume'
-              ].map((benefit, index) => (
-                <div key={index} className="flex items-center gap-2.5 text-sm text-gray-700">
-                  <CheckCircle size={16} className="text-green-500 flex-shrink-0" />
-                  <span>{benefit}</span>
-                </div>
-              ))}
-            </div>
-
-            {/* Buttons */}
-            <div className="flex gap-3">
-              <button
-                onClick={handleGoToResume}
-                className="flex-1 bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white font-semibold py-2.5 px-4 rounded-xl transition-all flex items-center justify-center gap-2"
-              >
-                <span>Complete Resume</span>
-                <ChevronRight size={18} />
-              </button>
-              <button
-                onClick={handleSkip}
-                className="bg-gray-100 hover:bg-gray-200 text-gray-600 font-medium py-2.5 px-4 rounded-xl border border-gray-200 transition-all text-sm"
-              >
-                Skip
-              </button>
-            </div>
-
-            {/* Tip */}
-            <p className="text-center text-xs text-gray-500 mt-3">
-              You can complete your resume anytime from the My Resume menu.
-            </p>
-          </div>
-        </div>
-    </Modal>
+      <ul className="space-y-2.5">
+        {BENEFITS.map((benefit) => (
+          <li key={benefit} className="flex items-start gap-2.5">
+            <span className="w-5 h-5 rounded-full bg-spc-ok-bg flex items-center justify-center flex-shrink-0 mt-0.5">
+              <Check size={12} className="text-spc-ok" strokeWidth={3} />
+            </span>
+            <span className="text-spc-sm text-spc-body">{benefit}</span>
+          </li>
+        ))}
+      </ul>
+    </PromptShell>
   );
 }

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { studentAPI } from '../services/api';
-import { GraduationCap, X, Clock } from 'lucide-react';
-import Modal from './Modal';
+import { GraduationCap, Clock } from 'lucide-react';
+import PromptShell from './student/PromptShell';
 
 export default function CgpaUnlockPopup() {
   const [show, setShow] = useState(false);
@@ -66,48 +66,27 @@ export default function CgpaUnlockPopup() {
   if (!show) return null;
 
   return (
-    <Modal
+    <PromptShell
       onClose={handleDismiss}
-      title="CGPA Update Notice"
-      overlayClassName="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm animate-fadeIn"
-      panelClassName="bg-white rounded-2xl shadow-2xl border border-blue-100 max-w-sm w-full overflow-hidden"
+      labelledBy="cgpa-unlock-title"
+      title="Your CGPA is open for editing"
+      eyebrow="For a limited time"
+      icon={GraduationCap}
+      primary={{ label: 'Got it', onClick: handleDismiss }}
     >
-        {/* Header bar */}
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <GraduationCap className="text-white" size={18} />
-            <span className="text-white font-bold text-sm">CGPA Update Notice</span>
-          </div>
-          <button onClick={handleDismiss} className="text-white/80 hover:text-white transition-colors">
-            <X size={18} />
-          </button>
-        </div>
+      <p className="text-spc-sm text-spc-body leading-relaxed">
+        Your semester CGPA fields are unlocked. If any of your grades need
+        correcting, update them on your Profile now.
+      </p>
 
-        {/* Content */}
-        <div className="px-5 py-4">
-          <p className="text-gray-800 font-semibold text-sm leading-relaxed">
-            Your semester CGPA fields are now open for editing. Update your grades in your Profile if needed.
-          </p>
+      <div className="mt-4 flex items-center gap-2.5 rounded-spc bg-spc-warn-bg border border-spc-warn/25 px-3.5 py-3">
+        <Clock size={17} className="text-spc-warn flex-shrink-0" />
+        <span className="text-spc-sm font-bold text-spc-warn">{timeRemaining}</span>
+      </div>
 
-          <div className="mt-3 flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-            <Clock size={16} className="text-amber-600 flex-shrink-0" />
-            <span className="text-amber-800 text-xs font-bold">{timeRemaining}</span>
-          </div>
-
-          <p className="text-gray-500 text-xs mt-3">
-            Fields will be locked again after the window closes.
-          </p>
-        </div>
-
-        {/* Footer */}
-        <div className="px-5 pb-4">
-          <button
-            onClick={handleDismiss}
-            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold text-sm py-2.5 rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all"
-          >
-            Got it
-          </button>
-        </div>
-    </Modal>
+      <p className="text-spc-xs text-spc-muted mt-3">
+        The fields lock again once the window closes.
+      </p>
+    </PromptShell>
   );
 }

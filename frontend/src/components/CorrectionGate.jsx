@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { studentAPI } from '../services/api';
-import { AlertTriangle, ArrowRight } from 'lucide-react';
-import Modal from './Modal';
+import { AlertTriangle, Camera } from 'lucide-react';
+import PromptShell from './student/PromptShell';
 
 /**
  * Blocking gate for students with an outstanding "send back for correction".
@@ -32,39 +32,35 @@ export default function CorrectionGate() {
   if (!correction?.correction_requested || onProfile) return null;
 
   return (
-    <Modal
+    <PromptShell
       labelledBy="correction-gate-title"
-      closeOnEscape={false}
-      overlayClassName="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
-      panelClassName="bg-white rounded-2xl shadow-2xl w-full max-w-lg border-t-8 border-red-600 overflow-hidden"
+      title="Something needs fixing first"
+      eyebrow="From your placement officer"
+      icon={AlertTriangle}
+      tone="bad"
+      dismissible={false}
+      primary={{ label: 'Go to my Profile and fix it', onClick: () => navigate('/student/profile') }}
     >
-        <div className="bg-red-600 px-6 py-5 flex items-center gap-3">
-          <AlertTriangle className="text-white shrink-0" size={28} />
-          <h2 id="correction-gate-title" className="text-xl font-bold text-white">Action required before you can continue</h2>
-        </div>
-        <div className="p-6">
-          <p className="text-gray-700 mb-3">
-            Your placement officer has asked you to correct something. You need to fix it before you
-            can use the rest of the portal.
+      <p className="text-spc-sm text-spc-body leading-relaxed">
+        Your placement officer has asked you to correct something in your
+        details. The rest of the portal stays closed until it&apos;s done.
+      </p>
+
+      {correction.correction_note && (
+        <blockquote className="mt-4 rounded-spc bg-spc-bad-bg border-l-4 border-spc-bad px-4 py-3">
+          <p className="text-spc-label font-bold uppercase text-spc-bad mb-1">What they said</p>
+          <p className="text-spc-sm font-semibold text-spc-ink">{correction.correction_note}</p>
+        </blockquote>
+      )}
+
+      {correction.correction_photo_required && (
+        <div className="mt-3 flex items-start gap-2.5 rounded-spc bg-spc-warn-bg border border-spc-warn/25 px-3.5 py-3">
+          <Camera size={17} className="text-spc-warn flex-shrink-0 mt-0.5" />
+          <p className="text-spc-sm font-semibold text-spc-warn">
+            Your photo was removed — upload a new one on your Profile page.
           </p>
-          {correction.correction_note && (
-            <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-900 font-medium mb-2">
-              {correction.correction_note}
-            </div>
-          )}
-          {correction.correction_photo_required && (
-            <p className="text-sm font-bold text-red-700 mb-2">
-              Your photo was removed — you must upload a new one on your Profile page.
-            </p>
-          )}
-          <button
-            onClick={() => navigate('/student/profile')}
-            className="mt-4 w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl font-bold text-white bg-red-600 hover:bg-red-700 transition-colors"
-          >
-            Go to my Profile to fix this
-            <ArrowRight size={18} />
-          </button>
         </div>
-    </Modal>
+      )}
+    </PromptShell>
   );
 }

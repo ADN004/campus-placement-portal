@@ -49,13 +49,28 @@ const isRealDeliveryEnabled = APP_ENV === 'production' && EMAIL_MODE === 'smtp';
 
 const smtpTransporter = nodemailer.createTransport(
   isRealDeliveryEnabled
-    ? {
-        service: process.env.EMAIL_SERVICE || 'gmail',
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASSWORD, // Gmail App Password
-        },
-      }
+    ? process.env.EMAIL_HOST
+      ? {
+          // Explicit SMTP host — e.g. smtp-relay.gmail.com for the Google
+          // Workspace SMTP relay service. Port 465 = implicit SSL; any other
+          // port (typically 587) uses STARTTLS, which we require.
+          host: process.env.EMAIL_HOST,
+          port: Number(process.env.EMAIL_PORT) || 587,
+          secure: Number(process.env.EMAIL_PORT) === 465,
+          requireTLS: true,
+          auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASSWORD, // App Password
+          },
+        }
+      : {
+          // Fallback: well-known service shortcut (defaults to Gmail SMTP).
+          service: process.env.EMAIL_SERVICE || 'gmail',
+          auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASSWORD, // Gmail App Password
+          },
+        }
     : { jsonTransport: true } // composes the full message, delivers nowhere
 );
 

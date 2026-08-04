@@ -50,7 +50,7 @@ const PhysicalDetailsSection = ({ formData, setFormData, onSave, saving, isCompl
               onChange={handleChange}
               min="100"
               max="250"
-              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-line-strong outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
+              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-control outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
               placeholder="170"
             />
           </div>
@@ -66,7 +66,7 @@ const PhysicalDetailsSection = ({ formData, setFormData, onSave, saving, isCompl
               min="30"
               max="200"
               step="0.1"
-              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-line-strong outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
+              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-control outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
               placeholder="65.5"
             />
           </div>
@@ -97,7 +97,7 @@ const PhysicalDetailsSection = ({ formData, setFormData, onSave, saving, isCompl
               value={formData.handicap_details}
               onChange={handleChange}
               rows="4"
-              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-line-strong outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
+              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-control outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
               placeholder="Please describe your disability..."
             />
           </div>

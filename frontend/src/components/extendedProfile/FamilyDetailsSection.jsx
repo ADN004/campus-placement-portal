@@ -52,7 +52,7 @@ const FamilyDetailsSection = ({ formData, setFormData, onSave, saving, isComplet
               name="father_name"
               value={formData.father_name}
               onChange={handleChange}
-              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-line-strong outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
+              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-control outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
               placeholder="John Doe"
             />
           </div>
@@ -65,7 +65,7 @@ const FamilyDetailsSection = ({ formData, setFormData, onSave, saving, isComplet
               name="father_occupation"
               value={formData.father_occupation}
               onChange={handleChange}
-              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-line-strong outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
+              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-control outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
               placeholder="Engineer"
             />
           </div>
@@ -78,7 +78,7 @@ const FamilyDetailsSection = ({ formData, setFormData, onSave, saving, isComplet
               name="father_annual_income"
               value={formData.father_annual_income}
               onChange={handleChange}
-              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-line-strong outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
+              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-control outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
               placeholder="500000"
             />
           </div>
@@ -103,7 +103,7 @@ const FamilyDetailsSection = ({ formData, setFormData, onSave, saving, isComplet
               name="mother_name"
               value={formData.mother_name}
               onChange={handleChange}
-              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-line-strong outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
+              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-control outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
               placeholder="Jane Doe"
             />
           </div>
@@ -116,7 +116,7 @@ const FamilyDetailsSection = ({ formData, setFormData, onSave, saving, isComplet
               name="mother_occupation"
               value={formData.mother_occupation}
               onChange={handleChange}
-              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-line-strong outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
+              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-control outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
               placeholder="Teacher"
             />
           </div>
@@ -129,7 +129,7 @@ const FamilyDetailsSection = ({ formData, setFormData, onSave, saving, isComplet
               name="mother_annual_income"
               value={formData.mother_annual_income}
               onChange={handleChange}
-              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-line-strong outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
+              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-control outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
               placeholder="400000"
             />
           </div>
@@ -156,7 +156,7 @@ const FamilyDetailsSection = ({ formData, setFormData, onSave, saving, isComplet
               onChange={handleChange}
               min="0"
               max="10"
-              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-line-strong outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
+              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-control outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
             />
           </div>
           <div>
@@ -168,7 +168,7 @@ const FamilyDetailsSection = ({ formData, setFormData, onSave, saving, isComplet
               name="siblings_details"
               value={formData.siblings_details}
               onChange={handleChange}
-              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-line-strong outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
+              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-control outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
               placeholder="1 brother (engineer), 1 sister (doctor)"
             />
           </div>

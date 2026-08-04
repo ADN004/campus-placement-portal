@@ -108,7 +108,7 @@ const EducationPreferencesSection = ({ formData, setFormData, onSave, saving, is
             name="preferred_study_mode"
             value={formData.preferred_study_mode}
             onChange={handleChange}
-            className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-line-strong outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
+            className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-control outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
           >
             <option value="">Select Study Mode</option>
             <option value="full-time">Full Time</option>

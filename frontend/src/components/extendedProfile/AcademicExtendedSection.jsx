@@ -55,7 +55,7 @@ const AcademicExtendedSection = ({ formData, setFormData, onSave, saving, isComp
               min="0"
               max="100"
               step="0.01"
-              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-line-strong outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
+              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-control outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
               placeholder="85.5"
             />
           </div>
@@ -70,7 +70,7 @@ const AcademicExtendedSection = ({ formData, setFormData, onSave, saving, isComp
               onChange={handleChange}
               min="2000"
               max="2030"
-              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-line-strong outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
+              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-control outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
               placeholder="2020"
             />
           </div>
@@ -83,7 +83,7 @@ const AcademicExtendedSection = ({ formData, setFormData, onSave, saving, isComp
               name="sslc_board"
               value={formData.sslc_board}
               onChange={handleChange}
-              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-line-strong outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
+              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-control outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
               placeholder="CBSE"
             />
           </div>
@@ -112,7 +112,7 @@ const AcademicExtendedSection = ({ formData, setFormData, onSave, saving, isComp
               min="0"
               max="100"
               step="0.01"
-              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-line-strong outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
+              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-control outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
               placeholder="82.0"
             />
           </div>
@@ -127,7 +127,7 @@ const AcademicExtendedSection = ({ formData, setFormData, onSave, saving, isComp
               onChange={handleChange}
               min="2000"
               max="2030"
-              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-line-strong outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
+              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-control outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
               placeholder="2022"
             />
           </div>
@@ -140,7 +140,7 @@ const AcademicExtendedSection = ({ formData, setFormData, onSave, saving, isComp
               name="twelfth_board"
               value={formData.twelfth_board}
               onChange={handleChange}
-              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-line-strong outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
+              className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm border border-spc-control outline-none transition-colors focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25"
               placeholder="State Board"
             />
           </div>

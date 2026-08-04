@@ -168,7 +168,7 @@ export function BlockedBody({ readinessData }) {
 function CustomFieldInput({ field, value, onChange }) {
   const inputClass =
     'w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm ' +
-    'border border-spc-line-strong outline-none transition-colors ' +
+    'border border-spc-control outline-none transition-colors ' +
     'focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25';
 
   if (field.field_type === 'boolean') {

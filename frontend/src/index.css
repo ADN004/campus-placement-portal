@@ -546,6 +546,11 @@ input[type='password']::-ms-clear {
   --spc-surface-2: 240 237 231;
   --spc-line: 227 222 213;
   --spc-line-strong: 207 199 185;
+  /* Interactive control borders — inputs, selects, textareas, checkboxes,
+     secondary buttons. WCAG 1.4.11 wants 3:1 for the boundary of a control;
+     --spc-line-strong measures 1.68:1 on white, which is fine for a divider
+     but fails for a field a person types into. Kept in the same warm family. */
+  --spc-control: 148 139 121;  /* 3.37:1 on white */
 
   /* text — every value below measured at AA or better on ground and surface */
   --spc-ink: 18 33 31;        /* 16.63:1 on white */

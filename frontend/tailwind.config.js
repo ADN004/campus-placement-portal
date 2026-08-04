@@ -42,6 +42,7 @@ export default {
           'surface-2': 'rgb(var(--spc-surface-2) / <alpha-value>)',
           line: 'rgb(var(--spc-line) / <alpha-value>)',
           'line-strong': 'rgb(var(--spc-line-strong) / <alpha-value>)',
+          control: 'rgb(var(--spc-control) / <alpha-value>)',
           ink: 'rgb(var(--spc-ink) / <alpha-value>)',
           body: 'rgb(var(--spc-body) / <alpha-value>)',
           muted: 'rgb(var(--spc-muted) / <alpha-value>)',

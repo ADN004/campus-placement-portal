@@ -10,6 +10,12 @@ import { parseExceptedPrns } from '../utils/prnExceptions.js';
 import { isCollegeLocked } from '../utils/collegeLocks.js';
 import { DAY_AWARE_COUNT_SQL } from '../utils/verificationEmailPolicy.js';
 
+// How many notification emails a bulk action sends at once. A bulk batch can
+// be 50+ students; sending strictly one at a time can outrun the proxy read
+// timeout and report a failure for work that fully succeeded, while sending
+// all of them at once would hammer the SMTP relay.
+const BULK_EMAIL_CONCURRENCY = 5;
+
 // Shared refusal when a college's PRN-range management is locked by the SA.
 const PRN_RANGE_LOCK_MESSAGE =
   'Adding or editing PRN ranges is currently locked by the Super Admin. Please contact them to unlock it for your college.';
@@ -822,7 +828,8 @@ export const bulkApproveStudents = async (req, res) => {
              approved_date = CURRENT_TIMESTAMP
          WHERE id = ANY($2::int[])
            AND registration_status = 'pending'
-         RETURNING id, prn`,
+         RETURNING id, prn, email, student_name, email_verification_token,
+                   email_verified, college_id, branch, created_at`,
         [req.user.id, studentIds]
       );
 
@@ -839,6 +846,52 @@ export const bulkApproveStudents = async (req, res) => {
         student.id,
         { prn: student.prn },
         req
+      );
+    }
+
+    // Verification emails — parity with the single-student approve path, which
+    // sends the student their verification link at the moment of approval.
+    // Without this a bulk-approved student is approved but never told, and
+    // never receives the link they need to verify. Best-effort per student: the
+    // approval is already committed, so a bad address must never undo it.
+    //
+    // Sent in small concurrent batches rather than strictly one at a time —
+    // 50 sequential SMTP sends can outrun the proxy read timeout, which would
+    // show the officer a failure for an approval that fully succeeded.
+    const pendingVerification = result.filter(
+      (s) => s.email && s.email_verification_token && !s.email_verified
+    );
+
+    for (let i = 0; i < pendingVerification.length; i += BULK_EMAIL_CONCURRENCY) {
+      const batch = pendingVerification.slice(i, i + BULK_EMAIL_CONCURRENCY);
+      await Promise.allSettled(
+        batch.map(async (student) => {
+          try {
+            // Timestamp before sending, day-aware, exactly as approveStudent
+            // does: the approval email counts toward today's tally without
+            // inflating a lifetime total.
+            await query(
+              `UPDATE students
+               SET last_verification_email_sent_at = CURRENT_TIMESTAMP,
+                   verification_email_sent_count = ${DAY_AWARE_COUNT_SQL}
+               WHERE id = $1`,
+              [student.id]
+            );
+
+            const verificationDetails = await buildVerificationDetails(student);
+            await sendVerificationEmail(
+              student.email,
+              student.email_verification_token,
+              student.student_name,
+              verificationDetails
+            );
+          } catch (emailError) {
+            console.error(
+              `❌ Verification email failed for PRN ${student.prn} (non-fatal):`,
+              emailError.message
+            );
+          }
+        })
       );
     }
 
@@ -931,13 +984,20 @@ export const bulkRejectStudents = async (req, res) => {
       return rejectedResult.rows;
     });
 
-    // Best-effort notifications — never fail the rejection over email issues
-    for (const student of result) {
-      try {
-        await sendRegistrationRejectedEmail(student.email, student.student_name, bulkReason);
-      } catch (emailError) {
-        console.error(`Rejection email failed for PRN ${student.prn} (non-fatal):`, emailError.message);
-      }
+    // Best-effort notifications — never fail the rejection over email issues.
+    // Batched for the same reason as bulk approve: this endpoint is reachable
+    // from the UI now, so it has to survive a 50-student batch.
+    for (let i = 0; i < result.length; i += BULK_EMAIL_CONCURRENCY) {
+      const batch = result.slice(i, i + BULK_EMAIL_CONCURRENCY);
+      await Promise.allSettled(
+        batch.map(async (student) => {
+          try {
+            await sendRegistrationRejectedEmail(student.email, student.student_name, bulkReason);
+          } catch (emailError) {
+            console.error(`Rejection email failed for PRN ${student.prn} (non-fatal):`, emailError.message);
+          }
+        })
+      );
     }
 
     // Log activity for each rejected student

@@ -447,14 +447,34 @@ export default function ManageStudents() {
     if (!window.confirm(`Are you sure you want to approve ${selectedStudents.length} student(s)?`)) {
       return;
     }
+    const selectedCount = selectedStudents.length;
     try {
-      const promises = selectedStudents.map((id) => placementOfficerAPI.approveStudent(id));
-      await Promise.all(promises);
-      toast.success(`${selectedStudents.length} student(s) approved successfully`);
+      // One atomic request. This used to fire one PUT per student in parallel:
+      // Promise.all rejects on the first failure while every other request is
+      // already in flight and still completes, so a partial batch could apply
+      // with no way to tell the officer which students actually went through.
+      const response = await placementOfficerAPI.bulkApproveStudents(selectedStudents);
+
+      // The server only approves rows still in `pending` and reports the real
+      // number. The old code always claimed the full selection had succeeded.
+      const approvedCount = response.data?.data?.approvedCount ?? 0;
+
+      if (approvedCount === 0) {
+        toast.error('No students were approved — they may no longer be pending.');
+      } else if (approvedCount < selectedCount) {
+        toast.success(
+          `${approvedCount} of ${selectedCount} student(s) approved. The rest were no longer pending.`
+        );
+      } else {
+        toast.success(`${approvedCount} student(s) approved successfully`);
+      }
+
       setSelectedStudents([]);
       fetchStudents();
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to approve some students');
+      // Nothing was written — the update runs in a transaction — so the
+      // selection is deliberately left intact for a retry.
+      toast.error(error.response?.data?.message || 'Failed to approve students');
       fetchStudents();
     }
   };
@@ -469,16 +489,31 @@ export default function ManageStudents() {
       ''
     );
     if (reason === null) return; // Cancel pressed — abort; empty is allowed
+    const selectedCount = selectedStudents.length;
     try {
-      const promises = selectedStudents.map((id) =>
-        placementOfficerAPI.rejectStudent(id, reason.trim() || undefined)
+      // Same swap as bulk approve: one transactional request instead of N
+      // racing ones. The reason applies to the whole batch, as it did before.
+      const response = await placementOfficerAPI.bulkRejectStudents(
+        selectedStudents,
+        reason.trim() || undefined
       );
-      await Promise.all(promises);
-      toast.success(`${selectedStudents.length} student(s) rejected`);
+
+      const rejectedCount = response.data?.data?.rejectedCount ?? 0;
+
+      if (rejectedCount === 0) {
+        toast.error('No students were rejected — they may no longer be pending.');
+      } else if (rejectedCount < selectedCount) {
+        toast.success(
+          `${rejectedCount} of ${selectedCount} student(s) rejected. The rest were no longer pending.`
+        );
+      } else {
+        toast.success(`${rejectedCount} student(s) rejected`);
+      }
+
       setSelectedStudents([]);
       fetchStudents();
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to reject some students');
+      toast.error(error.response?.data?.message || 'Failed to reject students');
       fetchStudents();
     }
   };

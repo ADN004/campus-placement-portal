@@ -119,6 +119,13 @@ export const placementOfficerAPI = {
   getArchivedYears: () => API.get('/placement-officer/archived-years'),
   approveStudent: (studentId) => API.put(`/placement-officer/students/${studentId}/approve`),
   rejectStudent: (studentId, reason) => API.put(`/placement-officer/students/${studentId}/reject`, { reason }),
+  // Atomic bulk actions. Both validate every student against the officer's
+  // college before writing, then update inside a transaction, so a batch either
+  // applies in full or not at all. The bulk bar used to call the two per-student
+  // endpoints above N times in parallel instead, which had no transaction and
+  // could leave an unknown subset applied when one of them failed.
+  bulkApproveStudents: (studentIds) => API.put('/placement-officer/students/bulk-approve', { studentIds }),
+  bulkRejectStudents: (studentIds, reason) => API.put('/placement-officer/students/bulk-reject', { studentIds, reason }),
   blacklistStudent: (studentId, reason) => API.put(`/placement-officer/students/${studentId}/blacklist`, { reason }),
   requestStudentCorrection: (studentId, note, requirePhoto) => API.post(`/placement-officer/students/${studentId}/request-correction`, { note, require_photo: requirePhoto }),
   updateStudentEmail: (studentId, email) => API.put(`/placement-officer/students/${studentId}/email`, { email }),

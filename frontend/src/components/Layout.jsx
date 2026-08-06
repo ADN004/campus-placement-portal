@@ -30,11 +30,15 @@ import GradientOrb from './GradientOrb';
 import StudentBottomNav from './StudentBottomNav';
 import StudentTopBar from './student/StudentTopBar';
 import StudentSidebar from './student/StudentSidebar';
+import OfficerBottomNav from './officer/OfficerBottomNav';
+import OfficerTopBar from './officer/OfficerTopBar';
+import OfficerSidebar from './officer/OfficerSidebar';
 import useDeviceType from '../hooks/useDeviceType';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
 
 const DEFAULT_PW_DISMISS_KEY = 'default-password-warning-dismissed';
 const STUDENT_SIDEBAR_COLLAPSED_KEY = 'spc-student-sidebar-collapsed';
+const OFFICER_SIDEBAR_COLLAPSED_KEY = 'spc-officer-sidebar-collapsed';
 
 export default function Layout() {
   const { user, logout } = useAuth();
@@ -53,9 +57,12 @@ export default function Layout() {
     }
   });
 
-  // Students get their own chrome (top bar, grouped sidebar, bottom tab bar).
-  // Officers and super admins keep exactly the shell they have today.
+  // Students and placement officers each get their own chrome (top bar, grouped
+  // sidebar, bottom tab bar), on two deliberately different visual directions.
+  // Super admins keep exactly the shell they have today — every branch below
+  // falls through to the original code path for them.
   const isStudent = user?.role === 'student';
+  const isOfficer = user?.role === 'placement_officer';
 
   // A pending student can only reach the waiting page, so the navigation is
   // hidden entirely: every destination in it would bounce straight back, and a
@@ -82,15 +89,28 @@ export default function Layout() {
     }
   });
 
+  // The officer equivalent, kept as its own state and its own storage key
+  // rather than shared with the student one. The two roles are different
+  // people on different machines, and this file is shared by all three roles —
+  // a parallel pair is worth more here than the deduplication would be.
+  const [officerSidebarCollapsed, setOfficerSidebarCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem(OFFICER_SIDEBAR_COLLAPSED_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  });
+
   // While the student drawer is open it covers the page, so the page behind it
   // must not scroll — otherwise a swipe over the backdrop scrolls the content
   // underneath. Only below `lg`, where the drawer actually overlays; at `lg`
   // and up the sidebar is permanently on screen and nothing is covered.
-  // Scoped to students because the officer and super-admin shell is frozen
-  // until their own redesign — their drawer has the same bug.
+  // Now covers officers too — their drawer had the identical bug, and this is
+  // the commit that gives them a redesigned shell. Super admins are still
+  // excluded until theirs is redesigned.
   const deviceType = useDeviceType();
-  const studentDrawerOpen = isStudent && sidebarOpen && deviceType !== 'desktop';
-  useBodyScrollLock(studentDrawerOpen);
+  const drawerOpen = (isStudent || isOfficer) && sidebarOpen && deviceType !== 'desktop';
+  useBodyScrollLock(drawerOpen);
 
   // Make the hardware/browser Back button close the drawer instead of leaving
   // the page. Opening it pushes a history entry; Back pops that entry and we
@@ -98,7 +118,7 @@ export default function Layout() {
   // entry we pushed is still on the stack, so we pop it ourselves — otherwise
   // the next Back press would appear to do nothing.
   useEffect(() => {
-    if (!studentDrawerOpen) return undefined;
+    if (!drawerOpen) return undefined;
 
     window.history.pushState({ spcDrawer: true }, '');
     let poppedByBack = false;
@@ -114,13 +134,25 @@ export default function Layout() {
         window.history.back();
       }
     };
-  }, [studentDrawerOpen]);
+  }, [drawerOpen]);
 
   const toggleStudentSidebar = () => {
     setStudentSidebarCollapsed((prev) => {
       const next = !prev;
       try {
         localStorage.setItem(STUDENT_SIDEBAR_COLLAPSED_KEY, String(next));
+      } catch {
+        // Ignore — private browsing / storage disabled
+      }
+      return next;
+    });
+  };
+
+  const toggleOfficerSidebar = () => {
+    setOfficerSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(OFFICER_SIDEBAR_COLLAPSED_KEY, String(next));
       } catch {
         // Ignore — private browsing / storage disabled
       }
@@ -208,6 +240,8 @@ export default function Layout() {
       className={`relative ${
         isStudent
           ? 'spc-vh-screen spc-student spc-student-bg spc-clip-x'
+          : isOfficer
+          ? 'spc-vh-screen spc-officer spc-officer-bg spc-clip-x'
           : 'min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50'
       }`}
     >
@@ -232,9 +266,10 @@ export default function Layout() {
           one orb and → #bcc0fb where two overlap. Combined with translucent
           cards that pushed muted body text to 3.92:1, below the 4.5 minimum.
           They also cost a continuous large-blur composite on every phone.
-          Students get the calm static ground from .spc-student-bg instead;
-          other roles keep this exactly as it was until their own redesign. */}
-      {!isStudent && (
+          Students get the calm static ground from .spc-student-bg instead, and
+          officers the flat one from .spc-officer-bg; super admins keep this
+          exactly as it was until their own redesign. */}
+      {!isStudent && !isOfficer && (
         <div className="fixed inset-0 pointer-events-none">
           <GradientOrb color="blue" size="xl" position={{ top: '10%', right: '10%' }} animationDuration="8s" />
           <GradientOrb color="purple" size="lg" position={{ bottom: '15%', left: '5%' }} animationDuration="10s" delay="2s" />
@@ -255,8 +290,18 @@ export default function Layout() {
         />
       )}
 
+      {/* Officers get their own header; super admins keep the shared one. */}
+      {isOfficer && (
+        <OfficerTopBar
+          user={user}
+          sidebarOpen={sidebarOpen}
+          onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+          onLogout={handleLogout}
+        />
+      )}
+
       {/* Top Navbar - Glassmorphic */}
-      {!isStudent && (
+      {!isStudent && !isOfficer && (
       <nav className="fixed w-full top-0 z-30 bg-white/70 backdrop-blur-xl border-b border-gray-200 shadow-sm">
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
@@ -311,8 +356,20 @@ export default function Layout() {
           />
         )}
 
+        {/* Officers get the grouped, collapsible panel. */}
+        {isOfficer && (
+          <OfficerSidebar
+            navigationItems={navigationItems}
+            sidebarOpen={sidebarOpen}
+            onNavigate={() => setSidebarOpen(false)}
+            collapsed={officerSidebarCollapsed}
+            onToggleCollapse={toggleOfficerSidebar}
+            user={user}
+          />
+        )}
+
         {/* Floating Glassmorphic Sidebar */}
-        {!isStudent && (
+        {!isStudent && !isOfficer && (
         <aside
           className={`${
             sidebarOpen ? 'translate-x-0' : '-translate-x-full'
@@ -400,18 +457,19 @@ export default function Layout() {
             `lg:p-8` would otherwise reset padding-bottom at those breakpoints.
             `lg:pb-8` restores exactly the desktop value (p-8).
 
-            `overflow-y-auto` is dropped for students only. It never actually
-            scrolled — this element has min-height, not height — but it did
-            create a nested scroll container, which silently breaks
-            `position: sticky` for any child. The new mobile layouts need
-            sticky action bars. Other roles keep the identical class list. */}
-        {/* `min-w-0` is load-bearing for students. A flex item defaults to
-            min-width:auto, so it refuses to shrink below its widest child —
-            a nowrap filter chip then pushes the whole content column past the
-            viewport, and the clip on the root hides the overflow instead of
-            letting you reach it. Other roles get this for free because their
-            `overflow-y-auto` makes <main> a scroll container, which is allowed
-            to shrink; dropping that for students is what exposed it. */}
+            `overflow-y-auto` is dropped for students and officers. It never
+            actually scrolled — this element has min-height, not height — but it
+            did create a nested scroll container, which silently breaks
+            `position: sticky` for any child. The student mobile layouts need
+            sticky action bars, and every officer table needs a sticky header.
+            Super admin keeps the identical class list. */}
+        {/* `min-w-0` is load-bearing wherever `overflow-y-auto` is dropped. A
+            flex item defaults to min-width:auto, so it refuses to shrink below
+            its widest child — a nowrap filter chip, or an officer table — then
+            pushes the whole content column past the viewport, and the clip on
+            the root hides the overflow instead of letting you reach it. Super
+            admin gets this for free because its `overflow-y-auto` makes <main>
+            a scroll container, which is allowed to shrink. */}
         <main className={`flex-1 p-4 sm:p-6 lg:p-8
           transition-all duration-300 ${
             isStudent
@@ -422,6 +480,13 @@ export default function Layout() {
                     ? 'lg:ml-[96px]'
                     : 'lg:ml-[266px]'
                 }`
+              : isOfficer
+              ? `spc-vh-main min-w-0 pb-24 sm:pb-24 lg:pb-8 ${
+                  /* The officer sidebar sits flush at left:0, so the margin is
+                     exactly its width — unlike the student panel, which floats
+                     with a 12px gutter on each side. */
+                  officerSidebarCollapsed ? 'lg:ml-[72px]' : 'lg:ml-[248px]'
+                }`
               : 'min-h-[calc(100vh-4rem)] overflow-y-auto lg:ml-[296px]'
           }`}
         >
@@ -429,17 +494,41 @@ export default function Layout() {
             {/* Default-password warning — informational, never blocking. */}
             {showDefaultPasswordWarning && (
               <div
-                className="mb-6 rounded-xl border-2 border-amber-300 bg-amber-50 p-4 shadow-sm"
+                /* Officers get the same warning on the Register palette: the
+                   semantic warn tokens, a rule instead of a 2px amber border,
+                   and no shadow. Super admin keeps the original amber card. */
+                className={
+                  isOfficer
+                    ? 'mb-6 rounded-spc-panel border border-spc-warn/40 bg-spc-warn-bg p-4'
+                    : 'mb-6 rounded-xl border-2 border-amber-300 bg-amber-50 p-4 shadow-sm'
+                }
                 role="alert"
               >
                 <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                   <div className="flex items-start gap-3 flex-1">
-                    <AlertTriangle className="text-amber-600 flex-shrink-0 mt-0.5" size={22} />
+                    {/* The non-officer strings below are written out in full,
+                        in their original order, rather than interpolated — the
+                        rendered markup for students and super admins has to
+                        stay byte-identical, not merely equivalent. */}
+                    <AlertTriangle
+                      className={
+                        isOfficer
+                          ? 'text-spc-warn flex-shrink-0 mt-0.5'
+                          : 'text-amber-600 flex-shrink-0 mt-0.5'
+                      }
+                      size={22}
+                    />
                     <div>
-                      <p className="font-bold text-amber-900">
+                      <p className={`font-bold ${isOfficer ? 'text-spc-ink' : 'text-amber-900'}`}>
                         You&rsquo;re still using the default password
                       </p>
-                      <p className="text-sm text-amber-800 mt-0.5">
+                      <p
+                        className={
+                          isOfficer
+                            ? 'text-sm text-spc-body mt-0.5'
+                            : 'text-sm text-amber-800 mt-0.5'
+                        }
+                      >
                         Anyone who knows your login ID could sign in and see your personal
                         details. Changing it takes less than a minute.
                       </p>
@@ -448,13 +537,21 @@ export default function Layout() {
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <button
                       onClick={() => navigate(profilePath)}
-                      className="px-4 py-2 text-sm font-bold rounded-xl bg-amber-600 text-white hover:bg-amber-700 transition-all whitespace-nowrap"
+                      className={
+                        isOfficer
+                          ? 'min-h-[44px] px-4 text-sm font-bold rounded-spc-control bg-spc-accent text-spc-on-accent hover:opacity-95 transition-opacity whitespace-nowrap'
+                          : 'px-4 py-2 text-sm font-bold rounded-xl bg-amber-600 text-white hover:bg-amber-700 transition-all whitespace-nowrap'
+                      }
                     >
                       Change password
                     </button>
                     <button
                       onClick={dismissPwWarning}
-                      className="px-3 py-2 text-sm font-medium rounded-xl text-amber-800 hover:bg-amber-100 transition-all"
+                      className={
+                        isOfficer
+                          ? 'min-h-[44px] px-3 text-sm font-semibold rounded-spc-control text-spc-body hover:bg-spc-surface transition-colors'
+                          : 'px-3 py-2 text-sm font-medium rounded-xl text-amber-800 hover:bg-amber-100 transition-all'
+                      }
                       aria-label="Dismiss password warning"
                     >
                       Dismiss
@@ -473,10 +570,20 @@ export default function Layout() {
           would otherwise sit on top of it. */}
       {isStudent && !isPendingStudent && !sidebarOpen && <StudentBottomNav />}
 
-      {/* Mobile sidebar overlay */}
+      {/* Officer equivalent, on the same rule: hidden while the drawer is open,
+          since the drawer already lists every destination. */}
+      {isOfficer && !sidebarOpen && <OfficerBottomNav />}
+
+      {/* Mobile sidebar overlay. Officers get a plain scrim — the blur is a
+          decorative effect this direction does without, and it costs a
+          full-screen composite on the phones officers actually use. */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-gray-900/20 backdrop-blur-sm z-10 lg:hidden animate-fadeIn"
+          className={
+            isOfficer
+              ? 'fixed inset-0 bg-spc-ink/30 z-10 lg:hidden animate-fadeIn'
+              : 'fixed inset-0 bg-gray-900/20 backdrop-blur-sm z-10 lg:hidden animate-fadeIn'
+          }
           onClick={() => setSidebarOpen(false)}
         />
       )}

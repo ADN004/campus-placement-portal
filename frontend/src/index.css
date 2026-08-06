@@ -571,6 +571,19 @@ input[type='password']::-ms-clear {
   --spc-ok: 22 101 52;        --spc-ok-bg: 220 252 231;   /* 6.49:1 */
   --spc-warn: 138 82 9;       --spc-warn-bg: 251 238 218; /* 5.57:1 */
   --spc-bad: 168 30 30;       --spc-bad-bg: 251 230 228;  /* 6.11:1 */
+
+  /* ---- role-neutral aliases -------------------------------------------
+     Introduced for the officer role, which needs a fourth surface step, a
+     heavy structural rule and its own accent. The defaults below are the
+     student values, so a component written against these names renders
+     identically in the student role and nothing there changes. The officer
+     scope overrides them; super-admin reads none of them. */
+  --spc-surface-3: 240 237 231;    /* student: same as surface-2 */
+  --spc-rule-structural: 18 33 31; /* student: ink */
+  --spc-accent: 15 90 86;          /* student: teal */
+  --spc-accent-soft: 221 237 234;  /* student: teal-soft */
+  --spc-on-accent: 255 255 255;
+  --spc-selected: 240 237 231;
 }
 
 /* The scope. Only the student shell carries this class. */
@@ -594,6 +607,65 @@ input[type='password']::-ms-clear {
     radial-gradient(1100px 620px at 88% -8%, rgb(var(--spc-teal) / 0.05), transparent 62%),
     radial-gradient(900px 560px at -6% 108%, rgb(var(--spc-brass) / 0.05), transparent 60%),
     rgb(var(--spc-ground));
+}
+
+/* ===========================================================================
+   PLACEMENT OFFICER — "Register"
+   ---------------------------------------------------------------------------
+   A separate visual direction from the student role, not a recolour of it.
+   Hierarchy comes from surfaces, rules and type weight — never from shadows or
+   colour blocks. There are no box-shadows anywhere in this role; depth is the
+   four-surface ladder below. With no decorative colour, the three status
+   colours end up being the only colour on screen, which is their job.
+
+   This block only *overrides* custom properties. No student value changes, and
+   super-admin carries neither scope class, so it is untouched.
+   =========================================================================== */
+.spc-officer {
+  font-family: 'Satoshi', ui-sans-serif, system-ui, -apple-system, 'Segoe UI',
+    Roboto, sans-serif;
+  font-weight: 450;
+  /* Officer screens are dense columns of PRNs, CGPAs and counts — figures have
+     to line up vertically or the register reads as ragged. */
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color: rgb(var(--spc-body));
+
+  /* four-surface ladder — this replaces elevation entirely */
+  --spc-ground:      243 244 246;  /* #F3F4F6  canvas */
+  --spc-surface:     255 255 255;  /* #FFFFFF  rows, panels, inputs */
+  --spc-surface-2:   234 236 240;  /* #EAECF0  table header, row hover */
+  --spc-surface-3:   224 227 233;  /* #E0E3E9  pressed, active nav */
+
+  /* four rule weights — the only structural tool in this design */
+  --spc-line:        228 231 236;  /* #E4E7EC  between table rows */
+  --spc-line-strong: 198 203 211;  /* #C6CBD3  panel and card edges */
+  --spc-control:     127 133 143;  /* #7F858F  3.71:1 on white, 3.14:1 on surface-2 */
+  --spc-rule-structural: 16 20 26; /* #10141A  section rules, table header underline */
+
+  /* text */
+  --spc-ink:   16 20 26;   /* #10141A  18.47:1 on surface */
+  --spc-body:  52 60 70;   /* #343C46  11.17:1 */
+  --spc-muted: 92 101 112; /* #5C6570   5.91:1 on surface, 5.00:1 on surface-2 */
+
+  /* accent — brass. Ties to the student kasavu gold without being a status
+     colour. NOTE: it fails as text on surface-2 (4.49:1) and surface-3
+     (4.13:1). Accent text only on ground or surface; on the tinted surfaces
+     use ink. Table column headers sit on surface-2, so they are muted. */
+  --spc-accent:      138 101 22;   /* #8A6516  5.31:1 on surface, 4.83:1 on ground */
+  --spc-accent-soft: 247 241 226;  /* #F7F1E2 */
+  --spc-on-accent:   255 255 255;  /* 5.31:1 on accent */
+  --spc-selected:    247 241 226;  /* selected row wash; ink stays 16.39:1 */
+
+  /* status values are inherited unchanged from :root — all pass on every
+     surface in this ladder */
+}
+
+/* Flat canvas. The student ground carries two faint radial washes; this one
+   deliberately does not, because a gradient is decorative colour. */
+.spc-officer-bg {
+  background: rgb(var(--spc-ground));
 }
 
 /* Glass, only where something genuinely floats above scrolling content.
@@ -638,7 +710,8 @@ input[type='password']::-ms-clear {
    so it goes under the top bar instead, where nothing competes with it. The
    attribute is set by StudentBottomNav only while that bar is on screen, so
    every other role and every desktop view keeps the ribbon where it was. */
-body[data-student-tabbar] .spc-staging-banner {
+body[data-student-tabbar] .spc-staging-banner,
+body[data-officer-tabbar] .spc-staging-banner {
   top: calc(4rem + 0.5rem);
   bottom: auto;
 }
@@ -687,6 +760,16 @@ body[data-spc-actionbar] .spc-tabbar {
     height: calc(100vh - 88px);
     height: calc(100dvh - 88px);
   }
+}
+
+/* Same idea as .spc-vh-drawer but with no `lg` override: a panel that runs from
+   under the 4rem top bar to the bottom edge at *every* width. The student
+   sidebar floats at `lg` with a gutter below it, which is where that 88px comes
+   from; the officer sidebar is flush to the viewport instead — the Register
+   direction has no floating panels — so it needs the full height throughout. */
+.spc-vh-panel {
+  height: calc(100vh - 4rem);
+  height: calc(100dvh - 4rem);
 }
 
 /* Phone dialogs take the whole screen. `inset: 0` alone is not enough — an

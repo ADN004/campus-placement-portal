@@ -34,6 +34,12 @@ export default {
         'spc-sm': '10px',   // controls — buttons, inputs, chips
         spc: '14px',        // cards
         'spc-lg': '18px',   // panels, sheets
+        // Officer ("Register") geometry — far tighter than the student role on
+        // purpose. A register is drawn with rules, not rounded cards, so the
+        // corners are almost square.
+        'spc-badge': '2px',
+        'spc-control': '3px',  // buttons, inputs, chips
+        'spc-panel': '4px',    // panels, cards, modals
       },
       colors: {
         spc: {
@@ -58,6 +64,15 @@ export default {
           'warn-bg': 'rgb(var(--spc-warn-bg) / <alpha-value>)',
           bad: 'rgb(var(--spc-bad) / <alpha-value>)',
           'bad-bg': 'rgb(var(--spc-bad-bg) / <alpha-value>)',
+          // Role-neutral aliases. These resolve to the student values at :root
+          // and are overridden inside .spc-officer, so one class name renders
+          // correctly in both roles. See index.css.
+          'surface-3': 'rgb(var(--spc-surface-3) / <alpha-value>)',
+          'rule-structural': 'rgb(var(--spc-rule-structural) / <alpha-value>)',
+          accent: 'rgb(var(--spc-accent) / <alpha-value>)',
+          'accent-soft': 'rgb(var(--spc-accent-soft) / <alpha-value>)',
+          'on-accent': 'rgb(var(--spc-on-accent) / <alpha-value>)',
+          selected: 'rgb(var(--spc-selected) / <alpha-value>)',
         },
         primary: {
           50: '#eff6ff',

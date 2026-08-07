@@ -1,5 +1,10 @@
 import { query } from '../config/database.js';
 import logActivity from '../middleware/activityLogger.js';
+import {
+  SEMESTER_CGPA_FIELDS,
+  calculateProgrammeCgpa,
+  hasSemesterValue,
+} from '../utils/cgpaCalculation.js';
 
 // @desc    Get student dashboard data
 // @route   GET /api/students/dashboard
@@ -385,6 +390,19 @@ export const getProfile = async (req, res) => {
   }
 };
 
+/**
+ * True when a submitted numeric field leaves the stored value as it is —
+ * because it was not sent, came back blank, or is the same number written
+ * differently ('8.5' vs the '8.50' Postgres returns for a DECIMAL).
+ */
+const isUnchangedNumber = (submitted, stored) => {
+  if (submitted === undefined || String(submitted).trim() === '') return true;
+  const submittedNum = parseFloat(submitted);
+  const storedNum = parseFloat(stored);
+  if (isNaN(submittedNum) && isNaN(storedNum)) return true;
+  return submittedNum === storedNum;
+};
+
 // @desc    Update student profile
 // @route   PUT /api/students/profile
 // @access  Private (Student)
@@ -434,10 +452,17 @@ export const updateProfile = async (req, res) => {
 
     const currentStudent = currentStudentResult.rows[0];
 
-    // Check CGPA lock for approved students
-    const hasCgpaChange = cgpa_sem1 !== undefined || cgpa_sem2 !== undefined ||
-      cgpa_sem3 !== undefined || cgpa_sem4 !== undefined ||
-      cgpa_sem5 !== undefined || cgpa_sem6 !== undefined;
+    // The profile form posts every field back on every save, so a field being
+    // present says nothing about whether the student touched it. A locked field
+    // is only violated when the submitted value actually differs from what is
+    // on record — otherwise updating a phone number would be refused with a
+    // "CGPA is locked" error the student can make no sense of.
+    const submittedCgpas = {
+      cgpa_sem1, cgpa_sem2, cgpa_sem3, cgpa_sem4, cgpa_sem5, cgpa_sem6,
+    };
+    const hasCgpaChange = Object.entries(submittedCgpas).some(
+      ([field, value]) => !isUnchangedNumber(value, currentStudent[field])
+    );
 
     if (hasCgpaChange && currentStudent.registration_status === 'approved') {
       // Check for active unlock window
@@ -457,11 +482,18 @@ export const updateProfile = async (req, res) => {
       }
     }
 
-    // Check backlog lock for approved students
-    const hasBacklogChange = backlogs_sem1 !== undefined || backlogs_sem2 !== undefined ||
-      backlogs_sem3 !== undefined || backlogs_sem4 !== undefined ||
-      backlogs_sem5 !== undefined || backlogs_sem6 !== undefined ||
-      backlog_count !== undefined || backlog_details !== undefined;
+    // Check backlog lock for approved students — same rule as CGPA above
+    const submittedBacklogs = {
+      backlogs_sem1, backlogs_sem2, backlogs_sem3,
+      backlogs_sem4, backlogs_sem5, backlogs_sem6,
+      backlog_count,
+    };
+    const hasBacklogChange =
+      Object.entries(submittedBacklogs).some(
+        ([field, value]) => !isUnchangedNumber(value, currentStudent[field])
+      ) ||
+      (backlog_details !== undefined &&
+        (backlog_details || '') !== (currentStudent.backlog_details || ''));
 
     if (hasBacklogChange && currentStudent.registration_status === 'approved') {
       const backlogUnlockResult = await query(
@@ -563,132 +595,41 @@ export const updateProfile = async (req, res) => {
       paramCount++;
     }
 
-    // Semester CGPA updates with validation
-    const semesterCGPAs = {
-      cgpa_sem1: currentStudent.cgpa_sem1,
-      cgpa_sem2: currentStudent.cgpa_sem2,
-      cgpa_sem3: currentStudent.cgpa_sem3,
-      cgpa_sem4: currentStudent.cgpa_sem4,
-      cgpa_sem5: currentStudent.cgpa_sem5,
-      cgpa_sem6: currentStudent.cgpa_sem6,
-    };
-
+    // Semester CGPA updates with validation. A blank field means "leave this
+    // semester as it is" — the form posts all six back even when the student
+    // only ever filled in four, and clearing a semester is expressed as 0.
+    const semesterCGPAs = { ...submittedCgpas };
     let needsRecalculation = false;
 
-    // Validate and update sem1 CGPA
-    if (cgpa_sem1 !== undefined) {
-      const cgpaNum = parseFloat(cgpa_sem1);
+    for (const field of SEMESTER_CGPA_FIELDS) {
+      const submitted = submittedCgpas[field];
+      if (!hasSemesterValue(submitted)) {
+        semesterCGPAs[field] = currentStudent[field];
+        continue;
+      }
+
+      const cgpaNum = parseFloat(submitted);
       if (isNaN(cgpaNum) || cgpaNum < 0 || cgpaNum > 10) {
         return res.status(400).json({
           success: false,
-          message: 'Semester 1 CGPA must be between 0 and 10',
+          message: `Semester ${field.slice(-1)} CGPA must be between 0 and 10`,
         });
       }
-      updateFields.push(`cgpa_sem1 = $${paramCount}`);
+      updateFields.push(`${field} = $${paramCount}`);
       updateValues.push(cgpaNum);
       paramCount++;
-      semesterCGPAs.cgpa_sem1 = cgpaNum;
+      semesterCGPAs[field] = cgpaNum;
       needsRecalculation = true;
     }
 
-    // Validate and update sem2 CGPA
-    if (cgpa_sem2 !== undefined) {
-      const cgpaNum = parseFloat(cgpa_sem2);
-      if (isNaN(cgpaNum) || cgpaNum < 0 || cgpaNum > 10) {
-        return res.status(400).json({
-          success: false,
-          message: 'Semester 2 CGPA must be between 0 and 10',
-        });
-      }
-      updateFields.push(`cgpa_sem2 = $${paramCount}`);
-      updateValues.push(cgpaNum);
-      paramCount++;
-      semesterCGPAs.cgpa_sem2 = cgpaNum;
-      needsRecalculation = true;
-    }
-
-    // Validate and update sem3 CGPA
-    if (cgpa_sem3 !== undefined) {
-      const cgpaNum = parseFloat(cgpa_sem3);
-      if (isNaN(cgpaNum) || cgpaNum < 0 || cgpaNum > 10) {
-        return res.status(400).json({
-          success: false,
-          message: 'Semester 3 CGPA must be between 0 and 10',
-        });
-      }
-      updateFields.push(`cgpa_sem3 = $${paramCount}`);
-      updateValues.push(cgpaNum);
-      paramCount++;
-      semesterCGPAs.cgpa_sem3 = cgpaNum;
-      needsRecalculation = true;
-    }
-
-    // Validate and update sem4 CGPA
-    if (cgpa_sem4 !== undefined) {
-      const cgpaNum = parseFloat(cgpa_sem4);
-      if (isNaN(cgpaNum) || cgpaNum < 0 || cgpaNum > 10) {
-        return res.status(400).json({
-          success: false,
-          message: 'Semester 4 CGPA must be between 0 and 10',
-        });
-      }
-      updateFields.push(`cgpa_sem4 = $${paramCount}`);
-      updateValues.push(cgpaNum);
-      paramCount++;
-      semesterCGPAs.cgpa_sem4 = cgpaNum;
-      needsRecalculation = true;
-    }
-
-    // Validate and update sem5 CGPA
-    if (cgpa_sem5 !== undefined) {
-      const cgpaNum = parseFloat(cgpa_sem5);
-      if (isNaN(cgpaNum) || cgpaNum < 0 || cgpaNum > 10) {
-        return res.status(400).json({
-          success: false,
-          message: 'Semester 5 CGPA must be between 0 and 10',
-        });
-      }
-      updateFields.push(`cgpa_sem5 = $${paramCount}`);
-      updateValues.push(cgpaNum);
-      paramCount++;
-      semesterCGPAs.cgpa_sem5 = cgpaNum;
-      needsRecalculation = true;
-    }
-
-    // Validate and update sem6 CGPA
-    if (cgpa_sem6 !== undefined) {
-      const cgpaNum = parseFloat(cgpa_sem6);
-      if (isNaN(cgpaNum) || cgpaNum < 0 || cgpaNum > 10) {
-        return res.status(400).json({
-          success: false,
-          message: 'Semester 6 CGPA must be between 0 and 10',
-        });
-      }
-      updateFields.push(`cgpa_sem6 = $${paramCount}`);
-      updateValues.push(cgpaNum);
-      paramCount++;
-      semesterCGPAs.cgpa_sem6 = cgpaNum;
-      needsRecalculation = true;
-    }
-
-    // Auto-recalculate programme_cgpa from all semesters (1-6), excluding zeros and nulls
-    // This supports lateral entry students who skip sem1/sem2 by entering 0
+    // Auto-recalculate programme_cgpa from all semesters (1-6), excluding zeros
+    // and nulls. This supports lateral entry students who skip sem1/sem2 by
+    // entering 0.
     if (needsRecalculation) {
-      const validSemesters = [];
-      for (let i = 1; i <= 6; i++) {
-        const val = semesterCGPAs[`cgpa_sem${i}`];
-        if (val !== null && val !== undefined) {
-          const num = parseFloat(val);
-          if (!isNaN(num) && num > 0) {
-            validSemesters.push(num);
-          }
-        }
-      }
-
-      if (validSemesters.length > 0) {
-        const programmeCGPA = validSemesters.reduce((a, b) => a + b, 0) / validSemesters.length;
+      const programmeCGPA = calculateProgrammeCgpa(semesterCGPAs);
+      if (programmeCGPA !== null) {
         updateFields.push(`programme_cgpa = $${paramCount}`);
-        updateValues.push(parseFloat(programmeCGPA.toFixed(2)));
+        updateValues.push(programmeCGPA);
         paramCount++;
       }
     }

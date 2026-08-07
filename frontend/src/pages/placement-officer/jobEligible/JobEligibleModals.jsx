@@ -4,6 +4,7 @@ import {
   PrimaryButton, SecondaryButton, FieldLabel, FIELD_CLASS, CHECKBOX_CLASS, CheckRow,
 } from '../../../components/officer/OfficerUI';
 import { KERALA_POLYTECHNIC_BRANCHES } from '../../../constants/branches';
+import { OfficerDialogClose } from '../../../components/officer/OfficerDialog';
 
 /**
  * The three dialogs that belong to JobEligibleStudents itself.
@@ -32,9 +33,12 @@ function Dialog({ id, title, subtitle, onClose, children, wide = false }) {
       overlayClassName={OVERLAY}
       closeOnBackdrop
     >
-      <div className="px-5 py-4 border-b-[1.5px] border-spc-rule-structural flex-shrink-0">
-        <h2 id={id} className="text-spc-h2 font-bold text-spc-ink">{title}</h2>
-        {subtitle && <p className="text-xs text-spc-muted mt-0.5">{subtitle}</p>}
+      <div className="flex items-start justify-between gap-3 px-5 py-4 border-b-[1.5px] border-spc-rule-structural flex-shrink-0">
+        <div className="min-w-0">
+          <h2 id={id} className="text-spc-h2 font-bold text-spc-ink">{title}</h2>
+          {subtitle && <p className="text-xs text-spc-muted mt-0.5">{subtitle}</p>}
+        </div>
+        <OfficerDialogClose onClose={onClose} />
       </div>
       {children}
     </Modal>

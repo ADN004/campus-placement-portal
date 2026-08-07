@@ -58,6 +58,7 @@ const DriveScheduleModal = ({ isOpen, onClose, onSave, existingDrive, jobTitle, 
         panelClassName={officerPanel('lg', { scroll: true })}
       >
         <OfficerDialogHeader
+          onClose={onClose}
           id="drive-schedule-title"
           title={existingDrive ? 'Update placement drive' : 'Schedule placement drive'}
           subtitle={jobTitle}

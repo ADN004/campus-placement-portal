@@ -1,5 +1,6 @@
 import Modal from '../../../components/Modal';
 import { SecondaryButton, DangerButton } from '../../../components/officer/OfficerUI';
+import { OfficerDialogClose } from '../../../components/officer/OfficerDialog';
 
 const PANEL = 'bg-spc-surface border border-spc-line-strong rounded-spc-panel w-full max-w-md';
 const OVERLAY = 'fixed inset-0 z-50 flex items-center justify-center bg-spc-ink/40 p-4';
@@ -15,8 +16,11 @@ const OVERLAY = 'fixed inset-0 z-50 flex items-center justify-center bg-spc-ink/
 export default function ConfirmRemoveModal({ id, title, children, confirmLabel, busy, onConfirm, onClose }) {
   return (
     <Modal onClose={onClose} labelledBy={id} panelClassName={PANEL} overlayClassName={OVERLAY}>
-      <div className="px-5 py-4 border-b-[1.5px] border-spc-rule-structural">
-        <h2 id={id} className="text-spc-h2 font-bold text-spc-ink">{title}</h2>
+      <div className="flex items-start justify-between gap-3 px-5 py-4 border-b-[1.5px] border-spc-rule-structural flex-shrink-0">
+        <div className="min-w-0">
+          <h2 id={id} className="text-spc-h2 font-bold text-spc-ink">{title}</h2>
+        </div>
+        <OfficerDialogClose onClose={onClose} />
       </div>
       <div className="px-5 py-4">
         <div className="text-spc-xs text-spc-body leading-snug">{children}</div>

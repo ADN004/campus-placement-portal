@@ -188,6 +188,7 @@ const ManualStudentAdditionModal = ({
         panelClassName={officerPanel('lg', { scroll: true })}
       >
         <OfficerDialogHeader
+          onClose={onClose}
           id="manual-add-title"
           title="Add a student by hand"
           subtitle={`${job.company_name}${job.job_role ? ` · ${job.job_role}` : ''}`}

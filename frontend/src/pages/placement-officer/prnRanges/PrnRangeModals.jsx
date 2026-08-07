@@ -1,5 +1,7 @@
 import Modal from '../../../components/Modal';
 import { Download } from 'lucide-react';
+import { OfficerDialogClose } from '../../../components/officer/OfficerDialog';
+import { getPassoutYearOptions } from '../../../utils/passoutYears';
 import {
   PrimaryButton, SecondaryButton, DangerButton, FieldLabel, FIELD_CLASS, EmptyState,
 } from '../../../components/officer/OfficerUI';
@@ -13,12 +15,39 @@ function Dialog({ id, title, subtitle, onClose, children, wide = false }) {
   return (
     <Modal onClose={onClose} labelledBy={id}
       panelClassName={wide ? PANEL_WIDE : PANEL} overlayClassName={OVERLAY} closeOnBackdrop>
-      <div className="px-5 py-4 border-b-[1.5px] border-spc-rule-structural flex-shrink-0">
-        <h2 id={id} className="text-spc-h2 font-bold text-spc-ink">{title}</h2>
-        {subtitle && <p className="text-xs text-spc-muted mt-0.5">{subtitle}</p>}
+      <div className="flex items-start justify-between gap-3 px-5 py-4 border-b-[1.5px] border-spc-rule-structural flex-shrink-0">
+        <div className="min-w-0">
+          <h2 id={id} className="text-spc-h2 font-bold text-spc-ink">{title}</h2>
+          {subtitle && <p className="text-xs text-spc-muted mt-0.5">{subtitle}</p>}
+        </div>
+        <OfficerDialogClose onClose={onClose} />
       </div>
       {children}
     </Modal>
+  );
+}
+
+/**
+ * Passout year.
+ *
+ * A dropdown, not a text box. The redesign turned this into a free-text input
+ * with a placeholder, which lost two things: the list of years staff are meant
+ * to choose from (this year through five ahead, with the current one marked),
+ * and any guarantee the value is a year at all. Both forms and the container's
+ * validation treat this as required, so it is `required` here too.
+ *
+ * getPassoutYearOptions also folds in whatever year is already selected, so
+ * editing an old range does not silently blank its year just because it has
+ * fallen out of the default window.
+ */
+function PassoutYearSelect({ id, value, onChange }) {
+  return (
+    <select id={id} name="year" required className={FIELD_CLASS} value={value || ''} onChange={onChange}>
+      <option value="">Select passout year</option>
+      {getPassoutYearOptions(value).map((opt) => (
+        <option key={opt.value} value={opt.value}>{opt.label}</option>
+      ))}
+    </select>
   );
 }
 
@@ -55,10 +84,9 @@ export function RangeFormModal({ editing, formData, onChange, onSubmit, onClose 
             </div>
           </div>
           <div>
-            <FieldLabel htmlFor="prn-year">Year</FieldLabel>
-            <input id="prn-year" name="year" type="text" className={FIELD_CLASS}
-              value={formData.year} onChange={(e) => set('year', e.target.value)}
-              placeholder="e.g. 2023" />
+            <FieldLabel htmlFor="prn-year">Passout year</FieldLabel>
+            <PassoutYearSelect id="prn-year" value={formData.year}
+              onChange={(e) => set('year', e.target.value)} />
           </div>
           <div>
             <FieldLabel htmlFor="prn-description">Description</FieldLabel>
@@ -103,10 +131,9 @@ export function SinglePrnModal({ editing, formData, onChange, onSubmit, onClose 
               value={formData.single_prn} onChange={(e) => set('single_prn', e.target.value)} />
           </div>
           <div>
-            <FieldLabel htmlFor="prn-single-year">Year</FieldLabel>
-            <input id="prn-single-year" name="year" type="text" className={FIELD_CLASS}
-              value={formData.year} onChange={(e) => set('year', e.target.value)}
-              placeholder="e.g. 2023" />
+            <FieldLabel htmlFor="prn-single-year">Passout year</FieldLabel>
+            <PassoutYearSelect id="prn-single-year" value={formData.year}
+              onChange={(e) => set('year', e.target.value)} />
           </div>
           <div>
             <FieldLabel htmlFor="prn-single-description">Description</FieldLabel>

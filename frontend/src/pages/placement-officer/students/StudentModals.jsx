@@ -1,5 +1,6 @@
 import Modal from '../../../components/Modal';
 import UpdateStudentEmailModal from '../../../components/UpdateStudentEmailModal';
+import { OfficerDialogClose } from '../../../components/officer/OfficerDialog';
 import {
   PrimaryButton, SecondaryButton, DangerButton, FieldLabel, FIELD_CLASS,
   StatusMark, BlacklistMark, BacklogCount, formatDate, totalBacklogs,
@@ -32,8 +33,11 @@ function Dialog({ id, title, onClose, children, wide = false }) {
       overlayClassName={OVERLAY}
       closeOnBackdrop
     >
-      <div className="px-5 py-4 border-b-[1.5px] border-spc-rule-structural flex-shrink-0">
-        <h2 id={id} className="text-spc-h2 font-bold text-spc-ink">{title}</h2>
+      <div className="flex items-start justify-between gap-3 px-5 py-4 border-b-[1.5px] border-spc-rule-structural flex-shrink-0">
+        <div className="min-w-0">
+          <h2 id={id} className="text-spc-h2 font-bold text-spc-ink">{title}</h2>
+        </div>
+        <OfficerDialogClose onClose={onClose} />
       </div>
       {children}
     </Modal>

@@ -108,6 +108,7 @@ const PDFFieldSelector = ({ onExport, onClose, applicantCount, exportType = 'enh
         panelClassName={officerPanel('lg', { scroll: true })}
       >
         <OfficerDialogHeader
+          onClose={onClose}
           id="pdf-export-title"
           title={exportType === 'selected_only' ? 'Export selected students' : 'Export as PDF'}
           subtitle={

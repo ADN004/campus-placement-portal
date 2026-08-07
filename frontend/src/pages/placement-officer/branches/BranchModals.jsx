@@ -4,6 +4,7 @@ import Modal from '../../../components/Modal';
 import {
   PrimaryButton, SecondaryButton, DangerButton, FieldLabel, FIELD_CLASS,
 } from '../../../components/officer/OfficerUI';
+import { OfficerDialogClose } from '../../../components/officer/OfficerDialog';
 import { branchKey, findSameBranch, Notice } from './branchesShared';
 
 const PANEL =
@@ -62,11 +63,15 @@ export default function EditBranchesModal({
       panelClassName={PANEL}
       overlayClassName={OVERLAY}
     >
-      <div className="px-5 py-4 border-b-[1.5px] border-spc-rule-structural flex-shrink-0">
-        <h2 id="po-branches-title" className="text-spc-h2 font-bold text-spc-ink">
-          Edit branches
-        </h2>
-        <p className="text-xs text-spc-muted mt-0.5 break-words">{collegeName}</p>
+      <div className="flex items-start justify-between gap-3 px-5 py-4
+        border-b-[1.5px] border-spc-rule-structural flex-shrink-0">
+        <div className="min-w-0">
+          <h2 id="po-branches-title" className="text-spc-h2 font-bold text-spc-ink">
+            Edit branches
+          </h2>
+          <p className="text-xs text-spc-muted mt-0.5 break-words">{collegeName}</p>
+        </div>
+        <OfficerDialogClose onClose={onClose} />
       </div>
 
       <div className="flex-1 overflow-y-auto spc-scroll-contain px-5 py-4 space-y-5">

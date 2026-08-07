@@ -17,6 +17,7 @@ export default function PrnRangesPage({
   ownRanges,
   filteredOwn,
   systemRanges,
+  availableYears = [],
   showSystemRanges,
   onToggleSystemRanges,
   viewFilter,
@@ -75,9 +76,15 @@ export default function PrnRangesPage({
 
       <div className="flex items-end gap-3 mb-4 flex-wrap">
         <div className={layout === 'mobile' ? 'w-full' : 'w-64'}>
+          {/* The per-year options were computed and passed but never rendered,
+              so filtering to one year was impossible even though the container
+              still understood the value. */}
           <SelectField id="prn-view-filter" label="Show" value={viewFilter} onChange={onViewFilterChange}>
             <option value="active">Active ranges</option>
             <option value="all">All years</option>
+            {availableYears.map((year) => (
+              <option key={year} value={year}>{year}</option>
+            ))}
           </SelectField>
         </div>
       </div>

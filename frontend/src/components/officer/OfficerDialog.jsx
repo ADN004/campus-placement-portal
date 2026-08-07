@@ -18,6 +18,8 @@
  *      that component, so no other role's bundle changes shape.
  */
 
+import { X } from 'lucide-react';
+
 /* ------------------------------------------------------------------ shell */
 
 export const OFFICER_OVERLAY =
@@ -40,15 +42,43 @@ export function officerPanel(size = 'md', { scroll = false } = {}) {
 /* ----------------------------------------------------------------- header */
 
 /**
+ * The ✕ every dialog needs in its top-right corner.
+ *
+ * The officer dialogs shipped without one. Escape closed them and so did
+ * Cancel, but on a phone Escape does not exist and Cancel can be a scroll away
+ * at the bottom of a long form — and the ✕ is where a thumb goes first, because
+ * every dialog these officers used before had one there. 44px so it is a real
+ * target rather than a 20px glyph.
+ */
+export function OfficerDialogClose({ onClose, label = 'Close' }) {
+  return (
+    <button
+      type="button"
+      onClick={onClose}
+      aria-label={label}
+      title={label}
+      className="inline-flex items-center justify-center w-11 h-11 -mr-2 flex-shrink-0
+        rounded-spc-control text-spc-body hover:bg-spc-surface-2 hover:text-spc-ink transition-colors"
+    >
+      <X size={20} aria-hidden="true" />
+    </button>
+  );
+}
+
+/**
  * Title on the structural rule — the direction's signature, and the reason an
  * officer dialog reads as part of the officer role rather than a recoloured
  * version of the old one. No coloured band: colour is reserved for meaning.
  */
-export function OfficerDialogHeader({ id, title, subtitle }) {
+export function OfficerDialogHeader({ id, title, subtitle, onClose }) {
   return (
-    <div className="px-5 py-4 border-b-[1.5px] border-spc-rule-structural flex-shrink-0">
-      <h2 id={id} className="text-spc-h2 font-bold text-spc-ink">{title}</h2>
-      {subtitle && <p className="text-xs text-spc-muted mt-0.5 break-words">{subtitle}</p>}
+    <div className="flex items-start justify-between gap-3 px-5 py-4
+      border-b-[1.5px] border-spc-rule-structural flex-shrink-0">
+      <div className="min-w-0">
+        <h2 id={id} className="text-spc-h2 font-bold text-spc-ink break-words">{title}</h2>
+        {subtitle && <p className="text-xs text-spc-muted mt-0.5 break-words">{subtitle}</p>}
+      </div>
+      {onClose && <OfficerDialogClose onClose={onClose} />}
     </div>
   );
 }

@@ -52,6 +52,7 @@ const PlacementDetailsForm = ({ isOpen, onClose, onSubmit, application, variant 
         panelClassName={officerPanel('sm')}
       >
         <OfficerDialogHeader
+          onClose={onClose}
           id="placement-details-title"
           title="Placement details"
           subtitle={application?.student_name || undefined}

@@ -236,10 +236,23 @@ export default function ManagePRNRanges() {
         is_enabled: false,
         disabled_reason: disableReason,
       });
-      toast.success('PRN range disabled successfully');
+      toast.success('PRN range disabled');
       setShowDisableModal(false);
       setSelectedRange(null);
       setDisableReason('');
+      /*
+       * Show it, rather than letting it vanish.
+       *
+       * The list defaults to "Active ranges", so the moment a range is disabled
+       * it stops matching the filter and disappears from the page. Nothing says
+       * where it went, and an officer who has just pressed Disable has every
+       * reason to read that as Delete — with no way back, because re-enabling
+       * it means first knowing to change a dropdown they were never pointed at.
+       *
+       * Switching the view is the smaller surprise: the row they just acted on
+       * stays on screen, now marked Disabled, with its Enable button in reach.
+       */
+      if (viewFilter === 'active') setViewFilter('all');
       fetchPRNRanges();
     } catch (error) {
       toast.error('Failed to disable PRN range');

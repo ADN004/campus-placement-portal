@@ -123,3 +123,55 @@ export function ErrorState({ icon: Icon, error, pendingNote }) {
     </div>
   );
 }
+
+/* ------------------------------------------------------------- long lists */
+
+/**
+ * "Showing 25 of 240 jobs".
+ *
+ * A student sees every job posted to their college, every notification sent to
+ * them, and every application they have ever made. Those lists only grow, and a
+ * page that renders all of them is a page whose height is decided by how long
+ * the student has been enrolled. The count and the reveal below are the visible
+ * half of the fix; hooks/useLongList is the other half.
+ */
+export function ListCount({ shown, matched, total, filtering, noun = 'item' }) {
+  const plural = (n) => `${noun}${n === 1 ? '' : 's'}`;
+  const text = filtering
+    ? matched === 0
+      ? `No ${plural(0)} match`
+      : matched > shown
+      ? `${shown} of ${matched} matching · ${total} total`
+      : `${matched} matching · ${total} total`
+    : total > shown
+    ? `${shown} of ${total} ${plural(total)}`
+    : `${total} ${plural(total)}`;
+
+  return <p className="text-spc-xs text-spc-muted tabular-nums">{text}</p>;
+}
+
+/**
+ * Reveals the next window.
+ *
+ * Deliberately a wide, calm button rather than infinite scroll: a student on a
+ * phone needs to be able to reach the end of a list, and an endless one has no
+ * end to reach.
+ */
+export function ShowMore({ onClick, remaining, noun = 'item' }) {
+  const next = Math.min(remaining, 25);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full inline-flex items-center justify-center gap-2 min-h-[48px] px-5
+        rounded-spc-sm bg-spc-surface border border-spc-line-strong
+        text-spc-sm font-bold text-spc-body hover:bg-spc-surface-2 transition-colors"
+    >
+      <span>Show {next} more</span>
+      <span className="font-normal text-spc-muted tabular-nums">
+        {remaining} {noun}
+        {remaining === 1 ? '' : 's'} left
+      </span>
+    </button>
+  );
+}

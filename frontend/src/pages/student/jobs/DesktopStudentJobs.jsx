@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { ShowMore } from '../../../components/student/StudentUI';
 import {
   SearchField,
   FilterChips,
@@ -16,6 +17,18 @@ export default function DesktopStudentJobs({
   error,
   jobs,
   filteredJobs,
+
+  visibleJobs,
+
+  shownCount,
+
+  totalCount,
+
+  hasMore,
+
+  remaining,
+
+  onShowMore,
   filters,
   filterEligibility,
   searchQuery,
@@ -55,7 +68,7 @@ export default function DesktopStudentJobs({
         <JobsEmptyState filtered={isFiltered} />
       ) : (
         <div className="grid grid-cols-2 xl:grid-cols-3 gap-4">
-          {filteredJobs.map((job, index) => (
+          {visibleJobs.map((job, index) => (
             <motion.div
               key={job.id}
               initial={{ opacity: 0, y: 16 }}
@@ -65,6 +78,12 @@ export default function DesktopStudentJobs({
               <JobCard job={job} onViewDetails={onViewDetails} onApply={onApply} size="lg" />
             </motion.div>
           ))}
+        </div>
+      )}
+
+      {hasMore && (
+        <div className="mt-5">
+          <ShowMore onClick={onShowMore} remaining={remaining} noun="job" />
         </div>
       )}
     </div>

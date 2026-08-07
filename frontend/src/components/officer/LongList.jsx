@@ -1,5 +1,5 @@
-import { useState, useMemo, useEffect } from 'react';
 import { Search, ChevronDown } from 'lucide-react';
+import useDeviceType from '../../hooks/useDeviceType';
 
 /**
  * The parts a list needs once it stops being short.
@@ -32,33 +32,7 @@ import { Search, ChevronDown } from 'lucide-react';
  * called with a lowercased, trimmed needle. `step` is both the initial window
  * and how much each "show more" adds.
  */
-export function useLongList(items, { step = 25, query = '', match } = {}) {
-  const needle = query.trim().toLowerCase();
-
-  const filtered = useMemo(() => {
-    if (!needle || !match) return items;
-    return items.filter((item) => match(item, needle));
-  }, [items, needle, match]);
-
-  const [limit, setLimit] = useState(step);
-
-  // Narrowing the list should show the top of the new result, not leave the
-  // window where it was for the old one.
-  useEffect(() => {
-    setLimit(step);
-  }, [needle, items, step]);
-
-  return {
-    filtered,
-    visible: filtered.slice(0, limit),
-    total: items.length,
-    matched: filtered.length,
-    shown: Math.min(limit, filtered.length),
-    hasMore: filtered.length > limit,
-    showMore: () => setLimit((n) => n + step),
-    filtering: Boolean(needle),
-  };
-}
+export { default as useLongList } from '../../hooks/useLongList';
 
 /** Search box for a list. Shown by the caller only once a list is long enough to need one. */
 export function ListSearch({ id, value, onChange, placeholder = 'Search' }) {
@@ -128,12 +102,21 @@ export function ShowMore({ onClick, remaining, noun = 'item' }) {
 }
 
 /**
- * A scroll region with a ceiling.
+ * A scroll region with a ceiling — on the devices where a ceiling helps.
  *
- * `cap` is a whole literal class per size, because Tailwind cannot see a class
- * assembled at runtime. Panels stop growing at these heights and scroll inside
- * themselves, which is what keeps the page a fixed shape no matter how much
- * data arrives.
+ * On desktop and tablet the panel sits in a column beside something else, so it
+ * needs a height it cannot exceed or the column stretches the page to the
+ * length of the data.
+ *
+ * On a phone it must NOT. A capped, internally-scrolling box inside a page that
+ * also scrolls is a scroll trap: a thumb landing inside the list scrolls the
+ * list, a thumb landing outside scrolls the page, and there is no visible line
+ * telling you which you are touching. The window is the bound that matters
+ * there — 25 rows is a finite page however much data exists behind it — so the
+ * list is left to flow and the page scrolls once, the way a phone expects.
+ *
+ * `cap` is a whole literal class per size: Tailwind cannot see a class
+ * assembled at runtime.
  */
 const CAPS = {
   sm: 'max-h-[320px]',
@@ -142,6 +125,10 @@ const CAPS = {
 };
 
 export function ListViewport({ cap = 'md', children }) {
+  const deviceType = useDeviceType();
+
+  if (deviceType === 'mobile') return <div>{children}</div>;
+
   return (
     <div className={`${CAPS[cap] || CAPS.md} overflow-y-auto spc-scroll-contain`}>{children}</div>
   );

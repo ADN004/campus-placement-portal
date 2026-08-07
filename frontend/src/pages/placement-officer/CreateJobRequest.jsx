@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Zap, Trash2, Plus } from 'lucide-react';
+import { Zap } from 'lucide-react';
 import { placementOfficerAPI, commonAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import useSkeletonLoading from '../../hooks/useSkeletonLoading';
@@ -10,6 +10,7 @@ import DesktopCreateJobRequest from './jobRequest/DesktopCreateJobRequest';
 import TabletCreateJobRequest from './jobRequest/TabletCreateJobRequest';
 import MobileCreateJobRequest from './jobRequest/MobileCreateJobRequest';
 import JobRequestForm from './jobRequest/JobRequestForm';
+import AdvancedRequirements from './jobRequest/AdvancedRequirements';
 import { CreateRequestModal, RequestDetailsModal } from './jobRequest/JobRequestModals';
 import {
   DesktopJobRequestSkeleton,
@@ -516,11 +517,12 @@ export default function CreateJobRequest() {
                 {showAdvanced ? 'Hide advanced options' : 'Advanced options'}
               </SecondaryButton>
               {showAdvanced && (
-                <AdvancedConfigSection
+                <AdvancedRequirements
                   formData={formData}
-                  handleSpecificFieldChange={handleSpecificFieldChange}
-                  handleAddCustomField={handleAddCustomField}
-                  handleRemoveCustomField={handleRemoveCustomField}
+                  onSpecificFieldChange={handleSpecificFieldChange}
+                  onAddCustomField={handleAddCustomField}
+                  onRemoveCustomField={handleRemoveCustomField}
+                  columns={deviceType === 'mobile' ? 1 : 2}
                 />
               )}
             </div>
@@ -538,205 +540,3 @@ export default function CreateJobRequest() {
   );
 }
 
-function AdvancedConfigSection({
-  formData,
-  handleSpecificFieldChange,
-  handleAddCustomField,
-  handleRemoveCustomField,
-}) {
-  const [newCustomField, setNewCustomField] = useState({
-    field_name: '',
-    field_label: '',
-    field_type: 'text',
-    required: true,
-    options: [],
-  });
-
-  return (
-    <div className="mt-4 space-y-6">
-      {/* Specific Field Requirements */}
-      <div>
-        <h4 className="font-medium text-gray-800 mb-3">Specific Field Requirements</h4>
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Minimum Height (cm)
-              </label>
-              <input
-                type="number"
-                step="1"
-                value={formData.specific_field_requirements.height_cm?.min || ''}
-                onChange={(e) => handleSpecificFieldChange('height_cm', 'min', e.target.value)}
-                className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium bg-white"
-                placeholder="155"
-                min="0"
-                max="250"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Minimum Weight (kg)
-              </label>
-              <input
-                type="number"
-                step="0.1"
-                value={formData.specific_field_requirements.weight_kg?.min || ''}
-                onChange={(e) => handleSpecificFieldChange('weight_kg', 'min', e.target.value)}
-                className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium bg-white"
-                placeholder="45"
-                min="0"
-                max="200"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Minimum SSLC % (10th)
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                value={formData.specific_field_requirements.sslc_marks?.min || ''}
-                onChange={(e) => handleSpecificFieldChange('sslc_marks', 'min', e.target.value)}
-                className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium bg-white"
-                placeholder="60"
-                min="0"
-                max="100"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Minimum 12th % (+2)
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                value={formData.specific_field_requirements.twelfth_marks?.min || ''}
-                onChange={(e) => handleSpecificFieldChange('twelfth_marks', 'min', e.target.value)}
-                className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium bg-white"
-                placeholder="60"
-                min="0"
-                max="100"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Custom Fields */}
-      <div>
-        <h4 className="font-medium text-gray-800 mb-3">Custom Company-Specific Fields</h4>
-
-        {/* Existing Custom Fields */}
-        {formData.custom_fields.length > 0 && (
-          <div className="mb-4 space-y-2">
-            {formData.custom_fields.map((field, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-              >
-                <div>
-                  <div className="font-medium text-gray-800">{field.field_label}</div>
-                  <div className="text-sm text-gray-600">
-                    Type: {field.field_type} | {field.required ? 'Required' : 'Optional'}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleRemoveCustomField(index)}
-                  className="text-red-600 hover:text-red-700"
-                >
-                  <Trash2 size={18} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Add New Custom Field */}
-        <div className="border border-gray-200 rounded-lg p-4 space-y-3">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Field Name (for database)
-              </label>
-              <input
-                type="text"
-                value={newCustomField.field_name}
-                onChange={(e) =>
-                  setNewCustomField({ ...newCustomField, field_name: e.target.value })
-                }
-                className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium bg-white"
-                placeholder="sitttr_applied"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Field Label (shown to students)
-              </label>
-              <input
-                type="text"
-                value={newCustomField.field_label}
-                onChange={(e) =>
-                  setNewCustomField({ ...newCustomField, field_label: e.target.value })
-                }
-                className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium bg-white"
-                placeholder="Have you applied for SITTTR?"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Field Type</label>
-              <select
-                value={newCustomField.field_type}
-                onChange={(e) =>
-                  setNewCustomField({ ...newCustomField, field_type: e.target.value })
-                }
-                className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium bg-white"
-              >
-                <option value="text">Text</option>
-                <option value="number">Number</option>
-                <option value="boolean">Yes/No</option>
-                <option value="select">Dropdown</option>
-                <option value="textarea">Long Text</option>
-              </select>
-            </div>
-            <div className="flex items-center">
-              <label className="flex items-center space-x-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={newCustomField.required}
-                  onChange={(e) =>
-                    setNewCustomField({ ...newCustomField, required: e.target.checked })
-                  }
-                  className="w-5 h-5 text-blue-600 rounded"
-                />
-                <span className="text-sm font-medium text-gray-700">Required Field</span>
-              </label>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              handleAddCustomField(newCustomField);
-              setNewCustomField({
-                field_name: '',
-                field_label: '',
-                field_type: 'text',
-                required: true,
-                options: [],
-              });
-            }}
-            className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-          >
-            <Plus size={18} />
-            <span>Add Custom Field</span>
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}

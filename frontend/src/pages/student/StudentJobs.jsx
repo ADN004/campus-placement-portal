@@ -3,6 +3,7 @@ import { studentAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import SmartApplicationModal from '../../components/SmartApplicationModal';
 import useDeviceType from '../../hooks/useDeviceType';
+import useLongList from '../../hooks/useLongList';
 import { JobDetailsModal } from './jobs/jobsShared';
 import DesktopStudentJobs, { DesktopJobsSkeleton } from './jobs/DesktopStudentJobs';
 import TabletStudentJobs, { TabletJobsSkeleton } from './jobs/TabletStudentJobs';
@@ -175,10 +176,24 @@ export default function StudentJobs() {
   ];
 
   // Identical props for all three presenters — same values, same functions.
+  //
+  // `visibleJobs` rather than `filteredJobs` is what the presenters render. A
+  // student sees every job ever posted to their college, so this list only
+  // grows: by final year it is the whole history, and rendering all of it makes
+  // the page's height a function of how long they have been enrolled. Searching
+  // and the eligibility filter already narrow it; this bounds what is left.
+  // `filteredJobs` still goes through so the count can say "25 of 240".
+  const jobWindow = useLongList(filteredJobs, { step: 25 });
   const presenterProps = {
     error,
     jobs,
     filteredJobs,
+    visibleJobs: jobWindow.visible,
+    shownCount: jobWindow.shown,
+    totalCount: jobWindow.total,
+    hasMore: jobWindow.hasMore,
+    remaining: jobWindow.remaining,
+    onShowMore: jobWindow.showMore,
     filters,
     filterEligibility,
     searchQuery,

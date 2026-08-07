@@ -4,7 +4,6 @@ import { placementOfficerAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import useSkeletonLoading from '../../hooks/useSkeletonLoading';
 import useDeviceType from '../../hooks/useDeviceType';
-import { generateJobDetailsPDF } from '../../utils/jobDetailsPdf';
 import JobListPage from './jobEligible/JobListPage';
 import {
   DesktopJobEligibleSkeleton,
@@ -76,9 +75,11 @@ export default function JobEligibleStudents() {
       searchQuery={searchQuery}
       onSearchChange={(e) => setSearchQuery(e.target.value)}
       onOpenJob={(job) => navigate(`/placement-officer/job-eligible-students/${job.id}`)}
-      onDownloadJobPdf={(job) =>
-        generateJobDetailsPDF({ ...job, title: job.job_title, description: job.job_description })
-      }
+      onDownloadJobPdf={async (job) => {
+        // Loaded on click: jsPDF is ~384K and most visits never download one.
+        const { generateJobDetailsPDF } = await import('../../utils/jobDetailsPdf');
+        generateJobDetailsPDF({ ...job, title: job.job_title, description: job.job_description });
+      }}
     />
   );
 }

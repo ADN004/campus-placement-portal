@@ -3,7 +3,6 @@ import { placementOfficerAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import useSkeletonLoading from '../../hooks/useSkeletonLoading';
 import useDeviceType from '../../hooks/useDeviceType';
-import { generateJobDetailsPDF } from '../../utils/jobDetailsPdf';
 import MyRequestsPage from './jobRequest/MyRequestsPage';
 import { RequestDetailsModal } from './jobRequest/JobRequestModals';
 import {
@@ -78,7 +77,11 @@ export default function MyJobRequests() {
         counts={counts}
         onFilterChange={setFilter}
         onViewRequest={setSelectedRequest}
-        onDownloadPdf={(request) =>
+        onDownloadPdf={async (request) => {
+          // jsPDF builds into a ~384K chunk and pulls html2canvas with it.
+          // Imported here rather than at the top of the file so it downloads on
+          // the first Download press instead of on every visit to this page.
+          const { generateJobDetailsPDF } = await import('../../utils/jobDetailsPdf');
           generateJobDetailsPDF({
             company_name: request.company_name,
             title: request.job_title,
@@ -96,8 +99,8 @@ export default function MyJobRequests() {
             application_deadline: request.application_deadline,
             application_form_url: request.application_form_url,
             is_active: true,
-          })
-        }
+          });
+        }}
       />
 
       {selectedRequest && (

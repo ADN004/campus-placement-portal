@@ -3280,3 +3280,57 @@ export const getSentNotifications = async (req, res) => {
     });
   }
 };
+
+// @desc    Districts the officer's own students actually live in
+// @route   GET /api/placement-officer/districts
+// @access  Private (Placement Officer)
+//
+// The Manage Students district filter used to call /super-admin/districts,
+// which is behind the super-admin guard — so for a placement officer it always
+// returned 403 and the dropdown rendered with zero options. The filter has
+// never worked for this role; it just failed quietly in the console.
+//
+// Scoped to this college rather than the state, for the same reason
+// /branches is: an officer filtering their own students has no use for a
+// district none of their students live in, and no business seeing the
+// statewide spread.
+export const getAvailableDistricts = async (req, res) => {
+  try {
+    const officerResult = await query(
+      'SELECT college_id FROM placement_officers WHERE user_id = $1',
+      [req.user.id]
+    );
+
+    if (officerResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Placement officer profile not found',
+      });
+    }
+
+    const result = await query(
+      `SELECT DISTINCT sep.district
+       FROM student_extended_profiles sep
+       JOIN students s ON s.id = sep.student_id
+       WHERE s.college_id = $1
+         AND sep.district IS NOT NULL
+         AND sep.district <> ''
+       ORDER BY sep.district`,
+      [officerResult.rows[0].college_id]
+    );
+
+    // `districts` is the key the super-admin endpoint uses and the key the
+    // page already reads; keeping it means only the URL changes.
+    res.status(200).json({
+      success: true,
+      districts: result.rows.map((r) => r.district),
+    });
+  } catch (error) {
+    console.error('Get available districts error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch districts',
+      error: error.message,
+    });
+  }
+};

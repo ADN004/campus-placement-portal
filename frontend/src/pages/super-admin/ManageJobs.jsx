@@ -25,7 +25,6 @@ import {
   Download,
 } from 'lucide-react';
 import { KERALA_POLYTECHNIC_BRANCHES } from '../../constants/branches';
-import { generateJobDetailsPDF } from '../../utils/jobDetailsPdf';
 import useSkeleton from '../../hooks/useSkeleton';
 import AnimatedSection from '../../components/animation/AnimatedSection';
 import TablePageSkeleton from '../../components/skeletons/TablePageSkeleton';
@@ -1526,7 +1525,11 @@ export default function ManageJobs() {
               <h2 className="text-2xl font-bold">{selectedJob.title}</h2>
               <div className="flex items-center space-x-3">
                 <button
-                  onClick={() => generateJobDetailsPDF(selectedJob, { regions, colleges })}
+                  onClick={async () => {
+                    // Loaded on click: jsPDF is ~384K.
+                    const { generateJobDetailsPDF } = await import('../../utils/jobDetailsPdf');
+                    generateJobDetailsPDF(selectedJob, { regions, colleges });
+                  }}
                   className="flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-semibold rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all shadow-sm"
                   title="Download Job Details as PDF"
                 >

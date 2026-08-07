@@ -185,7 +185,7 @@ export const placementOfficerAPI = {
   getBranchTemplates: () => API.get('/placement-officer/branch-templates'),
 
   // District Management
-  getAvailableDistricts: () => API.get('/super-admin/districts'),
+  getAvailableDistricts: () => API.get('/placement-officer/districts'),
 
   // Placement Poster
   getPlacementPosterStats: () => API.get('/placement-officer/placement-poster/stats'),

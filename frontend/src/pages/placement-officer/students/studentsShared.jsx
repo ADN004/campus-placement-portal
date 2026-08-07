@@ -2,6 +2,18 @@ import {
   Lock, Unlock, Search, Filter, ChevronDown, ChevronUp, Download, Settings,
   Eye, Check, X, Ban, Shield, MailWarning, FileEdit,
 } from 'lucide-react';
+import {
+  formatDate, Panel, PanelHeading, PageHeading,
+  PrimaryButton, SecondaryButton, DangerButton,
+  FieldLabel, FIELD_CLASS, TextField, SelectField, CHECKBOX_CLASS,
+} from '../../../components/officer/OfficerUI';
+
+// Re-exported so the presenters keep importing everything from one place.
+export {
+  formatDate, Panel, PanelHeading, PageHeading,
+  PrimaryButton, SecondaryButton, DangerButton,
+  FieldLabel, FIELD_CLASS, TextField, SelectField, CHECKBOX_CLASS,
+};
 
 /**
  * Pieces shared by the three ManageStudents presenters.
@@ -17,16 +29,6 @@ import {
  */
 
 /* ------------------------------------------------------------------ format */
-
-/** DD-MM-YYYY, matching what the old table and modal both printed. */
-export function formatDate(value) {
-  if (!value) return 'N/A';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'N/A';
-  const day = String(date.getDate()).padStart(2, '0');
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  return `${day}-${month}-${date.getFullYear()}`;
-}
 
 /**
  * Total backlogs across the six semesters.
@@ -101,119 +103,6 @@ export function BacklogCount({ total }) {
     <span className={`tabular-nums font-bold ${total > 0 ? 'text-spc-bad' : 'text-spc-ink'}`}>
       {total}
     </span>
-  );
-}
-
-/* ------------------------------------------------------------------ panels */
-
-export function Panel({ children, className = '' }) {
-  return (
-    <div
-      className={`bg-spc-surface border border-spc-line-strong rounded-spc-panel
-        overflow-hidden ${className}`}
-    >
-      {children}
-    </div>
-  );
-}
-
-/** Page heading with the structural rule under it. */
-export function PageHeading({ title, subline, size = 'md', children }) {
-  const titleSize = size === 'sm' ? 'text-spc-display' : 'text-spc-display-lg';
-  return (
-    <header className="mb-5 pb-4 border-b-[1.5px] border-spc-rule-structural">
-      <div className="flex items-end justify-between gap-4 flex-wrap">
-        <div className="min-w-0">
-          <h1 className={`${titleSize} font-bold text-spc-ink`}>{title}</h1>
-          {subline && <p className="text-spc-sm text-spc-muted mt-1">{subline}</p>}
-        </div>
-        {children}
-      </div>
-    </header>
-  );
-}
-
-/* ----------------------------------------------------------------- buttons */
-
-const BUTTON_BASE =
-  'inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-spc-control ' +
-  'text-spc-xs font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
-
-export function PrimaryButton({ children, className = '', ...props }) {
-  return (
-    <button
-      className={`${BUTTON_BASE} bg-spc-accent text-spc-on-accent hover:opacity-95 ${className}`}
-      {...props}
-    >
-      {children}
-    </button>
-  );
-}
-
-export function SecondaryButton({ children, className = '', ...props }) {
-  return (
-    <button
-      className={`${BUTTON_BASE} bg-spc-surface border border-spc-control text-spc-ink
-        hover:bg-spc-surface-2 ${className}`}
-      {...props}
-    >
-      {children}
-    </button>
-  );
-}
-
-/** Destructive confirm. The only place `bad` is used as a fill. */
-export function DangerButton({ children, className = '', ...props }) {
-  return (
-    <button
-      className={`${BUTTON_BASE} bg-spc-bad text-white hover:opacity-95 ${className}`}
-      {...props}
-    >
-      {children}
-    </button>
-  );
-}
-
-/* ------------------------------------------------------------------ fields */
-
-export function FieldLabel({ children, htmlFor }) {
-  return (
-    <label
-      htmlFor={htmlFor}
-      className="block text-spc-xs font-bold uppercase tracking-[0.11em] text-spc-muted mb-1.5"
-    >
-      {children}
-    </label>
-  );
-}
-
-/**
- * Inputs and selects: surface fill, a `control` border (3.71:1, which is what
- * WCAG 1.4.11 wants for the boundary of something you type into), 3px radius,
- * accent focus ring.
- */
-export const FIELD_CLASS =
-  'w-full min-h-[44px] px-3 rounded-spc-control bg-spc-surface border border-spc-control ' +
-  'text-spc-sm text-spc-ink outline-none transition-colors ' +
-  'focus:border-spc-accent focus:ring-2 focus:ring-spc-accent/30';
-
-export function TextField({ label, id, ...props }) {
-  return (
-    <div className="min-w-0">
-      {label && <FieldLabel htmlFor={id}>{label}</FieldLabel>}
-      <input id={id} className={FIELD_CLASS} {...props} />
-    </div>
-  );
-}
-
-export function SelectField({ label, id, children, ...props }) {
-  return (
-    <div className="min-w-0">
-      {label && <FieldLabel htmlFor={id}>{label}</FieldLabel>}
-      <select id={id} className={FIELD_CLASS} {...props}>
-        {children}
-      </select>
-    </div>
   );
 }
 

@@ -11,6 +11,13 @@
  * and pages that still only have a desktop layout keep their escape hatch.
  *
  * Add one line per page as it gets a real mobile/tablet design.
+ *
+ * An entry also covers that route's sub-paths, so a page that opens a record on
+ * its own URL — /placement-officer/job-eligible-students/42 — is covered by the
+ * parent entry. Without that, an exact-match list would silently miss every
+ * detail page: the switcher would come back, a saved preference would force
+ * width=1280, and the mobile layout we just built would render as a postage
+ * stamp. The failure is invisible until someone opens it on a phone.
  */
 export const MOBILE_READY_ROUTES = [
   '/student/dashboard',
@@ -30,5 +37,13 @@ export function isMobileReadyRoute(pathname) {
   if (!pathname) return false;
   const normalized =
     pathname.length > 1 && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
-  return MOBILE_READY_ROUTES.includes(normalized);
+
+  return MOBILE_READY_ROUTES.some(
+    (route) =>
+      normalized === route ||
+      // Sub-paths only. The `/` guard matters: without it, a future
+      // `/student/jobs-archive` would be swallowed by the `/student/jobs`
+      // entry and silently suppress the switcher on a page that still needs it.
+      normalized.startsWith(`${route}/`)
+  );
 }

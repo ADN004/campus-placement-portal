@@ -435,10 +435,29 @@ export default function JobApplicants() {
     }
   };
 
+  /*
+   * Eligibility is only sent while the job has no applicants.
+   *
+   * The dialog holds the whole job, so every save used to post min_cgpa,
+   * max_backlogs, the backlog semesters and the branches back whether or not
+   * they had been touched. The server refuses those once anyone has applied,
+   * which would have turned a title correction into "cannot be changed" on any
+   * job with a single applicant. Leaving them out means the officer edits what
+   * they are allowed to edit and the guard never fires on a change they did not
+   * make.
+   */
   const handleEditJobSave = async () => {
+    const payload = { ...editJobData };
+    if (students.length > 0) {
+      delete payload.min_cgpa;
+      delete payload.max_backlogs;
+      delete payload.allowed_backlog_semesters;
+      delete payload.allowed_branches;
+    }
+
     try {
       setEditJobLoading(true);
-      await placementOfficerAPI.updateJob(selectedJob.id, editJobData);
+      await placementOfficerAPI.updateJob(selectedJob.id, payload);
       toast.success('Job updated successfully');
       setShowEditJobModal(false);
       // Refresh jobs list and update selectedJob
@@ -899,6 +918,7 @@ export default function JobApplicants() {
           onChange={setEditJobData}
           onSave={handleEditJobSave}
           saving={editJobLoading}
+          applicantCount={students.length}
           onClose={() => setShowEditJobModal(false)}
         />
       )}

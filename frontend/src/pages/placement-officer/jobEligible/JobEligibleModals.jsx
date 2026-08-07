@@ -217,8 +217,19 @@ export function CollegePickerModal({
  * Host-only job editor. Same fields, same validation cue (at least one branch),
  * same save handler as before.
  */
-export function EditJobModal({ data, onChange, onSave, saving, onClose }) {
+const FIELD_LOCKED = 'opacity-60 cursor-not-allowed bg-spc-surface-2';
+
+export function EditJobModal({ data, onChange, onSave, saving, applicantCount = 0, onClose }) {
   const set = (key, value) => onChange({ ...data, [key]: value });
+  /*
+   * Who may apply cannot change once someone has. Shown rather than enforced
+   * silently: the fields stay visible so the officer can still read what the
+   * rules are, but they are disabled and the reason is stated once, above them.
+   * The container also omits these from the payload, so a title edit on a job
+   * with applicants is not refused for a field nobody touched.
+   */
+  const eligibilityLocked = applicantCount > 0;
+  const lockedField = eligibilityLocked ? ` ${FIELD_LOCKED}` : '';
   const branches = data.allowed_branches || [];
   const semesters = data.allowed_backlog_semesters || [];
 
@@ -256,15 +267,27 @@ export function EditJobModal({ data, onChange, onSave, saving, onClose }) {
             <input id="edit-deadline" type="date" className={FIELD_CLASS}
               value={data.application_deadline || ''} onChange={(e) => set('application_deadline', e.target.value)} />
           </div>
+          <div className={eligibilityLocked ? 'col-span-2' : 'contents'}>
+            {eligibilityLocked && (
+              <p className="text-spc-xs text-spc-body bg-spc-warn-bg border border-spc-warn/40
+                rounded-spc-control px-3 py-2 mb-3">
+                {applicantCount} student{applicantCount === 1 ? ' has' : 's have'} already applied,
+                so who is eligible can no longer be changed — they applied under these rules.
+                Everything else here can still be edited.
+              </p>
+            )}
+          </div>
           <div>
             <FieldLabel htmlFor="edit-cgpa">Min CGPA</FieldLabel>
-            <input id="edit-cgpa" type="number" step="0.01" min="0" max="10" className={FIELD_CLASS}
+            <input id="edit-cgpa" type="number" step="0.01" min="0" max="10"
+              className={`${FIELD_CLASS}${lockedField}`} disabled={eligibilityLocked}
               placeholder="e.g. 6.5"
               value={data.min_cgpa || ''} onChange={(e) => set('min_cgpa', e.target.value)} />
           </div>
           <div>
             <FieldLabel htmlFor="edit-backlogs">Max backlogs allowed</FieldLabel>
-            <input id="edit-backlogs" type="number" min="0" className={FIELD_CLASS}
+            <input id="edit-backlogs" type="number" min="0"
+              className={`${FIELD_CLASS}${lockedField}`} disabled={eligibilityLocked}
               value={data.max_backlogs || ''} onChange={(e) => set('max_backlogs', e.target.value)} />
           </div>
         </div>
@@ -283,7 +306,7 @@ export function EditJobModal({ data, onChange, onSave, saving, onClose }) {
 
         <fieldset>
           <legend className="text-spc-xs font-bold uppercase tracking-[0.11em] text-spc-muted mb-2">
-            Allowed backlog semesters
+            Allowed backlog semesters{eligibilityLocked ? " — locked" : ""}
             <span className="ml-2 font-semibold normal-case tracking-normal text-spc-muted">
               (leave unchecked for any)
             </span>
@@ -306,7 +329,8 @@ export function EditJobModal({ data, onChange, onSave, saving, onClose }) {
                         : [...semesters, sem].sort((a, b) => a - b)
                     )
                   }
-                  className={CHECKBOX_CLASS}
+                  disabled={eligibilityLocked}
+                  className={`${CHECKBOX_CLASS}${lockedField}`}
                 />
                 <span className="text-spc-xs font-bold text-spc-ink">Sem {sem}</span>
               </label>
@@ -316,7 +340,7 @@ export function EditJobModal({ data, onChange, onSave, saving, onClose }) {
 
         <fieldset>
           <legend className="text-spc-xs font-bold uppercase tracking-[0.11em] text-spc-muted mb-2">
-            Allowed branches *
+            Allowed branches{eligibilityLocked ? " — locked" : " *"}
           </legend>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 max-h-52 overflow-y-auto
             spc-scroll-contain border border-spc-line rounded-spc-control px-3">
@@ -333,7 +357,8 @@ export function EditJobModal({ data, onChange, onSave, saving, onClose }) {
                         : [...branches, branch]
                     )
                   }
-                  className={CHECKBOX_CLASS}
+                  disabled={eligibilityLocked}
+                  className={`${CHECKBOX_CLASS}${lockedField}`}
                 />
                 <span className="text-xs text-spc-body truncate">{branch}</span>
               </label>

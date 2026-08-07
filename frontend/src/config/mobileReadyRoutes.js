@@ -31,6 +31,7 @@ export const MOBILE_READY_ROUTES = [
   '/placement-officer/dashboard',
   '/placement-officer/students',
   '/placement-officer/job-eligible-students',
+  '/placement-officer/create-job-request',
 ];
 
 export function isMobileReadyRoute(pathname) {

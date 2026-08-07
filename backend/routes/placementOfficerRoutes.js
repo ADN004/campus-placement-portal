@@ -29,6 +29,7 @@ import {
   getSentNotifications,
   getAvailableDistricts,
   getStudentCounts,
+  deleteJob,
 } from '../controllers/placementOfficerController.js';
 import {
   uploadOwnPhoto,
@@ -105,6 +106,7 @@ router.post('/send-notification', sendNotification);
 router.get('/sent-notifications', getSentNotifications);
 router.get('/jobs', getJobs);
 router.put('/jobs/:id', updateJob);
+router.delete('/jobs/:id', deleteJob);
 router.get('/jobs/:jobId/applicants', getJobApplicants);
 router.get('/jobs/:jobId/applicants/export', exportJobApplicants);
 router.post('/job-requests', createJobRequest);

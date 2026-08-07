@@ -2314,12 +2314,53 @@ export const updateJob = async (req, res) => {
       max_backlogs,
       allowed_backlog_semesters,
       allowed_branches,
+      is_active,
     } = req.body;
+
+    /*
+     * Eligibility is frozen once anyone has applied.
+     *
+     * These five fields decide who may apply. Changing them after applications
+     * exist rewrites the rule that people were judged by: a student who applied
+     * at min_cgpa 6.0 is still sitting in the applicant list when the bar moves
+     * to 7.0, but every eligibility view, every "eligible but not applied"
+     * export and every re-check now says they never qualified. The applicant
+     * list and the criteria disagree, and nothing on screen explains why.
+     *
+     * Before the first application there is nobody to contradict, so fixing a
+     * typo in the CGPA bar stays allowed — which is the case this is actually
+     * needed for.
+     */
+    const ELIGIBILITY = { min_cgpa, max_backlogs, allowed_backlog_semesters, allowed_branches };
+    const changingEligibility = Object.entries(ELIGIBILITY)
+      .filter(([, v]) => v !== undefined)
+      .map(([k]) => k);
+
+    if (changingEligibility.length > 0) {
+      const applied = await query(
+        'SELECT COUNT(*)::int AS n FROM job_applications WHERE job_id = $1',
+        [jobId]
+      );
+      if (applied.rows[0].n > 0) {
+        return res.status(409).json({
+          success: false,
+          message:
+            `${applied.rows[0].n} student${applied.rows[0].n === 1 ? ' has' : 's have'} already applied, ` +
+            'so the eligibility rules cannot be changed — they applied under the current ones. ' +
+            'Everything else about the job can still be edited.',
+          locked_fields: changingEligibility,
+          applicant_count: applied.rows[0].n,
+        });
+      }
+    }
 
     const updates = [];
     const values = [];
     let paramCount = 1;
 
+    // Unpublishing: the officer's only way to take a live job down once students
+    // have applied, since deleting it would cascade their applications away.
+    if (is_active !== undefined) { updates.push(`is_active = $${paramCount}`); values.push(Boolean(is_active)); paramCount++; }
     if (title !== undefined) { updates.push(`job_title = $${paramCount}`); values.push(title); paramCount++; }
     if (company_name !== undefined) { updates.push(`company_name = $${paramCount}`); values.push(company_name); paramCount++; }
     if (description !== undefined) { updates.push(`job_description = $${paramCount}`); values.push(description); paramCount++; }
@@ -3403,5 +3444,104 @@ export const getStudentCounts = async (req, res) => {
       message: 'Error fetching student counts',
       error: error.message,
     });
+  }
+};
+
+// @desc    Delete a job the officer created
+// @route   DELETE /api/placement-officer/jobs/:id
+// @access  Private (Placement Officer)
+//
+// An own-college job request is auto-approved and published the moment it is
+// submitted, and until now there was no way for the officer to take it back.
+// A wrong company name, a wrong package, or a request made by mistake was live
+// to every student in the college permanently, and the only route was asking a
+// Super Admin.
+//
+// Soft delete, never a hard one. job_applications, job_drives,
+// job_eligibility_criteria and job_requirement_templates all reference jobs.id
+// ON DELETE CASCADE, so removing the row would silently take every student's
+// application with it. is_deleted keeps the record and its history while taking
+// the job out of every list.
+//
+// A job that already has applicants is not deletable at all: those students
+// applied to something, and making it disappear leaves them with an application
+// pointing at nothing. Unpublishing (PUT is_active=false) is the answer there,
+// and the message says so.
+export const deleteJob = async (req, res) => {
+  try {
+    const { id: jobId } = req.params;
+
+    const officerResult = await query(
+      'SELECT id FROM placement_officers WHERE user_id = $1',
+      [req.user.id]
+    );
+    if (officerResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Placement officer profile not found' });
+    }
+
+    const jobCheck = await query(
+      'SELECT placement_officer_id, is_auto_approved, is_deleted, job_title FROM jobs WHERE id = $1',
+      [jobId]
+    );
+    if (jobCheck.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Job not found' });
+    }
+    const job = jobCheck.rows[0];
+
+    if (job.placement_officer_id !== officerResult.rows[0].id) {
+      return res.status(403).json({ success: false, message: 'You can only delete jobs you created' });
+    }
+
+    // Same reasoning as updateJob: a cross-college job went through the Super
+    // Admin's approval queue, so it is not the officer's to withdraw.
+    if (!job.is_auto_approved) {
+      return res.status(403).json({
+        success: false,
+        message: 'This job covers other colleges and was approved by the Super Admin. Contact the Super Admin to withdraw it.',
+      });
+    }
+
+    if (job.is_deleted) {
+      return res.status(200).json({ success: true, message: 'Job already deleted' });
+    }
+
+    const applied = await query(
+      'SELECT COUNT(*)::int AS n FROM job_applications WHERE job_id = $1',
+      [jobId]
+    );
+    if (applied.rows[0].n > 0) {
+      return res.status(409).json({
+        success: false,
+        message:
+          `${applied.rows[0].n} student${applied.rows[0].n === 1 ? ' has' : 's have'} already applied to this job, ` +
+          'so it cannot be deleted — their applications would go with it. ' +
+          'Unpublish it instead to take it off the students\' list while keeping the records.',
+        applicant_count: applied.rows[0].n,
+      });
+    }
+
+    await query(
+      `UPDATE jobs
+          SET is_deleted = TRUE, is_active = FALSE,
+              deleted_at = CURRENT_TIMESTAMP, deleted_by = $1,
+              updated_at = CURRENT_TIMESTAMP
+        WHERE id = $2`,
+      [req.user.id, jobId]
+    );
+
+    await logActivity(
+      req.user.id,
+      'DELETE_JOB',
+      `Deleted job: ${job.job_title}`,
+      'job',
+      jobId,
+      { job_title: job.job_title },
+      req
+    );
+
+    res.status(200).json({ success: true, message: 'Job deleted' });
+  } catch (error) {
+    console.error('Delete job error:', error);
+    res.status(500).json({ success: false, message: 'Error deleting job', error: error.message });
   }
 };

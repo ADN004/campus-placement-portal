@@ -2318,18 +2318,28 @@ export const updateJob = async (req, res) => {
     } = req.body;
 
     /*
-     * Eligibility is frozen once anyone has applied.
+     * Eligibility is frozen once anyone has applied. Nothing else is.
      *
-     * These five fields decide who may apply. Changing them after applications
-     * exist rewrites the rule that people were judged by: a student who applied
-     * at min_cgpa 6.0 is still sitting in the applicant list when the bar moves
-     * to 7.0, but every eligibility view, every "eligible but not applied"
-     * export and every re-check now says they never qualified. The applicant
-     * list and the criteria disagree, and nothing on screen explains why.
+     * min_cgpa, max_backlogs, allowed_backlog_semesters and allowed_branches
+     * decide who may apply, and changing one afterwards leaves the data
+     * contradicting itself: a student who applied at min_cgpa 6.0 is still
+     * sitting in the applicant list when the bar moves to 7.0, and a student
+     * from a branch that gets unticked is still in it too — while every
+     * eligibility view, every "eligible but not applied" export and every
+     * re-check now says they never qualified. The list and the criteria
+     * disagree and nothing on screen can explain why.
      *
-     * Before the first application there is nobody to contradict, so fixing a
-     * typo in the CGPA bar stays allowed — which is the case this is actually
-     * needed for.
+     * Company, package, location, deadline, title, description, vacancies and
+     * the form link stay editable, deliberately. Changing them contradicts
+     * nothing — it updates information — and companies revise all of them
+     * routinely. Locking them would leave an officer unable to correct a
+     * package that is genuinely wrong, and students reading something false is
+     * worse than students reading something that changed. Keeping a posting
+     * accurate is what the edit screen is for.
+     *
+     * Before the first application none of this applies: there is nobody to
+     * contradict, so every field including eligibility stays editable, which is
+     * the case those fields are actually needed for.
      */
     const ELIGIBILITY = { min_cgpa, max_backlogs, allowed_backlog_semesters, allowed_branches };
     const changingEligibility = Object.entries(ELIGIBILITY)
@@ -2341,15 +2351,16 @@ export const updateJob = async (req, res) => {
         'SELECT COUNT(*)::int AS n FROM job_applications WHERE job_id = $1',
         [jobId]
       );
-      if (applied.rows[0].n > 0) {
+      const n = applied.rows[0].n;
+      if (n > 0) {
         return res.status(409).json({
           success: false,
           message:
-            `${applied.rows[0].n} student${applied.rows[0].n === 1 ? ' has' : 's have'} already applied, ` +
-            'so the eligibility rules cannot be changed — they applied under the current ones. ' +
-            'Everything else about the job can still be edited.',
+            `${n} student${n === 1 ? ' has' : 's have'} already applied, so who is eligible cannot be ` +
+            'changed — they applied under the current rules. Everything else about the job, including ' +
+            'the company, package, location and deadline, can still be edited.',
           locked_fields: changingEligibility,
-          applicant_count: applied.rows[0].n,
+          applicant_count: n,
         });
       }
     }

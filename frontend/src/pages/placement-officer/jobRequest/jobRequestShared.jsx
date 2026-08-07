@@ -67,6 +67,12 @@ export function RequiredMark() {
  * because the officer needs to know whether a Super Admin ever saw it. A job
  * whose request was approved but has since been deleted reads as its own state
  * rather than silently still showing "approved".
+ *
+ * That deleted state comes from `job_exists`, which the API derives by looking
+ * for a job row linked to the request: true when it is there, false when an
+ * approved request's job has gone, and null for anything not approved. The old
+ * markup tested `job_deleted`, which no endpoint has ever returned, so the
+ * notice could not appear at all.
  */
 const REQUEST_STATUS = {
   pending: { label: 'Pending', dot: 'bg-spc-warn' },
@@ -208,7 +214,7 @@ export function RequestTable({ requests, onView }) {
                 {formatDate(request.application_deadline)}
               </td>
               <td className="px-3 py-2">
-                <RequestStatus status={request.status} jobDeleted={request.job_deleted} />
+                <RequestStatus status={request.status} jobDeleted={request.job_exists === false} />
               </td>
               <td className="px-3 py-2">
                 <ViewButton request={request} onView={onView} />
@@ -243,7 +249,7 @@ export function RequestList({ requests, onView }) {
                 Closes {formatDate(request.application_deadline)}
               </p>
             </div>
-            <RequestStatus status={request.status} jobDeleted={request.job_deleted} />
+            <RequestStatus status={request.status} jobDeleted={request.job_exists === false} />
           </div>
           <div className="flex justify-end mt-1">
             <ViewButton request={request} onView={onView} />

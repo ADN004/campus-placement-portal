@@ -90,18 +90,18 @@ export function RequestDetailsModal({ request, onClose }) {
     >
       <div className="flex-1 overflow-y-auto spc-scroll-contain px-5 py-4">
         <Section title="Status">
-          <RequestStatus status={request.status} jobDeleted={request.job_deleted} />
+          <RequestStatus status={request.status} jobDeleted={request.job_exists === false} />
           {/* The outcome the officer most needs, said plainly rather than left
               to a badge colour. */}
-          {request.status === 'rejected' && request.review_comments && (
+          {request.status === 'rejected' && request.review_comment && (
             <div className="mt-3 rounded-spc-control bg-spc-bad-bg p-3">
               <p className="text-spc-xs font-bold text-spc-ink">Why it was rejected</p>
               <p className="text-spc-xs text-spc-body mt-1 whitespace-pre-wrap">
-                {request.review_comments}
+                {request.review_comment}
               </p>
             </div>
           )}
-          {request.status === 'approved' && request.job_deleted && (
+          {request.job_exists === false && (
             <div className="mt-3 rounded-spc-control bg-spc-warn-bg p-3">
               <p className="text-spc-xs font-bold text-spc-ink">The job was deleted</p>
               <p className="text-spc-xs text-spc-body mt-1">

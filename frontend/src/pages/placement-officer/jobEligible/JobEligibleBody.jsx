@@ -28,6 +28,9 @@ export default function JobEligibleBody({ layout, ...p }) {
   const filterColumns = layout === 'desktop' ? 3 : layout === 'tablet' ? 2 : 1;
 
   const ApplicantView = isTable ? ApplicantTable : ApplicantList;
+  // Desktop and tablet have width for the words; the phone keeps icons, where
+  // the accessible name still carries the meaning.
+  const showActionLabels = layout !== 'mobile';
 
   const currentApplicants = p.filteredStudents.filter((s) => !s.is_already_placed);
   const placedApplicants = p.filteredStudents.filter((s) => s.is_already_placed);
@@ -148,6 +151,7 @@ export default function JobEligibleBody({ layout, ...p }) {
                 }
                 onView={p.onViewStudent}
                 onPlacement={p.onEditPlacement}
+                showLabels={showActionLabels}
                 loading={p.loadingStudents}
               />
             </Panel>
@@ -164,6 +168,7 @@ export default function JobEligibleBody({ layout, ...p }) {
                   isHost={p.isHost}
                   caption="Applicants who are already placed at another company."
                   showPlacedAt
+                  showLabels={showActionLabels}
                   onView={p.onViewStudent}
                   onPlacement={p.onEditPlacement}
                 />
@@ -181,6 +186,7 @@ export default function JobEligibleBody({ layout, ...p }) {
                   students={p.selectedSummary}
                   isHost={p.isHost}
                   caption="Students marked as selected for this job."
+                  showLabels={showActionLabels}
                   onView={p.onViewStudent}
                   onPlacement={p.onEditPlacement}
                 />

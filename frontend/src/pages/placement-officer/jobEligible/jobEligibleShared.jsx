@@ -2,7 +2,7 @@ import { Download, Eye, DollarSign, Calendar, Send, Filter, ChevronDown, Chevron
 import StatusBadge from '../../../components/StatusBadge';
 import {
   Panel, PanelHeading, SectionLabel, PrimaryButton, SecondaryButton,
-  CHECKBOX_CLASS, EmptyState, formatDate,
+  CHECKBOX_CLASS, EmptyState, formatDate, ActionButton,
 } from '../../../components/officer/OfficerUI';
 
 /**
@@ -264,31 +264,28 @@ export function FilterToggle({ open, onToggle, active, label }) {
 /**
  * Row actions. Identical in all three tables, so one component.
  */
-export function ApplicantActions({ student, onView, onPlacement }) {
+export function ApplicantActions({ student, showLabels = false, onView, onPlacement }) {
   const name = student.name || student.prn;
   return (
-    <div className="flex items-center gap-0.5">
-      <button
-        type="button"
+    <div className="flex items-center gap-0.5 flex-wrap">
+      <ActionButton
+        label="View"
+        description={`View details for ${name}`}
+        showLabel={showLabels}
         onClick={() => onView(student)}
-        aria-label={`View details for ${name}`}
-        title={`View details for ${name}`}
-        className="inline-flex items-center justify-center w-11 h-11 rounded-spc-control
-          text-spc-body hover:bg-spc-surface-2 hover:text-spc-ink transition-colors flex-shrink-0"
       >
         <Eye size={18} aria-hidden="true" />
-      </button>
+      </ActionButton>
       {student.application_status === 'selected' && (
-        <button
-          type="button"
+        <ActionButton
+          label="Placement"
+          description={`Add or edit placement details for ${name}`}
+          tone="positive"
+          showLabel={showLabels}
           onClick={() => onPlacement(student)}
-          aria-label={`Add or edit placement details for ${name}`}
-          title={`Add or edit placement details for ${name}`}
-          className="inline-flex items-center justify-center w-11 h-11 rounded-spc-control
-            text-spc-body hover:bg-spc-surface-2 hover:text-spc-ink transition-colors flex-shrink-0"
         >
           <DollarSign size={18} aria-hidden="true" />
-        </button>
+        </ActionButton>
       )}
     </div>
   );
@@ -304,7 +301,7 @@ export function ApplicantActions({ student, onView, onPlacement }) {
  * three can no longer drift apart.
  */
 export function ApplicantTable({
-  students, isHost, caption,
+  students, isHost, caption, showLabels = true,
   selectable = false, selectedIds = [], onSelect, onSelectAll, allSelected,
   showPlacedAt = false,
   onView, onPlacement,
@@ -379,7 +376,7 @@ export function ApplicantTable({
                 <Td><StatusBadge status={student.application_status} /></Td>
                 {showPlacedAt && <Td muted>{student.placed_company || '–'}</Td>}
                 <td className="px-3 py-2">
-                  <ApplicantActions student={student} onView={onView} onPlacement={onPlacement} />
+                  <ApplicantActions student={student} showLabels={showLabels} onView={onView} onPlacement={onPlacement} />
                 </td>
               </tr>
             );
@@ -396,7 +393,7 @@ export function ApplicantTable({
  * status — with college added when the officer is hosting.
  */
 export function ApplicantList({
-  students, isHost,
+  students, isHost, showLabels = false,
   selectable = false, selectedIds = [], onSelect,
   showPlacedAt = false,
   onView, onPlacement,
@@ -462,7 +459,7 @@ export function ApplicantList({
             </div>
 
             <div className="flex justify-end mt-1">
-              <ApplicantActions student={student} onView={onView} onPlacement={onPlacement} />
+              <ApplicantActions student={student} showLabels={showLabels} onView={onView} onPlacement={onPlacement} />
             </div>
           </li>
         );

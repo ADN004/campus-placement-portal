@@ -120,7 +120,7 @@ export function SecondaryButton({ children, className = '', ...props }) {
   );
 }
 
-/** Destructive confirm. The only place `bad` is used as a fill. */
+/** Destructive confirm. 7.32:1 white on bad. */
 export function DangerButton({ children, className = '', ...props }) {
   return (
     <button
@@ -128,6 +128,69 @@ export function DangerButton({ children, className = '', ...props }) {
       {...props}
     >
       {children}
+    </button>
+  );
+}
+
+/**
+ * Constructive confirm — approving, publishing, whitelisting. 7.13:1 white on ok.
+ *
+ * The direction reserves colour for meaning, and an action's consequence is
+ * meaning: approve and reject are the most semantically loaded controls on
+ * these screens. Rendering them in the same green and red the status column
+ * already uses means an officer learns one rule — green does, red undoes — and
+ * it matches what they are already reading two columns to the left.
+ */
+export function PositiveButton({ children, className = '', ...props }) {
+  return (
+    <button
+      className={`${BUTTON_BASE} bg-spc-ok text-white hover:opacity-95 ${className}`}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+}
+
+/* ----------------------------------------------------------- row actions */
+
+const ACTION_TONE = {
+  default: 'text-spc-body hover:bg-spc-surface-2 hover:text-spc-ink',
+  positive: 'text-spc-ok hover:bg-spc-ok-bg',
+  danger: 'text-spc-bad hover:bg-spc-bad-bg',
+  warn: 'text-spc-warn hover:bg-spc-warn-bg',
+};
+
+/**
+ * A single row action.
+ *
+ * `label` is the short visible word ("Approve"); `description` is the full
+ * accessible name ("Approve Anjali Ramesh"), which is what a screen reader
+ * announces and what the tooltip shows.
+ *
+ * With `showLabel` the word is rendered beside the icon. Icon-only buttons
+ * assume the reader already knows the icon, which is a poor assumption for the
+ * people using this — so wherever there is width, the word is shown. Below that
+ * width the accessible name still carries it.
+ *
+ * Every tone was measured: ok 7.13:1 and bad 7.32:1 on surface, and 6.03 / 6.19
+ * on the surface-2 the row tints to on hover.
+ */
+export function ActionButton({
+  label, description, tone = 'default', showLabel = false, onClick, children,
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={description || label}
+      title={description || label}
+      className={`inline-flex items-center justify-center gap-1.5 min-h-[44px] flex-shrink-0
+        rounded-spc-control transition-colors ${showLabel ? 'px-2.5' : 'w-11'}
+        ${ACTION_TONE[tone] || ACTION_TONE.default}`}
+    >
+      {children}
+      {showLabel && <span className="text-spc-xs font-bold whitespace-nowrap">{label}</span>}
     </button>
   );
 }

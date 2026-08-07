@@ -5,7 +5,7 @@ import {
 import {
   formatDate, Panel, PanelHeading, PageHeading,
   PrimaryButton, SecondaryButton, DangerButton,
-  FieldLabel, FIELD_CLASS, TextField, SelectField, CHECKBOX_CLASS,
+  FieldLabel, FIELD_CLASS, TextField, SelectField, CHECKBOX_CLASS, ActionButton,
 } from '../../../components/officer/OfficerUI';
 
 // Re-exported so the presenters keep importing everything from one place.
@@ -241,7 +241,9 @@ export const EXPORT_OPTIONS = [
 export function ExportMenu({ open, onToggle, onPick, disabled, align = 'right' }) {
   return (
     <div className="relative">
-      <SecondaryButton onClick={onToggle} disabled={disabled} aria-expanded={open} aria-haspopup="menu">
+      {/* The filled control on this toolbar. Export, Filters and Archived were
+          three identical outlined buttons with nothing ranking them. */}
+      <PrimaryButton onClick={onToggle} disabled={disabled} aria-expanded={open} aria-haspopup="menu">
         <Download size={15} aria-hidden="true" />
         <span>Export</span>
         <ChevronDown
@@ -249,7 +251,7 @@ export function ExportMenu({ open, onToggle, onPick, disabled, align = 'right' }
           aria-hidden="true"
           className={`transition-transform ${open ? 'rotate-180' : ''}`}
         />
-      </SecondaryButton>
+      </PrimaryButton>
 
       {open && (
         <>
@@ -351,35 +353,18 @@ export function BulkBar({ pendingInView, count, onApprove, onReject, onClear }) 
  * for pending, email-fix/correction/blacklist for approved, whitelist for
  * blacklisted — and each calls the container's handler directly.
  *
- * Two fixes over the old version. Every button now carries an `aria-label`:
- * they were icon-only with a `title` alone, which a screen reader announces
- * inconsistently and a keyboard user never sees. And the tap area is a real
- * 44px box rather than a bare 24px icon that grew on hover.
+ * Colour follows consequence: approving and whitelisting are green, rejecting
+ * and blacklisting red, everything else ink. That is the same green and red the
+ * status column shows two cells to the left, so it reads as one rule rather
+ * than a new code to learn. Previously Approve was the same grey as Review,
+ * which on a screen where an officer approves fifty students in a sitting is a
+ * genuine mis-click risk.
+ *
+ * `showLabels` renders the word beside the icon wherever there is width.
  */
-function ActionButton({ label, onClick, children, tone = 'default' }) {
-  const toneClass =
-    tone === 'danger'
-      ? 'text-spc-bad hover:bg-spc-bad-bg'
-      : tone === 'warn'
-      ? 'text-spc-warn hover:bg-spc-warn-bg'
-      : 'text-spc-body hover:bg-spc-surface-2 hover:text-spc-ink';
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      title={label}
-      className={`inline-flex items-center justify-center w-11 h-11 rounded-spc-control
-        flex-shrink-0 transition-colors ${toneClass}`}
-    >
-      {children}
-    </button>
-  );
-}
-
 export function StudentActions({
   student,
+  showLabels = false,
   onReview,
   onApprove,
   onReject,
@@ -393,19 +378,36 @@ export function StudentActions({
   const name = student.name || student.student_name || student.prn;
 
   return (
-    <div className="flex items-center gap-0.5">
+    <div className="flex items-center gap-0.5 flex-wrap">
       {/* Review is available for EVERY status — approving or rejecting without
           seeing the details makes no sense. */}
-      <ActionButton label={`Review details for ${name}`} onClick={() => onReview(student)}>
+      <ActionButton
+        label="View"
+        description={`Review details for ${name}`}
+        showLabel={showLabels}
+        onClick={() => onReview(student)}
+      >
         <Eye size={18} aria-hidden="true" />
       </ActionButton>
 
       {isPending && (
         <>
-          <ActionButton label={`Approve ${name}`} onClick={() => onApprove(student.id)}>
+          <ActionButton
+            label="Approve"
+            description={`Approve ${name}`}
+            tone="positive"
+            showLabel={showLabels}
+            onClick={() => onApprove(student.id)}
+          >
             <Check size={18} aria-hidden="true" />
           </ActionButton>
-          <ActionButton label={`Reject ${name}`} onClick={() => onReject(student.id)} tone="danger">
+          <ActionButton
+            label="Reject"
+            description={`Reject ${name}`}
+            tone="danger"
+            showLabel={showLabels}
+            onClick={() => onReject(student.id)}
+          >
             <X size={18} aria-hidden="true" />
           </ActionButton>
         </>
@@ -414,26 +416,32 @@ export function StudentActions({
       {isApproved && (
         <>
           <ActionButton
-            label={
+            label="Email"
+            description={
               student.email_verified
                 ? `Update email for ${name}`
                 : `Email not verified for ${name} — fix and resend the link`
             }
-            onClick={() => onEmailFix(student)}
             tone={student.email_verified ? 'default' : 'warn'}
+            showLabel={showLabels}
+            onClick={() => onEmailFix(student)}
           >
             <MailWarning size={18} aria-hidden="true" />
           </ActionButton>
           <ActionButton
-            label={`Send ${name} back for correction`}
+            label="Correct"
+            description={`Send ${name} back for correction`}
+            showLabel={showLabels}
             onClick={() => onCorrection(student)}
           >
             <FileEdit size={18} aria-hidden="true" />
           </ActionButton>
           <ActionButton
-            label={`Blacklist ${name}`}
-            onClick={() => onBlacklist(student)}
+            label="Blacklist"
+            description={`Blacklist ${name}`}
             tone="danger"
+            showLabel={showLabels}
+            onClick={() => onBlacklist(student)}
           >
             <Ban size={18} aria-hidden="true" />
           </ActionButton>
@@ -441,7 +449,13 @@ export function StudentActions({
       )}
 
       {student.is_blacklisted && (
-        <ActionButton label={`Request whitelist for ${name}`} onClick={() => onWhitelist(student)}>
+        <ActionButton
+          label="Whitelist"
+          description={`Request whitelist for ${name}`}
+          tone="positive"
+          showLabel={showLabels}
+          onClick={() => onWhitelist(student)}
+        >
           <Shield size={18} aria-hidden="true" />
         </ActionButton>
       )}

@@ -15,6 +15,10 @@ export default {
       // ---------------------------------------------------------------------
       fontFamily: {
         satoshi: ['Satoshi', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
+        // Officer role only: uppercase table column headers and form section
+        // legends. Condensed, so it survives a narrow header where Satoshi
+        // caps would wrap. Never for body copy.
+        khand: ['Khand', 'ui-sans-serif', 'system-ui', 'sans-serif'],
       },
       fontSize: {
         'spc-display': ['1.75rem', { lineHeight: '1.1', letterSpacing: '-0.03em' }],      // 28 — phone page title

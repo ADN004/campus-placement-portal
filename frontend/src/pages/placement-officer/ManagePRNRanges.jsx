@@ -62,6 +62,33 @@ export default function ManagePRNRanges() {
     }
   };
 
+  /**
+   * Clear the form and close whichever dialog was open.
+   *
+   * This existed before the redesign and I deleted it while moving the dialogs
+   * into prnRanges/, without noticing the three handlers that still call it.
+   * The result was invisible to the build and to a reference audit that only
+   * asked whether handlers were *called*, not whether what they call *exists*:
+   * every add and every edit saved correctly on the server, showed "added
+   * successfully", then threw ReferenceError on this line, hit the catch, and
+   * showed "Failed to add PRN range" on top of the success — with the dialog
+   * still open. The natural response is to press the button again, which
+   * creates a duplicate.
+   */
+  const resetForm = () => {
+    setFormData({
+      start_prn: '',
+      end_prn: '',
+      single_prn: '',
+      year: '',
+      description: '',
+      exceptions: '',
+    });
+    setEditingId(null);
+    setShowAddModal(false);
+    setShowAddSingleModal(false);
+  };
+
   const handleAdd = async (e) => {
     e.preventDefault();
 

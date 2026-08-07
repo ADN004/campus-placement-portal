@@ -15,10 +15,15 @@ on:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    # A healthy run takes ~2 minutes. During the GitHub Actions outage on
+    # 2026-08-06 two runs sat retrying for 14 and 15 minutes before giving up,
+    # against the default 360-minute ceiling. This caps a stuck run without
+    # being anywhere near a legitimate build.
+    timeout-minutes: 20
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Compute image tags
         id: meta
@@ -35,13 +40,13 @@ jobs:
           fi
 
       - name: Login to Docker Hub
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and push database image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: database/Dockerfile
@@ -51,7 +56,7 @@ jobs:
             ${{ secrets.DOCKERHUB_USERNAME }}/spc-database:${{ steps.meta.outputs.moving_tag }}
 
       - name: Build and push backend image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: backend/Dockerfile
@@ -61,7 +66,7 @@ jobs:
             ${{ secrets.DOCKERHUB_USERNAME }}/spc-backend:${{ steps.meta.outputs.moving_tag }}
 
       - name: Build and push frontend image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ./frontend
           file: frontend/Dockerfile

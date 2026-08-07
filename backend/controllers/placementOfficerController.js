@@ -365,7 +365,7 @@ export const getArchivedAcademicYears = async (req, res) => {
 
 export const getStudents = async (req, res) => {
   try {
-    const { status, cgpa_min, backlog, search, page = '1', limit = '100',
+    const { status, cgpa_min, cgpa_max, backlog, search, page = '1', limit = '100',
             dob_from, dob_to, height_min, height_max, weight_min, weight_max,
             has_driving_license, has_pan_card, has_aadhar_card, has_passport, districts,
             archived, academic_year } = req.query;
@@ -444,6 +444,15 @@ export const getStudents = async (req, res) => {
       paramCount++;
       queryText += ` AND s.programme_cgpa >= $${paramCount}`;
       params.push(cgpa_min);
+    }
+
+    // The Maximum CGPA box has always existed in the officer's filter panel, but
+    // its value was never sent and this endpoint never read it, so setting a
+    // maximum did nothing at all — a min+max range only ever applied the min.
+    if (cgpa_max) {
+      paramCount++;
+      queryText += ` AND s.programme_cgpa <= $${paramCount}`;
+      params.push(cgpa_max);
     }
 
     if (backlog !== undefined) {
@@ -1382,7 +1391,16 @@ export const exportStudents = async (req, res) => {
   try {
     const { format = 'excel', company_name, drive_date, include_signature, separate_colleges, use_short_names,
             dob_from, dob_to, height_min, height_max, weight_min, weight_max,
-            has_driving_license, has_pan_card, has_aadhar_card, has_passport, districts, ...filters } = req.query;
+            has_driving_license, has_pan_card, has_aadhar_card, has_passport, districts,
+            archived, academic_year, ...filters } = req.query;
+
+    // Match the list exactly. This query previously joined users but never
+    // filtered on is_active, so an export returned every student ever
+    // registered — including passed-out batches and accounts deactivated by a
+    // disabled PRN range — while the screen showed only the active ones. On a
+    // college whose batch has been archived that meant seeing 0 students and
+    // exporting several hundred.
+    const showArchived = archived === 'true' || archived === true;
 
     // Get officer's college
     const officerResult = await query(
@@ -1418,7 +1436,19 @@ export const exportStudents = async (req, res) => {
     let paramCount = 1;
 
     // Apply status filter
-    const { status, search, branch, cgpa_min, backlog } = filters;
+    const { status, search, branch, cgpa_min, cgpa_max, backlog } = filters;
+
+    // Same scoping rule the list uses: current students are active accounts,
+    // the archived view is the deactivated, year-stamped ones.
+    queryText += ` AND u.is_active = ${showArchived ? 'FALSE' : 'TRUE'}`;
+    if (showArchived) {
+      queryText += ` AND s.archived_academic_year IS NOT NULL`;
+      if (academic_year) {
+        paramCount++;
+        queryText += ` AND s.archived_academic_year = $${paramCount}`;
+        params.push(academic_year);
+      }
+    }
 
     if (status === 'pending') {
       queryText += ` AND s.registration_status = 'pending'`;
@@ -1449,6 +1479,12 @@ export const exportStudents = async (req, res) => {
       paramCount++;
       queryText += ` AND s.programme_cgpa >= $${paramCount}`;
       params.push(parseFloat(cgpa_min));
+    }
+
+    if (cgpa_max) {
+      paramCount++;
+      queryText += ` AND s.programme_cgpa <= $${paramCount}`;
+      params.push(parseFloat(cgpa_max));
     }
 
     // Apply backlog filter

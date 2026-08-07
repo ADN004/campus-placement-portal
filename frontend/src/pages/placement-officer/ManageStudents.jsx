@@ -315,6 +315,12 @@ export default function ManageStudents() {
         params.cgpa_min = advancedFilters.cgpaMin;
       }
 
+      // Was never sent, and neither endpoint read it, so the Maximum CGPA box
+      // did nothing: a min+max range silently applied only the min.
+      if (advancedFilters.cgpaMax) {
+        params.cgpa_max = advancedFilters.cgpaMax;
+      }
+
       if (advancedFilters.backlogCount !== '') {
         params.backlog = advancedFilters.backlogCount;
       }
@@ -845,6 +851,12 @@ export default function ManageStudents() {
         params.cgpa_min = advancedFilters.cgpaMin;
       }
 
+      // Was never sent, and neither endpoint read it, so the Maximum CGPA box
+      // did nothing: a min+max range silently applied only the min.
+      if (advancedFilters.cgpaMax) {
+        params.cgpa_max = advancedFilters.cgpaMax;
+      }
+
       if (advancedFilters.backlogCount !== '') {
         params.backlog = advancedFilters.backlogCount;
       }
@@ -870,6 +882,13 @@ export default function ManageStudents() {
       if (filterDocuments.aadhar_card) params.has_aadhar_card = filterDocuments.aadhar_card;
       if (filterDocuments.passport) params.has_passport = filterDocuments.passport;
       if (filterDistricts.length > 0) params.districts = filterDistricts.join(',');
+
+      // Without these the export ignores the archived view entirely and returns
+      // current students while the screen is showing a passed-out batch.
+      if (showArchived) {
+        params.archived = 'true';
+        if (archivedYear) params.academic_year = archivedYear;
+      }
 
       params.format = 'excel';
       params.use_short_names = useBranchShortNames;
@@ -909,7 +928,12 @@ export default function ManageStudents() {
         ...(searchQuery && { search: searchQuery }),
         ...(advancedFilters.branch && { branch: advancedFilters.branch }),
         ...(advancedFilters.cgpaMin && { cgpa_min: advancedFilters.cgpaMin }),
+        ...(advancedFilters.cgpaMax && { cgpa_max: advancedFilters.cgpaMax }),
         ...(advancedFilters.backlogCount !== '' && { backlog: advancedFilters.backlogCount }),
+        // Without these the export ignores the archived view entirely and
+        // returns current students while the screen shows a passed-out batch.
+        ...(showArchived && { archived: 'true' }),
+        ...(showArchived && archivedYear && { academic_year: archivedYear }),
         ...(advancedFilters.dobFrom && { dob_from: advancedFilters.dobFrom }),
         ...(advancedFilters.dobTo ? { dob_to: advancedFilters.dobTo } : (advancedFilters.dobFrom && { dob_to: new Date().toISOString().split('T')[0] })),
         ...(advancedFilters.heightMin && { height_min: advancedFilters.heightMin }),

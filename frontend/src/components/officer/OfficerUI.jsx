@@ -197,6 +197,15 @@ const ACTION_TONE = {
 export function ActionButton({
   label, description, tone = 'default', showLabel = false, onClick, children,
 }) {
+  // If it is coloured, it is labelled. The word exists to stop a mis-click on
+  // something consequential, so it goes with the colour: approve, reject,
+  // blacklist and whitelist get words, while view, email and correct stay
+  // icons. Labelling all of them made a row of four buttons wider than the
+  // Actions column, which wrapped them one per line and turned a 44px row into
+  // a 200px one — worse than the problem the labels were solving.
+  const consequential = tone === 'positive' || tone === 'danger';
+  const withLabel = showLabel && consequential;
+
   return (
     <button
       type="button"
@@ -204,11 +213,11 @@ export function ActionButton({
       aria-label={description || label}
       title={description || label}
       className={`inline-flex items-center justify-center gap-1.5 min-h-[44px] flex-shrink-0
-        rounded-spc-control transition-colors ${showLabel ? 'px-2.5' : 'w-11'}
+        rounded-spc-control transition-colors ${withLabel ? 'px-2.5' : 'w-11'}
         ${ACTION_TONE[tone] || ACTION_TONE.default}`}
     >
       {children}
-      {showLabel && <span className="text-spc-xs font-bold whitespace-nowrap">{label}</span>}
+      {withLabel && <span className="text-spc-xs font-bold whitespace-nowrap">{label}</span>}
     </button>
   );
 }

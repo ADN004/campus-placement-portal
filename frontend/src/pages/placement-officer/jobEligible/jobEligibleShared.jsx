@@ -267,7 +267,7 @@ export function FilterToggle({ open, onToggle, active, label }) {
 export function ApplicantActions({ student, showLabels = false, onView, onPlacement }) {
   const name = student.name || student.prn;
   return (
-    <div className="flex items-center gap-0.5 flex-wrap">
+    <div className="flex items-center gap-0.5 flex-nowrap">
       <ActionButton
         label="View"
         description={`View details for ${name}`}

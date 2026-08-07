@@ -207,7 +207,7 @@ export default function DesktopManageStudents(props) {
                         <Td><StatusMark status={student.registration_status} /></Td>
                         <Td><BlacklistMark isBlacklisted={student.is_blacklisted} /></Td>
                         <Td align="right" muted nowrap>{formatDate(student.created_at)}</Td>
-                        <td className="px-3 py-2">
+                        <td className="px-3 py-2 whitespace-nowrap">
                           <StudentActions student={student} showLabels {...actionHandlers} />
                         </td>
                       </tr>

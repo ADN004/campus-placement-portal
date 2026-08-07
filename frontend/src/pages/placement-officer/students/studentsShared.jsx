@@ -382,7 +382,7 @@ export function StudentActions({
   const name = student.name || student.student_name || student.prn;
 
   return (
-    <div className="flex items-center gap-0.5 flex-wrap">
+    <div className="flex items-center gap-0.5 flex-nowrap">
       {/* Review is available for EVERY status — approving or rejecting without
           seeing the details makes no sense. */}
       <ActionButton

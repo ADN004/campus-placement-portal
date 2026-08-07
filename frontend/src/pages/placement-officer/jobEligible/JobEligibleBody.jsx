@@ -4,13 +4,16 @@ import {
   Panel, PanelHeading, SectionLabel, SecondaryButton,
 } from '../../../components/officer/OfficerUI';
 import {
-  JobPicker, StatBlock, DrivePanel, JobSummary, BulkActionBar, FilterToggle,
+  StatBlock, DrivePanel, JobSummary, BulkActionBar, FilterToggle,
   ApplicantTable, ApplicantList,
 } from './jobEligibleShared';
 import AdditionalFilters from './AdditionalFilters';
 
 /**
  * Everything below the page heading, shared by the three presenters.
+ *
+ * The job picker used to sit at the top of this; it is now its own page, so
+ * this starts at the chosen job.
  *
  * The three devices differ in how many columns things get and whether the
  * applicant lists render as a table or a ruled list — not in what is on the
@@ -24,7 +27,6 @@ import AdditionalFilters from './AdditionalFilters';
 export default function JobEligibleBody({ layout, ...p }) {
   const isTable = layout === 'desktop';
   const statColumns = layout === 'desktop' ? 7 : layout === 'tablet' ? 4 : 2;
-  const jobColumns = layout === 'desktop' ? 3 : layout === 'tablet' ? 2 : 1;
   const filterColumns = layout === 'desktop' ? 3 : layout === 'tablet' ? 2 : 1;
 
   const ApplicantView = isTable ? ApplicantTable : ApplicantList;
@@ -37,17 +39,6 @@ export default function JobEligibleBody({ layout, ...p }) {
 
   return (
     <>
-      <section className="mb-5">
-        <SectionLabel>Select a job</SectionLabel>
-        <JobPicker
-          jobs={p.jobs}
-          selectedJob={p.selectedJob}
-          onSelect={p.onSelectJob}
-          onDownloadJobPdf={p.onDownloadJobPdf}
-          columns={jobColumns}
-        />
-      </section>
-
       {p.selectedJob && (
         <>
           {p.placementStats && (

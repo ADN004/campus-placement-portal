@@ -38,6 +38,7 @@ const CreateJobRequest = lazy(() => import('./pages/placement-officer/CreateJobR
 const MyJobRequests = lazy(() => import('./pages/placement-officer/MyJobRequests'));
 const PlacementOfficerProfile = lazy(() => import('./pages/placement-officer/Profile'));
 const JobEligibleStudents = lazy(() => import('./pages/placement-officer/JobEligibleStudents'));
+const JobApplicants = lazy(() => import('./pages/placement-officer/JobApplicants'));
 const PlacementOfficerPRNRanges = lazy(() => import('./pages/placement-officer/ManagePRNRanges'));
 const PlacementOfficerManageCollegeBranches = lazy(() => import('./pages/placement-officer/ManageCollegeBranches'));
 const PlacementOfficerPlacementPoster = lazy(() => import('./pages/placement-officer/PlacementPoster'));
@@ -113,6 +114,7 @@ function App() {
                 <Route path="/placement-officer/create-job-request" element={<CreateJobRequest />} />
                 <Route path="/placement-officer/my-job-requests" element={<MyJobRequests />} />
                 <Route path="/placement-officer/job-eligible-students" element={<JobEligibleStudents />} />
+                <Route path="/placement-officer/job-eligible-students/:jobId" element={<JobApplicants />} />
                 <Route path="/placement-officer/placement-poster" element={<PlacementOfficerPlacementPoster />} />
                 <Route path="/placement-officer/college-branches" element={<PlacementOfficerManageCollegeBranches />} />
                 <Route path="/placement-officer/profile" element={<PlacementOfficerProfile />} />

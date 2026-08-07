@@ -309,7 +309,7 @@ export default function PlacementOfficerProfile() {
       )}
 
       {showChangePassword && (
-        <ChangePassword onClose={() => setShowChangePassword(false)} />
+        <ChangePassword onClose={() => setShowChangePassword(false)} variant="officer" />
       )}
     </>
   );

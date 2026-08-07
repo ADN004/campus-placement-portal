@@ -732,6 +732,7 @@ export default function JobApplicants() {
 
   const refreshControl = (
     <AutoRefreshIndicator
+      variant="officer"
       lastRefreshed={lastRefreshed}
       autoRefreshEnabled={autoRefreshEnabled}
       onToggle={toggleAutoRefresh}

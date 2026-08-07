@@ -95,6 +95,7 @@ const StudentDetailModal = ({ isOpen, onClose, studentId, applicationId, userRol
                 studentId={studentId}
                 studentName={student.name || student.prn}
                 api={userRole === 'placement-officer' ? placementOfficerAPI : superAdminAPI}
+                variant={variant}
               />
             )}
             <button

@@ -4,6 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { Lock, Eye, EyeOff, Check, X, AlertCircle, Shield } from 'lucide-react';
 import Modal from './Modal';
+import { OFFICER_OVERLAY, officerPanel, OfficerDialogHeader } from './officer/OfficerDialog';
+import { FIELD_CLASS } from './officer/OfficerUI';
 
 /**
  * `variant="spc"` opts into the student design system. It defaults to the
@@ -12,6 +14,13 @@ import Modal from './Modal';
  */
 export default function ChangePassword({ onClose, variant = 'legacy' }) {
   const spc = variant === 'spc';
+  const officer = variant === 'officer';
+  // Field and button classes, chosen once. The non-officer strings below are
+  // the originals — global `.label` / `.input` / `.btn` — untouched.
+  const labelCls = officer
+    ? 'block text-spc-xs font-bold uppercase tracking-[0.11em] text-spc-muted mb-1.5 flex items-center'
+    : 'label flex items-center';
+  const inputCls = officer ? `${FIELD_CLASS} pr-10` : 'input pr-10';
   const { user, checkAuth } = useAuth();
   // Self-service reset covers students and super admins only — placement
   // officers sign in by phone and are reset by the super admin instead.
@@ -200,8 +209,28 @@ export default function ChangePassword({ onClose, variant = 'legacy' }) {
   };
 
   // Validation requirement component
+  /*
+   * The strength meter keeps its red-to-green scale for the officer, because
+   * that IS colour carrying meaning and the direction reserves colour for
+   * exactly that. What changes is that it reads the role palette instead of raw
+   * Tailwind, so it matches the reds and greens the rest of the officer role
+   * already uses rather than introducing a second set.
+   */
+  const meterFill = officer
+    ? (passwordStrength.level < 40 ? 'bg-spc-bad'
+      : passwordStrength.level < 80 ? 'bg-spc-warn' : 'bg-spc-ok')
+    : passwordStrength.color;
+  const meterText = officer
+    ? (passwordStrength.level < 40 ? 'text-spc-bad'
+      : passwordStrength.level < 80 ? 'text-spc-warn' : 'text-spc-ok')
+    : passwordStrength.textColor;
+
   const ValidationItem = ({ met, text }) => (
-    <div className={`flex items-center space-x-2 text-sm transition-all duration-200 ${met ? 'text-green-600' : 'text-gray-500'}`}>
+    <div className={`flex items-center space-x-2 transition-all duration-200 ${
+      officer
+        ? (met ? 'text-spc-xs text-spc-ok' : 'text-spc-xs text-spc-muted')
+        : (met ? 'text-sm text-green-600' : 'text-sm text-gray-500')
+    }`}>
       {met ? (
         <Check size={16} className="flex-shrink-0" />
       ) : (
@@ -215,9 +244,21 @@ export default function ChangePassword({ onClose, variant = 'legacy' }) {
     <Modal
       onClose={onClose}
       labelledBy="change-password-title"
-      overlayClassName="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-      panelClassName="bg-white rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto overscroll-contain"
+      overlayClassName={officer
+        ? OFFICER_OVERLAY
+        : "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"}
+      panelClassName={officer
+        ? officerPanel('md', { scroll: true })
+        : "bg-white rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto overscroll-contain"}
     >
+        {officer ? (
+          <OfficerDialogHeader
+            onClose={onClose}
+            id="change-password-title"
+            title="Change password"
+            subtitle="You will stay signed in on this device."
+          />
+        ) : (
         <div className={`px-6 py-4 sticky top-0 z-10 rounded-t-2xl ${
           spc
             ? 'border-b border-spc-line bg-spc-surface'
@@ -231,12 +272,13 @@ export default function ChangePassword({ onClose, variant = 'legacy' }) {
             Create a strong password to keep your account secure
           </p>
         </div>
+        )}
 
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
           {/* Current Password */}
           <div>
-            <label htmlFor="currentPassword" className="label flex items-center">
-              <Lock size={16} className="mr-1.5 text-gray-500" />
+            <label htmlFor="currentPassword" className={labelCls}>
+              <Lock size={16} className={officer ? 'mr-1.5 text-spc-muted' : 'mr-1.5 text-gray-500'} />
               Current Password <span className="text-red-500 ml-1">*</span>
             </label>
             <div className="relative">
@@ -246,14 +288,16 @@ export default function ChangePassword({ onClose, variant = 'legacy' }) {
                 name="currentPassword"
                 value={formData.currentPassword}
                 onChange={handleChange}
-                className="input pr-10"
+                className={inputCls}
                 placeholder="Enter current password"
                 required
               />
               <button
                 type="button"
                 onClick={() => togglePasswordVisibility('current')}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
+                className={officer
+                  ? 'absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-10 h-10 rounded-spc-control text-spc-muted hover:text-spc-ink hover:bg-spc-surface-2 transition-colors'
+                  : 'absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors'}
               >
                 {showPasswords.current ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
@@ -266,7 +310,9 @@ export default function ChangePassword({ onClose, variant = 'legacy' }) {
             <div className="mt-2">
               {canSelfReset ? (
                 resetSent ? (
-                  <div className="flex items-start gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg p-3">
+                  <div className={officer
+                    ? 'flex items-start gap-2 text-spc-xs text-spc-body bg-spc-ok-bg border border-spc-ok/40 rounded-spc-control p-3'
+                    : 'flex items-start gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg p-3'}>
                     <Check size={16} className="flex-shrink-0 mt-0.5" />
                     <span>
                       Reset link sent to <span className="font-medium">{user.email}</span>. It expires in
@@ -288,7 +334,7 @@ export default function ChangePassword({ onClose, variant = 'legacy' }) {
                   </button>
                 )
               ) : (
-                <p className="text-sm text-gray-500">
+                <p className={officer ? 'text-spc-xs text-spc-body' : 'text-sm text-gray-500'}>
                   Forgot your current password? Contact your Super Admin to reset it.
                 </p>
               )}
@@ -297,8 +343,8 @@ export default function ChangePassword({ onClose, variant = 'legacy' }) {
 
           {/* New Password */}
           <div>
-            <label htmlFor="newPassword" className="label flex items-center">
-              <Lock size={16} className="mr-1.5 text-gray-500" />
+            <label htmlFor="newPassword" className={labelCls}>
+              <Lock size={16} className={officer ? 'mr-1.5 text-spc-muted' : 'mr-1.5 text-gray-500'} />
               New Password <span className="text-red-500 ml-1">*</span>
             </label>
             <div className="relative">
@@ -308,7 +354,7 @@ export default function ChangePassword({ onClose, variant = 'legacy' }) {
                 name="newPassword"
                 value={formData.newPassword}
                 onChange={handleChange}
-                className={`input pr-10 ${
+                className={`${inputCls} ${
                   formData.newPassword && passwordStrength.level < 60
                     ? 'border-orange-300 focus:border-orange-500 focus:ring-orange-500'
                     : formData.newPassword && passwordStrength.level >= 60
@@ -321,7 +367,9 @@ export default function ChangePassword({ onClose, variant = 'legacy' }) {
               <button
                 type="button"
                 onClick={() => togglePasswordVisibility('new')}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
+                className={officer
+                  ? 'absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-10 h-10 rounded-spc-control text-spc-muted hover:text-spc-ink hover:bg-spc-surface-2 transition-colors'
+                  : 'absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors'}
               >
                 {showPasswords.new ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
@@ -331,14 +379,14 @@ export default function ChangePassword({ onClose, variant = 'legacy' }) {
             {formData.newPassword && (
               <div className="mt-3">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-medium text-gray-600">Password Strength:</span>
-                  <span className={`text-xs font-bold ${passwordStrength.textColor}`}>
+                  <span className={officer ? 'text-xs font-bold uppercase tracking-[0.11em] text-spc-muted' : 'text-xs font-medium text-gray-600'}>Password Strength:</span>
+                  <span className={`text-xs font-bold ${meterText}`}>
                     {passwordStrength.text}
                   </span>
                 </div>
-                <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div className={officer ? 'h-1.5 bg-spc-surface-3 rounded-spc-badge overflow-hidden' : 'h-2 bg-gray-200 rounded-full overflow-hidden'}>
                   <div
-                    className={`h-full ${passwordStrength.color} transition-all duration-300 ease-out`}
+                    className={`h-full ${meterFill} transition-all duration-300 ease-out`}
                     style={{ width: `${passwordStrength.level}%` }}
                   ></div>
                 </div>
@@ -347,10 +395,12 @@ export default function ChangePassword({ onClose, variant = 'legacy' }) {
 
             {/* Password Requirements */}
             {formData.newPassword && (
-              <div className={`mt-4 p-4 rounded-lg border ${passwordStrength.bgColor} ${passwordStrength.borderColor}`}>
+              <div className={officer
+                ? 'mt-4 p-4 rounded-spc-control border border-spc-line-strong bg-spc-surface-2'
+                : `mt-4 p-4 rounded-lg border ${passwordStrength.bgColor} ${passwordStrength.borderColor}`}>
                 <div className="flex items-center mb-3">
-                  <AlertCircle size={16} className={`mr-2 ${passwordStrength.textColor}`} />
-                  <span className="text-sm font-semibold text-gray-700">Password Requirements</span>
+                  <AlertCircle size={16} className={`mr-2 ${meterText}`} />
+                  <span className={officer ? 'text-spc-xs font-bold uppercase tracking-[0.11em] text-spc-muted' : 'text-sm font-semibold text-gray-700'}>Password Requirements</span>
                 </div>
                 <div className="grid grid-cols-1 gap-2">
                   <ValidationItem met={passwordValidation.minLength} text="At least 8 characters" />
@@ -365,8 +415,8 @@ export default function ChangePassword({ onClose, variant = 'legacy' }) {
 
           {/* Confirm Password */}
           <div>
-            <label htmlFor="confirmPassword" className="label flex items-center">
-              <Lock size={16} className="mr-1.5 text-gray-500" />
+            <label htmlFor="confirmPassword" className={labelCls}>
+              <Lock size={16} className={officer ? 'mr-1.5 text-spc-muted' : 'mr-1.5 text-gray-500'} />
               Confirm New Password <span className="text-red-500 ml-1">*</span>
             </label>
             <div className="relative">
@@ -376,7 +426,7 @@ export default function ChangePassword({ onClose, variant = 'legacy' }) {
                 name="confirmPassword"
                 value={formData.confirmPassword}
                 onChange={handleChange}
-                className={`input pr-10 ${
+                className={`${inputCls} ${
                   passwordsMatch === true
                     ? 'border-green-300 focus:border-green-500 focus:ring-green-500'
                     : passwordsMatch === false
@@ -389,7 +439,9 @@ export default function ChangePassword({ onClose, variant = 'legacy' }) {
               <button
                 type="button"
                 onClick={() => togglePasswordVisibility('confirm')}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
+                className={officer
+                  ? 'absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-10 h-10 rounded-spc-control text-spc-muted hover:text-spc-ink hover:bg-spc-surface-2 transition-colors'
+                  : 'absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors'}
               >
                 {showPasswords.confirm ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
@@ -428,7 +480,9 @@ export default function ChangePassword({ onClose, variant = 'legacy' }) {
               type="submit"
               disabled={loading}
               className={`flex-1 flex items-center justify-center space-x-2 ${
-                spc
+                officer
+                  ? 'min-h-[44px] px-4 rounded-spc-control bg-spc-accent text-spc-on-accent text-spc-xs font-bold hover:opacity-95 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed'
+                  : spc
                   ? 'min-h-[48px] px-5 rounded-spc-sm bg-spc-teal text-spc-on-teal text-spc-sm font-bold hover:opacity-95 transition-opacity disabled:opacity-50'
                   : 'btn btn-primary'
               }`}
@@ -449,7 +503,9 @@ export default function ChangePassword({ onClose, variant = 'legacy' }) {
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="btn btn-secondary flex-1"
+              className={officer
+                ? 'flex-1 inline-flex items-center justify-center min-h-[44px] px-4 rounded-spc-control bg-spc-surface-2 border border-spc-control text-spc-ink text-spc-xs font-bold hover:bg-spc-surface-3 transition-colors disabled:opacity-50'
+                : 'btn btn-secondary flex-1'}
             >
               Cancel
             </button>

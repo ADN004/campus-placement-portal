@@ -628,25 +628,10 @@ export default function ManageStudents() {
     navigate(`?status=${tab}`, { replace: true });
   };
 
-  const getStatusBadge = (status) => {
-    const styles = {
-      pending: 'bg-yellow-100 text-yellow-800 border-2 border-yellow-200',
-      approved: 'bg-green-100 text-green-800 border-2 border-green-200',
-      rejected: 'bg-red-100 text-red-800 border-2 border-red-200',
-    };
-    return (
-      <span className={`w-fit text-sm font-bold px-4 py-2 rounded-xl flex items-center justify-center ${styles[status] || 'bg-gray-100 text-gray-800 border-2 border-gray-200'}`}>
-        {status.charAt(0).toUpperCase() + status.slice(1)}
-      </span>
-    );
-  };
-
-  const getBlacklistBadge = (isBlacklisted) => {
-    if (isBlacklisted) {
-      return <span className="w-fit bg-red-900 text-white text-sm font-bold px-4 py-2 rounded-xl border-2 border-red-800 flex items-center justify-center">Blacklisted</span>;
-    }
-    return <span className="w-fit bg-green-100 text-green-800 text-sm font-bold px-4 py-2 rounded-xl border-2 border-green-200 flex items-center justify-center">Active</span>;
-  };
+  // getStatusBadge and getBlacklistBadge lived here and were left behind by the
+  // rewrite: StatusMark and BlacklistMark in students/studentsShared took over,
+  // and neither was called again. They were the last old-theme markup in the
+  // officer role — rounded-xl pills in bg-green-100 / bg-red-900.
 
   const handleAdvancedFilterChange = (field, value) => {
     setAdvancedFilters((prev) => ({ ...prev, [field]: value }));

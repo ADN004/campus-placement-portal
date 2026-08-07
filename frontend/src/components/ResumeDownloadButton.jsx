@@ -12,7 +12,7 @@ import toast from 'react-hot-toast';
  * @param {string} studentName - Student name for filename
  * @param {object} api - API object (placementOfficerAPI or superAdminAPI)
  */
-export default function ResumeDownloadButton({ studentId, studentName, api }) {
+export default function ResumeDownloadButton({ studentId, studentName, api, variant }) {
   const [downloading, setDownloading] = useState(false);
 
   const handleDownload = async () => {
@@ -44,7 +44,13 @@ export default function ResumeDownloadButton({ studentId, studentName, api }) {
     <button
       onClick={handleDownload}
       disabled={downloading}
-      className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all shadow-md hover:shadow-lg disabled:opacity-50 text-sm font-medium"
+      /* This sits in the header of the officer's student dialog, so it needs an
+         officer face; every other caller keeps the original string verbatim. */
+      className={
+        variant === 'officer'
+          ? 'inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-spc-control bg-spc-surface-2 border border-spc-control text-spc-ink text-spc-xs font-bold hover:bg-spc-surface-3 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap'
+          : 'flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all shadow-md hover:shadow-lg disabled:opacity-50 text-sm font-medium'
+      }
     >
       {downloading ? (
         <>

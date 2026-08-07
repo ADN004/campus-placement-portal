@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Zap, Trash2, Plus } from 'lucide-react';
 import { placementOfficerAPI, commonAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import useSkeletonLoading from '../../hooks/useSkeletonLoading';
@@ -456,23 +457,10 @@ export default function CreateJobRequest() {
     });
   };
 
-  const getStatusBadge = (status, jobDeleted = false) => {
-    if ((status === 'approved' || status === 'auto_approved') && jobDeleted) {
-      return (
-        <span className="w-fit bg-gray-100 text-gray-800 font-bold px-4 py-2 rounded-xl border-2 border-gray-200 flex items-center justify-center space-x-1">
-          <span>Job Deleted</span>
-        </span>
-      );
-    }
-
-    const badges = {
-      pending: <span className="w-fit bg-yellow-100 text-yellow-800 font-bold px-4 py-2 rounded-xl border-2 border-yellow-200 flex items-center justify-center space-x-1"><Clock size={16} /><span>Pending Approval</span></span>,
-      approved: <span className="w-fit bg-green-100 text-green-800 font-bold px-4 py-2 rounded-xl border-2 border-green-200 flex items-center justify-center space-x-1"><CheckCircle size={16} /><span>Approved</span></span>,
-      auto_approved: <span className="w-fit bg-emerald-100 text-emerald-800 font-bold px-4 py-2 rounded-xl border-2 border-emerald-200 flex items-center justify-center space-x-1"><Zap size={16} /><span>Auto-Approved</span></span>,
-      rejected: <span className="w-fit bg-red-100 text-red-800 font-bold px-4 py-2 rounded-xl border-2 border-red-200 flex items-center justify-center space-x-1"><XCircle size={16} /><span>Rejected</span></span>,
-    };
-    return badges[status] || <span className="w-fit bg-gray-100 text-gray-800 font-bold px-4 py-2 rounded-xl border-2 border-gray-200 flex items-center justify-center">{status}</span>;
-  };
+  // getStatusBadge lived here and was left behind by the rewrite: it was never
+  // called again once RequestStatus in jobRequest/jobRequestShared took over,
+  // and it referenced four icons this file no longer imports. Removed, so the
+  // only icon references left are the three the live code actually uses.
 
   const deviceType = useDeviceType();
 

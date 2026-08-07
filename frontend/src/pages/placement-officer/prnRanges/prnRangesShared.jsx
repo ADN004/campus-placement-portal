@@ -1,4 +1,4 @@
-import { Eye, Edit2, Trash2, ToggleLeft, ToggleRight, Lock } from 'lucide-react';
+import { Eye, Edit2, Trash2, Ban, CheckCircle, Lock } from 'lucide-react';
 import {
   Panel, PanelHeading, ActionButton, EmptyState,
 } from '../../../components/officer/OfficerUI';
@@ -102,6 +102,19 @@ export function RangeActions({ range, locked, showLabels, onViewStudents, onTogg
         </span>
       ) : (
         <>
+          {/*
+            An action, so it carries an action's icon.
+            This was a toggle switch glyph — ToggleRight when the range was
+            enabled, ToggleLeft when it was not. A switch is a *state* control:
+            drawn in the "on" position it says "this is currently on", which is
+            what the Status column two cells to the left already says, and it
+            sat on a button whose entire job is to turn that off, in red. It did
+            not behave like a switch either — clicking it opens a confirmation
+            dialog rather than flipping anything.
+
+            State belongs in the Status column and nowhere else. Here: a slashed
+            circle for "stop this", a tick for "turn this back on".
+          */}
           <ActionButton
             label={enabled ? 'Disable' : 'Enable'}
             description={enabled ? `Disable range ${label}` : `Enable range ${label}`}
@@ -110,8 +123,8 @@ export function RangeActions({ range, locked, showLabels, onViewStudents, onTogg
             onClick={() => onToggle(range)}
           >
             {enabled
-              ? <ToggleRight size={18} aria-hidden="true" />
-              : <ToggleLeft size={18} aria-hidden="true" />}
+              ? <Ban size={18} aria-hidden="true" />
+              : <CheckCircle size={18} aria-hidden="true" />}
           </ActionButton>
           <ActionButton
             label="Edit"

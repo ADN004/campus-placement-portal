@@ -26,12 +26,21 @@ import useDeviceType from '../../hooks/useDeviceType';
 // Every class here is a whole literal string. Tailwind scans the source as
 // text, so a class assembled at runtime (`hover:${t.text}`) is never generated.
 const TONES = {
+  /*
+   * Named `teal` because that is what it is in the student role, and every
+   * caller passes that name or nothing. The values are the role-neutral accent
+   * aliases rather than the teal ones, which changes nothing for students —
+   * `--spc-accent` is defined as the teal at `:root` — but lets the same shell
+   * come out brass inside `.spc-officer`. Officers open this from their student
+   * list, and a teal dialog in the middle of the officer role is the one place
+   * the two palettes used to collide.
+   */
   teal: {
-    band: 'bg-spc-teal',
-    text: 'text-spc-on-teal',
-    dim: 'text-spc-on-teal-dim',
-    chip: 'bg-spc-on-teal/15',
-    close: 'text-spc-on-teal-dim hover:text-spc-on-teal hover:bg-spc-on-teal/15',
+    band: 'bg-spc-accent',
+    text: 'text-spc-on-accent',
+    dim: 'text-spc-on-accent-dim',
+    chip: 'bg-spc-on-accent/15',
+    close: 'text-spc-on-accent-dim hover:text-spc-on-accent hover:bg-spc-on-accent/15',
   },
   bad: {
     band: 'bg-spc-bad',
@@ -131,7 +140,7 @@ export default function PromptShell({
               onClick={primary.onClick}
               disabled={primary.disabled}
               className={`inline-flex items-center justify-center gap-2 min-h-[48px] px-5 rounded-spc-sm
-                bg-spc-teal text-spc-on-teal text-spc-sm font-bold transition-opacity
+                bg-spc-accent text-spc-on-accent text-spc-sm font-bold transition-opacity
                 hover:opacity-95 disabled:opacity-45 disabled:cursor-not-allowed
                 ${isPhone ? 'w-full' : 'flex-1'} ${isPhone ? '' : 'order-2'}`}
             >

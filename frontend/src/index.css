@@ -599,6 +599,7 @@ input[type='password']::-ms-clear {
   --spc-accent: 15 90 86;          /* student: teal */
   --spc-accent-soft: 221 237 234;  /* student: teal-soft */
   --spc-on-accent: 255 255 255;
+  --spc-on-accent-dim: 182 214 209; /* student: on-teal-dim, 5.17:1 on teal */
   --spc-selected: 240 237 231;
 }
 
@@ -672,6 +673,10 @@ input[type='password']::-ms-clear {
   --spc-accent:      138 101 22;   /* #8A6516  5.31:1 on surface, 4.83:1 on ground */
   --spc-accent-soft: 247 241 226;  /* #F7F1E2 */
   --spc-on-accent:   255 255 255;  /* 5.31:1 on accent */
+  /* Brass leaves little headroom under white (5.31:1), so the dim-on-accent
+     tint is the warmest value that still clears 4.5:1 against it. Measured,
+     not picked by eye. */
+  --spc-on-accent-dim: 250 236 196; /* #FAECC4  4.52:1 on accent */
   --spc-selected:    247 241 226;  /* selected row wash; ink stays 16.39:1 */
 
   /* status values are inherited unchanged from :root — all pass on every

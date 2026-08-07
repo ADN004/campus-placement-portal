@@ -373,7 +373,7 @@ export function ApplicantTable({
                 <Td align="right">
                   <BacklogFigure count={student.backlog_count} />
                 </Td>
-                <Td><StatusBadge status={student.application_status} /></Td>
+                <Td><StatusBadge status={student.application_status} variant="officer" /></Td>
                 {showPlacedAt && <Td muted>{student.placed_company || '–'}</Td>}
                 <td className="px-3 py-2">
                   <ApplicantActions student={student} showLabels={showLabels} onView={onView} onPlacement={onPlacement} />
@@ -431,7 +431,7 @@ export function ApplicantList({
                   <span className="text-spc-xs font-bold text-spc-ink tabular-nums truncate">
                     {student.prn}
                   </span>
-                  <StatusBadge status={student.application_status} />
+                  <StatusBadge status={student.application_status} variant="officer" />
                 </div>
 
                 <p className="text-spc-sm font-bold text-spc-ink mt-0.5 break-words">

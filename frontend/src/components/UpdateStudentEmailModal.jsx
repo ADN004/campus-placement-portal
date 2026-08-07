@@ -95,7 +95,7 @@ export default function UpdateStudentEmailModal({
             disabled={submitting}
             className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm
               border border-spc-control outline-none transition-colors
-              focus:border-spc-teal focus:ring-2 focus:ring-spc-teal/25 disabled:opacity-60"
+              focus:border-spc-accent focus:ring-2 focus:ring-spc-accent/25 disabled:opacity-60"
           />
           <GoogleEmailButton
             clientId={portalMode.googleClientId}

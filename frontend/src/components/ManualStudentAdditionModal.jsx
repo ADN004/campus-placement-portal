@@ -2,14 +2,27 @@ import React, { useState, useEffect } from 'react';
 import { X, User, AlertTriangle, CheckCircle, Building2, Briefcase, MapPin, Calendar, DollarSign, FileText } from 'lucide-react';
 import Modal from './Modal';
 import { toast } from 'react-hot-toast';
+import {
+  OFFICER_OVERLAY, officerPanel, OfficerDialogHeader, OfficerDialogFooter,
+} from './officer/OfficerDialog';
+import {
+  PrimaryButton, SecondaryButton, PositiveButton, FieldLabel, FIELD_CLASS,
+} from './officer/OfficerUI';
 
+/**
+ * Add a student who was selected at the drive but never applied on the portal.
+ *
+ * `variant="officer"` renders the Register treatment; every other caller keeps
+ * the original markup with its class strings unchanged.
+ */
 const ManualStudentAdditionModal = ({
   isOpen,
   onClose,
   job,
   onSuccess,
   api, // Pass either superAdminAPI or placementOfficerAPI
-  userRole = 'placement-officer' // 'placement-officer' or 'super-admin'
+  userRole = 'placement-officer', // 'placement-officer' or 'super-admin'
+  variant,
 }) => {
   const [step, setStep] = useState(1); // 1: Enter PRN, 2: Confirm & Fill Details
   const [prn, setPrn] = useState('');
@@ -44,11 +57,30 @@ const ManualStudentAdditionModal = ({
     }
   }, [isOpen, job]);
 
-  const handleValidate = async () => {
+  /**
+   * `overrideCollegeId` exists because of a stale closure.
+   *
+   * handleCollegeSelect used to call setCollegeId(id) and then handleValidate()
+   * on the next line. State updates are not applied synchronously, so
+   * handleValidate still read the previous collegeId — null — and re-sent the
+   * same request without a college. The API answered with the same
+   * disambiguation list, so picking a college appeared to do nothing and the
+   * Super Admin could never resolve a duplicate PRN. Passing the id through
+   * skips the round trip through state entirely.
+   *
+   * The type guard matters: this is also used directly as a click handler in
+   * the default markup, where the first argument is a MouseEvent.
+   */
+  const handleValidate = async (overrideCollegeId) => {
     if (!prn.trim()) {
       toast.error('Please enter a student PRN');
       return;
     }
+
+    const effectiveCollegeId =
+      typeof overrideCollegeId === 'number' || typeof overrideCollegeId === 'string'
+        ? overrideCollegeId
+        : collegeId;
 
     try {
       setValidating(true);
@@ -58,8 +90,8 @@ const ManualStudentAdditionModal = ({
       };
 
       // Super admin can specify college_id if known
-      if (userRole === 'super-admin' && collegeId) {
-        payload.college_id = collegeId;
+      if (userRole === 'super-admin' && effectiveCollegeId) {
+        payload.college_id = effectiveCollegeId;
       }
 
       const response = await api.validateStudentForManualAddition(payload);
@@ -98,7 +130,7 @@ const ManualStudentAdditionModal = ({
   const handleCollegeSelect = (selectedCollegeId) => {
     setCollegeId(selectedCollegeId);
     setValidationResult(null);
-    handleValidate();
+    handleValidate(selectedCollegeId);
   };
 
   const handleSubmit = async () => {
@@ -141,6 +173,253 @@ const ManualStudentAdditionModal = ({
   };
 
   if (!isOpen) return null;
+
+  if (variant === 'officer') {
+    const warnings = validationResult?.warnings || [];
+    const blocked =
+      validationResult && !validationResult.can_add && validationResult.type !== 'disambiguation';
+    const set = (key) => (e) => setFormData({ ...formData, [key]: e.target.value });
+
+    return (
+      <Modal
+        onClose={onClose}
+        labelledBy="manual-add-title"
+        overlayClassName={OFFICER_OVERLAY}
+        panelClassName={officerPanel('lg', { scroll: true })}
+      >
+        <OfficerDialogHeader
+          id="manual-add-title"
+          title="Add a student by hand"
+          subtitle={`${job.company_name}${job.job_role ? ` · ${job.job_role}` : ''}`}
+        />
+
+        <div className="flex-1 overflow-y-auto spc-scroll-contain px-5 py-4">
+          {step === 1 ? (
+            <div className="space-y-4">
+              <p className="text-spc-xs text-spc-body leading-snug">
+                For a student who did not apply through the portal but was selected during the
+                drive. Enter their PRN and we will check they exist and are allowed to be added.
+              </p>
+
+              <div>
+                <FieldLabel htmlFor="manual-add-prn">Student PRN</FieldLabel>
+                <input
+                  id="manual-add-prn"
+                  type="text"
+                  value={prn}
+                  onChange={(e) => setPrn(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleValidate();
+                    }
+                  }}
+                  placeholder="e.g. 2301080428"
+                  className={FIELD_CLASS}
+                  disabled={validating}
+                />
+              </div>
+
+              {validationResult?.type === 'disambiguation' && (
+                <div className="rounded-spc-panel border border-spc-warn/40 bg-spc-warn-bg p-4">
+                  <p className="text-spc-xs font-bold text-spc-ink">
+                    More than one student has this PRN
+                  </p>
+                  <p className="text-spc-xs text-spc-body mt-1 mb-3 leading-snug">
+                    Pick the college the right one belongs to.
+                  </p>
+                  <ul className="space-y-2">
+                    {validationResult.students.map((student) => (
+                      <li key={student.id}>
+                        <button
+                          type="button"
+                          onClick={() => handleCollegeSelect(student.college_id)}
+                          className="w-full text-left px-3 py-3 min-h-[48px] rounded-spc-control
+                            bg-spc-surface border border-spc-control hover:bg-spc-surface-2 transition-colors"
+                        >
+                          <span className="block text-spc-xs font-bold text-spc-ink">
+                            {student.name}
+                          </span>
+                          <span className="block text-xs text-spc-muted mt-0.5">
+                            {student.college_name} ({student.college_code}) — {student.branch}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {blocked && (
+                <div className="rounded-spc-panel border border-spc-bad/40 bg-spc-bad-bg p-4">
+                  <p className="text-spc-xs font-bold text-spc-ink">
+                    This student cannot be added
+                  </p>
+                  <p className="text-spc-xs text-spc-body mt-1 leading-snug">
+                    They are blacklisted, which blocks them from every job. The Super Admin has to
+                    lift that before they can be added here.
+                  </p>
+                  {warnings.length > 0 && (
+                    <ul className="mt-2 space-y-1">
+                      {warnings.map((warning, idx) => (
+                        <li key={idx} className="text-spc-xs text-spc-body">
+                          {warning}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+
+              {validationResult?.can_add && warnings.length > 0 && (
+                <div className="rounded-spc-panel border border-spc-warn/40 bg-spc-warn-bg p-4">
+                  <p className="text-spc-xs font-bold text-spc-ink">
+                    Worth knowing before you continue
+                  </p>
+                  <p className="text-spc-xs text-spc-body mt-1 mb-2 leading-snug">
+                    None of these stop you adding the student.
+                  </p>
+                  <ul className="space-y-1">
+                    {warnings.map((warning, idx) => (
+                      <li key={idx} className="text-spc-xs text-spc-body">
+                        {warning}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-5">
+              <div>
+                <h3 className="font-khand font-medium uppercase tracking-[0.06em] text-spc-sm text-spc-ink mb-2">
+                  Who you are adding
+                </h3>
+                <dl className="grid grid-cols-2 gap-x-4">
+                  {[
+                    ['Name', studentData.name],
+                    ['PRN', studentData.prn],
+                    ['Branch', studentData.branch],
+                    ['CGPA', studentData.cgpa],
+                    ...(userRole === 'super-admin' ? [['College', studentData.college_name]] : []),
+                  ].map(([label, value]) => (
+                    <div key={label} className="py-2 border-b border-spc-line">
+                      <dt className="text-spc-xs font-bold uppercase tracking-[0.11em] text-spc-muted">
+                        {label}
+                      </dt>
+                      <dd className="text-spc-sm text-spc-ink mt-0.5 break-words">{value || '—'}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+
+              {warnings.length > 0 && (
+                <div className="rounded-spc-panel border border-spc-warn/40 bg-spc-warn-bg p-4">
+                  <p className="text-spc-xs font-bold text-spc-ink">Worth knowing</p>
+                  <ul className="mt-1 space-y-1">
+                    {warnings.map((warning, idx) => (
+                      <li key={idx} className="text-spc-xs text-spc-body">
+                        {warning}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <div>
+                <h3 className="font-khand font-medium uppercase tracking-[0.06em] text-spc-sm text-spc-ink mb-3">
+                  Placement details
+                </h3>
+                <div className="space-y-4">
+                  <div>
+                    <FieldLabel htmlFor="manual-add-package">Package (LPA)</FieldLabel>
+                    <input
+                      id="manual-add-package"
+                      type="number"
+                      step="0.1"
+                      value={formData.placement_package}
+                      onChange={set('placement_package')}
+                      placeholder="e.g. 5.5"
+                      className={FIELD_CLASS}
+                    />
+                    <p className="text-xs text-spc-muted mt-1">
+                      Leave blank to use the job&rsquo;s package ({job.salary_package} LPA).
+                    </p>
+                  </div>
+                  <div>
+                    <FieldLabel htmlFor="manual-add-joining">Joining date</FieldLabel>
+                    <input
+                      id="manual-add-joining"
+                      type="date"
+                      value={formData.joining_date}
+                      onChange={set('joining_date')}
+                      className={FIELD_CLASS}
+                    />
+                  </div>
+                  <div>
+                    <FieldLabel htmlFor="manual-add-location">Location</FieldLabel>
+                    <input
+                      id="manual-add-location"
+                      type="text"
+                      value={formData.placement_location}
+                      onChange={set('placement_location')}
+                      placeholder="e.g. Bangalore"
+                      className={FIELD_CLASS}
+                    />
+                  </div>
+                  <div>
+                    <FieldLabel htmlFor="manual-add-notes">Why they are being added by hand</FieldLabel>
+                    <textarea
+                      id="manual-add-notes"
+                      value={formData.notes}
+                      onChange={set('notes')}
+                      rows={3}
+                      placeholder="e.g. Company allowed one backlog during the on-campus drive"
+                      className={`${FIELD_CLASS} py-2 h-auto`}
+                    />
+                    <p className="text-xs text-spc-muted mt-1">
+                      Optional, but it is the only record of why this was done outside the normal
+                      flow.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <OfficerDialogFooter split>
+          {step === 1 ? (
+            <>
+              <SecondaryButton type="button" onClick={onClose}>Cancel</SecondaryButton>
+              <PrimaryButton
+                type="button"
+                onClick={() => handleValidate()}
+                disabled={validating || !prn.trim()}
+              >
+                {validating ? 'Checking…' : 'Check this PRN'}
+              </PrimaryButton>
+            </>
+          ) : (
+            <>
+              <SecondaryButton
+                type="button"
+                onClick={() => {
+                  setStep(1);
+                  setStudentData(null);
+                }}
+              >
+                Back
+              </SecondaryButton>
+              <PositiveButton type="button" onClick={handleSubmit} disabled={submitting}>
+                {submitting ? 'Adding…' : 'Add student'}
+              </PositiveButton>
+            </>
+          )}
+        </OfficerDialogFooter>
+      </Modal>
+    );
+  }
 
   return (
     <Modal
@@ -412,7 +691,7 @@ const ManualStudentAdditionModal = ({
                 Cancel
               </button>
               <button
-                onClick={handleValidate}
+                onClick={() => handleValidate()}
                 disabled={validating || !prn.trim()}
                 className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
               >

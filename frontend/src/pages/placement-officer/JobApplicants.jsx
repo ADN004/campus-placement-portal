@@ -802,6 +802,7 @@ export default function JobApplicants() {
         studentId={selectedStudentId}
         applicationId={selectedApplicationId}
         userRole="placement-officer"
+        variant="officer"
       />
 
       <DriveScheduleModal
@@ -810,6 +811,7 @@ export default function JobApplicants() {
         onSave={handleDriveSubmit}
         existingDrive={driveData}
         jobTitle={selectedJob?.job_title}
+        variant="officer"
       />
 
       <PlacementDetailsForm
@@ -820,6 +822,7 @@ export default function JobApplicants() {
         }}
         onSubmit={handleUpdatePlacement}
         application={selectedApplication}
+        variant="officer"
       />
 
       {showPDFFieldSelector && (
@@ -832,6 +835,7 @@ export default function JobApplicants() {
               : filteredStudents.length
           }
           exportType={pdfExportType}
+          variant="officer"
         />
       )}
 
@@ -845,6 +849,7 @@ export default function JobApplicants() {
         }}
         api={placementOfficerAPI}
         userRole="placement-officer"
+        variant="officer"
       />
 
       {/* Page-local dialogs — converted. */}

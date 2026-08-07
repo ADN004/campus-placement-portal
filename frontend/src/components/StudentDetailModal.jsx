@@ -1,10 +1,26 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, createContext, useContext } from 'react';
 import { X, User, GraduationCap, Users, FileText, CheckCircle, XCircle } from 'lucide-react';
 import Modal from './Modal';
 import { superAdminAPI, placementOfficerAPI } from '../services/api';
 import ResumeDownloadButton from './ResumeDownloadButton';
+import { OFFICER_OVERLAY, officerPanel } from './officer/OfficerDialog';
 
-const StudentDetailModal = ({ isOpen, onClose, studentId, applicationId, userRole = 'super-admin' }) => {
+/**
+ * Everything a staff member is allowed to see about one student.
+ *
+ * `variant="officer"` renders the Register treatment; every other caller keeps
+ * the original markup, class strings unchanged.
+ *
+ * The forty-odd rows in the body are shared between the two looks rather than
+ * copied, because a duplicated list of fields is a list that will drift — one
+ * variant gains a field, the other quietly does not. The variant travels by
+ * context instead of through forty props. A context Provider renders no DOM, so
+ * the default output is byte-identical.
+ */
+const VariantContext = createContext('default');
+const useOfficerSkin = () => useContext(VariantContext) === 'officer';
+
+const StudentDetailModal = ({ isOpen, onClose, studentId, applicationId, userRole = 'super-admin', variant }) => {
   const [student, setStudent] = useState(null);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('basic');
@@ -38,23 +54,42 @@ const StudentDetailModal = ({ isOpen, onClose, studentId, applicationId, userRol
     { id: 'documents', label: 'Documents', icon: FileText },
   ];
 
+  const officer = variant === 'officer';
+
   return (
+    <VariantContext.Provider value={officer ? 'officer' : 'default'}>
     <Modal
       onClose={onClose}
       labelledBy="student-detail-title"
-      panelClassName="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+      overlayClassName={officer ? OFFICER_OVERLAY : undefined}
+      panelClassName={
+        officer
+          ? officerPanel('xl', { scroll: true })
+          : 'bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col'
+      }
     >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <div>
-            <h2 id="student-detail-title" className="text-2xl font-bold text-gray-900">Student Details</h2>
+        <div
+          className={
+            officer
+              ? 'flex items-center justify-between gap-3 px-5 py-4 border-b-[1.5px] border-spc-rule-structural flex-shrink-0'
+              : 'flex items-center justify-between p-6 border-b border-gray-200'
+          }
+        >
+          <div className="min-w-0">
+            <h2
+              id="student-detail-title"
+              className={officer ? 'text-spc-h2 font-bold text-spc-ink' : 'text-2xl font-bold text-gray-900'}
+            >
+              {officer && student ? student.name || 'Student' : 'Student Details'}
+            </h2>
             {student && (
-              <p className="text-sm text-gray-600 mt-1">
-                {student.prn} - {student.name}
+              <p className={officer ? 'text-xs text-spc-muted mt-0.5 tabular-nums' : 'text-sm text-gray-600 mt-1'}>
+                {officer ? `${student.prn}${student.branch ? ` · ${student.branch}` : ''}` : `${student.prn} - ${student.name}`}
               </p>
             )}
           </div>
-          <div className="flex items-center gap-3">
+          <div className={officer ? 'flex items-center gap-2 flex-shrink-0' : 'flex items-center gap-3'}>
             {student && (
               <ResumeDownloadButton
                 studentId={studentId}
@@ -64,30 +99,54 @@ const StudentDetailModal = ({ isOpen, onClose, studentId, applicationId, userRol
             )}
             <button
               onClick={onClose}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              aria-label="Close"
+              className={
+                officer
+                  ? 'inline-flex items-center justify-center w-11 h-11 rounded-spc-control text-spc-body hover:bg-spc-surface-2 hover:text-spc-ink transition-colors flex-shrink-0'
+                  : 'p-2 hover:bg-gray-100 rounded-lg transition-colors'
+              }
             >
-              <X size={24} />
+              <X size={officer ? 20 : 24} />
             </button>
           </div>
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center p-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+          <div className={officer ? 'flex items-center justify-center p-12' : 'flex items-center justify-center p-12'}>
+            {officer ? (
+              <p className="text-spc-sm text-spc-muted font-medium">Loading student…</p>
+            ) : (
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+            )}
           </div>
         ) : student ? (
           <>
             {/* Tabs */}
-            <div className="flex border-b border-gray-200 px-6 overflow-x-auto">
+            <div
+              className={
+                officer
+                  ? 'flex border-b border-spc-line px-5 overflow-x-auto flex-shrink-0'
+                  : 'flex border-b border-gray-200 px-6 overflow-x-auto'
+              }
+            >
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-4 py-3 font-medium text-sm whitespace-nowrap transition-colors ${
-                    activeTab === tab.id
-                      ? 'text-indigo-600 border-b-2 border-indigo-600'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
+                  aria-current={activeTab === tab.id ? 'true' : undefined}
+                  className={
+                    officer
+                      ? `flex items-center gap-2 px-3 min-h-[48px] text-spc-xs font-bold whitespace-nowrap transition-colors ${
+                          activeTab === tab.id
+                            ? 'text-spc-ink border-b-2 border-spc-accent'
+                            : 'text-spc-muted hover:text-spc-ink'
+                        }`
+                      : `flex items-center gap-2 px-4 py-3 font-medium text-sm whitespace-nowrap transition-colors ${
+                          activeTab === tab.id
+                            ? 'text-indigo-600 border-b-2 border-indigo-600'
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`
+                  }
                 >
                   <tab.icon size={18} />
                   {tab.label}
@@ -96,7 +155,7 @@ const StudentDetailModal = ({ isOpen, onClose, studentId, applicationId, userRol
             </div>
 
             {/* Content */}
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className={officer ? 'flex-1 overflow-y-auto spc-scroll-contain px-5 py-4' : 'flex-1 overflow-y-auto p-6'}>
               {activeTab === 'basic' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <DetailRow label="PRN" value={student.prn} />
@@ -136,7 +195,7 @@ const StudentDetailModal = ({ isOpen, onClose, studentId, applicationId, userRol
                 <div className="space-y-6">
                   {/* SSLC Details */}
                   <div>
-                    <h3 className="text-lg font-semibold mb-3 text-gray-900">SSLC (10th Standard)</h3>
+                    <TabHeading>SSLC (10th Standard)</TabHeading>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <DetailRow label="Marks %" value={student.sslc_marks || '-'} />
                       <DetailRow label="Year" value={student.sslc_year || '-'} />
@@ -146,7 +205,7 @@ const StudentDetailModal = ({ isOpen, onClose, studentId, applicationId, userRol
 
                   {/* 12th Details */}
                   <div>
-                    <h3 className="text-lg font-semibold mb-3 text-gray-900">12th Standard / Diploma</h3>
+                    <TabHeading>12th Standard / Diploma</TabHeading>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <DetailRow label="Marks %" value={student.twelfth_marks || '-'} />
                       <DetailRow label="Year" value={student.twelfth_year || '-'} />
@@ -156,7 +215,7 @@ const StudentDetailModal = ({ isOpen, onClose, studentId, applicationId, userRol
 
                   {/* Engineering Details */}
                   <div>
-                    <h3 className="text-lg font-semibold mb-3 text-gray-900">Engineering Details</h3>
+                    <TabHeading>Engineering Details</TabHeading>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <DetailRow label="Branch" value={student.branch} />
                       <DetailRow label="Programme CGPA" value={student.programme_cgpa} />
@@ -170,7 +229,7 @@ const StudentDetailModal = ({ isOpen, onClose, studentId, applicationId, userRol
                 <div className="space-y-6">
                   {/* Family Details */}
                   <div>
-                    <h3 className="text-lg font-semibold mb-3 text-gray-900">Family Details</h3>
+                    <TabHeading>Family Details</TabHeading>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <DetailRow label="Father Name" value={student.father_name || '-'} />
                       <DetailRow label="Father Occupation" value={student.father_occupation || '-'} />
@@ -189,7 +248,7 @@ const StudentDetailModal = ({ isOpen, onClose, studentId, applicationId, userRol
 
                   {/* Personal Details */}
                   <div>
-                    <h3 className="text-lg font-semibold mb-3 text-gray-900">Personal Details</h3>
+                    <TabHeading>Personal Details</TabHeading>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <DetailRow label="District" value={student.district || '-'} />
                       <BooleanRow label="Physically Handicapped" value={student.physically_handicapped} />
@@ -208,7 +267,7 @@ const StudentDetailModal = ({ isOpen, onClose, studentId, applicationId, userRol
 
                   {/* Education Preferences */}
                   <div>
-                    <h3 className="text-lg font-semibold mb-3 text-gray-900">Education Preferences</h3>
+                    <TabHeading>Education Preferences</TabHeading>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <BooleanRow label="Interested in B.Tech" value={student.interested_in_btech} />
                       <BooleanRow label="Interested in M.Tech" value={student.interested_in_mtech} />
@@ -242,45 +301,96 @@ const StudentDetailModal = ({ isOpen, onClose, studentId, applicationId, userRol
           </>
         ) : (
           <div className="flex items-center justify-center p-12">
-            <p className="text-gray-500">Failed to load student details</p>
+            <p className={officer ? 'text-spc-sm text-spc-muted font-medium' : 'text-gray-500'}>
+              Failed to load student details
+            </p>
           </div>
         )}
     </Modal>
+    </VariantContext.Provider>
   );
 };
 
-const DetailRow = ({ label, value }) => (
-  <div>
-    <dt className="text-sm font-medium text-gray-500">{label}</dt>
-    <dd className="mt-1 text-sm text-gray-900">{value || '-'}</dd>
-  </div>
-);
+/** A heading inside a tab. Khand for the officer, as everywhere else in the role. */
+const TabHeading = ({ children }) =>
+  useOfficerSkin() ? (
+    <h3 className="font-khand font-medium uppercase tracking-[0.06em] text-spc-sm text-spc-ink mb-2">
+      {children}
+    </h3>
+  ) : (
+    <h3 className="text-lg font-semibold mb-3 text-gray-900">{children}</h3>
+  );
 
-const BooleanRow = ({ label, value }) => (
-  <div className="flex items-center gap-2">
-    {value ? (
-      <CheckCircle className="text-green-600" size={20} />
-    ) : (
-      <XCircle className="text-red-600" size={20} />
-    )}
-    <span className="text-sm text-gray-900">{label}</span>
-  </div>
-);
-
-const DocumentCard = ({ title, hasDocument }) => (
-  <div className={`p-4 rounded-lg border-2 ${hasDocument ? 'border-green-500 bg-green-50' : 'border-gray-300 bg-gray-50'}`}>
-    <div className="flex items-center gap-2 mb-2">
-      {hasDocument ? (
-        <CheckCircle className="text-green-600" size={24} />
-      ) : (
-        <XCircle className="text-gray-400" size={24} />
-      )}
-      <h4 className="font-semibold text-gray-900">{title}</h4>
+const DetailRow = ({ label, value }) => {
+  if (useOfficerSkin()) {
+    return (
+      <div className="py-2 border-b border-spc-line">
+        <dt className="text-spc-xs font-bold uppercase tracking-[0.11em] text-spc-muted">{label}</dt>
+        <dd className="text-spc-sm text-spc-ink mt-0.5 break-words">{value || '—'}</dd>
+      </div>
+    );
+  }
+  return (
+    <div>
+      <dt className="text-sm font-medium text-gray-500">{label}</dt>
+      <dd className="mt-1 text-sm text-gray-900">{value || '-'}</dd>
     </div>
-    <p className="text-sm text-gray-600">
-      {hasDocument ? 'Available' : 'Not Available'}
-    </p>
-  </div>
-);
+  );
+};
+
+const BooleanRow = ({ label, value }) => {
+  if (useOfficerSkin()) {
+    return (
+      <div className="py-2 border-b border-spc-line">
+        <dt className="text-spc-xs font-bold uppercase tracking-[0.11em] text-spc-muted">{label}</dt>
+        <dd className="text-spc-sm text-spc-ink mt-0.5">{value ? 'Yes' : 'No'}</dd>
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-center gap-2">
+      {value ? (
+        <CheckCircle className="text-green-600" size={20} />
+      ) : (
+        <XCircle className="text-red-600" size={20} />
+      )}
+      <span className="text-sm text-gray-900">{label}</span>
+    </div>
+  );
+};
+
+const DocumentCard = ({ title, hasDocument }) => {
+  if (useOfficerSkin()) {
+    return (
+      <div className="flex items-center justify-between gap-3 py-2.5 border-b border-spc-line">
+        <span className="text-spc-sm text-spc-ink">{title}</span>
+        <span className="inline-flex items-center gap-1.5 whitespace-nowrap flex-shrink-0">
+          <span
+            aria-hidden="true"
+            className={`w-1.5 h-1.5 rounded-full ${hasDocument ? 'bg-spc-ok' : 'bg-spc-muted'}`}
+          />
+          <span className="text-spc-xs font-semibold text-spc-ink">
+            {hasDocument ? 'Has it' : 'Does not'}
+          </span>
+        </span>
+      </div>
+    );
+  }
+  return (
+    <div className={`p-4 rounded-lg border-2 ${hasDocument ? 'border-green-500 bg-green-50' : 'border-gray-300 bg-gray-50'}`}>
+      <div className="flex items-center gap-2 mb-2">
+        {hasDocument ? (
+          <CheckCircle className="text-green-600" size={24} />
+        ) : (
+          <XCircle className="text-gray-400" size={24} />
+        )}
+        <h4 className="font-semibold text-gray-900">{title}</h4>
+      </div>
+      <p className="text-sm text-gray-600">
+        {hasDocument ? 'Available' : 'Not Available'}
+      </p>
+    </div>
+  );
+};
 
 export default StudentDetailModal;

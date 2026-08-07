@@ -106,6 +106,7 @@ export default function JobEligibleBody({ layout, ...p }) {
                 filters={p.enhancedFilters}
                 onChange={p.onEnhancedFiltersChange}
                 onClear={p.onClearEnhancedFilters}
+                variant="officer"
               />
             </div>
           )}

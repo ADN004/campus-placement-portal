@@ -76,6 +76,7 @@ export default {
           accent: 'rgb(var(--spc-accent) / <alpha-value>)',
           'accent-soft': 'rgb(var(--spc-accent-soft) / <alpha-value>)',
           'on-accent': 'rgb(var(--spc-on-accent) / <alpha-value>)',
+          'on-accent-dim': 'rgb(var(--spc-on-accent-dim) / <alpha-value>)',
           selected: 'rgb(var(--spc-selected) / <alpha-value>)',
         },
         primary: {

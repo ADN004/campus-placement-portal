@@ -1,8 +1,30 @@
 import { useState } from 'react';
 import { FileText, X, Check, PenLine, Building2 } from 'lucide-react';
 import Modal from './Modal';
+import {
+  OFFICER_OVERLAY, officerPanel, OfficerDialogHeader, OfficerDialogFooter, OfficerToggleRow,
+} from './officer/OfficerDialog';
+import {
+  PrimaryButton, SecondaryButton, FieldLabel, FIELD_CLASS, CHECKBOX_CLASS,
+} from './officer/OfficerUI';
 
-const PDFFieldSelector = ({ onExport, onClose, applicantCount, exportType = 'enhanced' }) => {
+/**
+ * Choose what goes into the exported PDF.
+ *
+ * `variant="officer"` renders the Register treatment; every other caller keeps
+ * the original markup verbatim. The officer branch fixes two things beyond the
+ * styling, both of which the original could not do:
+ *
+ *   - the field chooser was 21 buttons that toggled a selection but announced
+ *     themselves as plain buttons. They are real checkboxes now, so the state
+ *     is readable and Space works.
+ *   - the signature control was a painted sliding pill with no input behind
+ *     it — unreachable by keyboard, announced as nothing.
+ *
+ * The two `alert()` calls become inline messages beside the thing that is
+ * wrong, rather than a browser dialog that says it somewhere else.
+ */
+const PDFFieldSelector = ({ onExport, onClose, applicantCount, exportType = 'enhanced', variant }) => {
   const [headerLine1, setHeaderLine1] = useState('');
   const [headerLine2, setHeaderLine2] = useState('');
   const [selectedFields, setSelectedFields] = useState([
@@ -74,6 +96,142 @@ const PDFFieldSelector = ({ onExport, onClose, applicantCount, exportType = 'enh
   const headerColor = exportType === 'selected_only'
     ? 'bg-gradient-to-r from-green-600 to-emerald-600'
     : 'bg-gradient-to-r from-purple-600 to-indigo-600';
+
+  if (variant === 'officer') {
+    const titleMissing = !headerLine1.trim();
+    const noFields = selectedFields.length === 0;
+    return (
+      <Modal
+        onClose={onClose}
+        labelledBy="pdf-export-title"
+        overlayClassName={OFFICER_OVERLAY}
+        panelClassName={officerPanel('lg', { scroll: true })}
+      >
+        <OfficerDialogHeader
+          id="pdf-export-title"
+          title={exportType === 'selected_only' ? 'Export selected students' : 'Export as PDF'}
+          subtitle={
+            exportType === 'selected_only'
+              ? `${applicantCount} selected student${applicantCount !== 1 ? 's' : ''}`
+              : `${applicantCount} applicant${applicantCount !== 1 ? 's' : ''}`
+          }
+        />
+
+        <div className="flex-1 overflow-y-auto spc-scroll-contain">
+          <section className="px-5 py-4 border-b border-spc-line">
+            <h3 className="font-khand font-medium uppercase tracking-[0.06em] text-spc-sm text-spc-ink mb-1">
+              Heading printed on the PDF
+            </h3>
+            <p className="text-xs text-spc-muted mb-3">
+              This is what appears at the top of every page of the document.
+            </p>
+            <div className="space-y-3">
+              <div>
+                <FieldLabel htmlFor="pdf-header-1">Title</FieldLabel>
+                <input
+                  id="pdf-header-1"
+                  type="text"
+                  value={headerLine1}
+                  onChange={(e) => setHeaderLine1(e.target.value)}
+                  placeholder="e.g. Cadence Design Systems, Bangalore 2026"
+                  className={FIELD_CLASS}
+                  aria-invalid={titleMissing ? 'true' : undefined}
+                />
+                {titleMissing && (
+                  <p className="text-xs text-spc-bad mt-1">
+                    A title is required — the export will not run without it.
+                  </p>
+                )}
+              </div>
+              <div>
+                <FieldLabel htmlFor="pdf-header-2">Subtitle</FieldLabel>
+                <input
+                  id="pdf-header-2"
+                  type="text"
+                  value={headerLine2}
+                  onChange={(e) => setHeaderLine2(e.target.value)}
+                  placeholder="e.g. Placement Drive at GPC Palakkad on 06-02-2026"
+                  className={FIELD_CLASS}
+                />
+                <p className="text-xs text-spc-muted mt-1">Optional.</p>
+              </div>
+            </div>
+          </section>
+
+          <section className="px-5 py-4 border-b border-spc-line">
+            <div className="flex items-baseline justify-between gap-3 flex-wrap mb-3">
+              <h3 className="font-khand font-medium uppercase tracking-[0.06em] text-spc-sm text-spc-ink">
+                Columns
+              </h3>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-spc-muted tabular-nums">
+                  {selectedFields.length} of {availableFields.length}
+                </span>
+                <button
+                  type="button"
+                  onClick={selectAll}
+                  className="text-xs font-bold text-spc-ink underline underline-offset-2 min-h-[44px] px-1 hover:text-spc-accent transition-colors"
+                >
+                  Select all
+                </button>
+                <button
+                  type="button"
+                  onClick={selectNone}
+                  className="text-xs font-bold text-spc-ink underline underline-offset-2 min-h-[44px] px-1 hover:text-spc-accent transition-colors"
+                >
+                  Clear all
+                </button>
+              </div>
+            </div>
+
+            <ul className="grid grid-cols-2 sm:grid-cols-3 gap-x-4">
+              {availableFields.map((field) => (
+                <li key={field.key}>
+                  <label className="flex items-center gap-2.5 min-h-[44px] cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selectedFields.includes(field.key)}
+                      onChange={() => toggleField(field.key)}
+                      className={CHECKBOX_CLASS}
+                    />
+                    <span className="text-spc-xs text-spc-ink min-w-0 break-words">
+                      {field.label}
+                    </span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+
+            {noFields && (
+              <p className="text-xs text-spc-bad mt-2">
+                Pick at least one column, or there is nothing to export.
+              </p>
+            )}
+          </section>
+
+          <section className="px-5 py-4">
+            <h3 className="font-khand font-medium uppercase tracking-[0.06em] text-spc-sm text-spc-ink mb-1">
+              Signature column
+            </h3>
+            <OfficerToggleRow
+              checked={includeSignature}
+              onChange={() => setIncludeSignature(!includeSignature)}
+              label="Leave a blank column for signatures"
+              hint="For printing and collecting signatures on the day."
+            />
+          </section>
+        </div>
+
+        <OfficerDialogFooter>
+          <SecondaryButton type="button" onClick={onClose}>Cancel</SecondaryButton>
+          <PrimaryButton type="button" onClick={handleExport} disabled={noFields || titleMissing}>
+            <FileText size={15} aria-hidden="true" />
+            <span>Export PDF</span>
+          </PrimaryButton>
+        </OfficerDialogFooter>
+      </Modal>
+    );
+  }
 
   return (
     <Modal

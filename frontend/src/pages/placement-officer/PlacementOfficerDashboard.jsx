@@ -1,34 +1,32 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
 import { placementOfficerAPI } from '../../services/api';
 import toast from 'react-hot-toast';
-import {
-  Users,
-  Bell,
-  TrendingUp,
-  Clock,
-  CheckCircle,
-  XCircle,
-  Briefcase,
-  LayoutDashboard,
-  ArrowRight,
-  Activity,
-  ClipboardList,
-} from 'lucide-react';
-import DashboardHeader from '../../components/DashboardHeader';
-import GlassStatCard from '../../components/GlassStatCard';
-import SectionHeader from '../../components/SectionHeader';
-import GlassCard from '../../components/GlassCard';
+import { Users, Bell, Clock, CheckCircle, XCircle, Briefcase } from 'lucide-react';
 import useAutoRefresh from '../../hooks/useAutoRefresh';
-import AutoRefreshIndicator from '../../components/AutoRefreshIndicator';
 import useSkeletonLoading from '../../hooks/useSkeletonLoading';
-import PODashboardSkeleton from '../../components/skeletons/PODashboardSkeleton';
-import AnimatedCard from '../../components/animation/AnimatedCard';
-import AnimatedSection from '../../components/animation/AnimatedSection';
+import useDeviceType from '../../hooks/useDeviceType';
+import DesktopPODashboard, {
+  DesktopPODashboardSkeleton,
+} from './dashboard/DesktopPODashboard';
+import TabletPODashboard, {
+  TabletPODashboardSkeleton,
+} from './dashboard/TabletPODashboard';
+import MobilePODashboard, {
+  MobilePODashboardSkeleton,
+} from './dashboard/MobilePODashboard';
 
+/**
+ * PlacementOfficerDashboard — container.
+ *
+ * Owns every piece of state, effect, API call and handler; renders exactly one
+ * of the three device presenters with the same data and the *same* handler
+ * functions. Nothing is reimplemented per device, so a fix here fixes all three.
+ * See hooks/useDeviceType for where the mobile/tablet/desktop line is drawn.
+ */
 export default function PlacementOfficerDashboard() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const deviceType = useDeviceType();
 
   useEffect(() => {
     fetchDashboardData();
@@ -62,7 +60,9 @@ export default function PlacementOfficerDashboard() {
   const showSkeleton = useSkeletonLoading(loading);
 
   if (showSkeleton) {
-    return <PODashboardSkeleton />;
+    if (deviceType === 'mobile') return <MobilePODashboardSkeleton />;
+    if (deviceType === 'tablet') return <TabletPODashboardSkeleton />;
+    return <DesktopPODashboardSkeleton />;
   }
 
   const statCards = [
@@ -70,22 +70,22 @@ export default function PlacementOfficerDashboard() {
       title: 'Total Students',
       value: stats?.total_students || 0,
       icon: Users,
-      gradient: 'from-blue-500 to-cyan-600',
       description: 'Registered students from your college',
     },
     {
       title: 'Pending Approvals',
       value: stats?.pending_students || 0,
       icon: Clock,
-      gradient: 'from-yellow-500 to-orange-600',
       link: '/placement-officer/students?status=pending',
       description: 'Students waiting for approval',
+      // Marks the tile when the count is above zero: this is the officer's
+      // actual job, and it is the one thing on the page worth a status colour.
+      attention: true,
     },
     {
       title: 'Approved Students',
       value: stats?.approved_students || 0,
       icon: CheckCircle,
-      gradient: 'from-green-500 to-emerald-600',
       link: '/placement-officer/students?status=approved',
       description: 'Active students',
     },
@@ -93,7 +93,6 @@ export default function PlacementOfficerDashboard() {
       title: 'Blacklisted',
       value: stats?.blacklisted_students || 0,
       icon: XCircle,
-      gradient: 'from-red-500 to-rose-600',
       link: '/placement-officer/students?status=blacklisted',
       description: 'Blacklisted students',
     },
@@ -104,140 +103,39 @@ export default function PlacementOfficerDashboard() {
       title: 'Manage Students',
       description: 'Approve registrations, manage student profiles, and handle blacklisting',
       icon: Users,
-      gradient: 'from-blue-500 to-indigo-600',
       link: '/placement-officer/students',
     },
     {
       title: 'Job Requests',
       description: 'Create and manage job posting requests for super admin approval',
       icon: Briefcase,
-      gradient: 'from-purple-500 to-pink-600',
-      link: '/placement-officer/job-requests',
+      // Was '/placement-officer/job-requests', which is not a route: the
+      // catch-all bounced it straight back to this dashboard, so the card
+      // silently did nothing. This is the page it was always meant to open.
+      link: '/placement-officer/my-job-requests',
     },
     {
       title: 'Send Notification',
       description: 'Send announcements and notifications to your college students',
       icon: Bell,
-      gradient: 'from-green-500 to-emerald-600',
       link: '/placement-officer/send-notification',
     },
   ];
 
-  return (
-    <div>
-      {/* Dashboard Header */}
-      <AnimatedSection delay={0}>
-        <div className="flex items-center justify-between flex-wrap gap-3 mb-2">
-          <DashboardHeader
-            icon={LayoutDashboard}
-            title="Placement Officer Dashboard"
-            subtitle={`${stats?.college_name || 'Your College'} - ${stats?.region_name || 'Region'}`}
-          />
-          <AutoRefreshIndicator
-            lastRefreshed={lastRefreshed}
-            autoRefreshEnabled={autoRefreshEnabled}
-            onToggle={toggleAutoRefresh}
-            onManualRefresh={manualRefresh}
-            refreshing={refreshing}
-          />
-        </div>
-      </AnimatedSection>
+  // Identical props for all three presenters — same values, same functions.
+  const presenterProps = {
+    collegeName: stats?.college_name,
+    regionName: stats?.region_name,
+    statCards,
+    quickActions,
+    lastRefreshed,
+    autoRefreshEnabled,
+    onToggleAutoRefresh: toggleAutoRefresh,
+    onManualRefresh: manualRefresh,
+    refreshing,
+  };
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {statCards.map((stat, index) => (
-          <AnimatedCard key={stat.title} delay={0.1 + index * 0.08} hoverScale={1.03}>
-            <GlassStatCard
-              title={stat.title}
-              value={stat.value}
-              icon={stat.icon}
-              gradient={stat.gradient}
-              link={stat.link}
-              description={stat.description}
-              index={index}
-            />
-          </AnimatedCard>
-        ))}
-      </div>
-
-      {/* Quick Actions */}
-      <AnimatedSection delay={0.45}>
-        <div className="mb-10">
-          <SectionHeader title="Quick Actions" icon={Activity} />
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {quickActions.map((action, index) => {
-              const Icon = action.icon;
-              return (
-                <AnimatedCard key={action.title} delay={0.55 + index * 0.08} hoverScale={1.03}>
-                  <Link to={action.link}>
-                    <GlassCard variant="elevated" hover className="h-full p-6">
-                      <div className="flex items-start space-x-4 mb-4">
-                        <div className={`bg-gradient-to-br ${action.gradient} rounded-xl p-3 shadow-lg group-hover:scale-110 transition-transform duration-300`}>
-                          <Icon className="text-white" size={28} />
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="text-xl font-bold text-gray-800 mb-2">
-                            {action.title}
-                          </h3>
-                          <p className="text-sm text-gray-600 font-medium">
-                            {action.description}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-end text-blue-600 font-bold text-sm mt-4 group">
-                        <span>Open</span>
-                        <ArrowRight size={16} className="ml-1 group-hover:translate-x-1 transition-transform" />
-                      </div>
-                    </GlassCard>
-                  </Link>
-                </AnimatedCard>
-              );
-            })}
-          </div>
-        </div>
-      </AnimatedSection>
-
-      {/* Placement Officer Responsibilities */}
-      <AnimatedSection delay={0.8}>
-        <GlassCard variant="elevated" className="p-8 bg-gradient-to-r from-blue-50 to-purple-50">
-          <div className="flex items-start gap-4">
-            <div className="p-4 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl shadow-lg">
-              <TrendingUp className="text-white" size={32} />
-            </div>
-            <div className="flex-1">
-              <h4 className="font-bold text-gray-800 text-2xl mb-4">
-                Placement Officer Responsibilities
-              </h4>
-              <ul className="text-gray-700 space-y-3 font-medium">
-                <li className="flex items-start bg-white rounded-xl border border-gray-200 p-3 hover:shadow-md transition-all duration-300">
-                  <span className="mr-3 text-blue-600 text-xl">•</span>
-                  <span>Review and approve/reject student registration requests</span>
-                </li>
-                <li className="flex items-start bg-white rounded-xl border border-gray-200 p-3 hover:shadow-md transition-all duration-300">
-                  <span className="mr-3 text-blue-600 text-xl">•</span>
-                  <span>Manage student profiles and academic information</span>
-                </li>
-                <li className="flex items-start bg-white rounded-xl border border-gray-200 p-3 hover:shadow-md transition-all duration-300">
-                  <span className="mr-3 text-blue-600 text-xl">•</span>
-                  <span>Create job posting requests for super admin approval</span>
-                </li>
-                <li className="flex items-start bg-white rounded-xl border border-gray-200 p-3 hover:shadow-md transition-all duration-300">
-                  <span className="mr-3 text-blue-600 text-xl">•</span>
-                  <span>Blacklist students who violate placement policies</span>
-                </li>
-                <li className="flex items-start bg-white rounded-xl border border-gray-200 p-3 hover:shadow-md transition-all duration-300">
-                  <span className="mr-3 text-blue-600 text-xl">•</span>
-                  <span>Send notifications and announcements to students</span>
-                </li>
-                <li className="flex items-start bg-white rounded-xl border border-gray-200 p-3 hover:shadow-md transition-all duration-300">
-                  <span className="mr-3 text-blue-600 text-xl">•</span>
-                  <span>Request whitelist for previously blacklisted students (requires super admin approval)</span>
-                </li>
-              </ul>
-            </div>
-          </div>
-        </GlassCard>
-      </AnimatedSection>
-    </div>
-  );
+  if (deviceType === 'mobile') return <MobilePODashboard {...presenterProps} />;
+  if (deviceType === 'tablet') return <TabletPODashboard {...presenterProps} />;
+  return <DesktopPODashboard {...presenterProps} />;
 }

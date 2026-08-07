@@ -3256,7 +3256,10 @@ export const getSentNotifications = async (req, res) => {
        ) stats ON TRUE
        WHERE n.created_by = $1
        ORDER BY n.created_at DESC
-       LIMIT 25`,
+       -- An active officer sends several a week, so a year is in the hundreds.
+       -- 100 is a bounded response the page can search within; the page says so
+       -- when it is showing a capped list rather than everything.
+       LIMIT 100`,
       [req.user.id]
     );
 

@@ -1,7 +1,11 @@
+import { useState } from 'react';
 import { Bell, AlertCircle, Mail, Check } from 'lucide-react';
 import {
   Panel, PanelHeading, EmptyState, CHECKBOX_CLASS, formatDate,
 } from '../../../components/officer/OfficerUI';
+import {
+  useLongList, ListSearch, ListCount, ShowMore, ListViewport,
+} from '../../../components/officer/LongList';
 
 /**
  * Pieces shared by the three SendNotification presenters.
@@ -193,19 +197,106 @@ export function BranchPicker({ branches, selected, onToggle, onToggleAll, column
 
 /* ------------------------------------------------------------------ history */
 
+/** Search matches the title, the message and the branches it went to. */
+const matchNotification = (item, needle) =>
+  (item.title || '').toLowerCase().includes(needle) ||
+  (item.message || '').toLowerCase().includes(needle) ||
+  (item.branches || []).some((b) => String(b).toLowerCase().includes(needle));
+
+/**
+ * One sent notification, on one row.
+ *
+ * It used to be five stacked blocks — a title wrapping to two lines in a narrow
+ * column, two lines of message, a date, an open count, and the branches — about
+ * 150px each. Twenty of those is three thousand pixels of near-identical text,
+ * which is what the panel actually looked like once real sends accumulated: a
+ * wall you scroll past rather than a list you read.
+ *
+ * The title is the only thing worth a full line, and it gets one line, clipped.
+ * Everything else is one quiet line underneath. Roughly 60px, so a screenful is
+ * eight or nine notifications instead of two, and the message body — which is
+ * never how anyone identifies a notification they sent — moves to the title
+ * attribute rather than taking two lines in every row.
+ */
+function SentRow({ item }) {
+  const recipients = Number(item.recipient_count) || 0;
+  const read = Number(item.read_count) || 0;
+
+  return (
+    <li className="px-4 py-2.5 border-b border-spc-line last:border-b-0 hover:bg-spc-surface-2 transition-colors">
+      <div className="flex items-baseline justify-between gap-3">
+        <h3
+          className="text-spc-xs font-bold text-spc-ink min-w-0 truncate"
+          title={`${item.title}\n\n${item.message || ''}`}
+        >
+          {item.title}
+        </h3>
+        <span className="flex-shrink-0">
+          <PriorityMark priority={item.priority} />
+        </span>
+      </div>
+      <p className="flex items-baseline gap-2 flex-wrap text-xs text-spc-muted mt-0.5">
+        <span className="tabular-nums whitespace-nowrap">{formatDate(item.created_at)}</span>
+        <span aria-hidden="true">·</span>
+        <span className="tabular-nums whitespace-nowrap text-spc-body">
+          <Check size={11} className="inline -mt-0.5 mr-0.5" aria-hidden="true" />
+          {read}/{recipients} opened
+        </span>
+        {item.branches && item.branches.length > 0 && (
+          <>
+            <span aria-hidden="true">·</span>
+            <span className="min-w-0 truncate">
+              {item.branches.length === 1 ? item.branches[0] : `${item.branches.length} branches`}
+            </span>
+          </>
+        )}
+      </p>
+    </li>
+  );
+}
+
 /**
  * What this officer has already sent.
  *
- * This panel used to be a `useState([])` with a comment saying "mock data for
- * now" — it only ever held what you sent in the current session and emptied on
- * refresh. It reads /placement-officer/sent-notifications now, so it survives a
- * reload, and it carries the two numbers that matter afterwards: how many
- * students received it and how many have opened it.
+ * The panel has a ceiling and scrolls inside itself, so the page is the same
+ * height whether there are two notifications or two hundred, and the search
+ * appears once the list is past a screenful — because at that point nobody
+ * scrolls to find a known item, they look for it.
  */
-export function SentHistory({ items, loading }) {
+export function SentHistory({ items, loading, atServerCap = false }) {
+  const [query, setQuery] = useState('');
+  const list = useLongList(items, { step: 25, query, match: matchNotification });
+  const searchable = items.length > 8;
+
   return (
     <Panel>
-      <PanelHeading>Already sent</PanelHeading>
+      <PanelHeading
+        action={
+          items.length > 0 ? (
+            <ListCount
+              shown={list.shown}
+              matched={list.matched}
+              total={list.total}
+              filtering={list.filtering}
+              noun="sent"
+            />
+          ) : null
+        }
+      >
+        Already sent
+      </PanelHeading>
+
+      {searchable && (
+        <div className="px-4 py-3 border-b border-spc-line">
+          <ListSearch
+            id="sent-search"
+            value={query}
+            onChange={setQuery}
+            placeholder="Search title, message or branch"
+          />
+        </div>
+      )}
+
       {loading ? (
         <EmptyState>Loading&hellip;</EmptyState>
       ) : items.length === 0 ? (
@@ -215,43 +306,33 @@ export function SentHistory({ items, loading }) {
             Notifications you send will be listed here with how many students opened them.
           </span>
         </EmptyState>
+      ) : list.matched === 0 ? (
+        <EmptyState>
+          Nothing matches &ldquo;{query}&rdquo;.
+          <span className="block text-xs mt-1">Searched titles, messages and branches.</span>
+        </EmptyState>
       ) : (
-        <ul>
-          {items.map((item) => {
-            const recipients = Number(item.recipient_count) || 0;
-            const read = Number(item.read_count) || 0;
-            return (
-              <li key={item.id} className="px-4 py-3 border-b border-spc-line last:border-b-0">
-                <div className="flex items-start justify-between gap-3">
-                  <h3 className="text-spc-xs font-bold text-spc-ink min-w-0 break-words">
-                    {item.title}
-                  </h3>
-                  <PriorityMark priority={item.priority} />
-                </div>
-
-                <p className="text-xs text-spc-muted mt-1 line-clamp-2 break-words">
-                  {item.message}
-                </p>
-
-                <div className="flex items-baseline justify-between gap-3 mt-2">
-                  <span className="text-xs text-spc-muted">{formatDate(item.created_at)}</span>
-                  <span className="text-xs text-spc-body tabular-nums whitespace-nowrap">
-                    <Check size={12} className="inline -mt-0.5 mr-1" aria-hidden="true" />
-                    {read} of {recipients} opened
-                  </span>
-                </div>
-
-                {item.branches && item.branches.length > 0 && (
-                  <p className="text-xs text-spc-muted mt-1 break-words">
-                    {item.branches.length === 1
-                      ? item.branches[0]
-                      : `${item.branches.length} branches`}
-                  </p>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+        <>
+          <ListViewport cap="lg">
+            <ul>
+              {list.visible.map((item) => (
+                <SentRow key={item.id} item={item} />
+              ))}
+            </ul>
+          </ListViewport>
+          {list.hasMore && (
+            <ShowMore
+              onClick={list.showMore}
+              remaining={list.matched - list.shown}
+              noun="notification"
+            />
+          )}
+          {atServerCap && !list.hasMore && !list.filtering && (
+            <p className="px-4 py-2.5 text-xs text-spc-muted border-t border-spc-line">
+              Showing your most recent {items.length}. Older ones are not loaded.
+            </p>
+          )}
+        </>
       )}
     </Panel>
   );

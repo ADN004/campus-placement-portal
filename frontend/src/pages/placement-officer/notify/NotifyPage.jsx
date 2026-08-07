@@ -137,7 +137,12 @@ export default function NotifyPage({
     </Panel>
   );
 
-  const history = <SentHistory items={sentItems} loading={sentLoading} />;
+  // 100 is the server's cap; hitting it exactly means there are probably older
+  // ones that were not loaded, and the panel says so rather than implying the
+  // list is complete.
+  const history = (
+    <SentHistory items={sentItems} loading={sentLoading} atServerCap={sentItems.length >= 100} />
+  );
 
   return (
     <div className={isMobile ? 'pb-2' : undefined}>

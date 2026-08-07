@@ -32,6 +32,7 @@ export default function JobApplicants() {
   const [jobs, setJobs] = useState([]);
   const [students, setStudents] = useState([]);
   const [selectedJob, setSelectedJob] = useState(null);
+  const [jobResolved, setJobResolved] = useState(false);
   const [filteredStudents, setFilteredStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingStudents, setLoadingStudents] = useState(false);
@@ -92,6 +93,22 @@ export default function JobApplicants() {
     fetchJobs();
     commonAPI.getColleges().then((res) => setAllColleges(res.data.data || [])).catch(() => {});
   }, []);
+
+  // The job is identified by the URL, so a bookmark or a refresh lands on the
+  // same drive.
+  //
+  // `jobResolved` is tracked explicitly rather than inferring "missing" from a
+  // null selectedJob. Effects run after the commit, so for one render after the
+  // list arrives selectedJob is still null while the job is perfectly valid —
+  // inferring it would flash "no longer available" at someone whose job is
+  // fine. Nothing but the skeleton's timing would have hidden that, and timing
+  // is not a guarantee.
+  useEffect(() => {
+    if (loading) return;
+    const match = jobs.find((job) => String(job.id) === String(jobId)) || null;
+    setSelectedJob(match);
+    setJobResolved(true);
+  }, [jobs, jobId, loading]);
 
   useEffect(() => {
     if (selectedJob) {
@@ -179,7 +196,7 @@ export default function JobApplicants() {
   const showSkeleton = useSkeletonLoading(loading);
 
   const filterEligibleStudents = () => {
-    if (!selectedJob) {
+    if (jobResolved && !selectedJob) {
       setFilteredStudents([]);
       return;
     }
@@ -600,7 +617,7 @@ export default function JobApplicants() {
 
   const deviceType = useDeviceType();
 
-  if (showSkeleton) {
+  if (showSkeleton || !jobResolved) {
     if (deviceType === 'mobile') return <MobileJobEligibleSkeleton />;
     if (deviceType === 'tablet') return <TabletJobEligibleSkeleton />;
     return <DesktopJobEligibleSkeleton />;

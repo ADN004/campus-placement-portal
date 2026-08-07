@@ -93,6 +93,24 @@ export function PageHeading({ eyebrow, title, subline, size = 'md', children }) 
 
 /* ----------------------------------------------------------------- buttons */
 
+/*
+ * What makes a control look like a control here.
+ *
+ * Measured rather than guessed, because the obvious answer turned out to be
+ * wrong. A grey fill barely registers on the page ground — surface-2 against
+ * ground is 1.07:1 — so filling toolbar buttons grey does almost nothing on its
+ * own, and filling them surface-3 would drop the control border to 2.89:1,
+ * under the 3:1 that WCAG 1.4.11 wants for the boundary of a control.
+ *
+ * Three things carry a control instead:
+ *   - the primary action is filled with the accent: 4.83:1 against the ground,
+ *     with a 5.31:1 label. That is the one unmistakable object on a screen.
+ *   - every other button keeps a `control` border, which is 3.37:1 on ground
+ *     and 3.71:1 on a panel, against panel edges that are deliberately lighter.
+ *   - the surface-2 fill separates a button from the white panel it sits in
+ *     (1.18:1 — modest, but free, and it is what stops a button reading as part
+ *     of the panel).
+ */
 const BUTTON_BASE =
   'inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-spc-control ' +
   'text-spc-xs font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
@@ -111,8 +129,8 @@ export function PrimaryButton({ children, className = '', ...props }) {
 export function SecondaryButton({ children, className = '', ...props }) {
   return (
     <button
-      className={`${BUTTON_BASE} bg-spc-surface border border-spc-control text-spc-ink
-        hover:bg-spc-surface-2 ${className}`}
+      className={`${BUTTON_BASE} bg-spc-surface-2 border border-spc-control text-spc-ink
+        hover:bg-spc-surface-3 ${className}`}
       {...props}
     >
       {children}

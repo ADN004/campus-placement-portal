@@ -137,11 +137,14 @@ export function StatusTabs({ activeTab, counts, onChange, scroll = false }) {
             type="button"
             onClick={() => onChange(key)}
             aria-current={isActive ? 'page' : undefined}
+            /* The tint alone measured 1.29:1 against white — effectively
+               invisible on a bright monitor. The 2px accent rule is what
+               actually marks the active tab; the tint only supports it. */
             className={`flex-1 min-w-[92px] min-h-[52px] px-3 flex flex-col items-center justify-center
-              gap-0.5 transition-colors
+              gap-0.5 transition-colors border-t-2
               ${isActive
-                ? 'bg-spc-surface-3 text-spc-ink'
-                : 'bg-spc-surface text-spc-muted hover:bg-spc-surface-2 hover:text-spc-ink'}`}
+                ? 'bg-spc-surface-3 text-spc-ink border-spc-accent'
+                : 'bg-spc-surface text-spc-muted border-transparent hover:bg-spc-surface-2 hover:text-spc-ink'}`}
           >
             <span className="text-spc-xs font-bold whitespace-nowrap">{label}</span>
             <span className="text-xs font-semibold tabular-nums">{counts[key]}</span>
@@ -210,16 +213,17 @@ export function LockPanel({ title, locked, unlockWindow, onUnlock, onLock, proce
           </div>
         </div>
 
+        {/* The one action this panel exists for, so it is the filled control. */}
         {locked ? (
-          <SecondaryButton onClick={onUnlock} disabled={processing}>
+          <PrimaryButton onClick={onUnlock} disabled={processing}>
             <Unlock size={14} aria-hidden="true" />
             <span>Open for editing</span>
-          </SecondaryButton>
+          </PrimaryButton>
         ) : (
-          <SecondaryButton onClick={onLock} disabled={processing}>
+          <PrimaryButton onClick={onLock} disabled={processing}>
             <Lock size={14} aria-hidden="true" />
             <span>Lock now</span>
-          </SecondaryButton>
+          </PrimaryButton>
         )}
       </div>
     </Panel>

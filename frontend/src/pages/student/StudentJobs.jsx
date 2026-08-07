@@ -29,6 +29,19 @@ export default function StudentJobs() {
   const [error, setError] = useState(null);
   const deviceType = useDeviceType();
 
+  // Above the skeleton's early return on purpose: a hook has to run on every
+  // render, and this one sat below it — so the loading render called fewer
+  // hooks than the one after it and React tore the tree down.
+  // Identical props for all three presenters — same values, same functions.
+  //
+  // `visibleJobs` rather than `filteredJobs` is what the presenters render. A
+  // student sees every job ever posted to their college, so this list only
+  // grows: by final year it is the whole history, and rendering all of it makes
+  // the page's height a function of how long they have been enrolled. Searching
+  // and the eligibility filter already narrow it; this bounds what is left.
+  // `filteredJobs` still goes through so the count can say "25 of 240".
+  const jobWindow = useLongList(filteredJobs, { step: 25 });
+
   useEffect(() => {
     fetchJobs();
   }, []);
@@ -175,15 +188,6 @@ export default function StudentJobs() {
     },
   ];
 
-  // Identical props for all three presenters — same values, same functions.
-  //
-  // `visibleJobs` rather than `filteredJobs` is what the presenters render. A
-  // student sees every job ever posted to their college, so this list only
-  // grows: by final year it is the whole history, and rendering all of it makes
-  // the page's height a function of how long they have been enrolled. Searching
-  // and the eligibility filter already narrow it; this bounds what is left.
-  // `filteredJobs` still goes through so the count can say "25 of 240".
-  const jobWindow = useLongList(filteredJobs, { step: 25 });
   const presenterProps = {
     error,
     jobs,

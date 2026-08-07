@@ -33,6 +33,15 @@ export default function StudentNotifications() {
   const [showDetailView, setShowDetailView] = useState(false);
   const deviceType = useDeviceType();
 
+  // Above the skeleton's early return on purpose: a hook has to run on every
+  // render, and this one sat below it — so the loading render called fewer
+  // hooks than the one after it and React tore the tree down.
+  // Identical props for all three presenters — same values, same functions.
+  // The server hands back the most recent 50 and the page rendered all of
+  // them. A student gets one per job posted, per drive and per announcement,
+  // so 50 is the normal state, not the extreme one.
+  const notificationWindow = useLongList(filteredNotifications, { step: 25 });
+
   useEffect(() => {
     fetchNotifications();
   }, []);
@@ -191,11 +200,6 @@ export default function StudentNotifications() {
     { key: 'read', label: 'Read', count: notifications.length - unreadCount },
   ];
 
-  // Identical props for all three presenters — same values, same functions.
-  // The server hands back the most recent 50 and the page rendered all of
-  // them. A student gets one per job posted, per drive and per announcement,
-  // so 50 is the normal state, not the extreme one.
-  const notificationWindow = useLongList(filteredNotifications, { step: 25 });
 
   const presenterProps = {
     visibleNotifications: notificationWindow.visible,

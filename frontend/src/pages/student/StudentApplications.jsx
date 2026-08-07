@@ -33,6 +33,14 @@ export default function StudentApplications() {
   const [error, setError] = useState(null);
   const deviceType = useDeviceType();
 
+  // Above the skeleton's early return on purpose: a hook has to run on every
+  // render, and this one sat below it — so the loading render called fewer
+  // hooks than the one after it and React tore the tree down.
+  // Identical props for all three presenters — same values, same functions.
+  // Every application a student has ever made stays here — this list only
+  // ever grows, and by final year it is their whole history.
+  const applicationWindow = useLongList(filteredApplications, { step: 25 });
+
   const [statusCounts, setStatusCounts] = useState({
     all: 0,
     pending: 0,
@@ -145,10 +153,6 @@ export default function StudentApplications() {
     { key: 'rejected', label: 'Rejected', count: statusCounts.rejected },
   ];
 
-  // Identical props for all three presenters — same values, same functions.
-  // Every application a student has ever made stays here — this list only
-  // ever grows, and by final year it is their whole history.
-  const applicationWindow = useLongList(filteredApplications, { step: 25 });
 
   const presenterProps = {
     visibleApplications: applicationWindow.visible,

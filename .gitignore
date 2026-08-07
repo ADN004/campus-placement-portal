@@ -72,3 +72,4 @@ redesigning/
 
 # Claude Code configuration (optional - keep if you want to share)
 # .claude/
+.staging-test.env

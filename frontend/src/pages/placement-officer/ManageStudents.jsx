@@ -172,14 +172,12 @@ export default function ManageStudents() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Lock page scroll while the details modal is open so the wheel only moves
-  // the modal, never the list behind it.
-  useEffect(() => {
-    if (!showDetailsModal) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = prev; };
-  }, [showDetailsModal]);
+  // Page scroll is locked by components/Modal.jsx, which every dialog on this
+  // page now goes through. This used to hold a second lock of its own, and the
+  // two nested: the modal's lock recorded "hidden" as the value to restore,
+  // because the page had already set it, so closing the dialog put the page
+  // back to locked. Sidebar and tab bar still worked — they are fixed — which
+  // made it look like scrolling itself had broken.
 
   useEffect(() => {
     fetchStudents();

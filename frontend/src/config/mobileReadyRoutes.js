@@ -23,6 +23,7 @@ export const MOBILE_READY_ROUTES = [
   '/student/waiting',
   '/placement-officer/dashboard',
   '/placement-officer/students',
+  '/placement-officer/job-eligible-students',
 ];
 
 export function isMobileReadyRoute(pathname) {

@@ -1,28 +1,29 @@
 import { useState, useEffect, useCallback } from 'react';
-import ModalScrollLock from '../../components/ModalScrollLock';
 import { placementOfficerAPI, commonAPI } from '../../services/api';
 import toast from 'react-hot-toast';
-import {
-  Briefcase, Users, Download, Filter, ChevronDown, ChevronUp, Check, FileSpreadsheet, FileText,
-  Eye, Calendar, Send, BarChart3, CheckCircle, Clock, XCircle, AlertCircle, UserCheck, DollarSign, UserPlus, AlertTriangle, Edit
-} from 'lucide-react';
-import DashboardHeader from '../../components/DashboardHeader';
-import GlassCard from '../../components/GlassCard';
-import GlassStatCard from '../../components/GlassStatCard';
-import StatusBadge from '../../components/StatusBadge';
 import StudentDetailModal from '../../components/StudentDetailModal';
 import DriveScheduleModal from '../../components/DriveScheduleModal';
-import EnhancedFilterPanel from '../../components/EnhancedFilterPanel';
 import PlacementDetailsForm from '../../components/PlacementDetailsForm';
 import PDFFieldSelector from '../../components/PDFFieldSelector';
 import ManualStudentAdditionModal from '../../components/ManualStudentAdditionModal';
-import useAutoRefresh from '../../hooks/useAutoRefresh';
 import AutoRefreshIndicator from '../../components/AutoRefreshIndicator';
-import { generateJobDetailsPDF } from '../../utils/jobDetailsPdf';
+import useAutoRefresh from '../../hooks/useAutoRefresh';
 import useSkeletonLoading from '../../hooks/useSkeletonLoading';
-import TablePageSkeleton from '../../components/skeletons/TablePageSkeleton';
-import AnimatedSection from '../../components/animation/AnimatedSection';
-import { KERALA_POLYTECHNIC_BRANCHES } from '../../constants/branches';
+import useDeviceType from '../../hooks/useDeviceType';
+import { generateJobDetailsPDF } from '../../utils/jobDetailsPdf';
+import DesktopJobEligibleStudents from './jobEligible/DesktopJobEligibleStudents';
+import TabletJobEligibleStudents from './jobEligible/TabletJobEligibleStudents';
+import MobileJobEligibleStudents from './jobEligible/MobileJobEligibleStudents';
+import {
+  ExportOptionsModal,
+  CollegePickerModal,
+  EditJobModal,
+} from './jobEligible/JobEligibleModals';
+import {
+  DesktopJobEligibleSkeleton,
+  TabletJobEligibleSkeleton,
+  MobileJobEligibleSkeleton,
+} from './jobEligible/JobEligibleSkeleton';
 
 export default function JobEligibleStudents() {
   const [jobs, setJobs] = useState([]);
@@ -594,833 +595,163 @@ export default function JobEligibleStudents() {
     }
   };
 
+  const deviceType = useDeviceType();
+
   if (showSkeleton) {
-    return <TablePageSkeleton statCards={0} tableColumns={8} tableRows={8} hasSearch={true} hasFilters={false} />;
+    if (deviceType === 'mobile') return <MobileJobEligibleSkeleton />;
+    if (deviceType === 'tablet') return <TabletJobEligibleSkeleton />;
+    return <DesktopJobEligibleSkeleton />;
   }
 
+  const currentApplicants = filteredStudents.filter((s) => !s.is_already_placed);
+  const selectedSummary = filteredStudents.filter((s) => s.application_status === 'selected');
+
+  // Same rule as before: with every ticked application already `selected`,
+  // there is nothing left for the bulk buttons to apply.
+  const selectedRows = filteredStudents.filter((s) => selectedStudents.includes(s.application_id));
+  const allSelectedAreSelected =
+    selectedRows.length > 0 && selectedRows.every((s) => s.application_status === 'selected');
+
+  const hasEnhancedFilters =
+    enhancedFilters.applicationStatuses.length > 0 ||
+    Boolean(enhancedFilters.sslcMin) ||
+    Boolean(enhancedFilters.twelfthMin) ||
+    Boolean(enhancedFilters.district) ||
+    enhancedFilters.hasPassport !== null ||
+    enhancedFilters.hasAadhar !== null ||
+    enhancedFilters.hasDrivingLicense !== null ||
+    enhancedFilters.hasPan !== null ||
+    Boolean(enhancedFilters.heightMin) ||
+    Boolean(enhancedFilters.weightMin) ||
+    enhancedFilters.physicallyHandicapped !== null;
+
+  const placementStatCards = placementStats
+    ? [
+        { label: 'Total applications', value: placementStats.total_applications || 0 },
+        { label: 'Submitted', value: placementStats.submitted || 0 },
+        { label: 'Under review', value: placementStats.under_review || 0 },
+        { label: 'Shortlisted', value: placementStats.shortlisted || 0 },
+        { label: 'Selected', value: placementStats.selected || 0 },
+        { label: 'Rejected', value: placementStats.rejected || 0 },
+        { label: 'Already placed', value: filteredStudents.filter((s) => s.is_already_placed).length },
+      ]
+    : null;
+
+  // The colleges this drive actually targets — used by both the export dialog
+  // and the college picker it opens.
+  const targetCollegeIds = Array.isArray(selectedJob?.target_colleges)
+    ? selectedJob.target_colleges.map(Number)
+    : [];
+  const jobColleges = allColleges.filter((c) => targetCollegeIds.includes(Number(c.id)));
+
+  const handleViewStudent = (student) => {
+    setSelectedStudentId(student.id);
+    setSelectedApplicationId(student.application_id);
+    setShowStudentDetail(true);
+  };
+
+  const handleEditPlacement = (student) => {
+    setSelectedApplication({ ...student, id: student.application_id });
+    setShowPlacementForm(true);
+  };
+
+  const handleOpenEditJob = () => {
+    setEditJobData({
+      title: selectedJob.job_title,
+      company_name: selectedJob.company_name,
+      description: selectedJob.job_description,
+      location: selectedJob.job_location,
+      salary_package: selectedJob.salary_package || '',
+      no_of_vacancies: selectedJob.no_of_vacancies || '',
+      application_deadline: selectedJob.application_deadline
+        ? new Date(selectedJob.application_deadline).toISOString().split('T')[0]
+        : '',
+      application_form_url: selectedJob.application_form_url || '',
+      min_cgpa: selectedJob.min_cgpa || '',
+      max_backlogs:
+        selectedJob.max_backlogs !== null && selectedJob.max_backlogs !== undefined
+          ? String(selectedJob.max_backlogs)
+          : '',
+      allowed_backlog_semesters: Array.isArray(selectedJob.allowed_backlog_semesters)
+        ? selectedJob.allowed_backlog_semesters.map(Number)
+        : [],
+      allowed_branches: Array.isArray(selectedJob.allowed_branches)
+        ? selectedJob.allowed_branches
+        : [],
+    });
+    setShowEditJobModal(true);
+  };
+
+  const handleOpenExport = () => {
+    setShowExportModal(true);
+    setShowEnhancedFilters(false);
+    setShowAdvancedFilters(false);
+  };
+
+  const refreshControl = (
+    <AutoRefreshIndicator
+      lastRefreshed={lastRefreshed}
+      autoRefreshEnabled={autoRefreshEnabled}
+      onToggle={toggleAutoRefresh}
+      onManualRefresh={manualRefresh}
+      refreshing={refreshing}
+    />
+  );
+
+  // Identical props for all three presenters — same values, same functions.
+  const presenterProps = {
+    jobs,
+    selectedJob,
+    onSelectJob: setSelectedJob,
+    onDownloadJobPdf: (job) =>
+      generateJobDetailsPDF({ ...job, title: job.job_title, description: job.job_description }),
+    isHost,
+    placementStats: placementStatCards,
+    driveData,
+    onScheduleDrive: () => setShowDriveModal(true),
+    onNotifyDrive: () => handleNotifyStudents('drive_scheduled'),
+    onEditJob: handleOpenEditJob,
+    onExport: handleOpenExport,
+    exporting,
+    filteredStudents,
+    selectedSummary,
+    loadingStudents,
+    selectedStudents,
+    allSelectedAreSelected,
+    onBulkStatusUpdate: handleBulkStatusUpdate,
+    onClearSelection: () => setSelectedStudents([]),
+    onSelectStudent: handleSelectStudent,
+    onSelectAll: handleSelectAll,
+    onViewStudent: handleViewStudent,
+    onEditPlacement: handleEditPlacement,
+    onManualAdd: () => setShowManualAddModal(true),
+    showEnhancedFilters,
+    onToggleEnhancedFilters: () => setShowEnhancedFilters(!showEnhancedFilters),
+    hasEnhancedFilters,
+    enhancedFilters,
+    onEnhancedFiltersChange: handleEnhancedFiltersChange,
+    onClearEnhancedFilters: clearEnhancedFilters,
+    showAdvancedFilters,
+    onToggleAdvancedFilters: () => setShowAdvancedFilters(!showAdvancedFilters),
+    hasAdvancedFilters: hasActiveFilters(),
+    advancedFilters,
+    onAdvancedFilterChange: handleAdvancedFilterChange,
+    onClearAdvancedFilters: clearAdvancedFilters,
+    refreshControl,
+  };
+
   return (
-    <div>
-      {/* Header */}
-      <AnimatedSection delay={0}>
-        <div className="mb-8">
-          <DashboardHeader
-            icon={Briefcase}
-            title="Job Applicants Management"
-            subtitle={isHost ? "View, manage, and track student applications across all colleges (Host)" : "View, manage, and track student applications for your college"}
-          />
-        </div>
-      </AnimatedSection>
-
-      {/* Job Selection */}
-      <AnimatedSection delay={0.1}>
-        <GlassCard variant="elevated" className="p-8 mb-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
-            <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-2 mr-3 shadow-lg">
-              <Briefcase className="text-white" size={20} />
-            </div>
-            Select a Job
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {jobs.length === 0 ? (
-              <p className="text-gray-500 col-span-full text-center py-8 font-medium">No active jobs available</p>
-            ) : (
-              jobs.map((job) => (
-                <div
-                  key={job.id}
-                  className={`relative p-6 border-2 rounded-2xl text-left transition-all duration-300 transform hover:scale-105 cursor-pointer ${
-                    selectedJob?.id === job.id
-                      ? 'border-blue-500 bg-gradient-to-br from-blue-50 to-indigo-50 shadow-xl'
-                      : 'border-gray-200 bg-white hover:border-blue-300 hover:shadow-lg'
-                  }`}
-                  onClick={() => setSelectedJob(job)}
-                >
-                  <h3 className="font-bold text-gray-900 text-lg mb-2 pr-8">{job.job_title}</h3>
-                  <p className="text-gray-700 font-medium mb-4">{job.company_name}</p>
-                  <div className="space-y-2 text-sm font-medium">
-                    {job.min_cgpa && <p className="text-blue-600">Min CGPA: {job.min_cgpa}</p>}
-                    {job.max_backlogs !== null && <p className="text-orange-600">Max Backlogs: {job.max_backlogs}</p>}
-                    <p className="text-green-600 font-bold">
-                      Deadline: {new Date(job.application_deadline).toLocaleDateString('en-IN')}
-                    </p>
-                  </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      generateJobDetailsPDF({
-                        ...job,
-                        title: job.job_title,
-                        description: job.job_description,
-                      });
-                    }}
-                    className="absolute top-4 right-4 p-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all shadow-sm hover:shadow-md"
-                    title="Download Job Details as PDF"
-                  >
-                    <Download size={14} />
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
-        </GlassCard>
-      </AnimatedSection>
-
-      {selectedJob && (
-        <AnimatedSection delay={0.2}>
-          {/* Placement Statistics */}
-          {placementStats && (
-            <div className="mb-6">
-              <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
-                <BarChart3 className="mr-2 text-blue-600" size={24} />
-                Placement Statistics
-              </h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
-                <GlassStatCard
-                  title="Total Applications"
-                  value={placementStats.total_applications || 0}
-                  icon={Users}
-                  gradient="from-blue-500 to-blue-600"
-                />
-                <GlassStatCard
-                  title="Submitted"
-                  value={placementStats.submitted || 0}
-                  icon={Clock}
-                  gradient="from-gray-500 to-gray-600"
-                />
-                <GlassStatCard
-                  title="Under Review"
-                  value={placementStats.under_review || 0}
-                  icon={AlertCircle}
-                  gradient="from-yellow-500 to-yellow-600"
-                />
-                <GlassStatCard
-                  title="Shortlisted"
-                  value={placementStats.shortlisted || 0}
-                  icon={CheckCircle}
-                  gradient="from-indigo-500 to-indigo-600"
-                />
-                <GlassStatCard
-                  title="Selected"
-                  value={placementStats.selected || 0}
-                  icon={UserCheck}
-                  gradient="from-green-500 to-green-600"
-                />
-                <GlassStatCard
-                  title="Rejected"
-                  value={placementStats.rejected || 0}
-                  icon={XCircle}
-                  gradient="from-red-500 to-red-600"
-                />
-                <GlassStatCard
-                  title="Already Placed"
-                  value={filteredStudents.filter(s => s.is_already_placed).length}
-                  icon={AlertTriangle}
-                  gradient="from-amber-500 to-orange-600"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Drive Schedule Section */}
-          <GlassCard variant="elevated" className="p-6 mb-6">
-            <div className="flex justify-between items-start">
-              <div className="flex-1">
-                <h3 className="text-lg font-bold text-gray-900 mb-2 flex items-center">
-                  <Calendar className="mr-2 text-blue-600" size={24} />
-                  Drive Schedule
-                </h3>
-                {driveData ? (
-                  <div className="space-y-2">
-                    <p className="text-gray-700">
-                      <span className="font-semibold">Date:</span> {new Date(driveData.drive_date).toLocaleDateString('en-IN')}
-                    </p>
-                    <p className="text-gray-700">
-                      <span className="font-semibold">Time:</span> {driveData.drive_time}
-                    </p>
-                    <p className="text-gray-700">
-                      <span className="font-semibold">Venue:</span> {driveData.venue}
-                    </p>
-                    {driveData.additional_instructions && (
-                      <p className="text-gray-700">
-                        <span className="font-semibold">Instructions:</span> {driveData.additional_instructions}
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <p className="text-gray-500">No drive scheduled yet</p>
-                )}
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setShowDriveModal(true)}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-                >
-                  <Calendar size={18} />
-                  {driveData ? 'Edit Drive' : 'Schedule Drive'}
-                </button>
-                {driveData && (
-                  <button
-                    onClick={() => handleNotifyStudents('drive_scheduled')}
-                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
-                  >
-                    <Send size={18} />
-                    Notify All
-                  </button>
-                )}
-              </div>
-            </div>
-          </GlassCard>
-
-          {/* Selected Job Info */}
-          <GlassCard variant="elevated" className="p-6 sm:p-8 mb-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-              <div className="flex-1">
-                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">{selectedJob.job_title}</h2>
-                <p className="text-lg sm:text-xl text-gray-700 font-medium mb-4">{selectedJob.company_name}</p>
-                <div className="flex flex-wrap gap-3">
-                  {selectedJob.min_cgpa && (
-                    <span className="bg-blue-100 text-blue-800 font-bold px-4 py-2 rounded-xl border-2 border-blue-200">
-                      Min CGPA: {selectedJob.min_cgpa}
-                    </span>
-                  )}
-                  {selectedJob.max_backlogs !== null && (
-                    <span className="bg-orange-100 text-orange-800 font-bold px-4 py-2 rounded-xl border-2 border-orange-200">
-                      Max Backlogs: {selectedJob.max_backlogs}
-                    </span>
-                  )}
-                  {selectedJob.allowed_branches && selectedJob.allowed_branches.length > 0 && (
-                    <span className="bg-purple-100 text-purple-800 font-bold px-4 py-2 rounded-xl border-2 border-purple-200">
-                      {selectedJob.allowed_branches.length} Branch(es)
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto sm:ml-6">
-                {isHost && (
-                  <button
-                    onClick={() => {
-                      setEditJobData({
-                        title: selectedJob.job_title,
-                        company_name: selectedJob.company_name,
-                        description: selectedJob.job_description,
-                        location: selectedJob.job_location,
-                        salary_package: selectedJob.salary_package || '',
-                        no_of_vacancies: selectedJob.no_of_vacancies || '',
-                        application_deadline: selectedJob.application_deadline
-                          ? new Date(selectedJob.application_deadline).toISOString().split('T')[0]
-                          : '',
-                        application_form_url: selectedJob.application_form_url || '',
-                        min_cgpa: selectedJob.min_cgpa || '',
-                        max_backlogs: selectedJob.max_backlogs !== null && selectedJob.max_backlogs !== undefined ? String(selectedJob.max_backlogs) : '',
-                        allowed_backlog_semesters: Array.isArray(selectedJob.allowed_backlog_semesters) ? selectedJob.allowed_backlog_semesters.map(Number) : [],
-                        allowed_branches: Array.isArray(selectedJob.allowed_branches) ? selectedJob.allowed_branches : [],
-                      });
-                      setShowEditJobModal(true);
-                    }}
-                    className="w-full sm:w-auto bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold px-5 py-3 rounded-xl shadow-lg hover:shadow-xl hover:from-indigo-600 hover:to-purple-700 transition-all duration-200 flex items-center justify-center space-x-2"
-                    title="Edit Job"
-                  >
-                    <Edit size={18} />
-                    <span>Edit Job</span>
-                  </button>
-                )}
-              <button
-                  onClick={() => {
-                    setShowExportModal(true);
-                    setShowEnhancedFilters(false);
-                    setShowAdvancedFilters(false);
-                  }}
-                  disabled={filteredStudents.length === 0 || exporting}
-                  className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 transform hover:scale-105 active:scale-95 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Download size={18} />
-                  <span>{exporting ? 'Exporting...' : 'Export'}</span>
-                </button>
-              </div>
-            </div>
-          </GlassCard>
-
-          {/* Bulk Actions Bar */}
-          {selectedStudents.length > 0 && (
-            <GlassCard variant="elevated" className="p-4 mb-6">
-              <div className="flex items-center justify-between">
-                <p className="font-bold text-gray-900">
-                  {selectedStudents.length} student{selectedStudents.length > 1 ? 's' : ''} selected
-                  {(() => {
-                    const selectedStudentData = filteredStudents.filter(s => selectedStudents.includes(s.application_id));
-                    const allSelected = selectedStudentData.every(s => s.application_status === 'selected');
-                    if (allSelected && selectedStudentData.length > 0) {
-                      return <span className="ml-2 text-sm text-green-600">(All already selected)</span>;
-                    }
-                    return null;
-                  })()}
-                </p>
-                <div className="flex gap-2">
-                  {(() => {
-                    const selectedStudentData = filteredStudents.filter(s => selectedStudents.includes(s.application_id));
-                    const allSelected = selectedStudentData.every(s => s.application_status === 'selected');
-
-                    // Hide action buttons if all selected students are already marked as selected
-                    if (allSelected && selectedStudentData.length > 0) {
-                      return (
-                        <>
-                          <p className="text-sm text-gray-600 self-center mr-2">
-                            These students are already marked as selected
-                          </p>
-                          <button
-                            onClick={() => setSelectedStudents([])}
-                            className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors text-sm font-bold"
-                          >
-                            Clear Selection
-                          </button>
-                        </>
-                      );
-                    }
-
-                    return (
-                      <>
-                        <button
-                          onClick={() => handleBulkStatusUpdate('under_review')}
-                          className="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 transition-colors text-sm font-bold"
-                        >
-                          Mark Under Review
-                        </button>
-                        <button
-                          onClick={() => handleBulkStatusUpdate('shortlisted')}
-                          className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors text-sm font-bold"
-                        >
-                          Shortlist
-                        </button>
-                        <button
-                          onClick={() => handleBulkStatusUpdate('selected')}
-                          className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm font-bold"
-                        >
-                          Mark Selected
-                        </button>
-                        <button
-                          onClick={() => handleBulkStatusUpdate('rejected')}
-                          className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors text-sm font-bold"
-                        >
-                          Reject
-                        </button>
-                        <button
-                          onClick={() => setSelectedStudents([])}
-                          className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors text-sm font-bold"
-                        >
-                          Clear Selection
-                        </button>
-                      </>
-                    );
-                  })()}
-                </div>
-              </div>
-            </GlassCard>
-          )}
-
-          {/* Manually Add Student Button */}
-          <div className="mb-6 mt-8">
-            <button
-              onClick={() => setShowManualAddModal(true)}
-              className="bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-200 transform hover:scale-105 active:scale-95 flex items-center space-x-2 w-full sm:w-auto"
-            >
-              <UserPlus size={18} />
-              <span>Manually Add Student</span>
-            </button>
-            <p className="text-xs text-gray-600 mt-2 font-medium">
-              Add students who didn't apply but got selected during the drive
-            </p>
-          </div>
-
-          {/* Enhanced Filters */}
-          <div className="mb-6">
-            <button
-              onClick={() => setShowEnhancedFilters(!showEnhancedFilters)}
-              className="bg-white text-gray-900 font-bold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 active:scale-95 flex items-center space-x-2 border-2 border-gray-200 hover:border-blue-300 w-full sm:w-auto"
-            >
-              <Filter size={18} />
-              <span>Filter by Status & Profile</span>
-              {(enhancedFilters.applicationStatuses.length > 0 ||
-                enhancedFilters.sslcMin ||
-                enhancedFilters.twelfthMin ||
-                enhancedFilters.district ||
-                enhancedFilters.hasPassport !== null ||
-                enhancedFilters.hasAadhar !== null ||
-                enhancedFilters.hasDrivingLicense !== null ||
-                enhancedFilters.hasPan !== null ||
-                enhancedFilters.heightMin ||
-                enhancedFilters.weightMin ||
-                enhancedFilters.physicallyHandicapped !== null) && (
-                <span className="bg-blue-600 text-white px-3 py-1 text-xs rounded-full font-bold">
-                  Active
-                </span>
-              )}
-              {showEnhancedFilters ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-            </button>
-
-            {showEnhancedFilters && (
-              <div className="mt-4">
-                <EnhancedFilterPanel
-                  filters={enhancedFilters}
-                  onChange={handleEnhancedFiltersChange}
-                  onClear={clearEnhancedFilters}
-                />
-              </div>
-            )}
-          </div>
-
-          {/* Advanced Filters (Legacy) */}
-          <div className="mb-6">
-            <button
-              onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-              className="bg-white text-gray-900 font-bold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 active:scale-95 flex items-center space-x-2 border-2 border-gray-200 hover:border-blue-300"
-            >
-              <Filter size={18} />
-              <span>Additional Filters</span>
-              {hasActiveFilters() && (
-                <span className="bg-blue-600 text-white px-3 py-1 text-xs rounded-full font-bold">
-                  Active
-                </span>
-              )}
-              {showAdvancedFilters ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-            </button>
-
-            {showAdvancedFilters && (
-              <GlassCard variant="elevated" className="mt-4 p-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">Additional Min CGPA</label>
-                    <input
-                      type="number"
-                      value={advancedFilters.cgpaMin}
-                      onChange={(e) => handleAdvancedFilterChange('cgpaMin', e.target.value)}
-                      placeholder="e.g., 7.0"
-                      min="0"
-                      max="10"
-                      step="0.1"
-                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium bg-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">Additional Max CGPA</label>
-                    <input
-                      type="number"
-                      value={advancedFilters.cgpaMax}
-                      onChange={(e) => handleAdvancedFilterChange('cgpaMax', e.target.value)}
-                      placeholder="e.g., 9.0"
-                      min="0"
-                      max="10"
-                      step="0.1"
-                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium bg-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">Max Backlogs (Stricter)</label>
-                    <input
-                      type="number"
-                      value={advancedFilters.maxBacklogs}
-                      onChange={(e) => handleAdvancedFilterChange('maxBacklogs', e.target.value)}
-                      placeholder="e.g., 0 for no backlogs"
-                      min="0"
-                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium bg-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">Date of Birth (From)</label>
-                    <input
-                      type="date"
-                      value={advancedFilters.dobFrom}
-                      onChange={(e) => handleAdvancedFilterChange('dobFrom', e.target.value)}
-                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium bg-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">Date of Birth (To)</label>
-                    <input
-                      type="date"
-                      value={advancedFilters.dobTo}
-                      onChange={(e) => handleAdvancedFilterChange('dobTo', e.target.value)}
-                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium bg-white"
-                    />
-                  </div>
-                </div>
-
-                <div className="mt-6 flex justify-between items-center">
-                  <span className="text-sm text-gray-600 font-bold">
-                    Showing {filteredStudents.length} applicants
-                  </span>
-                  <button
-                    onClick={clearAdvancedFilters}
-                    className="bg-gray-200 text-gray-700 font-bold px-6 py-3 rounded-xl hover:bg-gray-300 transition-all transform hover:scale-105 disabled:opacity-50"
-                    disabled={!hasActiveFilters()}
-                  >
-                    Clear Filters
-                  </button>
-                </div>
-              </GlassCard>
-            )}
-          </div>
-
-          {/* Job Applicants Table - Normal (non-placed) students only */}
-          <GlassCard variant="elevated" className="overflow-hidden p-0">
-            <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 flex items-center justify-between flex-wrap gap-3">
-              <h2 className="text-2xl font-bold text-gray-900 flex items-center">
-                <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-2 mr-3 shadow-lg">
-                  <Users className="text-white" size={24} />
-                </div>
-                Job Applicants ({filteredStudents.filter(s => !s.is_already_placed).length})
-              </h2>
-              <AutoRefreshIndicator
-                lastRefreshed={lastRefreshed}
-                autoRefreshEnabled={autoRefreshEnabled}
-                onToggle={toggleAutoRefresh}
-                onManualRefresh={manualRefresh}
-                refreshing={refreshing}
-              />
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
-                  <tr>
-                    <th className="px-6 py-4 text-left">
-                      <input
-                        type="checkbox"
-                        checked={filteredStudents.filter(s => !s.is_already_placed).length > 0 && selectedStudents.length === filteredStudents.filter(s => !s.is_already_placed).length}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedStudents(filteredStudents.filter(s => !s.is_already_placed).map(s => s.application_id));
-                          } else {
-                            setSelectedStudents([]);
-                          }
-                        }}
-                        className="w-4 h-4 rounded border-2 border-white"
-                      />
-                    </th>
-                    <th className="px-6 py-4 text-left font-bold">PRN</th>
-                    <th className="px-6 py-4 text-left font-bold">Name</th>
-                    {isHost && <th className="px-6 py-4 text-left font-bold">College</th>}
-                    <th className="px-6 py-4 text-left font-bold">Branch</th>
-                    <th className="px-6 py-4 text-left font-bold">CGPA</th>
-                    <th className="px-6 py-4 text-left font-bold">Backlogs</th>
-                    <th className="px-6 py-4 text-left font-bold">Status</th>
-                    <th className="px-6 py-4 text-left font-bold">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {loadingStudents ? (
-                    <tr>
-                      <td colSpan={isHost ? 9 : 8} className="text-center py-12">
-                        <div className="spinner mx-auto mb-4"></div>
-                        <p className="text-gray-600 font-medium">Loading applicants...</p>
-                      </td>
-                    </tr>
-                  ) : filteredStudents.filter(s => !s.is_already_placed).length === 0 ? (
-                    <tr>
-                      <td colSpan={isHost ? 9 : 8} className="text-center text-gray-500 py-12 font-medium text-lg">
-                        No students match the current filters
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredStudents.filter(s => !s.is_already_placed).map((student, index) => (
-                      <tr
-                        key={student.id}
-                        className={`border-b border-gray-200 transition-colors ${
-                          selectedStudents.includes(student.application_id)
-                            ? 'bg-amber-200 hover:bg-amber-300'
-                            : `hover:bg-blue-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`
-                        }`}
-                      >
-                        <td className="px-6 py-4">
-                          <input
-                            type="checkbox"
-                            checked={selectedStudents.includes(student.application_id)}
-                            onChange={() => handleSelectStudent(student.application_id)}
-                            className="w-4 h-4 rounded border-2 border-gray-300"
-                          />
-                        </td>
-                        <td className="px-6 py-4 font-mono font-bold text-gray-900">{student.prn}</td>
-                        <td className="px-6 py-4 font-bold text-gray-900">{student.name}</td>
-                        {isHost && <td className="px-6 py-4 font-medium text-indigo-700">{student.college_name}</td>}
-                        <td className="px-6 py-4 font-medium text-gray-700">{student.branch}</td>
-                        <td className="px-6 py-4 font-bold text-green-600 text-lg">{student.cgpa}</td>
-                        <td className="px-6 py-4">
-                          {student.backlog_count > 0 ? (
-                            <span className="text-orange-600 font-bold text-lg">{student.backlog_count}</span>
-                          ) : (
-                            <span className="text-green-600 font-bold flex items-center text-lg">
-                              <Check size={20} className="mr-1" /> 0
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4">
-                          <StatusBadge status={student.application_status} />
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => {
-                                setSelectedStudentId(student.id);
-                                setSelectedApplicationId(student.application_id);
-                                setShowStudentDetail(true);
-                              }}
-                              className="text-blue-600 hover:text-blue-800 transition-colors"
-                              title="View Details"
-                            >
-                              <Eye size={20} />
-                            </button>
-                            {student.application_status === 'selected' && (
-                              <button
-                                onClick={() => {
-                                  setSelectedApplication({ ...student, id: student.application_id });
-                                  setShowPlacementForm(true);
-                                }}
-                                className="text-green-600 hover:text-green-800 transition-colors"
-                                title="Add/Edit Placement Details"
-                              >
-                                <DollarSign size={20} />
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </GlassCard>
-
-          {/* Already Placed but Applied Students */}
-          {filteredStudents.filter(s => s.is_already_placed).length > 0 && (
-            <GlassCard variant="elevated" className="mt-6 overflow-hidden p-0">
-              <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-amber-50 to-orange-50 flex items-center justify-between flex-wrap gap-3">
-                <h2 className="text-2xl font-bold text-gray-900 flex items-center">
-                  <div className="bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl p-2 mr-3 shadow-lg">
-                    <AlertTriangle className="text-white" size={24} />
-                  </div>
-                  Already Placed but Applied ({filteredStudents.filter(s => s.is_already_placed).length})
-                </h2>
-                <p className="text-sm text-amber-700 font-medium">
-                  These students are already selected in another company
-                </p>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gradient-to-r from-amber-600 to-orange-600 text-white">
-                    <tr>
-                      <th className="px-6 py-4 text-left font-bold">PRN</th>
-                      <th className="px-6 py-4 text-left font-bold">Name</th>
-                      {isHost && <th className="px-6 py-4 text-left font-bold">College</th>}
-                      <th className="px-6 py-4 text-left font-bold">Branch</th>
-                      <th className="px-6 py-4 text-left font-bold">CGPA</th>
-                      <th className="px-6 py-4 text-left font-bold">Backlogs</th>
-                      <th className="px-6 py-4 text-left font-bold">Status</th>
-                      <th className="px-6 py-4 text-left font-bold">Already Placed At</th>
-                      <th className="px-6 py-4 text-left font-bold">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredStudents.filter(s => s.is_already_placed).map((student, index) => (
-                      <tr key={student.id} className={`border-b border-gray-200 hover:bg-amber-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-orange-50/30'}`}>
-                        <td className="px-6 py-4 font-mono font-bold text-gray-900">{student.prn}</td>
-                        <td className="px-6 py-4 font-bold text-gray-900">{student.name}</td>
-                        {isHost && <td className="px-6 py-4 font-medium text-indigo-700">{student.college_name}</td>}
-                        <td className="px-6 py-4 font-medium text-gray-700">{student.branch}</td>
-                        <td className="px-6 py-4 font-bold text-green-600 text-lg">{student.cgpa}</td>
-                        <td className="px-6 py-4">
-                          {student.backlog_count > 0 ? (
-                            <span className="text-orange-600 font-bold text-lg">{student.backlog_count}</span>
-                          ) : (
-                            <span className="text-green-600 font-bold flex items-center text-lg">
-                              <Check size={20} className="mr-1" /> 0
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4">
-                          <StatusBadge status={student.application_status} />
-                        </td>
-                        <td className="px-6 py-4">
-                          {student.previous_placements && student.previous_placements.map((p, i) => (
-                            <div key={i} className="text-sm">
-                              <span className="font-bold text-amber-700">{p.company_name}</span>
-                              {p.placement_package && (
-                                <span className="text-gray-600 ml-1">({p.placement_package} LPA)</span>
-                              )}
-                            </div>
-                          ))}
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => {
-                                setSelectedStudentId(student.id);
-                                setSelectedApplicationId(student.application_id);
-                                setShowStudentDetail(true);
-                              }}
-                              className="text-amber-600 hover:text-amber-800 transition-colors"
-                              title="View Details"
-                            >
-                              <Eye size={20} />
-                            </button>
-                            {student.application_status === 'selected' && (
-                              <button
-                                onClick={() => {
-                                  setSelectedApplication({ ...student, id: student.application_id });
-                                  setShowPlacementForm(true);
-                                }}
-                                className="text-green-600 hover:text-green-800 transition-colors"
-                                title="Add/Edit Placement Details"
-                              >
-                                <DollarSign size={20} />
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </GlassCard>
-          )}
-
-          {/* Selected Students Summary Section */}
-          {filteredStudents.filter(s => s.application_status === 'selected').length > 0 && (
-            <GlassCard variant="elevated" className="mt-6 overflow-hidden p-0">
-              <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-green-50 to-emerald-50 flex justify-between items-center">
-                <h2 className="text-2xl font-bold text-gray-900 flex items-center">
-                  <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl p-2 mr-3 shadow-lg">
-                    <UserCheck className="text-white" size={24} />
-                  </div>
-                  Selected Students ({filteredStudents.filter(s => s.application_status === 'selected').length})
-                </h2>
-                <div className="flex gap-3">
-                  <button
-                    onClick={async () => {
-                      try {
-                        setExporting(true);
-                        const loadingToast = toast.loading('Exporting selected students...');
-
-                        // Create export data with only selected students
-                        const exportData = {
-                          format: 'excel',
-                          application_statuses: ['selected'],
-                        };
-
-                        const response = await placementOfficerAPI.enhancedExportJobApplicants(selectedJob.id, exportData);
-
-                        const blob = new Blob([response.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-                        const url = window.URL.createObjectURL(blob);
-                        const link = document.createElement('a');
-                        link.href = url;
-                        const fileName = `selected_students_${selectedJob.job_title.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
-                        link.setAttribute('download', fileName);
-                        document.body.appendChild(link);
-                        link.click();
-                        link.remove();
-                        window.URL.revokeObjectURL(url);
-
-                        toast.dismiss(loadingToast);
-                        toast.success('Exported selected students as Excel');
-                      } catch (error) {
-                        console.error('Export error:', error);
-                        toast.error('Failed to export selected students');
-                      } finally {
-                        setExporting(false);
-                      }
-                    }}
-                    className="bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-200 transform hover:scale-105 active:scale-95 flex items-center space-x-2"
-                    disabled={exporting}
-                  >
-                    <FileSpreadsheet size={18} />
-                    <span>Export Excel</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setPdfExportType('selected_only');
-                      setShowPDFFieldSelector(true);
-                    }}
-                    className="bg-gradient-to-r from-red-600 to-rose-600 text-white font-bold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl hover:from-red-700 hover:to-rose-700 transition-all duration-200 transform hover:scale-105 active:scale-95 flex items-center space-x-2"
-                    disabled={exporting}
-                  >
-                    <FileText size={18} />
-                    <span>Export PDF</span>
-                  </button>
-                </div>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gradient-to-r from-green-600 to-emerald-600 text-white">
-                    <tr>
-                      <th className="px-6 py-4 text-left font-bold">PRN</th>
-                      <th className="px-6 py-4 text-left font-bold">Name</th>
-                      {isHost && <th className="px-6 py-4 text-left font-bold">College</th>}
-                      <th className="px-6 py-4 text-left font-bold">Branch</th>
-                      <th className="px-6 py-4 text-left font-bold">CGPA</th>
-                      <th className="px-6 py-4 text-left font-bold">Backlogs</th>
-                      <th className="px-6 py-4 text-left font-bold">Status</th>
-                      <th className="px-6 py-4 text-left font-bold">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredStudents
-                      .filter(s => s.application_status === 'selected')
-                      .map((student, index) => (
-                        <tr key={student.id} className={`border-b border-gray-200 hover:bg-green-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                          <td className="px-6 py-4 font-mono font-bold text-gray-900">{student.prn}</td>
-                          <td className="px-6 py-4 font-bold text-gray-900">{student.name}</td>
-                          {isHost && <td className="px-6 py-4 font-medium text-indigo-700">{student.college_name}</td>}
-                          <td className="px-6 py-4 font-medium text-gray-700">{student.branch}</td>
-                          <td className="px-6 py-4 font-bold text-green-600 text-lg">{student.cgpa}</td>
-                          <td className="px-6 py-4">
-                            {student.backlog_count > 0 ? (
-                              <span className="text-orange-600 font-bold text-lg">{student.backlog_count}</span>
-                            ) : (
-                              <span className="text-green-600 font-bold flex items-center text-lg">
-                                <Check size={20} className="mr-1" /> 0
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4">
-                            <StatusBadge status={student.application_status} />
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => {
-                                  setSelectedStudentId(student.id);
-                                  setSelectedApplicationId(student.application_id);
-                                  setShowStudentDetail(true);
-                                }}
-                                className="text-green-600 hover:text-green-800 transition-colors"
-                                title="View Details"
-                              >
-                                <Eye size={20} />
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setSelectedApplication({ ...student, id: student.application_id });
-                                  setShowPlacementForm(true);
-                                }}
-                                className="text-emerald-600 hover:text-emerald-800 transition-colors"
-                                title="Add/Edit Placement Details"
-                              >
-                                <DollarSign size={20} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
-              </div>
-            </GlassCard>
-          )}
-        </AnimatedSection>
+    <>
+      {deviceType === 'mobile' ? (
+        <MobileJobEligibleStudents {...presenterProps} />
+      ) : deviceType === 'tablet' ? (
+        <TabletJobEligibleStudents {...presenterProps} />
+      ) : (
+        <DesktopJobEligibleStudents {...presenterProps} />
       )}
 
-      {/* Modals */}
+      {/* Shared components — these keep their original styling until the
+          dedicated officer-variant pass after all ten pages. */}
       <StudentDetailModal
         isOpen={showStudentDetail}
         onClose={() => {
@@ -1457,7 +788,7 @@ export default function JobEligibleStudents() {
           onClose={() => setShowPDFFieldSelector(false)}
           applicantCount={
             pdfExportType === 'selected_only'
-              ? filteredStudents.filter(s => s.application_status === 'selected').length
+              ? filteredStudents.filter((s) => s.application_status === 'selected').length
               : filteredStudents.length
           }
           exportType={pdfExportType}
@@ -1476,347 +807,55 @@ export default function JobEligibleStudents() {
         userRole="placement-officer"
       />
 
-      {/* College Selection Modal for host PO export */}
-      {showCollegeModal && selectedJob && (() => {
-        const targetIds = Array.isArray(selectedJob?.target_colleges)
-          ? selectedJob.target_colleges.map(Number)
-          : [];
-        const jobColleges = allColleges.filter((c) => targetIds.includes(Number(c.id)));
-        return (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-            <ModalScrollLock />
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-              <div className="border-b border-gray-200 px-6 py-4 flex justify-between items-center rounded-t-2xl">
-                <div>
-                  <h2 className="text-lg font-bold text-gray-900">Select Colleges for Export</h2>
-                  <p className="text-xs text-gray-500 mt-0.5">Leave all unchecked to export from all colleges</p>
-                </div>
-                <button onClick={() => setShowCollegeModal(false)} className="text-gray-400 hover:text-gray-600">
-                  <XCircle size={22} />
-                </button>
-              </div>
-              <div className="p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm font-bold text-gray-700">{jobColleges.length} colleges in this drive</span>
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => setExportCollegeIds(jobColleges.map((c) => Number(c.id)))}
-                      className="text-xs text-indigo-600 font-bold hover:underline"
-                    >Select All</button>
-                    <span className="text-gray-300">|</span>
-                    <button
-                      onClick={() => setExportCollegeIds([])}
-                      className="text-xs text-gray-500 font-bold hover:underline"
-                    >Clear</button>
-                  </div>
-                </div>
-                <div className="max-h-72 overflow-y-auto border border-gray-200 rounded-xl divide-y divide-gray-100">
-                  {jobColleges.map((college) => (
-                    <label key={college.id} className="flex items-center gap-3 px-4 py-3 hover:bg-indigo-50 cursor-pointer transition-colors">
-                      <input
-                        type="checkbox"
-                        checked={exportCollegeIds.includes(Number(college.id))}
-                        onChange={() => {
-                          const id = Number(college.id);
-                          setExportCollegeIds((prev) =>
-                            prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-                          );
-                        }}
-                        className="w-4 h-4 rounded text-indigo-600"
-                      />
-                      <span className="text-sm font-medium text-gray-800">{college.college_name}</span>
-                    </label>
-                  ))}
-                </div>
-                {exportCollegeIds.length > 0 && (
-                  <p className="text-xs text-indigo-600 font-bold mt-2">{exportCollegeIds.length} college(s) selected</p>
-                )}
-              </div>
-              <div className="border-t border-gray-200 px-6 py-4 flex justify-end gap-3">
-                <button
-                  onClick={() => { setExportCollegeIds([]); setShowCollegeModal(false); }}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 text-sm"
-                >Reset & Close</button>
-                <button
-                  onClick={() => setShowCollegeModal(false)}
-                  className="px-5 py-2 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors text-sm"
-                >Apply</button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* Export Options Modal */}
+      {/* Page-local dialogs — converted. */}
       {showExportModal && !exporting && (
-        <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[150] flex items-center justify-center p-4"
-          onClick={() => setShowExportModal(false)}
-        >
-          <ModalScrollLock />
-          <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
-              <div className="flex items-center gap-3">
-                <div className="bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl p-2 shadow-md">
-                  <Download size={18} className="text-white" />
-                </div>
-                <h2 className="text-lg font-bold text-gray-900">Export Options</h2>
-              </div>
-              <button
-                onClick={() => setShowExportModal(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <XCircle size={22} />
-              </button>
-            </div>
-
-            <div className="p-4 space-y-1 max-h-[70vh] overflow-y-auto overscroll-contain">
-              {/* College filter for host POs */}
-              {isHost && (() => {
-                const targetIds = Array.isArray(selectedJob?.target_colleges)
-                  ? selectedJob.target_colleges.map(Number)
-                  : [];
-                const jobColleges = allColleges.filter((c) => targetIds.includes(Number(c.id)));
-                if (jobColleges.length <= 1) return null;
-                return (
-                  <div className="mb-3 px-3 py-3 bg-indigo-50 rounded-xl border border-indigo-100 flex items-center justify-between">
-                    <p className="text-xs font-bold text-indigo-700">Filter by College</p>
-                    <button
-                      onClick={() => { setShowCollegeModal(true); setShowExportModal(false); }}
-                      className="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-indigo-700 transition-colors"
-                    >
-                      {exportCollegeIds.length === 0
-                        ? `All ${jobColleges.length} colleges`
-                        : `${exportCollegeIds.length} / ${jobColleges.length} selected`}
-                    </button>
-                  </div>
-                );
-              })()}
-
-              {/* Basic Export */}
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-2 pt-1 pb-0.5">Basic Export</p>
-              <button
-                onClick={() => handleExport('excel')}
-                className="w-full px-4 py-3 text-left hover:bg-green-50 flex items-center space-x-3 transition-colors rounded-xl"
-              >
-                <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl p-2.5 shadow-md flex-shrink-0">
-                  <FileSpreadsheet size={18} className="text-white" />
-                </div>
-                <div>
-                  <div className="font-bold text-gray-900 text-sm">Export as Excel</div>
-                  <div className="text-xs text-gray-500">Basic applicant list</div>
-                </div>
-              </button>
-              <button
-                onClick={() => handleExport('pdf')}
-                className="w-full px-4 py-3 text-left hover:bg-red-50 flex items-center space-x-3 transition-colors rounded-xl"
-              >
-                <div className="bg-gradient-to-br from-red-500 to-rose-600 rounded-xl p-2.5 shadow-md flex-shrink-0">
-                  <FileText size={18} className="text-white" />
-                </div>
-                <div>
-                  <div className="font-bold text-gray-900 text-sm">Export as PDF</div>
-                  <div className="text-xs text-gray-500">Basic report format</div>
-                </div>
-              </button>
-
-              {/* Enhanced Export */}
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-2 pt-3 pb-0.5">Enhanced Export</p>
-              <button
-                onClick={handleEnhancedExport}
-                className="w-full px-4 py-3 text-left hover:bg-purple-50 flex items-center space-x-3 transition-colors rounded-xl"
-              >
-                <div className="bg-gradient-to-br from-purple-500 to-purple-700 rounded-xl p-2.5 shadow-md flex-shrink-0">
-                  <FileText size={18} className="text-white" />
-                </div>
-                <div>
-                  <div className="font-bold text-gray-900 text-sm">Enhanced PDF</div>
-                  <div className="text-xs text-gray-500">Comprehensive report with field selection</div>
-                </div>
-              </button>
-
-              {/* Not-Applied Students */}
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-2 pt-3 pb-0.5">Not-Applied Students</p>
-              <button
-                onClick={() => handleExportEligibleNotApplied()}
-                className="w-full px-4 py-3 text-left hover:bg-teal-50 flex items-center space-x-3 transition-colors rounded-xl"
-              >
-                <div className="bg-gradient-to-br from-teal-500 to-emerald-600 rounded-xl p-2.5 shadow-md flex-shrink-0">
-                  <FileText size={18} className="text-white" />
-                </div>
-                <div>
-                  <div className="font-bold text-gray-900 text-sm">Not-Applied — PDF</div>
-                  <div className="text-xs text-gray-500">Eligible students who haven&apos;t applied yet{isHost ? ', all colleges' : ''}</div>
-                </div>
-              </button>
-
-              {/* Include placed students toggle */}
-              {filteredStudents.some(s => s.is_already_placed) && (
-                <div className="mt-3 px-3 py-3 bg-amber-50 rounded-xl border border-amber-200">
-                  <label className="flex items-center space-x-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={includePlacedInExport}
-                      onChange={(e) => setIncludePlacedInExport(e.target.checked)}
-                      className="w-4 h-4 rounded border-2 border-amber-400 text-amber-600 focus:ring-amber-500"
-                    />
-                    <div>
-                      <div className="font-bold text-amber-800 text-sm">Include already placed students</div>
-                      <div className="text-xs text-amber-600">
-                        {filteredStudents.filter(s => s.is_already_placed).length} student(s) already placed in other companies
-                      </div>
-                    </div>
-                  </label>
-                </div>
-              )}
-            </div>
-
-            {/* Footer */}
-            <div className="px-6 py-3 border-t border-gray-100 bg-gray-50 flex justify-end">
-              <button
-                onClick={() => setShowExportModal(false)}
-                className="px-4 py-2 text-sm font-bold text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded-xl transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
+        <ExportOptionsModal
+          isHost={isHost}
+          jobCollegeCount={jobColleges.length}
+          exportCollegeIds={exportCollegeIds}
+          onOpenCollegePicker={() => {
+            setShowCollegeModal(true);
+            setShowExportModal(false);
+          }}
+          onExportExcel={() => handleExport('excel')}
+          onExportPdf={() => handleExport('pdf')}
+          onEnhancedExport={handleEnhancedExport}
+          onExportNotApplied={() => handleExportEligibleNotApplied()}
+          placedCount={filteredStudents.filter((s) => s.is_already_placed).length}
+          includePlaced={includePlacedInExport}
+          onIncludePlacedChange={(e) => setIncludePlacedInExport(e.target.checked)}
+          onClose={() => setShowExportModal(false)}
+        />
       )}
 
-      {/* Edit Job Modal (host POs only) */}
+      {showCollegeModal && selectedJob && (
+        <CollegePickerModal
+          jobColleges={jobColleges}
+          exportCollegeIds={exportCollegeIds}
+          onToggle={(id) =>
+            setExportCollegeIds((prev) =>
+              prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+            )
+          }
+          onSelectAll={() => setExportCollegeIds(jobColleges.map((c) => Number(c.id)))}
+          onClear={() => setExportCollegeIds([])}
+          onApply={() => setShowCollegeModal(false)}
+          onResetAndClose={() => {
+            setExportCollegeIds([]);
+            setShowCollegeModal(false);
+          }}
+        />
+      )}
+
       {showEditJobModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-          <ModalScrollLock />
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto overscroll-contain">
-            <div className="sticky top-0 z-20 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center rounded-t-2xl">
-              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                <Edit size={20} className="text-indigo-600" />
-                Edit Job
-              </h2>
-              <button onClick={() => setShowEditJobModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
-                <XCircle size={24} />
-              </button>
-            </div>
-            <div className="p-6 space-y-5">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Job Title *</label>
-                  <input type="text" value={editJobData.title || ''} onChange={(e) => setEditJobData({ ...editJobData, title: e.target.value })}
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all font-medium" />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Company Name *</label>
-                  <input type="text" value={editJobData.company_name || ''} onChange={(e) => setEditJobData({ ...editJobData, company_name: e.target.value })}
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all font-medium" />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Location</label>
-                  <input type="text" value={editJobData.location || ''} onChange={(e) => setEditJobData({ ...editJobData, location: e.target.value })}
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all font-medium" />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Salary Package</label>
-                  <input type="text" value={editJobData.salary_package || ''} onChange={(e) => setEditJobData({ ...editJobData, salary_package: e.target.value })}
-                    placeholder="e.g., 6 LPA" className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all font-medium" />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">No. of Vacancies</label>
-                  <input type="number" min="1" value={editJobData.no_of_vacancies || ''} onChange={(e) => setEditJobData({ ...editJobData, no_of_vacancies: e.target.value })}
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all font-medium" />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Application Deadline *</label>
-                  <input type="date" value={editJobData.application_deadline || ''} onChange={(e) => setEditJobData({ ...editJobData, application_deadline: e.target.value })}
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all font-medium" />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Min CGPA</label>
-                  <input type="number" step="0.01" min="0" max="10" value={editJobData.min_cgpa || ''} onChange={(e) => setEditJobData({ ...editJobData, min_cgpa: e.target.value })}
-                    placeholder="e.g., 6.5" className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all font-medium" />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Max Backlogs Allowed</label>
-                  <input type="number" min="0" value={editJobData.max_backlogs || ''} onChange={(e) => setEditJobData({ ...editJobData, max_backlogs: e.target.value })}
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all font-medium" />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Application Form URL</label>
-                <input type="url" value={editJobData.application_form_url || ''} onChange={(e) => setEditJobData({ ...editJobData, application_form_url: e.target.value })}
-                  placeholder="https://..." className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all font-medium" />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Job Description *</label>
-                <textarea rows={4} value={editJobData.description || ''} onChange={(e) => setEditJobData({ ...editJobData, description: e.target.value })}
-                  className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all font-medium resize-none" />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">
-                  Allowed Backlog Semesters <span className="text-gray-400 font-normal">(leave unchecked = any semester)</span>
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {[1, 2, 3, 4, 5, 6].map((sem) => (
-                    <label key={sem} className="flex items-center gap-2 cursor-pointer px-3 py-2 border-2 border-gray-300 rounded-lg hover:bg-indigo-50 transition-colors">
-                      <input type="checkbox"
-                        checked={(editJobData.allowed_backlog_semesters || []).includes(sem)}
-                        onChange={() => {
-                          const current = editJobData.allowed_backlog_semesters || [];
-                          const updated = current.includes(sem) ? current.filter((s) => s !== sem) : [...current, sem].sort((a, b) => a - b);
-                          setEditJobData({ ...editJobData, allowed_backlog_semesters: updated });
-                        }}
-                        className="rounded text-indigo-600" />
-                      <span className="text-sm font-medium">Sem {sem}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">
-                  Allowed Branches <span className="text-red-500">*</span>
-                </label>
-                <div className="border-2 border-gray-300 rounded-xl p-4 max-h-48 overflow-y-auto">
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                    {KERALA_POLYTECHNIC_BRANCHES.map((branch) => (
-                      <label key={branch} className="flex items-center gap-2 cursor-pointer hover:bg-indigo-50 px-2 py-1 rounded-lg transition-colors">
-                        <input
-                          type="checkbox"
-                          checked={(editJobData.allowed_branches || []).includes(branch)}
-                          onChange={() => {
-                            const current = editJobData.allowed_branches || [];
-                            const updated = current.includes(branch)
-                              ? current.filter((b) => b !== branch)
-                              : [...current, branch];
-                            setEditJobData({ ...editJobData, allowed_branches: updated });
-                          }}
-                          className="rounded text-indigo-600 focus:ring-indigo-500"
-                        />
-                        <span className="text-sm font-medium">{branch}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-                {(editJobData.allowed_branches || []).length === 0 && (
-                  <p className="text-xs text-red-500 mt-1">Please select at least one branch.</p>
-                )}
-              </div>
-            </div>
-            <div className="sticky bottom-0 bg-white border-t border-gray-200 px-6 py-4 flex justify-end gap-3 rounded-b-2xl">
-              <button onClick={() => setShowEditJobModal(false)} className="px-5 py-2.5 border-2 border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition-colors">
-                Cancel
-              </button>
-              <button onClick={handleEditJobSave} disabled={editJobLoading}
-                className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
-                {editJobLoading ? 'Saving...' : 'Save Changes'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <EditJobModal
+          data={editJobData}
+          onChange={setEditJobData}
+          onSave={handleEditJobSave}
+          saving={editJobLoading}
+          onClose={() => setShowEditJobModal(false)}
+        />
       )}
-    </div>
+    </>
   );
 }

@@ -283,6 +283,18 @@ export default function CreateJobRequest() {
       return;
     }
 
+    // A deadline in the past creates a job no student can ever see: the student
+    // job list only returns rows with application_deadline >= CURRENT_DATE. The
+    // officer would get a success message for a job that is invisible to
+    // everyone, with nothing on screen to explain why.
+    const deadline = new Date(`${formData.application_deadline}T23:59:59`);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (Number.isNaN(deadline.getTime()) || deadline < today) {
+      toast.error('The application deadline must be today or later — students cannot see a job whose deadline has passed');
+      return;
+    }
+
     // Validate region/college selection for multi-college jobs
     if (formData.target_type === 'region' || formData.target_type === 'specific_colleges') {
       if (formData.target_colleges.length === 0 && formData.target_regions.length === 0) {
@@ -372,7 +384,20 @@ export default function CreateJobRequest() {
 
             await placementOfficerAPI.createJobRequestRequirements(jobRequestId, requirementsData);
           } catch (error) {
+            // This call is the ONLY thing that stores requirements for a
+            // multi-college request — createJobRequest saves them server-side
+            // only on the own-college path. Swallowing the failure and then
+            // reporting success meant the request reached the Super Admin with
+            // no requirements at all, and students could apply without the
+            // profile sections the officer asked for. Say so instead.
             console.error('Failed to save requirements:', error);
+            toast.error(
+              'Job request was created, but its extended requirements could not be saved. Open the request and add them again before it is approved.',
+              { duration: 9000 }
+            );
+            setShowCreateModal(false);
+            fetchJobRequests();
+            return;
           }
         }
         toast.success('Job request submitted! Awaiting Super Admin approval for multi-college visibility.');
@@ -760,6 +785,9 @@ export default function CreateJobRequest() {
                     <label className="block text-sm font-bold text-gray-700 mb-2">Application Deadline <span className="text-red-600">*</span></label>
                     <input
                       type="date"
+                      /* Stops a past date being picked in the first place; the
+                         submit handler re-checks, since min is only a hint. */
+                      min={new Date().toISOString().split('T')[0]}
                       className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium bg-white"
                       value={formData.application_deadline}
                       onChange={(e) =>

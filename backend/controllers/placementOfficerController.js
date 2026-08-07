@@ -1878,6 +1878,26 @@ export const createJobRequest = async (req, res) => {
       });
     }
 
+    // The student job list only returns rows with application_deadline >=
+    // CURRENT_DATE, so a past deadline produces a job nobody can ever see while
+    // the officer is told it was created. Refuse it here as well as in the
+    // form, since the form check is only a convenience.
+    const deadlineDate = new Date(application_deadline);
+    if (Number.isNaN(deadlineDate.getTime())) {
+      return res.status(400).json({
+        success: false,
+        message: 'Application deadline is not a valid date',
+      });
+    }
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    if (deadlineDate < startOfToday) {
+      return res.status(400).json({
+        success: false,
+        message: 'The application deadline must be today or later — students cannot see a job whose deadline has already passed',
+      });
+    }
+
     // Helper function to convert empty strings to null
     const toNullIfEmpty = (value) => (value && value.trim() !== '' ? value.trim() : null);
     const toNumberOrNull = (value) => {
@@ -1917,7 +1937,7 @@ export const createJobRequest = async (req, res) => {
             toNullIfEmpty(location),
             toNullIfEmpty(salary_range),
             application_deadline,
-            application_form_url.trim(),
+            (application_form_url || '').trim(),
             toNumberOrNull(min_cgpa),
             toNumberOrNull(max_backlogs),
             backlog_max_semester || null,
@@ -1948,7 +1968,7 @@ export const createJobRequest = async (req, res) => {
             toNullIfEmpty(location),
             toNumberOrNull(no_of_vacancies),
             toNullIfEmpty(salary_range),
-            application_form_url.trim(),
+            (application_form_url || '').trim(),
             application_deadline,
             toNumberOrNull(min_cgpa),
             toNumberOrNull(max_backlogs),
@@ -2090,7 +2110,7 @@ export const createJobRequest = async (req, res) => {
         toNullIfEmpty(location),
         toNullIfEmpty(salary_range),
         application_deadline,
-        application_form_url.trim(),
+        (application_form_url || '').trim(),
         toNumberOrNull(min_cgpa),
         toNumberOrNull(max_backlogs),
         backlog_max_semester || null,

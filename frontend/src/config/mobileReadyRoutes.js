@@ -33,6 +33,7 @@ export const MOBILE_READY_ROUTES = [
   '/placement-officer/job-eligible-students',
   '/placement-officer/create-job-request',
   '/placement-officer/my-job-requests',
+  '/placement-officer/prn-ranges',
 ];
 
 export function isMobileReadyRoute(pathname) {

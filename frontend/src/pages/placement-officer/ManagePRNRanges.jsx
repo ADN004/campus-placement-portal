@@ -1,15 +1,20 @@
 import { useState, useEffect } from 'react';
-import ModalScrollLock from '../../components/ModalScrollLock';
 import { placementOfficerAPI } from '../../services/api';
 import toast from 'react-hot-toast';
-import { Plus, Edit2, Trash2, Save, X, Lock, Hash, Calendar, BookOpen, Shield, Eye, Download, ToggleLeft, ToggleRight, AlertCircle, User, Filter, ChevronDown, ChevronRight, Globe, FileSpreadsheet, FileText } from 'lucide-react';
-import DashboardHeader from '../../components/DashboardHeader';
-import GlassCard from '../../components/GlassCard';
 import useSkeletonLoading from '../../hooks/useSkeletonLoading';
-import TablePageSkeleton from '../../components/skeletons/TablePageSkeleton';
-import AnimatedSection from '../../components/animation/AnimatedSection';
-import ExceptedPrnList from '../../components/ExceptedPrnList';
-import { getPassoutYearOptions } from '../../utils/passoutYears';
+import useDeviceType from '../../hooks/useDeviceType';
+import PrnRangesPage from './prnRanges/PrnRangesPage';
+import {
+  RangeFormModal,
+  SinglePrnModal,
+  DisableRangeModal,
+  RangeStudentsModal,
+} from './prnRanges/PrnRangeModals';
+import {
+  DesktopPrnRangesSkeleton,
+  TabletPrnRangesSkeleton,
+  MobilePrnRangesSkeleton,
+} from './prnRanges/PrnRangesSkeleton';
 
 export default function ManagePRNRanges() {
   const [prnRanges, setPrnRanges] = useState([]);
@@ -56,25 +61,6 @@ export default function ManagePRNRanges() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const resetForm = () => {
-    setFormData({
-      start_prn: '',
-      end_prn: '',
-      single_prn: '',
-      year: '',
-      description: '',
-      exceptions: '',
-    });
-    setEditingId(null);
-    setShowAddModal(false);
-    setShowAddSingleModal(false);
   };
 
   const handleAdd = async (e) => {
@@ -252,6 +238,7 @@ export default function ManagePRNRanges() {
   };
 
   const showSkeleton = useSkeletonLoading(loading);
+  const deviceType = useDeviceType();
 
   const handleExportRangeStudents = async (format) => {
     if (!selectedRange) return;
@@ -288,7 +275,9 @@ export default function ManagePRNRanges() {
   };
 
   if (showSkeleton) {
-    return <TablePageSkeleton statCards={0} tableColumns={8} tableRows={6} hasSearch={false} hasFilters={false} />;
+    if (deviceType === 'mobile') return <MobilePrnRangesSkeleton />;
+    if (deviceType === 'tablet') return <TabletPrnRangesSkeleton />;
+    return <DesktopPrnRangesSkeleton />;
   }
 
   // Split: this college's own ranges (the main list) vs Super-Admin
@@ -304,748 +293,81 @@ export default function ManagePRNRanges() {
     return String(range.year) === viewFilter;
   });
 
+  const actionHandlers = {
+    onViewStudents: handleViewStudents,
+    onToggle: handleToggleEnable,
+    onEdit: handleEdit,
+    onDelete: handleDelete,
+  };
+
   return (
-    <div>
-      {/* Header */}
-      <AnimatedSection delay={0}>
-        <div className="mb-8 flex justify-between items-start">
-          <DashboardHeader
-            icon={Hash}
-            title="Manage PRN Ranges"
-            subtitle="Define valid PRN ranges for student registration at your college"
-          />
-          {!locked && (
-            <div className="flex space-x-3">
-              <button
-                onClick={() => setShowAddModal(true)}
-                className="bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 hover:from-green-700 hover:via-emerald-700 hover:to-teal-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 transition-all duration-200 flex items-center space-x-2"
-              >
-                <Plus size={20} />
-                <span>Add PRN Range</span>
-              </button>
-              <button
-                onClick={() => setShowAddSingleModal(true)}
-                className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:via-indigo-700 hover:to-purple-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 transition-all duration-200 flex items-center space-x-2"
-              >
-                <User size={20} />
-                <span>Add Single PRN</span>
-              </button>
-            </div>
-          )}
-        </div>
-      </AnimatedSection>
+    <>
+      <PrnRangesPage
+        layout={deviceType}
+        locked={locked}
+        ownRanges={ownRanges}
+        filteredOwn={filteredOwn}
+        systemRanges={systemRanges}
+        availableYears={availableYears}
+        showSystemRanges={showSystemRanges}
+        onToggleSystemRanges={() => setShowSystemRanges(!showSystemRanges)}
+        viewFilter={viewFilter}
+        onViewFilterChange={(e) => setViewFilter(e.target.value)}
+        onAddRange={() => {
+          setEditingId(null);
+          setFormData({ start_prn: '', end_prn: '', single_prn: '', year: '', description: '', exceptions: '' });
+          setShowAddModal(true);
+        }}
+        onAddSingle={() => {
+          setEditingId(null);
+          setFormData({ start_prn: '', end_prn: '', single_prn: '', year: '', description: '', exceptions: '' });
+          setShowAddSingleModal(true);
+        }}
+        actionHandlers={actionHandlers}
+      />
 
-      {/* Locked banner — SA has frozen PRN-range management for this college */}
-      {locked && (
-        <AnimatedSection delay={0.05}>
-          <div className="mb-8 rounded-xl border-l-4 border-red-500 bg-red-50 p-5 flex items-start gap-4">
-            <div className="bg-red-500 rounded-xl p-2.5 shadow">
-              <Lock className="text-white" size={24} />
-            </div>
-            <div>
-              <h3 className="font-bold text-red-800">PRN range editing is locked</h3>
-              <p className="text-sm text-red-700 mt-1 max-w-2xl">
-                The Super Admin has locked PRN-range management for your college — adding, editing
-                and deleting ranges are disabled. Existing ranges still work for registration.
-                Please contact the Super Admin to unlock it.
-              </p>
-            </div>
-          </div>
-        </AnimatedSection>
-      )}
-
-      {/* Info Box */}
-      <AnimatedSection delay={0.1}>
-      <GlassCard variant="elevated" className="p-6 mb-8 border-l-4 border-blue-500">
-        <div className="flex items-start gap-4">
-          <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-3 shadow-lg">
-            <Shield className="text-white" size={28} />
-          </div>
-          <div className="flex-1">
-            <h3 className="font-bold text-gray-900 text-xl mb-3">About PRN Ranges</h3>
-            <ul className="text-gray-700 space-y-2 font-medium">
-              <li className="flex items-start">
-                <span className="mr-2 text-blue-600">•</span>
-                PRN ranges define valid registration numbers for your college
-              </li>
-              <li className="flex items-start">
-                <span className="mr-2 text-blue-600">•</span>
-                Students can only register if their PRN falls within a defined range
-              </li>
-              <li className="flex items-start">
-                <span className="mr-2 text-blue-600">•</span>
-                You can edit or delete ranges you created
-              </li>
-              <li className="flex items-start">
-                <span className="mr-2 text-blue-600">•</span>
-                System-wide ranges from the State Placement Cell appear in their own section below — read-only for you
-              </li>
-            </ul>
-          </div>
-        </div>
-      </GlassCard>
-      </AnimatedSection>
-
-      {/* View filter for this college's ranges */}
-      <AnimatedSection delay={0.15}>
-        <div className="flex flex-wrap items-center gap-3 mb-4">
-          <Filter size={18} className="text-gray-500" />
-          <span className="text-sm font-semibold text-gray-600">View:</span>
-          <select
-            value={viewFilter}
-            onChange={(e) => setViewFilter(e.target.value)}
-            className="px-4 py-2 bg-white/90 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all shadow-sm"
-          >
-            <option value="active">Active Ranges</option>
-            <option value="all">All Years</option>
-            {availableYears.map((year) => (
-              <option key={year} value={year}>{year}</option>
-            ))}
-          </select>
-          <p className="text-sm text-gray-500 ml-auto">
-            Showing <span className="font-bold text-gray-700">{filteredOwn.length}</span> of {ownRanges.length} of your college's range(s)
-          </p>
-        </div>
-      </AnimatedSection>
-
-      {/* Your college's PRN ranges */}
-      <AnimatedSection delay={0.2}>
-      <GlassCard variant="elevated" className="overflow-hidden p-0">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
-              <tr>
-                <th className="px-6 py-4 text-left font-bold">Start PRN</th>
-                <th className="px-6 py-4 text-left font-bold">End PRN</th>
-                <th className="px-6 py-4 text-left font-bold">Year</th>
-                <th className="px-6 py-4 text-left font-bold">Description</th>
-                <th className="px-6 py-4 text-left font-bold">Status</th>
-                <th className="px-6 py-4 text-left font-bold">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {filteredOwn.length === 0 ? (
-                <tr>
-                  <td colSpan="6" className="text-center text-gray-500 py-12">
-                    <Hash className="mx-auto text-gray-400 mb-4" size={64} />
-                    <p className="font-bold text-lg">
-                      {ownRanges.length === 0
-                        ? 'No PRN ranges defined yet'
-                        : viewFilter === 'active'
-                        ? 'No active PRN ranges for your college'
-                        : 'No ranges match this filter'}
-                    </p>
-                    <p className="text-sm mt-2">
-                      {ownRanges.length === 0
-                        ? 'Click "Add PRN Range" to create one'
-                        : 'Switch the view filter to see past-year or disabled ranges'}
-                    </p>
-                  </td>
-                </tr>
-              ) : (
-                filteredOwn.map((range, index) => (
-                  <tr
-                    key={range.id}
-                    className={`hover:bg-blue-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
-                  >
-                    <td className="px-6 py-4 font-mono font-bold text-gray-900">
-                      {range.single_prn ? (
-                        <span className="inline-flex items-center gap-1.5">
-                          <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-md text-xs font-bold">Single</span>
-                          {range.single_prn}
-                        </span>
-                      ) : range.start_prn}
-                      <ExceptedPrnList prns={range.excepted_prns} />
-                    </td>
-                    <td className="px-6 py-4 font-mono font-bold text-gray-900">{range.single_prn ? '-' : range.end_prn}</td>
-                    <td className="px-6 py-4 font-bold text-gray-900">{range.year || '-'}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600 font-medium">{range.description || '-'}</td>
-                    <td className="px-6 py-4">
-                      <div className="flex flex-col space-y-1">
-                        {range.is_enabled !== undefined ? (
-                          range.is_enabled ? (
-                            <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-xs font-semibold bg-green-100 text-green-800 w-fit">Enabled</span>
-                          ) : (
-                            <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-xs font-semibold bg-yellow-100 text-yellow-800 w-fit">Disabled</span>
-                          )
-                        ) : (
-                          range.is_active ? (
-                            <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-xs font-semibold bg-green-100 text-green-800 w-fit">Active</span>
-                          ) : (
-                            <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-xs font-semibold bg-red-100 text-red-800 w-fit">Inactive</span>
-                          )
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => handleViewStudents(range)}
-                          className="p-2 text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded-xl transition-all transform hover:scale-110"
-                          title="View Students"
-                        >
-                          <Eye size={18} />
-                        </button>
-                        <button
-                          onClick={() => handleToggleEnable(range)}
-                          className={`p-2 rounded-xl transition-all transform hover:scale-110 ${
-                            range.is_enabled
-                              ? 'text-green-600 hover:text-green-800 bg-green-50 hover:bg-green-100'
-                              : 'text-gray-400 hover:text-gray-600 bg-gray-50 hover:bg-gray-100'
-                          } ${locked ? 'opacity-50 cursor-not-allowed' : ''}`}
-                          title={locked ? 'Locked by Super Admin' : range.is_enabled ? 'Disable Range' : 'Enable Range'}
-                          disabled={locked}
-                        >
-                          {range.is_enabled ? (
-                            <ToggleRight size={20} />
-                          ) : (
-                            <ToggleLeft size={20} />
-                          )}
-                        </button>
-                        {!locked ? (
-                          <>
-                            <button
-                              onClick={() => handleEdit(range)}
-                              className="p-2 text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded-xl transition-all transform hover:scale-110"
-                              title="Edit"
-                            >
-                              <Edit2 size={18} />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(range.id, range.created_by)}
-                              className="p-2 text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 rounded-xl transition-all transform hover:scale-110"
-                              title="Delete"
-                            >
-                              <Trash2 size={18} />
-                            </button>
-                          </>
-                        ) : (
-                          <span className="text-gray-400 text-sm flex items-center space-x-1 bg-gray-50 px-3 py-2 rounded-xl font-medium">
-                            <Lock size={14} />
-                            <span>Locked</span>
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </GlassCard>
-      </AnimatedSection>
-
-      {/* System-wide ranges (set by the State Placement Cell) — read-only, collapsed */}
-      {systemRanges.length > 0 && (
-        <AnimatedSection delay={0.25}>
-          <GlassCard variant="elevated" className="mt-6 overflow-hidden p-0">
-            <button
-              onClick={() => setShowSystemRanges(!showSystemRanges)}
-              className="w-full flex items-center gap-4 px-6 py-4 text-left bg-gradient-to-r from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 transition-colors"
-            >
-              {showSystemRanges ? (
-                <ChevronDown size={20} className="text-gray-500 shrink-0" />
-              ) : (
-                <ChevronRight size={20} className="text-gray-500 shrink-0" />
-              )}
-              <span className="p-2 bg-purple-100 rounded-xl shrink-0">
-                <Globe size={18} className="text-purple-700" />
-              </span>
-              <div>
-                <span className="font-bold text-gray-900">System-wide ranges (set by the State Placement Cell)</span>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  These also allow your students to register — read-only for you
-                </p>
-              </div>
-              <span className="ml-auto px-2.5 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-bold shrink-0">
-                {systemRanges.length} entr{systemRanges.length !== 1 ? 'ies' : 'y'}
-              </span>
-            </button>
-
-            {showSystemRanges && (
-              <div className="overflow-x-auto border-t border-gray-100">
-                <table className="w-full">
-                  <thead className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
-                    <tr>
-                      <th className="px-6 py-3 text-left font-bold text-sm">Start PRN</th>
-                      <th className="px-6 py-3 text-left font-bold text-sm">End PRN</th>
-                      <th className="px-6 py-3 text-left font-bold text-sm">Year</th>
-                      <th className="px-6 py-3 text-left font-bold text-sm">Description</th>
-                      <th className="px-6 py-3 text-left font-bold text-sm">Status</th>
-                      <th className="px-6 py-3 text-left font-bold text-sm">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {systemRanges.map((range) => (
-                      <tr key={range.id} className="bg-purple-50/30 hover:bg-purple-50 transition-colors">
-                        <td className="px-6 py-4 font-mono font-bold text-gray-900">
-                          {range.single_prn ? (
-                            <span className="inline-flex items-center gap-1.5">
-                              <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-md text-xs font-bold">Single</span>
-                              {range.single_prn}
-                            </span>
-                          ) : range.start_prn}
-                          <ExceptedPrnList prns={range.excepted_prns} />
-                        </td>
-                        <td className="px-6 py-4 font-mono font-bold text-gray-900">{range.single_prn ? '-' : range.end_prn}</td>
-                        <td className="px-6 py-4 font-bold text-gray-900">{range.year || '-'}</td>
-                        <td className="px-6 py-4 text-sm text-gray-600 font-medium">{range.description || '-'}</td>
-                        <td className="px-6 py-4">
-                          {range.is_enabled ? (
-                            <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-xs font-semibold bg-green-100 text-green-800 w-fit">Enabled</span>
-                          ) : (
-                            <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-xs font-semibold bg-yellow-100 text-yellow-800 w-fit">Disabled</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center space-x-2">
-                            <button
-                              onClick={() => handleViewStudents(range)}
-                              className="p-2 text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded-xl transition-all transform hover:scale-110"
-                              title="View Students"
-                            >
-                              <Eye size={18} />
-                            </button>
-                            <span className="text-gray-400 text-sm flex items-center space-x-1 bg-gray-50 px-3 py-2 rounded-xl font-medium">
-                              <Lock size={14} />
-                              <span>Read-only</span>
-                            </span>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </GlassCard>
-        </AnimatedSection>
-      )}
-
-      {/* Add/Edit Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <ModalScrollLock />
-          <GlassCard variant="elevated" hover={false} className="p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto overscroll-contain">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-3 shadow-lg">
-                {editingId ? <Edit2 className="text-white" size={24} /> : <Plus className="text-white" size={24} />}
-              </div>
-              <h2 className="text-3xl font-bold text-gray-900">
-                {editingId ? 'Edit PRN Range' : 'Add New PRN Range'}
-              </h2>
-            </div>
-
-            <form onSubmit={editingId ? handleUpdate : handleAdd} className="space-y-5">
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">
-                  Start PRN <span className="text-red-600">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="start_prn"
-                  value={formData.start_prn}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all duration-200 text-gray-900 placeholder-gray-400 font-medium"
-                  placeholder="e.g., 2025001"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">
-                  End PRN <span className="text-red-600">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="end_prn"
-                  value={formData.end_prn}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all duration-200 text-gray-900 placeholder-gray-400 font-medium"
-                  placeholder="e.g., 2025100"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">
-                  Passout Year <span className="text-red-600">*</span>
-                </label>
-                <select
-                  name="year"
-                  value={formData.year}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all duration-200 text-gray-900 font-medium"
-                  required
-                >
-                  <option value="">Select Passout Year</option>
-                  {getPassoutYearOptions(formData.year).map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Excepted PRNs (Optional)</label>
-                <textarea
-                  name="exceptions"
-                  value={formData.exceptions}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-red-100 focus:border-red-400 transition-all duration-200 text-gray-900 placeholder-gray-400 font-medium"
-                  rows="2"
-                  placeholder="PRNs inside this range that must NOT register — comma separated, e.g., 2401133557, 2401133560"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  These PRNs are fully blocked from registering — no other range or single-PRN entry
-                  can override this. To re-allow one, remove it from this list.
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Description (Optional)</label>
-                <textarea
-                  name="description"
-                  value={formData.description}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all duration-200 text-gray-900 placeholder-gray-400 font-medium"
-                  rows="3"
-                  placeholder="Additional notes about this PRN range..."
-                />
-              </div>
-
-              <div className="flex space-x-3 pt-4 border-t-2 border-gray-100">
-                <button
-                  type="submit"
-                  className="flex-1 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:via-indigo-700 hover:to-purple-700 text-white font-bold py-4 px-6 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center justify-center space-x-2"
-                >
-                  <Save size={20} />
-                  <span>{editingId ? 'Update' : 'Add'} PRN Range</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="px-6 py-4 border-2 border-gray-300 text-gray-700 bg-white hover:bg-gray-50 font-bold rounded-xl transition-all shadow-sm hover:shadow-md transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center space-x-2"
-                >
-                  <X size={20} />
-                  <span>Cancel</span>
-                </button>
-              </div>
-            </form>
-          </GlassCard>
-        </div>
+        <RangeFormModal
+          editing={Boolean(editingId)}
+          formData={formData}
+          onChange={setFormData}
+          onSubmit={editingId ? handleUpdate : handleAdd}
+          onClose={() => { setShowAddModal(false); setEditingId(null); }}
+        />
       )}
 
-      {/* Add Single PRN Modal */}
       {showAddSingleModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <ModalScrollLock />
-          <GlassCard variant="elevated" hover={false} className="p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto overscroll-contain">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-3 shadow-lg">
-                <User className="text-white" size={24} />
-              </div>
-              <h2 className="text-3xl font-bold text-gray-900">
-                {editingId ? 'Edit Single PRN' : 'Add Single PRN'}
-              </h2>
-            </div>
-
-            <form onSubmit={editingId ? handleUpdate : handleAddSingle} className="space-y-5">
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">
-                  PRN <span className="text-red-600">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="single_prn"
-                  value={formData.single_prn}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all duration-200 text-gray-900 placeholder-gray-400 font-medium"
-                  placeholder="e.g., 2301150323"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">
-                  Passout Year <span className="text-red-600">*</span>
-                </label>
-                <select
-                  name="year"
-                  value={formData.year}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all duration-200 text-gray-900 font-medium"
-                  required
-                >
-                  <option value="">Select Passout Year</option>
-                  {getPassoutYearOptions(formData.year).map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Description (Optional)</label>
-                <textarea
-                  name="description"
-                  value={formData.description}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all duration-200 text-gray-900 placeholder-gray-400 font-medium"
-                  rows="3"
-                  placeholder="e.g., Special admission student"
-                />
-              </div>
-
-              <div className="flex space-x-3 pt-4 border-t-2 border-gray-100">
-                <button
-                  type="submit"
-                  className="flex-1 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:via-purple-700 hover:to-pink-700 text-white font-bold py-4 px-6 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center justify-center space-x-2"
-                >
-                  <Save size={20} />
-                  <span>{editingId ? 'Update' : 'Add'} Single PRN</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="px-6 py-4 border-2 border-gray-300 text-gray-700 bg-white hover:bg-gray-50 font-bold rounded-xl transition-all shadow-sm hover:shadow-md transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center space-x-2"
-                >
-                  <X size={20} />
-                  <span>Cancel</span>
-                </button>
-              </div>
-            </form>
-          </GlassCard>
-        </div>
+        <SinglePrnModal
+          editing={Boolean(editingId)}
+          formData={formData}
+          onChange={setFormData}
+          onSubmit={editingId ? handleUpdate : handleAddSingle}
+          onClose={() => { setShowAddSingleModal(false); setEditingId(null); }}
+        />
       )}
 
-      {/* Disable PRN Range Modal */}
       {showDisableModal && selectedRange && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <ModalScrollLock />
-          <GlassCard variant="elevated" className="p-8 w-full max-w-md">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Disable PRN Range</h2>
-
-            <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <p className="text-sm text-gray-600 mb-1">PRN Range</p>
-              <p className="font-mono font-semibold text-gray-900">
-                {selectedRange.single_prn
-                  ? selectedRange.single_prn
-                  : `${selectedRange.start_prn} - ${selectedRange.end_prn}`}
-              </p>
-            </div>
-
-            <div className="mb-4">
-              <label className="block text-sm font-bold text-gray-700 mb-2">
-                Reason for Disabling *
-              </label>
-              <textarea
-                className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all duration-200 text-gray-900"
-                rows="4"
-                value={disableReason}
-                onChange={(e) => setDisableReason(e.target.value)}
-                placeholder="Provide a detailed reason for disabling this PRN range..."
-                required
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                This reason will be stored for future reference and audit purposes.
-              </p>
-            </div>
-
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg mb-6">
-              <p className="text-sm font-medium text-red-900">
-                Warning: Students with PRNs in this range will not be able to register while it's disabled.
-              </p>
-            </div>
-
-            <div className="flex space-x-3">
-              <button
-                onClick={() => {
-                  setShowDisableModal(false);
-                  setSelectedRange(null);
-                  setDisableReason('');
-                }}
-                className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 bg-white hover:bg-gray-50 font-bold rounded-xl transition-all"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleConfirmDisable}
-                disabled={!disableReason.trim()}
-                className="flex-1 px-6 py-3 bg-yellow-600 hover:bg-yellow-700 text-white font-bold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Disable Range
-              </button>
-            </div>
-          </GlassCard>
-        </div>
+        <DisableRangeModal
+          range={selectedRange}
+          reason={disableReason}
+          onReasonChange={(e) => setDisableReason(e.target.value)}
+          onConfirm={handleConfirmDisable}
+          onClose={() => { setShowDisableModal(false); setDisableReason(''); }}
+        />
       )}
 
-      {/* View Students in Range Modal */}
       {showViewStudentsModal && selectedRange && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <ModalScrollLock />
-          <GlassCard variant="elevated" className="p-0 w-full max-w-5xl max-h-[90vh] flex flex-col">
-            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-              <div>
-                <h2 className="text-xl font-bold text-gray-900">Students in PRN Range</h2>
-                <p className="text-sm text-gray-600 mt-1 font-mono">
-                  {selectedRange.single_prn
-                    ? selectedRange.single_prn
-                    : `${selectedRange.start_prn} - ${selectedRange.end_prn}`}
-                  {selectedRange.is_enabled ? (
-                    <span className="ml-3 inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-green-100 text-green-800">Enabled</span>
-                  ) : (
-                    <span className="ml-3 inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-yellow-100 text-yellow-800">Disabled</span>
-                  )}
-                </p>
-              </div>
-              <button
-                onClick={() => {
-                  setShowViewStudentsModal(false);
-                  setSelectedRange(null);
-                  setRangeStudents([]);
-                }}
-                className="text-gray-500 hover:text-gray-700 p-2"
-              >
-                <X size={24} />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-6">
-              {loadingStudents ? (
-                <div className="flex items-center justify-center h-64">
-                  <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-3"></div>
-                    <p className="text-gray-600">Loading students...</p>
-                  </div>
-                </div>
-              ) : rangeStudents.length === 0 ? (
-                <div className="flex items-center justify-center h-64">
-                  <div className="text-center">
-                    <Eye size={48} className="mx-auto text-gray-400 mb-3" />
-                    <p className="text-gray-600 font-medium">No students found in this PRN range</p>
-                    <p className="text-sm text-gray-500 mt-1">Students who register within this range will appear here</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PRN</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Branch</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {rangeStudents.map((student) => (
-                        <tr key={student.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 whitespace-nowrap text-sm font-mono font-medium text-gray-900">
-                            {student.prn}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                            {student.student_name || student.name}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                            {student.email}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                            {student.branch}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm">
-                            {student.is_blacklisted ? (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-red-100 text-red-800">Blacklisted</span>
-                            ) : student.registration_status === 'approved' ? (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-green-100 text-green-800">Approved</span>
-                            ) : student.registration_status === 'pending' ? (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-yellow-100 text-yellow-800">Pending</span>
-                            ) : (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-red-100 text-red-800">Rejected</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-
-            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-between items-center">
-              <p className="text-sm text-gray-600">
-                Total: <span className="font-semibold">{rangeStudents.length}</span> student(s)
-              </p>
-              <div className="flex space-x-3">
-                <button
-                  onClick={() => {
-                    setShowViewStudentsModal(false);
-                    setSelectedRange(null);
-                    setRangeStudents([]);
-                    setShowExportMenu(false);
-                  }}
-                  className="px-6 py-3 border-2 border-gray-300 text-gray-700 bg-white hover:bg-gray-50 font-bold rounded-xl transition-all"
-                >
-                  Close
-                </button>
-                {rangeStudents.length > 0 && (
-                  <div className="relative">
-                    <button
-                      onClick={() => setShowExportMenu(!showExportMenu)}
-                      disabled={exportingStudents}
-                      className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-xl transition-all flex items-center space-x-2 disabled:opacity-50"
-                    >
-                      <Download size={18} />
-                      <span>{exportingStudents ? 'Exporting...' : 'Export'}</span>
-                      <ChevronDown
-                        size={16}
-                        className={`transition-transform ${showExportMenu ? 'rotate-180' : ''}`}
-                      />
-                    </button>
-
-                    {/* Opens upward: this sits in the modal footer */}
-                    {showExportMenu && !exportingStudents && (
-                      <>
-                        <div
-                          className="fixed inset-0 z-10"
-                          onClick={() => setShowExportMenu(false)}
-                        ></div>
-                        <div className="absolute right-0 bottom-full mb-2 w-52 bg-white rounded-lg shadow-lg border border-gray-200 z-20 overflow-hidden">
-                          <button
-                            onClick={() => handleExportRangeStudents('excel')}
-                            className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center space-x-3 transition-colors border-b border-gray-100"
-                          >
-                            <FileSpreadsheet size={18} className="text-green-600" />
-                            <div>
-                              <div className="font-medium text-gray-900">Export as Excel</div>
-                              <div className="text-xs text-gray-500">Spreadsheet format</div>
-                            </div>
-                          </button>
-                          <button
-                            onClick={() => handleExportRangeStudents('pdf')}
-                            className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center space-x-3 transition-colors"
-                          >
-                            <FileText size={18} className="text-red-600" />
-                            <div>
-                              <div className="font-medium text-gray-900">Export as PDF</div>
-                              <div className="text-xs text-gray-500">Professional report format</div>
-                            </div>
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          </GlassCard>
-        </div>
+        <RangeStudentsModal
+          range={selectedRange}
+          students={rangeStudents}
+          loading={loadingStudents}
+          exporting={exportingStudents}
+          showExportMenu={showExportMenu}
+          onToggleExportMenu={() => setShowExportMenu(!showExportMenu)}
+          onExport={handleExportRangeStudents}
+          onClose={() => { setShowViewStudentsModal(false); setShowExportMenu(false); }}
+        />
       )}
-    </div>
+    </>
   );
 }

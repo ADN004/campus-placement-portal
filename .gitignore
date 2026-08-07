@@ -73,3 +73,7 @@ redesigning/
 # Claude Code configuration (optional - keep if you want to share)
 # .claude/
 .staging-test.env
+# Throwaway verification scripts (created and deleted per-run while testing).
+# Ignored so a stray `git add -A` can never sweep one into a commit.
+_*.mjs
+_*.cjs

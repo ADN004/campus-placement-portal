@@ -3334,3 +3334,74 @@ export const getAvailableDistricts = async (req, res) => {
     });
   }
 };
+
+// @desc    All five status-tab counts in one query
+// @route   GET /api/placement-officer/students/counts
+// @access  Private (Placement Officer)
+//
+// Manage Students used to fire five separate /students calls to fill the tab
+// counts — one per status, each with limit=1 purely to read `total`. Every one
+// of them ran the full filtered query server-side and threw the rows away, and
+// they were the slowest requests on the page. Measured in a browser against
+// staging, that page took 4.6s to settle while every other officer route was
+// 1.2-2.6s.
+//
+// The joins and the base WHERE are copied from getStudents deliberately, not
+// simplified. `JOIN regions r` looks redundant for a count, but a student with
+// a null region_id is excluded from getStudents' total, so dropping the join
+// here would make these numbers disagree with the list they label.
+//
+// The counts deliberately ignore search and filters, exactly as the five calls
+// they replace did: they are college-wide totals, so they do not move when the
+// officer narrows the view.
+export const getStudentCounts = async (req, res) => {
+  try {
+    const officerResult = await query(
+      'SELECT college_id FROM placement_officers WHERE user_id = $1',
+      [req.user.id]
+    );
+
+    if (officerResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Placement officer profile not found',
+      });
+    }
+
+    const showArchived = req.query.archived === 'true' || req.query.archived === true;
+
+    const result = await query(
+      `SELECT
+         COUNT(*) FILTER (WHERE s.is_blacklisted = FALSE)::int AS all_count,
+         COUNT(*) FILTER (WHERE s.registration_status = 'pending'  AND s.is_blacklisted = FALSE)::int AS pending,
+         COUNT(*) FILTER (WHERE s.registration_status = 'approved' AND s.is_blacklisted = FALSE)::int AS approved,
+         COUNT(*) FILTER (WHERE s.registration_status = 'rejected' AND s.is_blacklisted = FALSE)::int AS rejected,
+         COUNT(*) FILTER (WHERE s.is_blacklisted = TRUE)::int AS blacklisted
+       FROM students s
+       JOIN users u ON s.user_id = u.id
+       JOIN colleges c ON s.college_id = c.id
+       JOIN regions r ON s.region_id = r.id
+       WHERE s.college_id = $1 AND u.is_active = ${showArchived ? 'FALSE' : 'TRUE'}`,
+      [officerResult.rows[0].college_id]
+    );
+
+    const row = result.rows[0];
+    res.status(200).json({
+      success: true,
+      counts: {
+        all: row.all_count,
+        pending: row.pending,
+        approved: row.approved,
+        rejected: row.rejected,
+        blacklisted: row.blacklisted,
+      },
+    });
+  } catch (error) {
+    console.error('Get student counts error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching student counts',
+      error: error.message,
+    });
+  }
+};

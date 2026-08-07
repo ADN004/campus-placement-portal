@@ -28,6 +28,7 @@ import {
   getCollegeBranches as getBranchesForNotifications,
   getSentNotifications,
   getAvailableDistricts,
+  getStudentCounts,
 } from '../controllers/placementOfficerController.js';
 import {
   uploadOwnPhoto,
@@ -86,6 +87,7 @@ router.put('/profile', updateProfile);
 router.post('/profile/photo', uploadLimiter, uploadOwnPhoto);
 router.delete('/profile/photo', deleteOwnPhoto);
 router.get('/students', getStudents);
+router.get('/students/counts', getStudentCounts);
 router.get('/archived-years', getArchivedAcademicYears);
 router.get('/students/export', exportStudents);
 router.post('/students/custom-export', customExportStudents);

@@ -81,6 +81,7 @@ export default function MyJobRequests() {
           // jsPDF builds into a ~384K chunk and pulls html2canvas with it.
           // Imported here rather than at the top of the file so it downloads on
           // the first Download press instead of on every visit to this page.
+          const t = toast.loading('Preparing PDF…');
           const { generateJobDetailsPDF } = await import('../../utils/jobDetailsPdf');
           generateJobDetailsPDF({
             company_name: request.company_name,
@@ -100,6 +101,7 @@ export default function MyJobRequests() {
             application_form_url: request.application_form_url,
             is_active: true,
           });
+          toast.dismiss(t);
         }}
       />
 

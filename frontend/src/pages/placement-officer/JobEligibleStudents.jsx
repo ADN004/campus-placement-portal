@@ -77,8 +77,12 @@ export default function JobEligibleStudents() {
       onOpenJob={(job) => navigate(`/placement-officer/job-eligible-students/${job.id}`)}
       onDownloadJobPdf={async (job) => {
         // Loaded on click: jsPDF is ~384K and most visits never download one.
+        // The toast covers the one press where that download is not yet cached,
+        // so the button does not sit silent on a slow connection.
+        const t = toast.loading('Preparing PDF…');
         const { generateJobDetailsPDF } = await import('../../utils/jobDetailsPdf');
         generateJobDetailsPDF({ ...job, title: job.job_title, description: job.job_description });
+        toast.dismiss(t);
       }}
     />
   );

@@ -394,22 +394,28 @@ export default function ManageStudents() {
     fetchStatusCounts();
   };
 
+  /*
+   * One request, not five.
+   *
+   * This used to fire five /students calls in parallel — one per tab, each with
+   * limit=1 purely to read `total`. Every one ran the full filtered query on the
+   * server and discarded the rows, and measured in a browser they were the
+   * slowest requests on the page: Manage Students settled in 4.6s while every
+   * other officer route was between 1.2 and 2.6s.
+   *
+   * /students/counts computes all five with FILTER clauses over a single scan,
+   * off the same joins and the same base WHERE, so the numbers are identical.
+   */
   const fetchStatusCounts = async () => {
     try {
-      const [allRes, pendingRes, approvedRes, rejectedRes, blacklistedRes] = await Promise.all([
-        placementOfficerAPI.getStudents({ limit: 1, page: 1 }),
-        placementOfficerAPI.getStudents({ status: 'pending', limit: 1, page: 1 }),
-        placementOfficerAPI.getStudents({ status: 'approved', limit: 1, page: 1 }),
-        placementOfficerAPI.getStudents({ status: 'rejected', limit: 1, page: 1 }),
-        placementOfficerAPI.getStudents({ status: 'blacklisted', limit: 1, page: 1 }),
-      ]);
-
+      const res = await placementOfficerAPI.getStudentCounts();
+      const c = res.data.counts || {};
       setStatusCounts({
-        all: allRes.data.total || 0,
-        pending: pendingRes.data.total || 0,
-        approved: approvedRes.data.total || 0,
-        rejected: rejectedRes.data.total || 0,
-        blacklisted: blacklistedRes.data.total || 0,
+        all: c.all || 0,
+        pending: c.pending || 0,
+        approved: c.approved || 0,
+        rejected: c.rejected || 0,
+        blacklisted: c.blacklisted || 0,
       });
     } catch (error) {
       console.error('Error fetching status counts:', error);

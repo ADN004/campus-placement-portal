@@ -1,29 +1,39 @@
-import { useState, useEffect } from 'react';
-import Modal from '../../components/Modal';
+import { useState, useEffect, useMemo } from 'react';
 import { placementOfficerAPI } from '../../services/api';
 import toast from 'react-hot-toast';
-import {
-  GraduationCap,
-  Plus,
-  X,
-  Save,
-  AlertCircle,
-  Check,
-  Building2,
-  Edit2,
-} from 'lucide-react';
 import useSkeletonLoading from '../../hooks/useSkeletonLoading';
-import TablePageSkeleton from '../../components/skeletons/TablePageSkeleton';
-import AnimatedSection from '../../components/animation/AnimatedSection';
+import useDeviceType from '../../hooks/useDeviceType';
+import BranchesPage from './branches/BranchesPage';
+import EditBranchesModal from './branches/BranchModals';
+import { findSameBranch } from './branches/branchesShared';
+import {
+  DesktopBranchesSkeleton,
+  TabletBranchesSkeleton,
+  MobileBranchesSkeleton,
+} from './branches/BranchesSkeleton';
 
+/**
+ * ManageCollegeBranches — container.
+ *
+ * Owns the two fetches, the edit dialog and the save; the presenter renders
+ * what it is handed.
+ *
+ * A third fetch was added: `/placement-officer/branches`, which returns the
+ * branches students are actually registered under with a count for each.
+ * Without it the page could only ever show the configured list, so removing a
+ * branch that 80 students sat in looked exactly like removing an empty one.
+ */
 export default function ManageCollegeBranches() {
   const [collegeData, setCollegeData] = useState(null);
   const [branchTemplates, setBranchTemplates] = useState([]);
+  const [studentBranches, setStudentBranches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedBranches, setSelectedBranches] = useState([]);
   const [customBranch, setCustomBranch] = useState('');
+  const [addError, setAddError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const deviceType = useDeviceType();
 
   useEffect(() => {
     fetchInitialData();
@@ -32,6 +42,9 @@ export default function ManageCollegeBranches() {
   const fetchInitialData = async () => {
     setLoading(true);
     try {
+      // The student-branch counts are a nice-to-have: if that call fails the
+      // page still works, so it is settled separately rather than failing the
+      // whole load alongside the two it cannot do without.
       const [collegeRes, templatesRes] = await Promise.all([
         placementOfficerAPI.getOwnCollegeBranches(),
         placementOfficerAPI.getBranchTemplates(),
@@ -45,28 +58,109 @@ export default function ManageCollegeBranches() {
     } finally {
       setLoading(false);
     }
+
+    try {
+      // `getBranches` -> /placement-officer/branches, the one that groups
+      // students by branch and returns [{ branch, student_count }]. Not
+      // `getCollegeBranches`, which despite the name hits /college/branches and
+      // returns the same configured list as the call above — the two endpoints
+      // read alike and return completely different shapes.
+      const countsRes = await placementOfficerAPI.getBranches();
+      setStudentBranches(Array.isArray(countsRes.data.data) ? countsRes.data.data : []);
+    } catch (error) {
+      console.error('Error fetching student branch counts:', error);
+    }
   };
+
+  /* --------------------------------------------------------------- derived */
+
+  const configured = useMemo(() => collegeData?.branches || [], [collegeData]);
+
+  /** Branch name -> number of approved students registered under it. */
+  const countsByBranch = useMemo(() => {
+    const map = new Map();
+    studentBranches.forEach((row) => {
+      map.set(row.branch, Number(row.student_count) || 0);
+    });
+    return map;
+  }, [studentBranches]);
+
+  const rows = useMemo(
+    () => configured.map((name) => ({ name, students: countsByBranch.get(name) || 0 })),
+    [configured, countsByBranch]
+  );
+
+  /**
+   * Branches students sit in that the college does not list.
+   *
+   * Compared exactly, not on the folded key, and that is deliberate: job
+   * eligibility runs `s.branch = ANY(...)` against the configured names, so a
+   * student stored under "computer engineering" while the list says "Computer
+   * Engineering" is unreachable by every job — even though the two look
+   * identical to a reader. Folding the case here would decide those students are
+   * fine and hide them, which is the opposite of what this list is for. The
+   * folded key belongs in the duplicate guard, where it stops a new split being
+   * created; here we want to see the splits that already exist.
+   */
+  const orphans = useMemo(() => {
+    const configuredNames = new Set(configured);
+    return studentBranches
+      .filter((row) => !configuredNames.has(row.branch))
+      .map((row) => ({ name: row.branch, students: Number(row.student_count) || 0 }));
+  }, [studentBranches, configured]);
+
+  const totalStudents = useMemo(
+    () => studentBranches.reduce((sum, row) => sum + (Number(row.student_count) || 0), 0),
+    [studentBranches]
+  );
+
+  /* -------------------------------------------------------------- handlers */
 
   const handleEditBranches = () => {
     setSelectedBranches(collegeData?.branches || []);
+    setCustomBranch('');
+    setAddError('');
     setShowEditModal(true);
   };
 
   const handleAddBranch = (branch) => {
-    if (!selectedBranches.includes(branch)) {
+    if (!findSameBranch(selectedBranches, branch)) {
       setSelectedBranches([...selectedBranches, branch]);
     }
   };
 
+  /**
+   * Add a typed branch.
+   *
+   * The old check was `!selectedBranches.includes(trimmed)` — an exact match, so
+   * typing "computer engineering" beside an existing "Computer Engineering"
+   * added a second entry. Students would then split across two spellings that
+   * look identical in a dropdown, and a job listing one of them would silently
+   * miss everyone who picked the other. Same-branch is now decided on the folded
+   * key, and a rejection says so instead of doing nothing.
+   */
   const handleAddCustomBranch = () => {
-    if (customBranch.trim() && !selectedBranches.includes(customBranch.trim())) {
-      setSelectedBranches([...selectedBranches, customBranch.trim()]);
-      setCustomBranch('');
+    const trimmed = customBranch.trim();
+    if (!trimmed) return;
+
+    const clash = findSameBranch(selectedBranches, trimmed);
+    if (clash) {
+      setAddError(
+        clash === trimmed
+          ? `${clash} is already in the list.`
+          : `${clash} is already in the list — that is the same branch, spelled differently.`
+      );
+      return;
     }
+
+    setSelectedBranches([...selectedBranches, trimmed]);
+    setCustomBranch('');
+    setAddError('');
   };
 
   const handleRemoveBranch = (branchToRemove) => {
     setSelectedBranches(selectedBranches.filter((b) => b !== branchToRemove));
+    setAddError('');
   };
 
   const handleSaveBranches = async () => {
@@ -85,6 +179,8 @@ export default function ManageCollegeBranches() {
 
         setShowEditModal(false);
         setSelectedBranches([]);
+        setCustomBranch('');
+        setAddError('');
       }
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to update branches');
@@ -98,323 +194,49 @@ export default function ManageCollegeBranches() {
     setShowEditModal(false);
     setSelectedBranches([]);
     setCustomBranch('');
-  };
-
-  const getBranchCount = () => {
-    return collegeData?.branches?.length || 0;
-  };
-
-  const getBranchStatus = () => {
-    const count = getBranchCount();
-    if (count === 0) {
-      return {
-        text: 'No Branches Configured',
-        color: 'text-red-600 bg-red-50',
-        icon: AlertCircle,
-      };
-    } else if (count < 3) {
-      return {
-        text: `${count} Branch${count > 1 ? 'es' : ''} - Add More`,
-        color: 'text-yellow-600 bg-yellow-50',
-        icon: AlertCircle,
-      };
-    } else {
-      return {
-        text: `${count} Branches Configured`,
-        color: 'text-green-600 bg-green-50',
-        icon: Check,
-      };
-    }
+    setAddError('');
   };
 
   const showSkeleton = useSkeletonLoading(loading);
 
   if (showSkeleton) {
-    return <TablePageSkeleton statCards={0} tableColumns={4} tableRows={5} hasSearch={false} hasFilters={false} />;
+    if (deviceType === 'mobile') return <MobileBranchesSkeleton />;
+    if (deviceType === 'tablet') return <TabletBranchesSkeleton />;
+    return <DesktopBranchesSkeleton />;
   }
 
-  const status = getBranchStatus();
-  const StatusIcon = status.icon;
-
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <AnimatedSection delay={0}>
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex items-center space-x-3 mb-4">
-            <div className="p-3 bg-blue-600 rounded-lg">
-              <GraduationCap className="h-6 w-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Manage College Branches</h1>
-              <p className="text-sm text-gray-600">
-                Configure branches for your college
-              </p>
-            </div>
-          </div>
+    <>
+      <BranchesPage
+        layout={deviceType}
+        collegeName={collegeData?.college_name}
+        rows={rows}
+        orphans={orphans}
+        totalStudents={totalStudents}
+        onEdit={handleEditBranches}
+      />
 
-          {/* Important Notice */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <div className="flex items-start space-x-3">
-              <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
-              <div className="text-sm text-blue-800">
-                <p className="font-medium mb-1">Important Information</p>
-                <p>
-                  Students from your college can only select branches that are configured here
-                  during registration. Please ensure all offered branches are added to avoid
-                  registration issues.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </AnimatedSection>
-
-      {/* College Info Card */}
-      <AnimatedSection delay={0.1}>
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex items-start justify-between mb-6">
-            <div className="flex items-start space-x-4">
-              <div className="p-3 bg-gray-100 rounded-lg">
-                <Building2 className="h-8 w-8 text-gray-700" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-gray-900">
-                  {collegeData?.college_name}
-                </h2>
-                <div className="mt-2">
-                  <span
-                    className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium ${status.color}`}
-                  >
-                    <StatusIcon className="h-4 w-4 mr-1.5" />
-                    {status.text}
-                  </span>
-                </div>
-              </div>
-            </div>
-            <button
-              onClick={handleEditBranches}
-              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <Edit2 className="h-4 w-4 mr-2" />
-              Edit Branches
-            </button>
-          </div>
-
-          {/* Current Branches */}
-          <div>
-            <h3 className="text-sm font-medium text-gray-700 mb-3">Current Branches</h3>
-            {collegeData?.branches && collegeData.branches.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {collegeData.branches.map((branch, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center px-4 py-3 bg-blue-50 border border-blue-200 rounded-lg"
-                  >
-                    <Check className="h-5 w-5 text-blue-600 mr-3 flex-shrink-0" />
-                    <span className="text-sm text-gray-900">{branch}</span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-                <AlertCircle className="h-12 w-12 text-red-600 mx-auto mb-3" />
-                <p className="text-red-800 font-medium mb-1">No Branches Configured</p>
-                <p className="text-sm text-red-600 mb-4">
-                  Students from your college will not be able to complete registration until
-                  branches are configured.
-                </p>
-                <button
-                  onClick={handleEditBranches}
-                  className="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Branches Now
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </AnimatedSection>
-
-      {/* Statistics */}
-      <AnimatedSection delay={0.2}>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total Branches</p>
-                <p className="text-3xl font-bold text-gray-900">{getBranchCount()}</p>
-              </div>
-              <GraduationCap className="h-10 w-10 text-blue-600" />
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Available Templates</p>
-                <p className="text-3xl font-bold text-gray-900">{branchTemplates.length}</p>
-              </div>
-              <Building2 className="h-10 w-10 text-green-600" />
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Configuration Status</p>
-                <p className="text-lg font-bold text-gray-900">
-                  {getBranchCount() === 0 ? 'Not Configured' : getBranchCount() < 3 ? 'Incomplete' : 'Complete'}
-                </p>
-              </div>
-              {getBranchCount() === 0 ? (
-                <AlertCircle className="h-10 w-10 text-red-600" />
-              ) : getBranchCount() < 3 ? (
-                <AlertCircle className="h-10 w-10 text-yellow-600" />
-              ) : (
-                <Check className="h-10 w-10 text-green-600" />
-              )}
-            </div>
-          </div>
-        </div>
-      </AnimatedSection>
-
-      {/* Edit Branches Modal */}
       {showEditModal && (
-        <Modal
+        <EditBranchesModal
+          collegeName={collegeData?.college_name}
+          original={configured}
+          selected={selectedBranches}
+          templates={branchTemplates}
+          countsByBranch={countsByBranch}
+          customBranch={customBranch}
+          addError={addError}
+          submitting={submitting}
+          onCustomChange={(value) => {
+            setCustomBranch(value);
+            if (addError) setAddError('');
+          }}
+          onAddCustom={handleAddCustomBranch}
+          onAddTemplate={handleAddBranch}
+          onRemove={handleRemoveBranch}
+          onSave={handleSaveBranches}
           onClose={handleCloseModal}
-          labelledBy="po-branches-title"
-          overlayClassName="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-          panelClassName="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto overscroll-contain"
-        >
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 z-10">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 id="po-branches-title" className="text-xl font-bold text-gray-900">Manage Branches</h2>
-                  <p className="text-sm text-gray-600">{collegeData?.college_name}</p>
-                </div>
-                <button
-                  onClick={handleCloseModal}
-                  className="text-gray-400 hover:text-gray-600"
-                  disabled={submitting}
-                >
-                  <X className="h-6 w-6" />
-                </button>
-              </div>
-            </div>
-
-            <div className="p-6 space-y-6">
-              {/* Selected Branches */}
-              <div>
-                <h3 className="text-sm font-medium text-gray-700 mb-2">
-                  Selected Branches ({selectedBranches.length})
-                </h3>
-                <div className="border border-gray-200 rounded-lg p-4 min-h-[100px] bg-gray-50">
-                  {selectedBranches.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
-                      {selectedBranches.map((branch, idx) => (
-                        <span
-                          key={idx}
-                          className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm bg-blue-600 text-white"
-                        >
-                          {branch}
-                          <button
-                            onClick={() => handleRemoveBranch(branch)}
-                            className="ml-2 hover:bg-blue-700 rounded-full p-0.5"
-                            disabled={submitting}
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-gray-400 text-center">No branches selected</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Add Custom Branch */}
-              <div>
-                <h3 className="text-sm font-medium text-gray-700 mb-2">Add Custom Branch</h3>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={customBranch}
-                    onChange={(e) => setCustomBranch(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleAddCustomBranch()}
-                    placeholder="Enter custom branch name..."
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    disabled={submitting}
-                  />
-                  <button
-                    onClick={handleAddCustomBranch}
-                    disabled={!customBranch.trim() || submitting}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
-                  >
-                    <Plus className="h-5 w-5" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Available Templates */}
-              <div>
-                <h3 className="text-sm font-medium text-gray-700 mb-2">
-                  Available Branch Templates
-                </h3>
-                <div className="border border-gray-200 rounded-lg p-4 max-h-[300px] overflow-y-auto overscroll-contain">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {branchTemplates.map((branch, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => handleAddBranch(branch)}
-                        disabled={selectedBranches.includes(branch) || submitting}
-                        className={`text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-                          selectedBranches.includes(branch)
-                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                            : 'bg-white border border-gray-300 hover:border-blue-500 hover:bg-blue-50'
-                        }`}
-                      >
-                        {branch}
-                        {selectedBranches.includes(branch) && (
-                          <Check className="h-4 w-4 inline ml-2" />
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4 flex justify-end space-x-3">
-              <button
-                onClick={handleCloseModal}
-                disabled={submitting}
-                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveBranches}
-                disabled={submitting}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center"
-              >
-                {submitting ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save className="h-4 w-4 mr-2" />
-                    Save Changes
-                  </>
-                )}
-              </button>
-            </div>
-        </Modal>
+        />
       )}
-    </div>
+    </>
   );
 }

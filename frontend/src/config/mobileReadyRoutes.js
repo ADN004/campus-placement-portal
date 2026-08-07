@@ -34,6 +34,7 @@ export const MOBILE_READY_ROUTES = [
   '/placement-officer/create-job-request',
   '/placement-officer/my-job-requests',
   '/placement-officer/prn-ranges',
+  '/placement-officer/college-branches',
 ];
 
 export function isMobileReadyRoute(pathname) {

@@ -2,6 +2,8 @@ import { Plus, Hash, Lock } from 'lucide-react';
 import {
   PageHeading, Panel, PanelHeading, SectionLabel, PrimaryButton, SecondaryButton, SelectField,
 } from '../../../components/officer/OfficerUI';
+import useLongList from '../../../hooks/useLongList';
+import { ShowMore } from '../../../components/officer/LongList';
 import { RangeTable, RangeList, HowPrnRangesWork } from './prnRangesShared';
 
 /**
@@ -25,6 +27,11 @@ export default function PrnRangesPage({
 }) {
   const isTable = layout === 'desktop';
   const RangeView = isTable ? RangeTable : RangeList;
+
+  // A college adds a range per branch per intake year, plus a single PRN for
+  // every student who falls outside one, so this grows every year it is used.
+  // The year filter above narrows it; this bounds what is left.
+  const rangeWindow = useLongList(filteredOwn, { step: 25 });
 
   return (
     <div className={layout === 'mobile' ? 'pb-2' : undefined}>
@@ -93,7 +100,7 @@ export default function PrnRangesPage({
             {filteredOwn.length} range{filteredOwn.length === 1 ? '' : 's'}
           </PanelHeading>
           <RangeView
-            ranges={filteredOwn}
+            ranges={rangeWindow.visible}
             locked={locked}
             actionHandlers={actionHandlers}
             emptyTitle={
@@ -109,6 +116,13 @@ export default function PrnRangesPage({
                 : 'Switch the filter to see past-year or disabled ranges.'
             }
           />
+          {rangeWindow.hasMore && (
+            <ShowMore
+              onClick={rangeWindow.showMore}
+              remaining={rangeWindow.remaining}
+              noun="range"
+            />
+          )}
         </Panel>
       </section>
 

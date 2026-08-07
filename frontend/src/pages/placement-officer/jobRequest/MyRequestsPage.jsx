@@ -1,4 +1,6 @@
 import { Plus, Download } from 'lucide-react';
+import useLongList from '../../../hooks/useLongList';
+import { ShowMore } from '../../../components/officer/LongList';
 import { Link } from 'react-router-dom';
 import {
   PageHeading, Panel, PanelHeading, SectionLabel, SecondaryButton, formatDate,
@@ -25,6 +27,10 @@ export default function MyRequestsPage({
   onViewRequest,
   onDownloadPdf,
 }) {
+  // Every request this officer has ever made accumulates here, so the list
+  // only grows. The tabs narrow it; this bounds what is left.
+  const requestWindow = useLongList(filteredRequests, { step: 25 });
+
   const isTable = layout === 'desktop';
   const statColumns = layout === 'mobile' ? 1 : 3;
 
@@ -77,9 +83,12 @@ export default function MyRequestsPage({
               </p>
             </div>
           ) : isTable ? (
-            <RequestTable requests={filteredRequests} onView={onViewRequest} />
+            <RequestTable requests={requestWindow.visible} onView={onViewRequest} />
           ) : (
-            <RequestList requests={filteredRequests} onView={onViewRequest} />
+            <RequestList requests={requestWindow.visible} onView={onViewRequest} />
+          )}
+          {requestWindow.hasMore && (
+            <ShowMore onClick={requestWindow.showMore} remaining={requestWindow.remaining} noun="request" />
           )}
         </Panel>
       </section>

@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { Bell } from 'lucide-react';
-import { SearchField, FilterChips, EmptyState, ErrorState } from '../../../components/student/StudentUI';
+import { SearchField, FilterChips, EmptyState, ErrorState, ShowMore } from '../../../components/student/StudentUI';
 import {
   NotificationCard,
   NotificationDetail,
@@ -23,6 +23,14 @@ export default function DesktopStudentNotifications({
   error,
   notifications,
   filteredNotifications,
+
+  visibleNotifications,
+
+  hasMore,
+
+  remaining,
+
+  onShowMore,
   filters,
   readFilter,
   searchQuery,
@@ -107,7 +115,7 @@ export default function DesktopStudentNotifications({
             transition={{ duration: 0.4, delay: 0.14 }}
             className="col-span-5 space-y-3"
           >
-            {filteredNotifications.map((notification) => (
+            {visibleNotifications.map((notification) => (
               <NotificationCard
                 key={notification.id}
                 notification={notification}
@@ -136,6 +144,11 @@ export default function DesktopStudentNotifications({
               <NotificationPlaceholder />
             )}
           </motion.div>
+        </div>
+      )}
+      {hasMore && (
+        <div className="mt-5">
+          <ShowMore onClick={onShowMore} remaining={remaining} noun="notification" />
         </div>
       )}
     </div>

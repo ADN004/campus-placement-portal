@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FileText } from 'lucide-react';
-import { SearchField, FilterChips, EmptyState, ErrorState } from '../../../components/student/StudentUI';
+import { SearchField, FilterChips, EmptyState, ErrorState, ShowMore } from '../../../components/student/StudentUI';
 import { ApplicationCard } from './applicationsShared';
 
 /**
@@ -13,6 +13,14 @@ export default function MobileStudentApplications({
   error,
   applications,
   filteredApplications,
+
+  visibleApplications,
+
+  hasMore,
+
+  remaining,
+
+  onShowMore,
   filters,
   statusFilter,
   searchQuery,
@@ -79,7 +87,7 @@ export default function MobileStudentApplications({
         />
       ) : (
         <div className="space-y-3">
-          {filteredApplications.map((application, index) => (
+          {visibleApplications.map((application, index) => (
             <motion.div
               key={application.id}
               initial={{ opacity: 0, y: 12 }}
@@ -93,6 +101,11 @@ export default function MobileStudentApplications({
               />
             </motion.div>
           ))}
+        </div>
+      )}
+      {hasMore && (
+        <div className="mt-5">
+          <ShowMore onClick={onShowMore} remaining={remaining} noun="application" />
         </div>
       )}
     </div>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { studentAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import useDeviceType from '../../hooks/useDeviceType';
+import useLongList from '../../hooks/useLongList';
 import DesktopStudentNotifications, {
   DesktopNotificationsSkeleton,
 } from './notifications/DesktopStudentNotifications';
@@ -191,7 +192,18 @@ export default function StudentNotifications() {
   ];
 
   // Identical props for all three presenters — same values, same functions.
+  // The server hands back the most recent 50 and the page rendered all of
+  // them. A student gets one per job posted, per drive and per announcement,
+  // so 50 is the normal state, not the extreme one.
+  const notificationWindow = useLongList(filteredNotifications, { step: 25 });
+
   const presenterProps = {
+    visibleNotifications: notificationWindow.visible,
+    shownCount: notificationWindow.shown,
+    totalCount: notificationWindow.total,
+    hasMore: notificationWindow.hasMore,
+    remaining: notificationWindow.remaining,
+    onShowMore: notificationWindow.showMore,
     error,
     notifications,
     filteredNotifications,

@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FileText } from 'lucide-react';
-import { SearchField, FilterChips, EmptyState, ErrorState } from '../../../components/student/StudentUI';
+import { SearchField, FilterChips, EmptyState, ErrorState, ShowMore } from '../../../components/student/StudentUI';
 import { StatusPill, formatDate } from './applicationsShared';
 
 /**
@@ -14,6 +14,14 @@ export default function DesktopStudentApplications({
   error,
   applications,
   filteredApplications,
+
+  visibleApplications,
+
+  hasMore,
+
+  remaining,
+
+  onShowMore,
   filters,
   statusFilter,
   searchQuery,
@@ -114,7 +122,7 @@ export default function DesktopStudentApplications({
                 </tr>
               </thead>
               <tbody>
-                {filteredApplications.map((application) => (
+                {visibleApplications.map((application) => (
                   <tr
                     key={application.id}
                     className="border-b border-spc-line last:border-b-0 hover:bg-spc-surface-2/60 transition-colors"
@@ -145,6 +153,11 @@ export default function DesktopStudentApplications({
             </table>
           </div>
         </motion.div>
+      )}
+      {hasMore && (
+        <div className="mt-5">
+          <ShowMore onClick={onShowMore} remaining={remaining} noun="application" />
+        </div>
       )}
     </div>
   );

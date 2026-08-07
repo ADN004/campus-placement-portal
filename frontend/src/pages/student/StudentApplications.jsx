@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { studentAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import useDeviceType from '../../hooks/useDeviceType';
+import useLongList from '../../hooks/useLongList';
 import { ApplicationDetailsModal } from './applications/applicationsShared';
 import DesktopStudentApplications, {
   DesktopApplicationsSkeleton,
@@ -145,7 +146,17 @@ export default function StudentApplications() {
   ];
 
   // Identical props for all three presenters — same values, same functions.
+  // Every application a student has ever made stays here — this list only
+  // ever grows, and by final year it is their whole history.
+  const applicationWindow = useLongList(filteredApplications, { step: 25 });
+
   const presenterProps = {
+    visibleApplications: applicationWindow.visible,
+    shownCount: applicationWindow.shown,
+    totalCount: applicationWindow.total,
+    hasMore: applicationWindow.hasMore,
+    remaining: applicationWindow.remaining,
+    onShowMore: applicationWindow.showMore,
     error,
     applications,
     filteredApplications,

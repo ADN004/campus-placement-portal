@@ -1,5 +1,7 @@
 import { UserPlus } from 'lucide-react';
 import EnhancedFilterPanel from '../../../components/EnhancedFilterPanel';
+import useLongList from '../../../hooks/useLongList';
+import { ListCount, ShowMore } from '../../../components/officer/LongList';
 import {
   Panel, PanelHeading, SectionLabel, SecondaryButton,
 } from '../../../components/officer/OfficerUI';
@@ -36,6 +38,25 @@ export default function JobEligibleBody({ layout, ...p }) {
 
   const currentApplicants = p.filteredStudents.filter((s) => !s.is_already_placed);
   const placedApplicants = p.filteredStudents.filter((s) => s.is_already_placed);
+
+  /*
+   * The list that actually gets big.
+   *
+   * A statewide drive draws hundreds to low thousands of applicants and this
+   * page rendered every one of them — no window, no pagination, nothing. It is
+   * the heaviest screen in the officer role and it was the one with no bound at
+   * all.
+   *
+   * Two things stay deliberately whole-list, because windowing them would be a
+   * behaviour change rather than a display one:
+   *   - "select all" still selects every applicant the filters match, not the
+   *     25 on screen. An officer ticking the header box means all of them, and
+   *     silently meaning "the visible ones" is how you shortlist the wrong
+   *     cohort.
+   *   - the header count and every export keep reading the full filtered set.
+   */
+  const applicantWindow = useLongList(currentApplicants, { step: 50 });
+  const placedWindow = useLongList(placedApplicants, { step: 25 });
 
   return (
     <>
@@ -130,13 +151,14 @@ export default function JobEligibleBody({ layout, ...p }) {
                 Applicants ({currentApplicants.length})
               </PanelHeading>
               <ApplicantView
-                students={currentApplicants}
+                students={applicantWindow.visible}
                 isHost={p.isHost}
                 caption={`Applicants for ${p.selectedJob.job_title} at ${p.selectedJob.company_name}.`}
                 selectable
                 selectedIds={p.selectedStudents}
                 onSelect={p.onSelectStudent}
                 onSelectAll={p.onSelectAll}
+                /* Every applicant, not every visible one — the box means "all". */
                 allSelected={
                   currentApplicants.length > 0 &&
                   currentApplicants.every((s) => p.selectedStudents.includes(s.application_id))
@@ -146,6 +168,24 @@ export default function JobEligibleBody({ layout, ...p }) {
                 showLabels={showActionLabels}
                 loading={p.loadingStudents}
               />
+              {applicantWindow.hasMore && (
+                <ShowMore
+                  onClick={applicantWindow.showMore}
+                  remaining={applicantWindow.remaining}
+                  noun="applicant"
+                />
+              )}
+              {currentApplicants.length > applicantWindow.shown && (
+                <p className="px-4 py-2 border-t border-spc-line">
+                  <ListCount
+                    shown={applicantWindow.shown}
+                    matched={applicantWindow.matched}
+                    total={applicantWindow.total}
+                    filtering={false}
+                    noun="applicant"
+                  />
+                </p>
+              )}
             </Panel>
           </section>
 
@@ -156,7 +196,7 @@ export default function JobEligibleBody({ layout, ...p }) {
                   Already placed elsewhere ({placedApplicants.length})
                 </PanelHeading>
                 <ApplicantView
-                  students={placedApplicants}
+                  students={placedWindow.visible}
                   isHost={p.isHost}
                   caption="Applicants who are already placed at another company."
                   showPlacedAt
@@ -164,6 +204,13 @@ export default function JobEligibleBody({ layout, ...p }) {
                   onView={p.onViewStudent}
                   onPlacement={p.onEditPlacement}
                 />
+                {placedWindow.hasMore && (
+                  <ShowMore
+                    onClick={placedWindow.showMore}
+                    remaining={placedWindow.remaining}
+                    noun="applicant"
+                  />
+                )}
               </Panel>
             </section>
           )}

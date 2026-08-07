@@ -1,4 +1,6 @@
 import { Search, Download, ChevronRight } from 'lucide-react';
+import useLongList from '../../../hooks/useLongList';
+import { ShowMore } from '../../../components/officer/LongList';
 import {
   PageHeading, Panel, EmptyState, FIELD_CLASS, formatDate,
 } from '../../../components/officer/OfficerUI';
@@ -20,6 +22,11 @@ export default function JobListPage({
 }) {
   const columns = layout === 'desktop' ? 2 : 1;
   const grid = columns === 2 ? 'sm:grid-cols-2' : '';
+
+  // Every job ever published to this college stays visible here, so the grid
+  // grows with the college's history. The search above narrows it; this bounds
+  // what is left. 24 divides evenly into both column counts.
+  const jobWindow = useLongList(jobs, { step: 24 });
 
   return (
     <div className={layout === 'mobile' ? 'pb-2' : undefined}>
@@ -60,7 +67,7 @@ export default function JobListPage({
           className={`grid grid-cols-1 ${grid} gap-px bg-spc-line
             border border-spc-line-strong rounded-spc-panel overflow-hidden`}
         >
-          {jobs.map((job) => (
+          {jobWindow.visible.map((job) => (
             <div key={job.id} className="relative bg-spc-surface hover:bg-spc-surface-2 transition-colors">
               {/* The whole tile opens the job. The PDF button sits above it and
                   stops the click, as it did on the old picker. */}
@@ -113,6 +120,12 @@ export default function JobListPage({
               </button>
             </div>
           ))}
+        </div>
+      )}
+
+      {jobWindow.hasMore && (
+        <div className="mt-4">
+          <ShowMore onClick={jobWindow.showMore} remaining={jobWindow.remaining} noun="job" />
         </div>
       )}
     </div>

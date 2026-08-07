@@ -114,7 +114,8 @@ export default function EditBranchesModal({
             )}
           </div>
           <p className="text-xs text-spc-muted mt-1.5">
-            The number beside a branch is how many approved students are registered under it.
+            The number beside a branch is how many approved students with an active account are
+            registered under it.
           </p>
         </section>
 
@@ -136,9 +137,9 @@ export default function EditBranchesModal({
             <p className="mt-1">
               Those students keep their accounts and stay in Manage Students. What changes is that
               no new student can register under these branches, and a job limited to your
-              configured branches will not reach them. The counts are approved students only —
-              anyone still waiting for approval is not included, so a branch showing nothing here
-              may still have people in it.
+              configured branches will not reach them. The counts cover approved students with an
+              active account — anyone still waiting for approval, or whose account is deactivated,
+              is not included, so a branch showing nothing here may still have people in it.
             </p>
           </Notice>
         )}

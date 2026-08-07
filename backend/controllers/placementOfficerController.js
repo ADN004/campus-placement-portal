@@ -10,6 +10,7 @@ import { parseExceptedPrns } from '../utils/prnExceptions.js';
 import { isCollegeLocked } from '../utils/collegeLocks.js';
 import { DAY_AWARE_COUNT_SQL } from '../utils/verificationEmailPolicy.js';
 import { TOTAL_BACKLOGS_SQL, parseMaxBacklogs } from '../utils/backlogPolicy.js';
+import { ACTIVE_STUDENT_ACCOUNT_SQL } from '../utils/notificationAudience.js';
 
 // How many notification emails a bulk action sends at once. A bulk batch can
 // be 50+ students; sending strictly one at a time can outrun the proxy read
@@ -238,13 +239,16 @@ export const getCollegeBranches = async (req, res) => {
 
     console.log(`📊 [BRANCHES] Officer requesting branches for: ${collegeName} (ID: ${collegeId})`);
 
-    // Get distinct branches from students in THIS COLLEGE ONLY
+    // Get distinct branches from students in THIS COLLEGE ONLY.
+    // Same audience rule as sendNotification below, so the count an officer
+    // reads before sending is the count that actually receives it.
     const branchesResult = await query(
       `SELECT DISTINCT s.branch, COUNT(s.id) as student_count
        FROM students s
        WHERE s.college_id = $1
          AND s.registration_status = 'approved'
          AND s.is_blacklisted = FALSE
+         AND ${ACTIVE_STUDENT_ACCOUNT_SQL}
          AND s.branch IS NOT NULL
        GROUP BY s.branch
        ORDER BY s.branch ASC`,
@@ -1216,13 +1220,17 @@ export const sendNotification = async (req, res) => {
 
     const { college_id: collegeId, college_name: collegeName } = officerResult.rows[0];
 
-    // Build student query with branch filtering
+    // Build student query with branch filtering.
+    // The account must be active: a deactivated student cannot sign in, so
+    // notifying them is a row nobody reads and, at Urgent, an email nobody can
+    // act on. See utils/notificationAudience.js.
     let studentQuery = `
       SELECT s.id, s.user_id, s.email, s.student_name, s.branch
       FROM students s
       WHERE s.college_id = $1
         AND s.registration_status = 'approved'
         AND s.is_blacklisted = FALSE
+        AND ${ACTIVE_STUDENT_ACCOUNT_SQL}
     `;
     const params = [collegeId];
 

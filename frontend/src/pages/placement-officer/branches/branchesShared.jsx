@@ -68,7 +68,7 @@ export function BranchTable({ rows }) {
     <div className="overflow-x-auto">
       <table className="w-full border-collapse">
         <caption className="sr-only">
-          Branches your college offers, with the number of approved students in each.
+          Branches your college offers, with the number of active students in each.
         </caption>
         <thead>
           <tr className="bg-spc-surface-2 border-b-[1.5px] border-spc-rule-structural">

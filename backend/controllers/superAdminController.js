@@ -7,6 +7,7 @@ import logActivity from '../middleware/activityLogger.js';
 import { generateStudentPDF } from '../utils/pdfGenerator.js';
 import { deleteImage, deleteFolderOnly, extractFolderPath } from '../config/cloudinary.js';
 import { TOTAL_BACKLOGS_SQL, parseMaxBacklogs } from '../utils/backlogPolicy.js';
+import { ACTIVE_STUDENT_ACCOUNT_SQL } from '../utils/notificationAudience.js';
 
 // ========================================
 // HELPER FUNCTIONS
@@ -3225,6 +3226,7 @@ export const getCollegesForNotifications = async (req, res) => {
        LEFT JOIN students s ON c.id = s.college_id
          AND s.registration_status = 'approved'
          AND s.is_blacklisted = FALSE
+         AND ${ACTIVE_STUDENT_ACCOUNT_SQL}
        WHERE c.is_active = TRUE
        GROUP BY c.id, c.college_name, c.college_code, r.region_name
        ORDER BY c.college_name ASC`
@@ -3266,6 +3268,7 @@ export const getBranchesForColleges = async (req, res) => {
        WHERE s.college_id = ANY($1::int[])
          AND s.registration_status = 'approved'
          AND s.is_blacklisted = FALSE
+         AND ${ACTIVE_STUDENT_ACCOUNT_SQL}
          AND s.branch IS NOT NULL
        GROUP BY s.college_id, c.college_name, s.branch
        ORDER BY c.college_name ASC, s.branch ASC`,
@@ -3315,13 +3318,17 @@ export const sendNotification = async (req, res) => {
       });
     }
 
-    // Build student query with college and branch filtering
+    // Build student query with college and branch filtering.
+    // The account must be active, matching the two count endpoints above — a
+    // deactivated student cannot sign in to act on this. See
+    // utils/notificationAudience.js.
     let studentQuery = `
       SELECT s.id, s.user_id, s.email, s.student_name, s.branch, s.college_id, c.college_name
       FROM students s
       JOIN colleges c ON s.college_id = c.id
       WHERE s.registration_status = 'approved'
         AND s.is_blacklisted = FALSE
+        AND ${ACTIVE_STUDENT_ACCOUNT_SQL}
     `;
     const params = [];
     let paramCount = 0;

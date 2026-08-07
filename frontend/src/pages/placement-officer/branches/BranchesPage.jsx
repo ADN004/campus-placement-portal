@@ -75,7 +75,7 @@ export default function BranchesPage({
             <CountBlock
               label="Students"
               value={totalStudents}
-              hint="Approved, across all branches"
+              hint="Approved and active, across all branches"
             />
             {orphans.length > 0 && (
               <CountBlock

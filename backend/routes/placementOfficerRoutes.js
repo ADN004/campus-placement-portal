@@ -26,6 +26,7 @@ import {
   getStudentsByPRNRange,
   exportStudentsByPRNRange,
   getCollegeBranches as getBranchesForNotifications,
+  getSentNotifications,
 } from '../controllers/placementOfficerController.js';
 import {
   uploadOwnPhoto,
@@ -97,6 +98,7 @@ router.put('/students/:id/email', updateStudentEmailByStaff);
 router.post('/students/:id/whitelist-request', requestWhitelist);
 router.get('/branches', getBranchesForNotifications); // Get branches for notifications
 router.post('/send-notification', sendNotification);
+router.get('/sent-notifications', getSentNotifications);
 router.get('/jobs', getJobs);
 router.put('/jobs/:id', updateJob);
 router.get('/jobs/:jobId/applicants', getJobApplicants);

@@ -5,6 +5,7 @@ import { Briefcase, FileText, Bell, GraduationCap, User } from 'lucide-react';
 import ExtendedProfilePromptModal from '../../components/ExtendedProfilePromptModal';
 import ResumePromptModal from '../../components/ResumePromptModal';
 import CgpaUnlockPopup from '../../components/CgpaUnlockPopup';
+import PriorityNotificationPopup from '../../components/student/PriorityNotificationPopup';
 import UpdateStudentEmailModal from '../../components/UpdateStudentEmailModal';
 import useDeviceType from '../../hooks/useDeviceType';
 import api from '../../services/api';
@@ -36,6 +37,9 @@ export default function StudentDashboard() {
   const [showExtendedProfilePrompt, setShowExtendedProfilePrompt] = useState(false);
   const [extendedProfileCompletion, setExtendedProfileCompletion] = useState(100);
   const [showResumePrompt, setShowResumePrompt] = useState(false);
+  // Only so the priority-notification popup can wait its turn rather than
+  // opening on top of the CGPA one. CgpaUnlockPopup decides its own visibility.
+  const [showCgpaPopup, setShowCgpaPopup] = useState(false);
   const deviceType = useDeviceType();
 
   useEffect(() => {
@@ -261,7 +265,16 @@ export default function StudentDashboard() {
       )}
 
       {/* CGPA Unlock Popup (one-time, for approved students) */}
-      <CgpaUnlockPopup />
+      <CgpaUnlockPopup onShownChange={setShowCgpaPopup} />
+
+      {/* High/Urgent notifications from the placement cell. Last in the queue:
+          the prompts above are about this student's own account, so they go
+          first, and stacking two dialogs helps nobody. */}
+      <PriorityNotificationPopup
+        suppressed={
+          showExtendedProfilePrompt || showResumePrompt || showEmailModal || showCgpaPopup
+        }
+      />
 
       {/* Update Email Modal (self-service email correction) */}
       {showEmailModal && (

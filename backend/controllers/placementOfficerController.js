@@ -3194,3 +3194,58 @@ export const exportStudentsByPRNRange = async (req, res) => {
     });
   }
 };
+
+// @desc    Notifications this officer has sent
+// @route   GET /api/placement-officer/sent-notifications
+// @access  Private (Placement Officer)
+//
+// Scoped by `created_by = req.user.id`, so an officer sees their own sends and
+// nothing else. The recipient and read counts come from notification_recipients
+// rather than being stored on the notification, and the branch list is derived
+// from the students who actually received it — the send does not record which
+// branches were targeted, and the recipients are the truthful answer anyway.
+export const getSentNotifications = async (req, res) => {
+  try {
+    const result = await query(
+      `SELECT
+         n.id,
+         n.title,
+         n.message,
+         n.priority,
+         n.created_at,
+         stats.recipient_count,
+         stats.read_count,
+         stats.branches
+       FROM notifications n
+       JOIN LATERAL (
+         SELECT
+           COUNT(*)::int AS recipient_count,
+           COUNT(*) FILTER (WHERE nr.is_read)::int AS read_count,
+           ARRAY_AGG(DISTINCT s.branch) FILTER (WHERE s.branch IS NOT NULL) AS branches
+         FROM notification_recipients nr
+         LEFT JOIN students s ON s.user_id = nr.user_id
+         WHERE nr.notification_id = n.id
+       ) stats ON TRUE
+       WHERE n.created_by = $1
+       ORDER BY n.created_at DESC
+       LIMIT 25`,
+      [req.user.id]
+    );
+
+    res.status(200).json({
+      success: true,
+      count: result.rows.length,
+      data: result.rows.map((row) => ({
+        ...row,
+        branches: row.branches || [],
+      })),
+    });
+  } catch (error) {
+    console.error('Get sent notifications error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching sent notifications',
+      error: error.message,
+    });
+  }
+};

@@ -3,7 +3,13 @@ import { studentAPI } from '../services/api';
 import { GraduationCap, Clock } from 'lucide-react';
 import PromptShell from './student/PromptShell';
 
-export default function CgpaUnlockPopup() {
+/**
+ * `onShownChange` is optional and purely a report: it fires with true/false as
+ * this popup appears and goes away, so a page that also has a prompt to show can
+ * wait its turn rather than stacking two dialogs on top of each other. Passing
+ * nothing keeps the old behaviour exactly.
+ */
+export default function CgpaUnlockPopup({ onShownChange }) {
   const [show, setShow] = useState(false);
   const [unlockEnd, setUnlockEnd] = useState(null);
   const [timeRemaining, setTimeRemaining] = useState('');
@@ -11,6 +17,10 @@ export default function CgpaUnlockPopup() {
   useEffect(() => {
     checkUnlockStatus();
   }, []);
+
+  useEffect(() => {
+    if (onShownChange) onShownChange(show);
+  }, [show, onShownChange]);
 
   useEffect(() => {
     if (!unlockEnd) return;

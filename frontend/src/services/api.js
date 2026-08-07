@@ -170,6 +170,8 @@ export const placementOfficerAPI = {
   // Profile Photo Management
   uploadOwnPhoto: (data) => API.post('/placement-officer/profile/photo', data),
   deleteOwnPhoto: () => API.delete('/placement-officer/profile/photo'),
+  uploadCollegeLogo: (logo) => API.post('/placement-officer/college/logo', { logo }),
+  deleteCollegeLogo: () => API.delete('/placement-officer/college/logo'),
   // Custom Export
   customExportStudents: (data) => API.post('/placement-officer/students/custom-export', data, { responseType: 'blob' }),
 

@@ -318,20 +318,35 @@ export default function JobRequestForm({
                             <p className="py-3 text-xs text-spc-muted">No colleges in this region.</p>
                           ) : (
                             <div className={`grid ${pairCols === 1 ? 'grid-cols-1' : 'grid-cols-2'}
-                              gap-x-3 max-h-56 overflow-y-auto spc-scroll-contain`}>
+                              gap-x-3 ${layout === 'mobile' ? '' : 'max-h-56 overflow-y-auto spc-scroll-contain'}`}>
+                              {/*
+                                Two changes here.
+
+                                The college code used to sit under each name —
+                                GPC_CHK, MPC_KZM. It is an internal slug: it
+                                identifies nothing an officer needs, because
+                                every active college name is already distinct,
+                                and it cost a second line on every row in a list
+                                that scrolls. The name alone is the choice being
+                                made here.
+
+                                And the box caps and scrolls on desktop and
+                                tablet, where a dozen colleges under an expanded
+                                region would push the rest of the form off
+                                screen — but not on a phone, where this already
+                                sits inside a dialog that scrolls, and a
+                                scrolling box inside a scrolling dialog gives a
+                                thumb two things it might move with nothing on
+                                screen saying which.
+                              */}
                               {regionColleges.map((college) => (
                                 <label key={college.id}
-                                  className="flex items-center gap-2 min-h-[40px] cursor-pointer min-w-0">
+                                  className="flex items-center gap-2.5 min-h-[44px] cursor-pointer min-w-0">
                                   <input type="checkbox" className={CHECKBOX_CLASS}
                                     checked={formData.target_colleges.includes(college.id)}
                                     onChange={() => onCollegeToggle(college.id, region.id)} />
-                                  <span className="min-w-0">
-                                    <span className="block text-xs text-spc-body truncate">
-                                      {college.college_name}
-                                    </span>
-                                    {college.college_code && (
-                                      <span className="block text-xs text-spc-muted">{college.college_code}</span>
-                                    )}
+                                  <span className="text-xs text-spc-body min-w-0 break-words">
+                                    {college.college_name}
                                   </span>
                                 </label>
                               ))}

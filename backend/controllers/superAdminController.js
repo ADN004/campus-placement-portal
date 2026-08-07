@@ -6,6 +6,7 @@ import { parseExceptedPrns } from '../utils/prnExceptions.js';
 import logActivity from '../middleware/activityLogger.js';
 import { generateStudentPDF } from '../utils/pdfGenerator.js';
 import { deleteImage, deleteFolderOnly, extractFolderPath } from '../config/cloudinary.js';
+import { TOTAL_BACKLOGS_SQL, parseMaxBacklogs } from '../utils/backlogPolicy.js';
 
 // ========================================
 // HELPER FUNCTIONS
@@ -2112,14 +2113,14 @@ export const getAllStudents = async (req, res) => {
       params.push(cgpa_min);
     }
 
-    if (backlog !== undefined) {
-      if (backlog === '0') {
-        queryText += ` AND s.backlog_count = 'All cleared'`;
-      } else {
-        paramCount++;
-        queryText += ` AND s.backlog_count = $${paramCount}`;
-        params.push(backlog);
-      }
+    // Same defect as the officer's filter had: 'All cleared' is a value nothing
+    // ever writes, and the non-zero branch was an exact match behind a control
+    // labelled "Maximum". Both now use the semester sum, as a real maximum.
+    const maxBacklogs = parseMaxBacklogs(backlog);
+    if (maxBacklogs !== null) {
+      paramCount++;
+      queryText += ` AND ${TOTAL_BACKLOGS_SQL} <= $${paramCount}`;
+      params.push(maxBacklogs);
     }
 
     // Add branch filter

@@ -9,6 +9,7 @@ import { singleCollegeJobApprovalRequired } from '../utils/portalMode.js';
 import { parseExceptedPrns } from '../utils/prnExceptions.js';
 import { isCollegeLocked } from '../utils/collegeLocks.js';
 import { DAY_AWARE_COUNT_SQL } from '../utils/verificationEmailPolicy.js';
+import { TOTAL_BACKLOGS_SQL, parseMaxBacklogs } from '../utils/backlogPolicy.js';
 
 // How many notification emails a bulk action sends at once. A bulk batch can
 // be 50+ students; sending strictly one at a time can outrun the proxy read
@@ -455,14 +456,13 @@ export const getStudents = async (req, res) => {
       params.push(cgpa_max);
     }
 
-    if (backlog !== undefined) {
-      if (backlog === '0') {
-        queryText += ` AND s.backlog_count = 'All cleared'`;
-      } else {
-        paramCount++;
-        queryText += ` AND s.backlog_count = $${paramCount}`;
-        params.push(backlog);
-      }
+    // "Maximum backlogs" now behaves as a maximum, against the semester sum the
+    // table displays and job eligibility uses. See utils/backlogPolicy.
+    const maxBacklogs = parseMaxBacklogs(backlog);
+    if (maxBacklogs !== null) {
+      paramCount++;
+      queryText += ` AND ${TOTAL_BACKLOGS_SQL} <= $${paramCount}`;
+      params.push(maxBacklogs);
     }
 
     // Add branch filter
@@ -1488,10 +1488,11 @@ export const exportStudents = async (req, res) => {
     }
 
     // Apply backlog filter
-    if (backlog !== undefined && backlog !== '') {
+    const maxBacklogsExport = parseMaxBacklogs(backlog);
+    if (maxBacklogsExport !== null) {
       paramCount++;
-      queryText += ` AND s.backlog_count = $${paramCount}`;
-      params.push(parseInt(backlog));
+      queryText += ` AND ${TOTAL_BACKLOGS_SQL} <= $${paramCount}`;
+      params.push(maxBacklogsExport);
     }
 
     // DOB filters

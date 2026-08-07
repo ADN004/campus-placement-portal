@@ -10,6 +10,7 @@ import {
   sendRejectionEmail,
   sendShortlistEmail,
 } from '../config/emailService.js';
+import { TOTAL_BACKLOGS_SQL, parseMaxBacklogs } from '../utils/backlogPolicy.js';
 
 // ========================================
 // CONSTANTS
@@ -435,10 +436,14 @@ export const customExportStudents = async (req, res) => {
     }
 
     // Backlog count filter
-    if (backlog_count !== undefined && backlog_count !== '') {
+    // Was `s.backlog_count <= $n` — a numeric parameter against a VARCHAR
+    // column, so either a type error or a string comparison in which '10' is
+    // less than '5'. Same semester sum as everywhere else now.
+    const maxBacklogs = parseMaxBacklogs(backlog_count);
+    if (maxBacklogs !== null) {
       paramCount++;
-      queryText += ` AND s.backlog_count <= $${paramCount}`;
-      params.push(parseInt(backlog_count));
+      queryText += ` AND ${TOTAL_BACKLOGS_SQL} <= $${paramCount}`;
+      params.push(maxBacklogs);
     }
 
     // Date of Birth filters

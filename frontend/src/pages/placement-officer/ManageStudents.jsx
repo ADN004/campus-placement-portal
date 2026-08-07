@@ -136,6 +136,10 @@ export default function ManageStudents() {
     fetchCgpaLockStatus();
     fetchBacklogLockStatus();
     fetchArchivedYears();
+    // Tab counts are college-wide totals, so they are fetched once here and
+    // then only after an action that moves a student between tabs — never on
+    // a search or filter change. See refreshStudentsAndCounts.
+    fetchStatusCounts();
   }, []);
 
   const fetchArchivedYears = async () => {
@@ -354,14 +358,32 @@ export default function ManageStudents() {
       setStudents(studentsData);
       setTotalStudents(response.data.total || 0);
       setTotalPages(response.data.totalPages || 1);
-
-      fetchStatusCounts();
     } catch (error) {
       toast.error('Failed to load students');
       console.error('Error fetching students:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  /**
+   * Reload the list and the tab counts together, for the handful of actions
+   * that actually move a student between tabs.
+   *
+   * The counts used to be refetched at the end of every fetchStudents(), which
+   * runs on nine dependencies including the debounced search box and every
+   * advanced filter. Since fetchStatusCounts fires five requests of its own,
+   * a single keystroke settling or one filter toggle cost SIX requests. The
+   * limiter allows 100 per 15 minutes outside production, so roughly sixteen
+   * filter interactions could lock an officer out of the portal.
+   *
+   * The five count queries pass only `status` and `limit: 1` — no search and no
+   * filters — so they are college-wide totals that cannot change when the view
+   * changes. Only a status change moves them.
+   */
+  const refreshStudentsAndCounts = () => {
+    fetchStudents();
+    fetchStatusCounts();
   };
 
   const fetchStatusCounts = async () => {
@@ -391,7 +413,7 @@ export default function ManageStudents() {
     try {
       await placementOfficerAPI.approveStudent(studentId);
       toast.success('Student approved successfully');
-      fetchStudents();
+      refreshStudentsAndCounts();
       return true;
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to approve student');
@@ -408,7 +430,7 @@ export default function ManageStudents() {
     try {
       await placementOfficerAPI.rejectStudent(studentId, reason.trim() || undefined);
       toast.success('Student rejected');
-      fetchStudents();
+      refreshStudentsAndCounts();
       return true;
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to reject student');
@@ -470,12 +492,12 @@ export default function ManageStudents() {
       }
 
       setSelectedStudents([]);
-      fetchStudents();
+      refreshStudentsAndCounts();
     } catch (error) {
       // Nothing was written — the update runs in a transaction — so the
       // selection is deliberately left intact for a retry.
       toast.error(error.response?.data?.message || 'Failed to approve students');
-      fetchStudents();
+      refreshStudentsAndCounts();
     }
   };
 
@@ -511,10 +533,10 @@ export default function ManageStudents() {
       }
 
       setSelectedStudents([]);
-      fetchStudents();
+      refreshStudentsAndCounts();
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to reject students');
-      fetchStudents();
+      refreshStudentsAndCounts();
     }
   };
 
@@ -560,7 +582,7 @@ export default function ManageStudents() {
       setShowBlacklistModal(false);
       setBlacklistReason('');
       setSelectedStudent(null);
-      fetchStudents();
+      refreshStudentsAndCounts();
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to blacklist student');
     }

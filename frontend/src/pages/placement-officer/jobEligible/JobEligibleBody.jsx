@@ -77,6 +77,9 @@ export default function JobEligibleBody({ layout, ...p }) {
               onExport={p.onExport}
               exporting={p.exporting}
               exportDisabled={p.filteredStudents.length === 0}
+              applicantCount={p.applicantCount}
+              onDeleteJob={p.onDeleteJob}
+              onUnpublishJob={p.onUnpublishJob}
             />
           </div>
 

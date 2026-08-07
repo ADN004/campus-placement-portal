@@ -19,6 +19,7 @@ import {
   ExportOptionsModal,
   CollegePickerModal,
   EditJobModal,
+  ConfirmRemoveJobModal,
 } from './jobEligible/JobEligibleModals';
 import {
   DesktopJobEligibleSkeleton,
@@ -71,6 +72,8 @@ export default function JobApplicants() {
 
   // Edit Job modal state (host POs only)
   const [showEditJobModal, setShowEditJobModal] = useState(false);
+  const [confirmRemoveJob, setConfirmRemoveJob] = useState(false);
+  const [removingJob, setRemovingJob] = useState(false);
   const [editJobData, setEditJobData] = useState({});
   const [editJobLoading, setEditJobLoading] = useState(false);
 
@@ -716,6 +719,43 @@ export default function JobApplicants() {
     setShowPlacementForm(true);
   };
 
+  /*
+   * Removing a job, in whichever of the two ways is legitimate.
+   *
+   * With no applicants the job is deleted — a soft delete server-side, so the
+   * record survives for history while leaving every list. With applicants it is
+   * unpublished instead: their applications point at this job, and deleting it
+   * would cascade those away. The button offered is decided the same way, so an
+   * officer is never shown an action that will be refused.
+   */
+  const handleDeleteJob = async () => {
+    try {
+      setRemovingJob(true);
+      await placementOfficerAPI.deleteJob(selectedJob.id);
+      toast.success('Job deleted');
+      setConfirmRemoveJob(false);
+      navigate('/placement-officer/job-eligible-students');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to delete job');
+    } finally {
+      setRemovingJob(false);
+    }
+  };
+
+  const handleUnpublishJob = async () => {
+    try {
+      setRemovingJob(true);
+      await placementOfficerAPI.updateJob(selectedJob.id, { is_active: false });
+      toast.success('Job unpublished — students can no longer see it');
+      setConfirmRemoveJob(false);
+      navigate('/placement-officer/job-eligible-students');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to unpublish job');
+    } finally {
+      setRemovingJob(false);
+    }
+  };
+
   const handleOpenEditJob = () => {
     setEditJobData({
       title: selectedJob.job_title,
@@ -771,6 +811,9 @@ export default function JobApplicants() {
     onScheduleDrive: () => setShowDriveModal(true),
     onNotifyDrive: () => handleNotifyStudents('drive_scheduled'),
     onEditJob: handleOpenEditJob,
+    applicantCount: students.length,
+    onDeleteJob: () => setConfirmRemoveJob(true),
+    onUnpublishJob: () => setConfirmRemoveJob(true),
     onExport: handleOpenExport,
     exporting,
     filteredStudents,
@@ -909,6 +952,16 @@ export default function JobApplicants() {
             setExportCollegeIds([]);
             setShowCollegeModal(false);
           }}
+        />
+      )}
+
+      {confirmRemoveJob && selectedJob && (
+        <ConfirmRemoveJobModal
+          job={selectedJob}
+          applicantCount={students.length}
+          busy={removingJob}
+          onConfirm={students.length === 0 ? handleDeleteJob : handleUnpublishJob}
+          onClose={() => setConfirmRemoveJob(false)}
         />
       )}
 

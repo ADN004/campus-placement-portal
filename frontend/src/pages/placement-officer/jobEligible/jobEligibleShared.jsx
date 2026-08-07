@@ -1,7 +1,7 @@
-import { Download, Eye, DollarSign, Calendar, Send, Filter, ChevronDown, ChevronUp } from 'lucide-react';
+import { Download, Eye, DollarSign, Calendar, Send, Filter, ChevronDown, ChevronUp, Trash2, EyeOff } from 'lucide-react';
 import StatusBadge from '../../../components/StatusBadge';
 import {
-  Panel, PanelHeading, SectionLabel, PrimaryButton, SecondaryButton,
+  Panel, PanelHeading, SectionLabel, PrimaryButton, SecondaryButton, DangerButton,
   CHECKBOX_CLASS, EmptyState, formatDate, ActionButton,
 } from '../../../components/officer/OfficerUI';
 
@@ -171,7 +171,29 @@ export function DrivePanel({ driveData, onSchedule, onNotifyAll }) {
 }
 
 /** The chosen job's headline facts, plus Edit (host only) and Export. */
-export function JobSummary({ job, isHost, onEditJob, onExport, exporting, exportDisabled }) {
+/**
+ * The job's own header, with the actions that belong to the job rather than to
+ * its applicants.
+ *
+ * Delete and Unpublish are the same button position but never both: a job
+ * nobody has applied to can be removed outright, and a job with applicants
+ * cannot — deleting it would take their applications with it — so that case is
+ * offered as Unpublish instead. Showing Delete and then refusing it would be
+ * offering something that never works.
+ */
+export function JobSummary({
+  job, isHost, onEditJob, onExport, exporting, exportDisabled,
+  applicantCount = 0, onDeleteJob, onUnpublishJob,
+}) {
+  /*
+   * A job that reached other colleges went through the Super Admin's approval
+   * queue, and the backend refuses to let the requesting officer edit or
+   * withdraw it. Only own-college requests are auto-approved. Matching that
+   * here — including treating a missing flag as not-auto-approved, exactly as
+   * the backend's `!is_auto_approved` does — is what keeps the page from
+   * offering buttons that always come back 403.
+   */
+  const canManage = isHost && Boolean(job.is_auto_approved);
   return (
     <Panel>
       <div className="p-4 flex items-start justify-between gap-4 flex-wrap">
@@ -187,7 +209,23 @@ export function JobSummary({ job, isHost, onEditJob, onExport, exporting, export
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {isHost && <SecondaryButton onClick={onEditJob}>Edit job</SecondaryButton>}
+          {isHost && !canManage && (
+            <p className="text-xs text-spc-muted max-w-[15rem] leading-snug">
+              Approved by the Super Admin, so it can only be changed or withdrawn there.
+            </p>
+          )}
+          {canManage && <SecondaryButton onClick={onEditJob}>Edit job</SecondaryButton>}
+          {canManage && (applicantCount === 0 ? (
+            <DangerButton onClick={onDeleteJob}>
+              <Trash2 size={15} aria-hidden="true" />
+              <span>Delete job</span>
+            </DangerButton>
+          ) : job.is_active !== false ? (
+            <SecondaryButton onClick={onUnpublishJob}>
+              <EyeOff size={15} aria-hidden="true" />
+              <span>Unpublish</span>
+            </SecondaryButton>
+          ) : null)}
           <PrimaryButton onClick={onExport} disabled={exportDisabled || exporting}>
             <Download size={15} aria-hidden="true" />
             <span>{exporting ? 'Exporting…' : 'Export'}</span>

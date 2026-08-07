@@ -1,7 +1,7 @@
 import Modal from '../../../components/Modal';
 import { FileSpreadsheet, FileText } from 'lucide-react';
 import {
-  PrimaryButton, SecondaryButton, FieldLabel, FIELD_CLASS, CHECKBOX_CLASS, CheckRow,
+  PrimaryButton, SecondaryButton, DangerButton, FieldLabel, FIELD_CLASS, CHECKBOX_CLASS, CheckRow,
 } from '../../../components/officer/OfficerUI';
 import { KERALA_POLYTECHNIC_BRANCHES } from '../../../constants/branches';
 import { OfficerDialogClose } from '../../../components/officer/OfficerDialog';
@@ -375,6 +375,62 @@ export function EditJobModal({ data, onChange, onSave, saving, applicantCount = 
         <PrimaryButton onClick={onSave} disabled={saving}>
           {saving ? 'Saving…' : 'Save changes'}
         </PrimaryButton>
+      </Footer>
+    </Dialog>
+  );
+}
+
+/**
+ * Confirm taking a job down.
+ *
+ * Two different actions behind one dialog, because they are the same intent
+ * with different consequences and the officer should see which one they are
+ * getting. With no applicants the job is deleted outright. With applicants it
+ * can only be unpublished — their applications reference this job, so removing
+ * it would take them too — and the dialog says that rather than presenting a
+ * Delete that would be refused.
+ */
+export function ConfirmRemoveJobModal({ job, applicantCount, busy, onConfirm, onClose }) {
+  const deleting = applicantCount === 0;
+  return (
+    <Dialog
+      id="confirm-remove-job"
+      title={deleting ? 'Delete this job?' : 'Unpublish this job?'}
+      subtitle={`${job.job_title} · ${job.company_name}`}
+      onClose={onClose}
+    >
+      <div className="px-5 py-4 text-spc-xs text-spc-body leading-snug space-y-2">
+        {deleting ? (
+          <>
+            <p>
+              Nobody has applied to this job, so it can be removed. It disappears from your list
+              and from every student&rsquo;s.
+            </p>
+            <p className="text-spc-muted">
+              The record is kept internally for history — it is taken out of circulation, not
+              wiped.
+            </p>
+          </>
+        ) : (
+          <>
+            <p>
+              <span className="font-bold text-spc-ink tabular-nums">{applicantCount}</span> student
+              {applicantCount === 1 ? ' has' : 's have'} applied, so this job cannot be deleted —
+              their applications point at it and would go with it.
+            </p>
+            <p>
+              Unpublishing takes it off the students&rsquo; list instead. The applicants, their
+              statuses and any placement details you have recorded all stay exactly as they are,
+              and you keep this page.
+            </p>
+          </>
+        )}
+      </div>
+      <Footer>
+        <SecondaryButton type="button" onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
+        <DangerButton type="button" onClick={onConfirm} disabled={busy}>
+          {busy ? 'Working…' : deleting ? 'Delete job' : 'Unpublish job'}
+        </DangerButton>
       </Footer>
     </Dialog>
   );

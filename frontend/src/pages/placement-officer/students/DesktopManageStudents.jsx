@@ -24,7 +24,7 @@ export default function DesktopManageStudents(props) {
     showExportDropdown, onToggleExportDropdown, onPickExport, totalStudents,
     cgpaLocked, cgpaUnlockWindow, onCgpaUnlock, onCgpaLock, cgpaProcessing,
     backlogLocked, backlogUnlockWindow, onBacklogUnlock, onBacklogLock, backlogProcessing,
-    showArchived, archivedYear, archivedYears, onToggleArchived, onArchivedYearChange,
+    showArchived, archivedYear, archivedYearOptions, onToggleArchived, onArchivedYearChange,
     selectedStudents, pendingInView, onSelectStudent, onSelectAll,
     onBulkApprove, onBulkReject, onClearSelection,
     currentPage, totalPages, pageSize, onPageChange, onPageSizeChange,
@@ -97,9 +97,9 @@ export default function DesktopManageStudents(props) {
                 onChange={onArchivedYearChange}
               >
                 <option value="">All passed-out batches</option>
-                {archivedYears.map((y) => (
-                  <option key={y} value={y}>{y}</option>
-                ))}
+                {archivedYearOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
               </SelectField>
             </div>
             <p className="text-spc-xs text-spc-muted flex-1 min-w-0">

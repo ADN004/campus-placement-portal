@@ -576,27 +576,41 @@ export function Pagination({ currentPage, totalPages, pageSize, totalStudents, o
       </p>
 
       <div className="flex items-center gap-2 flex-wrap">
+        {/* 25/50/100/200 and the first/last jumps are exactly what the old
+            pagination offered — same options, same destinations. */}
         <select
           value={pageSize}
           onChange={onPageSizeChange}
           aria-label="Rows per page"
           className={`${FIELD_CLASS} w-auto`}
         >
-          {[50, 100, 200, 500].map((size) => (
+          {[25, 50, 100, 200].map((size) => (
             <option key={size} value={size}>{size} per page</option>
           ))}
         </select>
-        <SecondaryButton onClick={() => onPageChange(currentPage - 1)} disabled={currentPage === 1}>
+        <SecondaryButton onClick={() => onPageChange(1)} disabled={currentPage === 1}>
+          First
+        </SecondaryButton>
+        <SecondaryButton
+          onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+          disabled={currentPage === 1}
+        >
           Previous
         </SecondaryButton>
         <span className="text-spc-xs font-bold text-spc-ink tabular-nums px-1">
           {currentPage} / {totalPages}
         </span>
         <SecondaryButton
-          onClick={() => onPageChange(currentPage + 1)}
+          onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
           disabled={currentPage === totalPages}
         >
           Next
+        </SecondaryButton>
+        <SecondaryButton
+          onClick={() => onPageChange(totalPages)}
+          disabled={currentPage === totalPages}
+        >
+          Last
         </SecondaryButton>
       </div>
     </div>

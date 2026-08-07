@@ -1,16 +1,20 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { placementOfficerAPI } from '../../services/api';
 import toast from 'react-hot-toast';
-import { Check, X, Ban, Shield, Eye, Search, Download, Filter, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Users, Settings, XCircle, Lock, Unlock, GraduationCap, FileText, MailWarning, FileEdit } from 'lucide-react';
-import DashboardHeader from '../../components/DashboardHeader';
-import GlassCard from '../../components/GlassCard';
-import { BRANCH_SHORT_NAMES } from '../../constants/branches';
 import useSkeletonLoading from '../../hooks/useSkeletonLoading';
-import TablePageSkeleton from '../../components/skeletons/TablePageSkeleton';
-import UpdateStudentEmailModal from '../../components/UpdateStudentEmailModal';
-import AnimatedSection from '../../components/animation/AnimatedSection';
+import useDeviceType from '../../hooks/useDeviceType';
 import { passoutYearFromAcademicYear } from '../../utils/passoutYears';
+import DesktopManageStudents from './students/DesktopManageStudents';
+import TabletManageStudents from './students/TabletManageStudents';
+import MobileManageStudents from './students/MobileManageStudents';
+import StudentModals from './students/StudentModals';
+import ExportModals, { EXPORT_FIELDS } from './students/ExportModals';
+import {
+  DesktopManageStudentsSkeleton,
+  TabletManageStudentsSkeleton,
+  MobileManageStudentsSkeleton,
+} from './students/ManageStudentsSkeleton';
 
 export default function ManageStudents() {
   const navigate = useNavigate();
@@ -684,12 +688,10 @@ export default function ManageStudents() {
   };
 
   const handleSelectAllFields = () => {
-    const allFields = [
-      'prn', 'student_name', 'email', 'mobile_number', 'date_of_birth', 'age', 'gender',
-      'branch', 'programme_cgpa', 'cgpa_sem1', 'cgpa_sem2', 'cgpa_sem3', 'cgpa_sem4',
-      'cgpa_sem5', 'cgpa_sem6', 'backlog_count', 'has_driving_license', 'has_pan_card',
-      'registration_status'
-    ];
+    // Read from the one list the dialog also renders. This used to be a second
+    // hardcoded copy of the same nineteen values, with the number 19 written out
+    // a third time in the button label — three places to keep in step.
+    const allFields = EXPORT_FIELDS.map((field) => field.value);
     if (exportFields.length === allFields.length) {
       setExportFields([]);
     } else {
@@ -898,124 +900,6 @@ export default function ManageStudents() {
     }
   };
 
-  const handleExportCSV = async () => {
-    try {
-      const params = {};
-
-      if (activeTab !== 'all') {
-        params.status = activeTab;
-      }
-
-      if (searchQuery.trim()) {
-        params.search = searchQuery.trim();
-      }
-
-      if (advancedFilters.cgpaMin) {
-        params.cgpa_min = advancedFilters.cgpaMin;
-      }
-
-      if (advancedFilters.backlogCount !== '') {
-        params.backlog = advancedFilters.backlogCount;
-      }
-
-      if (advancedFilters.branch) {
-        params.branch = advancedFilters.branch;
-      }
-
-      // New advanced filters
-      if (advancedFilters.dobFrom) {
-        params.dob_from = advancedFilters.dobFrom;
-        if (!advancedFilters.dobTo) {
-          params.dob_to = new Date().toISOString().split('T')[0];
-        }
-      }
-      if (advancedFilters.dobTo) params.dob_to = advancedFilters.dobTo;
-      if (advancedFilters.heightMin) params.height_min = advancedFilters.heightMin;
-      if (advancedFilters.heightMax) params.height_max = advancedFilters.heightMax;
-      if (advancedFilters.weightMin) params.weight_min = advancedFilters.weightMin;
-      if (advancedFilters.weightMax) params.weight_max = advancedFilters.weightMax;
-      if (filterDocuments.driving_license) params.has_driving_license = filterDocuments.driving_license;
-      if (filterDocuments.pan_card) params.has_pan_card = filterDocuments.pan_card;
-      if (filterDocuments.aadhar_card) params.has_aadhar_card = filterDocuments.aadhar_card;
-      if (filterDocuments.passport) params.has_passport = filterDocuments.passport;
-      if (filterDistricts.length > 0) params.districts = filterDistricts.join(',');
-
-      params.limit = 10000;
-      params.page = 1;
-
-      const response = await placementOfficerAPI.getStudents(params);
-      const allStudents = response.data.data || [];
-
-      if (allStudents.length === 0) {
-        toast.error('No students to export');
-        return;
-      }
-
-      const headers = [
-        'PRN',
-        'Name',
-        'Email',
-        'Mobile Number',
-        'Branch',
-        'Date of Birth',
-        'CGPA',
-        'Backlog Count',
-        'Backlog Details',
-        'Registration Status',
-        'Is Blacklisted',
-        'Registration Date',
-      ];
-
-      const rows = allStudents.map((student) => [
-        student.prn || '',
-        student.name || '',
-        student.email || '',
-        student.mobile_number || '',
-        useBranchShortNames && student.branch ? (BRANCH_SHORT_NAMES[student.branch] || student.branch) : (student.branch || ''),
-        student.date_of_birth ? (() => {
-          const date = new Date(student.date_of_birth);
-          const day = String(date.getDate()).padStart(2, '0');
-          const month = String(date.getMonth() + 1).padStart(2, '0');
-          const year = date.getFullYear();
-          return `${day}-${month}-${year}`;
-        })() : '',
-        student.programme_cgpa || '',
-        student.backlog_count !== undefined ? student.backlog_count : '',
-        student.backlog_details || '',
-        student.registration_status || '',
-        student.is_blacklisted ? 'Yes' : 'No',
-        student.created_at ? (() => {
-          const date = new Date(student.created_at);
-          const day = String(date.getDate()).padStart(2, '0');
-          const month = String(date.getMonth() + 1).padStart(2, '0');
-          const year = date.getFullYear();
-          return `${day}-${month}-${year}`;
-        })() : '',
-      ]);
-
-      const csvContent = [
-        headers.join(','),
-        ...rows.map((row) => row.map((cell) => `"${cell}"`).join(',')),
-      ].join('\n');
-
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      const fileName = `students_${activeTab}_${new Date().toISOString().split('T')[0]}.csv`;
-      link.setAttribute('download', fileName);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-
-      toast.success(`Exported ${allStudents.length} students to CSV`);
-    } catch (error) {
-      console.error('Export error:', error);
-      toast.error('Failed to export students');
-    }
-  };
-
   const handlePdfExport = async () => {
     setExporting(true);
     try {
@@ -1071,1582 +955,231 @@ export default function ManageStudents() {
   };
 
   const showSkeleton = useSkeletonLoading(loading);
+  const deviceType = useDeviceType();
 
   if (showSkeleton) {
-    return <TablePageSkeleton statCards={0} tableColumns={7} tableRows={10} hasTabs={true} hasSearch={true} hasFilters={true} />;
+    if (deviceType === 'mobile') return <MobileManageStudentsSkeleton />;
+    if (deviceType === 'tablet') return <TabletManageStudentsSkeleton />;
+    return <DesktopManageStudentsSkeleton />;
   }
 
+  const pendingInView = getPendingStudentsInView();
+
+  // The export menu picks which configuration dialog opens — the same three
+  // destinations the old dropdown had.
+  const handlePickExport = (kind) => {
+    setShowExportDropdown(false);
+    if (kind === 'excel') setShowExcelConfigModal(true);
+    else if (kind === 'pdf') setShowPdfConfigModal(true);
+    else setShowCustomExportModal(true);
+  };
+
+  const handleToggleArchived = () => {
+    setShowArchived(!showArchived);
+    setArchivedYear('');
+    setCurrentPage(1);
+  };
+
+  const handleDocumentChange = (key, value) =>
+    setFilterDocuments((prev) => ({ ...prev, [key]: value }));
+
+  const handleCustomSettingChange = (key, value) =>
+    setCustomExportSettings((prev) => ({ ...prev, [key]: value }));
+
+  const archivedYearOptions = archivedYears.map((y) => ({
+    value: y,
+    label: `${y} (passout ${passoutYearFromAcademicYear(y)})`,
+  }));
+
+  // Row actions. Every presenter gets these same functions.
+  const actionHandlers = {
+    onReview: openDetailsModal,
+    onApprove: handleApprove,
+    onReject: handleReject,
+    onEmailFix: setEmailFixStudent,
+    onCorrection: openCorrectionModal,
+    onBlacklist: handleBlacklist,
+    onWhitelist: handleRequestWhitelist,
+  };
+
+  const filtersProps = {
+    advancedFilters,
+    onFilterChange: handleAdvancedFilterChange,
+    filterDocuments,
+    onDocumentChange: handleDocumentChange,
+    filterDistricts,
+    onDistrictsChange: setFilterDistricts,
+    availableDistricts,
+    collegeBranches,
+    onClear: clearAdvancedFilters,
+    hasActiveFilters: hasActiveFilters(),
+    shownCount: students.length,
+    totalStudents,
+  };
+
+  // Identical props for all three presenters — same values, same functions.
+  const presenterProps = {
+    students,
+    activeTab,
+    statusCounts,
+    onChangeTab: changeTab,
+    searchQuery,
+    onSearchChange: (e) => setSearchQuery(e.target.value),
+    showAdvancedFilters,
+    onToggleAdvancedFilters: () => setShowAdvancedFilters(!showAdvancedFilters),
+    hasActiveFilters: hasActiveFilters(),
+    showExportDropdown,
+    onToggleExportDropdown: () => setShowExportDropdown(!showExportDropdown),
+    onPickExport: handlePickExport,
+    totalStudents,
+    cgpaLocked,
+    cgpaUnlockWindow,
+    onCgpaUnlock: () => setShowCgpaUnlockModal(true),
+    onCgpaLock: handleCgpaLock,
+    cgpaProcessing,
+    backlogLocked,
+    backlogUnlockWindow,
+    onBacklogUnlock: () => setShowBacklogUnlockModal(true),
+    onBacklogLock: handleBacklogLock,
+    backlogProcessing,
+    showArchived,
+    archivedYear,
+    archivedYearOptions,
+    onToggleArchived: handleToggleArchived,
+    onArchivedYearChange: (e) => {
+      setArchivedYear(e.target.value);
+      setCurrentPage(1);
+    },
+    selectedStudents,
+    pendingInView,
+    onSelectStudent: handleSelectStudent,
+    onSelectAll: handleSelectAll,
+    onBulkApprove: handleBulkApprove,
+    onBulkReject: handleBulkReject,
+    onClearSelection: () => setSelectedStudents([]),
+    currentPage,
+    totalPages,
+    pageSize,
+    onPageChange: setCurrentPage,
+    onPageSizeChange: (e) => {
+      setPageSize(Number(e.target.value));
+      setCurrentPage(1);
+    },
+    filtersProps,
+    actionHandlers,
+  };
+
   return (
-    <div>
-      {/* Header */}
-      <AnimatedSection delay={0}>
-      <div className="mb-8 flex justify-between items-start">
-        <DashboardHeader
-          icon={Users}
-          title="Manage Students"
-          subtitle="View, approve, reject, and blacklist students from your college"
-        />
-
-        {/* Export Dropdown */}
-        <div className="relative">
-          <button
-            onClick={() => setShowExportDropdown(!showExportDropdown)}
-            disabled={totalStudents === 0}
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 transform hover:scale-105 active:scale-95 flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Download size={18} />
-            <span>Export</span>
-            <ChevronDown size={16} className={`transition-transform ${showExportDropdown ? 'rotate-180' : ''}`} />
-          </button>
-
-          {showExportDropdown && (
-            <>
-              <div
-                className="fixed inset-0 z-10"
-                onClick={() => setShowExportDropdown(false)}
-              />
-              <GlassCard className="absolute right-0 mt-2 w-64 z-20 overflow-hidden p-0">
-                <button
-                  onClick={() => {
-                    setShowExcelConfigModal(true);
-                    setShowExportDropdown(false);
-                  }}
-                  className="w-full px-6 py-4 text-left hover:bg-blue-50 flex items-center space-x-3 border-b border-gray-200 transition-colors"
-                >
-                  <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg p-2">
-                    <Download size={20} className="text-white" />
-                  </div>
-                  <div>
-                    <div className="font-bold text-gray-900">Export to Excel</div>
-                    <div className="text-xs text-gray-600">Standard fields export</div>
-                  </div>
-                </button>
-                <button
-                  onClick={() => {
-                    setShowPdfConfigModal(true);
-                    setShowExportDropdown(false);
-                  }}
-                  className="w-full px-6 py-4 text-left hover:bg-blue-50 flex items-center space-x-3 border-b border-gray-200 transition-colors"
-                >
-                  <div className="bg-gradient-to-br from-red-500 to-rose-600 rounded-lg p-2">
-                    <Download size={20} className="text-white" />
-                  </div>
-                  <div>
-                    <div className="font-bold text-gray-900">Export to PDF</div>
-                    <div className="text-xs text-gray-600">Print-ready document</div>
-                  </div>
-                </button>
-                <button
-                  onClick={() => {
-                    setShowCustomExportModal(true);
-                    setShowExportDropdown(false);
-                  }}
-                  className="w-full px-6 py-4 text-left hover:bg-blue-50 flex items-center space-x-3 transition-colors"
-                >
-                  <div className="bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg p-2">
-                    <Settings size={20} className="text-white" />
-                  </div>
-                  <div>
-                    <div className="font-bold text-gray-900">Custom Export</div>
-                    <div className="text-xs text-gray-600">Choose fields & format</div>
-                  </div>
-                </button>
-              </GlassCard>
-            </>
-          )}
-        </div>
-      </div>
-      </AnimatedSection>
-
-      {/* CGPA Lock/Unlock Control */}
-      <AnimatedSection delay={0.1}>
-      <GlassCard className="mb-6 p-4">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-3">
-            <div className={`rounded-lg p-2 ${cgpaLocked ? 'bg-red-100' : 'bg-green-100'}`}>
-              {cgpaLocked ? <Lock size={20} className="text-red-600" /> : <Unlock size={20} className="text-green-600" />}
-            </div>
-            <div>
-              <h4 className="font-bold text-gray-800 text-sm flex items-center gap-2">
-                Student CGPA Editing
-                <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${cgpaLocked ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                  {cgpaLocked ? 'LOCKED' : 'UNLOCKED'}
-                </span>
-              </h4>
-              {!cgpaLocked && cgpaUnlockWindow && (
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Expires: {new Date(cgpaUnlockWindow.unlock_end).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                </p>
-              )}
-            </div>
-          </div>
-          <div className="flex gap-2">
-            {cgpaLocked ? (
-              <button
-                onClick={() => setShowCgpaUnlockModal(true)}
-                disabled={cgpaProcessing}
-                className="bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold px-4 py-2 rounded-xl text-sm hover:from-green-700 hover:to-emerald-700 transition-all flex items-center gap-1.5 disabled:opacity-50"
-              >
-                <Unlock size={14} />
-                Unlock CGPA Editing
-              </button>
-            ) : (
-              <button
-                onClick={handleCgpaLock}
-                disabled={cgpaProcessing}
-                className="bg-gradient-to-r from-red-600 to-rose-600 text-white font-bold px-4 py-2 rounded-xl text-sm hover:from-red-700 hover:to-rose-700 transition-all flex items-center gap-1.5 disabled:opacity-50"
-              >
-                <Lock size={14} />
-                Lock Now
-              </button>
-            )}
-          </div>
-        </div>
-      </GlassCard>
-
-      {/* CGPA Unlock Modal */}
-      {showCgpaUnlockModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm">
-          <GlassCard className="max-w-md w-full p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg p-2">
-                <GraduationCap className="text-white" size={20} />
-              </div>
-              <h3 className="text-lg font-bold text-gray-800">Unlock CGPA Editing</h3>
-            </div>
-            <p className="text-gray-600 text-sm mb-4">
-              Students will be able to update their semester CGPA during the unlock window. A notification will be sent to all approved students.
-            </p>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Duration (days)</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="30"
-                  value={unlockDays}
-                  onChange={(e) => setUnlockDays(parseInt(e.target.value) || 1)}
-                  className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-xl focus:border-green-500 outline-none font-medium"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Reason (optional)</label>
-                <input
-                  type="text"
-                  value={unlockReason}
-                  onChange={(e) => setUnlockReason(e.target.value)}
-                  placeholder="e.g., Semester 4 results published"
-                  className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-xl focus:border-green-500 outline-none font-medium"
-                />
-              </div>
-            </div>
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={handleCgpaUnlock}
-                disabled={cgpaProcessing}
-                className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold py-2.5 rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all disabled:opacity-50"
-              >
-                {cgpaProcessing ? 'Processing...' : `Unlock for ${unlockDays} days`}
-              </button>
-              <button
-                onClick={() => setShowCgpaUnlockModal(false)}
-                className="px-6 py-2.5 bg-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-300 transition-all"
-              >
-                Cancel
-              </button>
-            </div>
-          </GlassCard>
-        </div>
+    <>
+      {deviceType === 'mobile' ? (
+        <MobileManageStudents {...presenterProps} />
+      ) : deviceType === 'tablet' ? (
+        <TabletManageStudents {...presenterProps} />
+      ) : (
+        <DesktopManageStudents {...presenterProps} />
       )}
 
-      {/* Backlog Lock/Unlock Control */}
-      <GlassCard className="mb-6 p-4">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-3">
-            <div className={`rounded-lg p-2 ${backlogLocked ? 'bg-red-100' : 'bg-green-100'}`}>
-              {backlogLocked ? <Lock size={20} className="text-red-600" /> : <Unlock size={20} className="text-green-600" />}
-            </div>
-            <div>
-              <h4 className="font-bold text-gray-800 text-sm flex items-center gap-2">
-                Student Backlog Count Editing
-                <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${backlogLocked ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                  {backlogLocked ? 'LOCKED' : 'UNLOCKED'}
-                </span>
-              </h4>
-              {!backlogLocked && backlogUnlockWindow && (
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Expires: {new Date(backlogUnlockWindow.unlock_end).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                </p>
-              )}
-            </div>
-          </div>
-          <div className="flex gap-2">
-            {backlogLocked ? (
-              <button
-                onClick={() => setShowBacklogUnlockModal(true)}
-                disabled={backlogProcessing}
-                className="bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold px-4 py-2 rounded-xl text-sm hover:from-green-700 hover:to-emerald-700 transition-all flex items-center gap-1.5 disabled:opacity-50"
-              >
-                <Unlock size={14} />
-                Unlock Backlog Editing
-              </button>
-            ) : (
-              <button
-                onClick={handleBacklogLock}
-                disabled={backlogProcessing}
-                className="bg-gradient-to-r from-red-600 to-rose-600 text-white font-bold px-4 py-2 rounded-xl text-sm hover:from-red-700 hover:to-rose-700 transition-all flex items-center gap-1.5 disabled:opacity-50"
-              >
-                <Lock size={14} />
-                Lock Now
-              </button>
-            )}
-          </div>
-        </div>
-      </GlassCard>
+      <StudentModals
+        showDetailsModal={showDetailsModal}
+        selectedStudent={selectedStudent}
+        onCloseDetails={() => setShowDetailsModal(false)}
+        /* Approving or rejecting from the review dialog closes it on success,
+           exactly as before — both handlers return a boolean for this. */
+        onApprove={async (id) => {
+          if (await handleApprove(id)) setShowDetailsModal(false);
+        }}
+        onReject={async (id) => {
+          if (await handleReject(id)) setShowDetailsModal(false);
+        }}
+        emailFixStudent={emailFixStudent}
+        onEmailFixSubmit={async (email) => {
+          const response = await placementOfficerAPI.updateStudentEmail(emailFixStudent.id, email);
+          toast.success(response.data.message, { duration: 7000 });
+          fetchStudents();
+        }}
+        onCloseEmailFix={() => setEmailFixStudent(null)}
+        showCorrectionModal={showCorrectionModal}
+        correctionNote={correctionNote}
+        onCorrectionNoteChange={(e) => setCorrectionNote(e.target.value)}
+        correctionRequirePhoto={correctionRequirePhoto}
+        onCorrectionRequirePhotoChange={(e) => setCorrectionRequirePhoto(e.target.checked)}
+        correctionSubmitting={correctionSubmitting}
+        onConfirmCorrection={confirmCorrection}
+        onCloseCorrection={() => setShowCorrectionModal(false)}
+        showBlacklistModal={showBlacklistModal}
+        blacklistReason={blacklistReason}
+        onBlacklistReasonChange={(e) => setBlacklistReason(e.target.value)}
+        onConfirmBlacklist={confirmBlacklist}
+        onCloseBlacklist={() => {
+          setShowBlacklistModal(false);
+          setBlacklistReason('');
+          setSelectedStudent(null);
+        }}
+        showWhitelistModal={showWhitelistModal}
+        whitelistReason={whitelistReason}
+        onWhitelistReasonChange={(e) => setWhitelistReason(e.target.value)}
+        onConfirmWhitelist={confirmRequestWhitelist}
+        onCloseWhitelist={() => {
+          setShowWhitelistModal(false);
+          setWhitelistReason('');
+          setSelectedStudent(null);
+        }}
+        showCgpaUnlockModal={showCgpaUnlockModal}
+        unlockDays={unlockDays}
+        onUnlockDaysChange={(e) => setUnlockDays(Number(e.target.value))}
+        unlockReason={unlockReason}
+        onUnlockReasonChange={(e) => setUnlockReason(e.target.value)}
+        cgpaProcessing={cgpaProcessing}
+        onConfirmCgpaUnlock={handleCgpaUnlock}
+        onCloseCgpaUnlock={() => setShowCgpaUnlockModal(false)}
+        showBacklogUnlockModal={showBacklogUnlockModal}
+        backlogUnlockDays={backlogUnlockDays}
+        onBacklogUnlockDaysChange={(e) => setBacklogUnlockDays(Number(e.target.value))}
+        backlogUnlockReason={backlogUnlockReason}
+        onBacklogUnlockReasonChange={(e) => setBacklogUnlockReason(e.target.value)}
+        backlogProcessing={backlogProcessing}
+        onConfirmBacklogUnlock={handleBacklogUnlock}
+        onCloseBacklogUnlock={() => setShowBacklogUnlockModal(false)}
+      />
 
-      {/* Backlog Unlock Modal */}
-      {showBacklogUnlockModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm">
-          <GlassCard className="max-w-md w-full p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="bg-gradient-to-br from-orange-500 to-red-600 rounded-lg p-2">
-                <FileText className="text-white" size={20} />
-              </div>
-              <h3 className="text-lg font-bold text-gray-800">Unlock Backlog Count Editing</h3>
-            </div>
-            <p className="text-gray-600 text-sm mb-4">
-              Students will be able to update their semester backlog counts during the unlock window. A notification will be sent to all approved students.
-            </p>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Duration (days)</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="30"
-                  value={backlogUnlockDays}
-                  onChange={(e) => setBacklogUnlockDays(parseInt(e.target.value) || 1)}
-                  className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-xl focus:border-orange-500 outline-none font-medium"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Reason (optional)</label>
-                <input
-                  type="text"
-                  value={backlogUnlockReason}
-                  onChange={(e) => setBacklogUnlockReason(e.target.value)}
-                  placeholder="e.g., Semester 4 exam results published"
-                  className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-xl focus:border-orange-500 outline-none font-medium"
-                />
-              </div>
-            </div>
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={handleBacklogUnlock}
-                disabled={backlogProcessing}
-                className="flex-1 bg-gradient-to-r from-orange-600 to-red-600 text-white font-bold py-2.5 rounded-xl hover:from-orange-700 hover:to-red-700 transition-all disabled:opacity-50"
-              >
-                {backlogProcessing ? 'Processing...' : `Unlock for ${backlogUnlockDays} days`}
-              </button>
-              <button
-                onClick={() => setShowBacklogUnlockModal(false)}
-                className="px-6 py-2.5 bg-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-300 transition-all"
-              >
-                Cancel
-              </button>
-            </div>
-          </GlassCard>
-        </div>
-      )}
-
-      </AnimatedSection>
-
-      {/* Filter Tabs */}
-      <AnimatedSection delay={0.2}>
-      <div className="mb-6 flex flex-wrap gap-3">
-        {[
-          { key: 'all', label: 'All Students', gradient: 'from-blue-600 to-indigo-600' },
-          { key: 'pending', label: 'Pending Approval', gradient: 'from-yellow-500 to-orange-600' },
-          { key: 'approved', label: 'Approved', gradient: 'from-green-500 to-emerald-600' },
-          { key: 'rejected', label: 'Rejected', gradient: 'from-red-500 to-rose-600' },
-          { key: 'blacklisted', label: 'Blacklisted', gradient: 'from-red-900 to-red-800' },
-        ].map(({ key, label, gradient }) => (
-          <button
-            key={key}
-            onClick={() => changeTab(key)}
-            className={`px-6 py-3 rounded-xl font-bold transition-all duration-200 transform hover:scale-105 active:scale-95 ${
-              activeTab === key
-                ? `bg-gradient-to-r ${gradient} text-white shadow-xl`
-                : 'bg-white/95 backdrop-blur-xl text-gray-700 hover:bg-white border-2 border-white/20'
-            }`}
-          >
-            {label}
-            <span className={`ml-2 px-2.5 py-0.5 text-xs rounded-full ${
-              activeTab === key ? 'bg-white/20' : 'bg-gray-200'
-            }`}>
-              {statusCounts[key]}
-            </span>
-          </button>
-        ))}
-      </div>
-
-      {/* Archived (passed-out) students */}
-      <div className={`mb-6 flex flex-wrap items-center gap-3 rounded-xl border p-3 ${showArchived ? 'border-amber-400 bg-amber-50' : 'border-white/20 bg-white/70'}`}>
-        <button
-          type="button"
-          onClick={() => { setShowArchived(!showArchived); setArchivedYear(''); setCurrentPage(1); }}
-          className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${showArchived ? 'bg-amber-500 text-white hover:bg-amber-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-        >
-          {showArchived ? '← Back to current students' : 'Show archived (passed-out) students'}
-        </button>
-        {showArchived && (
-          <>
-            <select
-              value={archivedYear}
-              onChange={(e) => { setArchivedYear(e.target.value); setCurrentPage(1); }}
-              className="px-3 py-2 rounded-lg border border-gray-300 text-sm max-w-[220px]"
-            >
-              <option value="">All passed-out batches</option>
-              {archivedYears.map((y) => (
-                <option key={y} value={y}>{y} (passout {passoutYearFromAcademicYear(y)})</option>
-              ))}
-            </select>
-            <span className="text-sm text-amber-800">
-              Read-only. These students can no longer log in — shown for reference &amp; export.
-            </span>
-          </>
-        )}
-      </div>
-
-      {/* Search Bar */}
-      <div className="mb-6">
-        <GlassCard className="p-0 overflow-hidden">
-          <div className="relative">
-            <div className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg p-2">
-              <Search className="text-white" size={20} />
-            </div>
-            <input
-              type="text"
-              placeholder="Search by PRN, name, or email..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-16 pr-6 py-4 bg-transparent border-none outline-none focus:ring-0 font-medium text-lg"
-            />
-          </div>
-        </GlassCard>
-      </div>
-
-      {/* Advanced Filters */}
-      <div className="mb-6">
-        <button
-          onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-          className="bg-white/95 backdrop-blur-xl text-gray-900 font-bold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 active:scale-95 flex items-center space-x-2 border-2 border-white/20"
-        >
-          <Filter size={18} />
-          <span>Advanced Filters</span>
-          {hasActiveFilters() && (
-            <span className="bg-blue-600 text-white px-3 py-1 text-xs rounded-full font-bold">
-              Active
-            </span>
-          )}
-          {showAdvancedFilters ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-        </button>
-
-        {showAdvancedFilters && (
-          <GlassCard variant="elevated" className="mt-4 p-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Minimum CGPA</label>
-                  <input
-                    type="number"
-                    value={advancedFilters.cgpaMin}
-                    onChange={(e) => handleAdvancedFilterChange('cgpaMin', e.target.value)}
-                    placeholder="e.g., 6.0"
-                    min="0"
-                    max="10"
-                    step="0.1"
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Maximum CGPA</label>
-                  <input
-                    type="number"
-                    value={advancedFilters.cgpaMax}
-                    onChange={(e) => handleAdvancedFilterChange('cgpaMax', e.target.value)}
-                    placeholder="e.g., 9.0"
-                    min="0"
-                    max="10"
-                    step="0.1"
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Maximum Backlogs</label>
-                  <input
-                    type="number"
-                    value={advancedFilters.backlogCount}
-                    onChange={(e) => handleAdvancedFilterChange('backlogCount', e.target.value)}
-                    placeholder="e.g., 0 for no backlogs"
-                    min="0"
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Branch/Department</label>
-                  <select
-                    value={advancedFilters.branch}
-                    onChange={(e) => handleAdvancedFilterChange('branch', e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium bg-white"
-                  >
-                    <option value="">All Branches</option>
-                    {collegeBranches.map((branch) => (
-                      <option key={branch} value={branch}>
-                        {branch}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Date of Birth (From)</label>
-                  <input
-                    type="date"
-                    value={advancedFilters.dobFrom}
-                    onChange={(e) => handleAdvancedFilterChange('dobFrom', e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Date of Birth (To)</label>
-                  <input
-                    type="date"
-                    value={advancedFilters.dobTo}
-                    onChange={(e) => handleAdvancedFilterChange('dobTo', e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium bg-white"
-                  />
-                  {advancedFilters.dobFrom && !advancedFilters.dobTo && (
-                    <p className="text-xs text-gray-500 mt-1">Defaults to today if not set</p>
-                  )}
-                </div>
-
-                {/* Height Min */}
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Min Height (cm)</label>
-                  <input
-                    type="number"
-                    value={advancedFilters.heightMin}
-                    onChange={(e) => handleAdvancedFilterChange('heightMin', e.target.value)}
-                    placeholder="e.g., 155"
-                    min="140"
-                    max="220"
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium bg-white"
-                  />
-                </div>
-
-                {/* Height Max */}
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Max Height (cm)</label>
-                  <input
-                    type="number"
-                    value={advancedFilters.heightMax}
-                    onChange={(e) => handleAdvancedFilterChange('heightMax', e.target.value)}
-                    placeholder="e.g., 200"
-                    min="140"
-                    max="220"
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium bg-white"
-                  />
-                </div>
-
-                {/* Weight Min */}
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Min Weight (kg)</label>
-                  <input
-                    type="number"
-                    value={advancedFilters.weightMin}
-                    onChange={(e) => handleAdvancedFilterChange('weightMin', e.target.value)}
-                    placeholder="e.g., 45"
-                    min="30"
-                    max="150"
-                    step="0.1"
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium bg-white"
-                  />
-                </div>
-
-                {/* Weight Max */}
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Max Weight (kg)</label>
-                  <input
-                    type="number"
-                    value={advancedFilters.weightMax}
-                    onChange={(e) => handleAdvancedFilterChange('weightMax', e.target.value)}
-                    placeholder="e.g., 100"
-                    min="30"
-                    max="150"
-                    step="0.1"
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium bg-white"
-                  />
-                </div>
-
-                {/* Driving License */}
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Driving License</label>
-                  <select
-                    value={filterDocuments.driving_license}
-                    onChange={(e) => setFilterDocuments({...filterDocuments, driving_license: e.target.value})}
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium bg-white"
-                  >
-                    <option value="">Any</option>
-                    <option value="yes">Has DL</option>
-                    <option value="no">No DL</option>
-                  </select>
-                </div>
-
-                {/* PAN Card */}
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">PAN Card</label>
-                  <select
-                    value={filterDocuments.pan_card}
-                    onChange={(e) => setFilterDocuments({...filterDocuments, pan_card: e.target.value})}
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium bg-white"
-                  >
-                    <option value="">Any</option>
-                    <option value="yes">Has PAN</option>
-                    <option value="no">No PAN</option>
-                  </select>
-                </div>
-
-                {/* Aadhar Card */}
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Aadhar Card</label>
-                  <select
-                    value={filterDocuments.aadhar_card}
-                    onChange={(e) => setFilterDocuments({...filterDocuments, aadhar_card: e.target.value})}
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium bg-white"
-                  >
-                    <option value="">Any</option>
-                    <option value="yes">Has Aadhar</option>
-                    <option value="no">No Aadhar</option>
-                  </select>
-                </div>
-
-                {/* Passport */}
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Passport</label>
-                  <select
-                    value={filterDocuments.passport}
-                    onChange={(e) => setFilterDocuments({...filterDocuments, passport: e.target.value})}
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium bg-white"
-                  >
-                    <option value="">Any</option>
-                    <option value="yes">Has Passport</option>
-                    <option value="no">No Passport</option>
-                  </select>
-                </div>
-
-                {/* District Multi-select */}
-                <div className="md:col-span-2 lg:col-span-3">
-                  <label className="block text-sm font-bold text-gray-700 mb-2">District(s)</label>
-                  <select
-                    multiple
-                    value={filterDistricts}
-                    onChange={(e) => setFilterDistricts(Array.from(e.target.selectedOptions, opt => opt.value))}
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium bg-white"
-                    size="3"
-                    style={{ minHeight: '80px' }}
-                  >
-                    {availableDistricts.map((district) => (
-                      <option key={district} value={district}>
-                        {district}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Hold Ctrl/Cmd to select multiple. Selected: {filterDistricts.length}
-                  </p>
-                </div>
-            </div>
-
-            <div className="mt-6 flex justify-between items-center">
-              <span className="text-sm text-gray-600 font-bold">
-                Showing {students.length} of {totalStudents} students
-              </span>
-              <button
-                onClick={clearAdvancedFilters}
-                className="bg-gray-200 text-gray-700 font-bold px-6 py-3 rounded-xl hover:bg-gray-300 transition-all transform hover:scale-105 disabled:opacity-50"
-                disabled={!hasActiveFilters()}
-              >
-                Clear Filters
-              </button>
-            </div>
-          </GlassCard>
-        )}
-      </div>
-
-      </AnimatedSection>
-
-      {/* Bulk Actions */}
-      {getPendingStudentsInView().length > 0 && (
-        <GlassCard variant="elevated" className="mb-6 p-6 border-2 border-blue-200 flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <span className="text-base font-bold text-gray-700">
-                {selectedStudents.length > 0 ? (
-                  <>
-                    <span className="text-blue-600 text-xl">{selectedStudents.length}</span> student(s) selected
-                  </>
-                ) : (
-                  'Select students to perform bulk actions'
-                )}
-              </span>
-            </div>
-            <div className="flex space-x-3">
-              <button
-                onClick={handleBulkApprove}
-                disabled={selectedStudents.length === 0}
-                className="bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-200 transform hover:scale-105 active:scale-95 flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Check size={18} />
-                <span>Approve Selected</span>
-              </button>
-              <button
-                onClick={handleBulkReject}
-                disabled={selectedStudents.length === 0}
-                className="bg-gradient-to-r from-red-600 to-rose-600 text-white font-bold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl hover:from-red-700 hover:to-rose-700 transition-all duration-200 transform hover:scale-105 active:scale-95 flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <X size={18} />
-                <span>Reject Selected</span>
-            </button>
-          </div>
-        </GlassCard>
-      )}
-
-      {/* Students Table */}
-      <AnimatedSection delay={0.3}>
-      <GlassCard variant="elevated" className="overflow-hidden p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
-                <tr>
-                  {getPendingStudentsInView().length > 0 && (
-                    <th className="px-6 py-4 text-left font-bold">
-                      <input
-                        type="checkbox"
-                        checked={selectedStudents.length === getPendingStudentsInView().length && getPendingStudentsInView().length > 0}
-                        onChange={handleSelectAll}
-                        className="w-5 h-5 rounded-lg"
-                        title="Select All"
-                      />
-                    </th>
-                  )}
-                  <th className="px-6 py-4 text-left font-bold">PRN</th>
-                  <th className="px-6 py-4 text-left font-bold">Name</th>
-                  <th className="px-6 py-4 text-left font-bold">Email</th>
-                  <th className="px-6 py-4 text-left font-bold">Mobile</th>
-                  <th className="px-6 py-4 text-left font-bold">CGPA</th>
-                  <th className="px-6 py-4 text-left font-bold">Backlogs</th>
-                  <th className="px-6 py-4 text-left font-bold">Status</th>
-                  <th className="px-6 py-4 text-left font-bold">Blacklist</th>
-                  <th className="px-6 py-4 text-left font-bold">Reg. Date</th>
-                  <th className="px-6 py-4 text-left font-bold">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {students.length === 0 ? (
-                  <tr>
-                    <td colSpan={getPendingStudentsInView().length > 0 ? "11" : "10"} className="text-center text-gray-500 py-12 font-medium text-lg">
-                      {searchQuery || hasActiveFilters()
-                        ? 'No students found matching your filters'
-                        : `No ${activeTab === 'all' ? '' : activeTab} students found`}
-                    </td>
-                  </tr>
-                ) : (
-                  students.map((student, index) => (
-                    <tr
-                      key={student.id}
-                      className={`border-b border-gray-200 transition-colors ${
-                        selectedStudents.includes(student.id)
-                          ? 'bg-amber-200 hover:bg-amber-300'
-                          : `hover:bg-red-100 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`
-                      }`}
-                    >
-                      {getPendingStudentsInView().length > 0 && (
-                        <td className="px-6 py-4">
-                          {student.registration_status === 'pending' && !student.is_blacklisted ? (
-                            <input
-                              type="checkbox"
-                              checked={selectedStudents.includes(student.id)}
-                              onChange={() => handleSelectStudent(student.id)}
-                              className="w-5 h-5 rounded-lg"
-                            />
-                          ) : (
-                            <span className="text-gray-300">-</span>
-                          )}
-                        </td>
-                      )}
-                      <td className="px-6 py-4 font-mono font-bold text-gray-900">{student.prn}</td>
-                      <td className="px-6 py-4 font-bold text-gray-900">{student.name || '-'}</td>
-                      <td className="px-6 py-4 text-gray-700">{student.email}</td>
-                      <td className="px-6 py-4 text-gray-700">{student.mobile_number || '-'}</td>
-                      <td className="px-6 py-4 font-bold text-gray-900">{student.programme_cgpa || '-'}</td>
-                      <td className="px-6 py-4">
-                        {(() => {
-                          const total = (parseInt(student.backlogs_sem1) || 0) + (parseInt(student.backlogs_sem2) || 0) +
-                            (parseInt(student.backlogs_sem3) || 0) + (parseInt(student.backlogs_sem4) || 0) +
-                            (parseInt(student.backlogs_sem5) || 0) + (parseInt(student.backlogs_sem6) || 0);
-                          return total > 0 ? (
-                            <span className="text-red-600 font-bold text-lg">{total}</span>
-                          ) : (
-                            <span className="text-green-600 font-bold text-lg">0</span>
-                          );
-                        })()}
-                      </td>
-                      <td className="px-6 py-4">{getStatusBadge(student.registration_status)}</td>
-                      <td className="px-6 py-4">{getBlacklistBadge(student.is_blacklisted)}</td>
-                      <td className="px-6 py-4 text-sm text-gray-600 font-medium">
-                        {student.created_at ? (() => {
-                          const date = new Date(student.created_at);
-                          const day = String(date.getDate()).padStart(2, '0');
-                          const month = String(date.getMonth() + 1).padStart(2, '0');
-                          const year = date.getFullYear();
-                          return `${day}-${month}-${year}`;
-                        })() : 'N/A'}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex space-x-2">
-                          {/* Review is available for EVERY status — approving or
-                              rejecting without seeing the details makes no sense */}
-                          <button
-                            onClick={() => openDetailsModal(student)}
-                            className="text-blue-600 hover:text-blue-800 transform hover:scale-125 transition-all"
-                            title="Review Details"
-                          >
-                            <Eye size={24} />
-                          </button>
-                          {student.registration_status === 'pending' && !student.is_blacklisted && (
-                            <>
-                              <button
-                                onClick={() => handleApprove(student.id)}
-                                className="text-green-600 hover:text-green-800 transform hover:scale-125 transition-all"
-                                title="Approve"
-                              >
-                                <Check size={24} />
-                              </button>
-                              <button
-                                onClick={() => handleReject(student.id)}
-                                className="text-red-600 hover:text-red-800 transform hover:scale-125 transition-all"
-                                title="Reject"
-                              >
-                                <X size={24} />
-                              </button>
-                            </>
-                          )}
-                          {student.registration_status === 'approved' && !student.is_blacklisted && (
-                            <>
-                              <button
-                                onClick={() => setEmailFixStudent(student)}
-                                className={`transform hover:scale-125 transition-all ${
-                                  student.email_verified
-                                    ? 'text-gray-400 hover:text-gray-600'
-                                    : 'text-amber-500 hover:text-amber-700'
-                                }`}
-                                title={
-                                  student.email_verified
-                                    ? 'Update email'
-                                    : 'Email NOT verified — fix email & resend link'
-                                }
-                              >
-                                <MailWarning size={24} />
-                              </button>
-                              <button
-                                onClick={() => openCorrectionModal(student)}
-                                className="text-amber-600 hover:text-amber-800 transform hover:scale-125 transition-all"
-                                title="Send back for correction (photo / details)"
-                              >
-                                <FileEdit size={24} />
-                              </button>
-                              <button
-                                onClick={() => handleBlacklist(student)}
-                                className="text-red-600 hover:text-red-800 transform hover:scale-125 transition-all"
-                                title="Blacklist"
-                              >
-                                <Ban size={24} />
-                              </button>
-                            </>
-                          )}
-                          {student.is_blacklisted && (
-                            <button
-                              onClick={() => handleRequestWhitelist(student)}
-                              className="text-green-600 hover:text-green-800 transform hover:scale-125 transition-all"
-                              title="Request Whitelist"
-                            >
-                              <Shield size={24} />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <span className="text-sm text-gray-700 font-bold">
-                  Showing <span className="text-blue-600">{((currentPage - 1) * pageSize) + 1}</span> to{' '}
-                  <span className="text-blue-600">{Math.min(currentPage * pageSize, totalStudents)}</span> of{' '}
-                  <span className="text-blue-600">{totalStudents}</span> results
-                </span>
-                <div className="flex items-center space-x-2">
-                  <label className="text-sm text-gray-700 font-bold">Per page:</label>
-                  <select
-                    value={pageSize}
-                    onChange={(e) => {
-                      setPageSize(Number(e.target.value));
-                      setCurrentPage(1);
-                    }}
-                    className="px-3 py-2 border-2 border-gray-300 rounded-lg font-bold bg-white"
-                  >
-                    <option value={25}>25</option>
-                    <option value={50}>50</option>
-                    <option value={100}>100</option>
-                    <option value={200}>200</option>
-                  </select>
-                </div>
-              </div>
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => setCurrentPage(1)}
-                  disabled={currentPage === 1}
-                  className="bg-gray-200 text-gray-700 font-bold px-4 py-2 rounded-lg hover:bg-gray-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  First
-                </button>
-                <button
-                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                  disabled={currentPage === 1}
-                  className="bg-gray-200 text-gray-700 font-bold px-4 py-2 rounded-lg hover:bg-gray-300 transition-all flex items-center space-x-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <ChevronLeft size={16} />
-                  <span>Previous</span>
-                </button>
-                <span className="text-sm text-gray-700 font-bold px-4">
-                  Page <span className="text-blue-600">{currentPage}</span> of{' '}
-                  <span className="text-blue-600">{totalPages}</span>
-                </span>
-                <button
-                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage === totalPages}
-                  className="bg-gray-200 text-gray-700 font-bold px-4 py-2 rounded-lg hover:bg-gray-300 transition-all flex items-center space-x-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <span>Next</span>
-                  <ChevronRight size={16} />
-                </button>
-                <button
-                  onClick={() => setCurrentPage(totalPages)}
-                  disabled={currentPage === totalPages}
-                  className="bg-gray-200 text-gray-700 font-bold px-4 py-2 rounded-lg hover:bg-gray-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Last
-                </button>
-              </div>
-            </div>
-          )}
-        </GlassCard>
-      </AnimatedSection>
-
-      {/* Student Details Modal */}
-      {showDetailsModal && selectedStudent && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <GlassCard variant="elevated" hover={false} className="w-full max-w-3xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
-            {/* Fixed header with always-visible close */}
-            <div className="flex items-center justify-between px-8 pt-6 pb-4 border-b border-gray-200 shrink-0">
-              <h2 className="text-3xl font-bold text-gray-900">Student Details</h2>
-              <button
-                onClick={() => setShowDetailsModal(false)}
-                className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
-                title="Close"
-              >
-                <X size={26} />
-              </button>
-            </div>
-            {/* Scrollable body — overscroll-contain stops the page behind from scrolling */}
-            <div className="flex-1 overflow-y-auto overscroll-contain px-8 py-6">
-            <div className="space-y-6">
-              {/* Student Photo */}
-              <div className="flex justify-center mb-6">
-                <div className="relative">
-                  {selectedStudent.photo_url ? (
-                    <>
-                      <img
-                        src={selectedStudent.photo_url}
-                        alt={selectedStudent.name}
-                        className="w-32 h-32 object-cover rounded-lg border-4 border-blue-100 shadow-lg"
-                      />
-                      <div className="absolute -bottom-2 -right-2 bg-blue-600 text-white rounded-full p-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                        </svg>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="relative">
-                      <div className="w-32 h-32 rounded-lg border-4 border-gray-300 bg-gray-200 shadow-lg flex flex-col items-center justify-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-gray-400 mb-1" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                        </svg>
-                        <span className="text-xs font-bold text-gray-500">No Photo</span>
-                      </div>
-                      <div className="absolute -bottom-2 -right-2 bg-orange-500 text-white rounded-full p-2" title="Legacy Student - No Photo Uploaded">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                        </svg>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-2xl border-2 border-blue-100">
-                <h3 className="text-xl font-bold mb-4 text-gray-800">Personal Information</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-600 font-bold mb-1">PRN</p>
-                    <p className="font-mono font-bold text-lg">{selectedStudent.prn}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600 font-bold mb-1">Name</p>
-                    <p className="font-bold text-lg">{selectedStudent.name || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600 font-bold mb-1">Email</p>
-                    <p className="text-gray-900">{selectedStudent.email}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600 font-bold mb-1">Mobile Number</p>
-                    <p className="text-gray-900">{selectedStudent.mobile_number || '-'}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-6 rounded-2xl border-2 border-purple-100">
-                <h3 className="text-xl font-bold mb-4 text-gray-800">College Information</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-600 font-bold mb-1">College</p>
-                    <p className="font-bold text-lg">{selectedStudent.college_name || '-'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600 font-bold mb-1">Region</p>
-                    <p className="text-gray-900">{selectedStudent.region_name || '-'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600 font-bold mb-1">Branch</p>
-                    <p className="font-bold text-lg">{selectedStudent.branch || '-'}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-6 rounded-2xl border-2 border-green-100">
-                <h3 className="text-xl font-bold mb-4 text-gray-800">Academic Information</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-600 font-bold mb-1">Programme CGPA</p>
-                    <p className="font-bold text-2xl text-blue-600">{selectedStudent.programme_cgpa || '-'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600 font-bold mb-1">Backlogs</p>
-                    {(() => {
-                      const total = (parseInt(selectedStudent.backlogs_sem1) || 0) + (parseInt(selectedStudent.backlogs_sem2) || 0) +
-                        (parseInt(selectedStudent.backlogs_sem3) || 0) + (parseInt(selectedStudent.backlogs_sem4) || 0) +
-                        (parseInt(selectedStudent.backlogs_sem5) || 0) + (parseInt(selectedStudent.backlogs_sem6) || 0);
-                      return (
-                        <p className={`font-bold text-2xl ${total > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                          {total}
-                        </p>
-                      );
-                    })()}
-                  </div>
-                </div>
-                {selectedStudent.backlog_details && (
-                  <div className="mt-3">
-                    <p className="text-sm text-gray-600 font-bold mb-1">Backlog Details</p>
-                    <p className="text-sm bg-white p-3 rounded-xl border-2 border-gray-200">{selectedStudent.backlog_details}</p>
-                  </div>
-                )}
-              </div>
-
-              <div className="bg-gradient-to-br from-orange-50 to-red-50 p-6 rounded-2xl border-2 border-orange-100">
-                <h3 className="text-xl font-bold mb-4 text-gray-800">Registration Information</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-600 font-bold mb-2">Registration Status</p>
-                    {getStatusBadge(selectedStudent.registration_status)}
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600 font-bold mb-2">Blacklist Status</p>
-                    {getBlacklistBadge(selectedStudent.is_blacklisted)}
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600 font-bold mb-1">Registration Date</p>
-                    <p className="text-gray-900 font-bold">{selectedStudent.created_at ? (() => {
-                      const date = new Date(selectedStudent.created_at);
-                      const day = String(date.getDate()).padStart(2, '0');
-                      const month = String(date.getMonth() + 1).padStart(2, '0');
-                      const year = date.getFullYear();
-                      return `${day}-${month}-${year}`;
-                    })() : 'N/A'}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="mt-8 flex justify-end gap-3 flex-wrap">
-              {/* Decide right where you reviewed: approve/reject from the modal */}
-              {selectedStudent.registration_status === 'pending' && !selectedStudent.is_blacklisted && (
-                <>
-                  <button
-                    onClick={async () => {
-                      if (await handleReject(selectedStudent.id)) setShowDetailsModal(false);
-                    }}
-                    className="bg-red-600 text-white font-bold px-8 py-4 rounded-xl hover:bg-red-700 transition-all transform hover:scale-105"
-                  >
-                    ✕ Reject
-                  </button>
-                  <button
-                    onClick={async () => {
-                      if (await handleApprove(selectedStudent.id)) setShowDetailsModal(false);
-                    }}
-                    className="bg-green-600 text-white font-bold px-8 py-4 rounded-xl hover:bg-green-700 transition-all transform hover:scale-105"
-                  >
-                    ✓ Approve
-                  </button>
-                </>
-              )}
-              <button
-                onClick={() => setShowDetailsModal(false)}
-                className="bg-gray-200 text-gray-700 font-bold px-8 py-4 rounded-xl hover:bg-gray-300 transition-all transform hover:scale-105"
-              >
-                Close
-              </button>
-            </div>
-            </div>
-          </GlassCard>
-        </div>
-      )}
-
-      {/* Blacklist Modal */}
-      {emailFixStudent && (
-        <UpdateStudentEmailModal
-          currentEmail={emailFixStudent.email}
-          studentName={`${emailFixStudent.name || emailFixStudent.student_name || ''} (PRN ${emailFixStudent.prn})`}
-          onSubmit={async (email) => {
-            const response = await placementOfficerAPI.updateStudentEmail(emailFixStudent.id, email);
-            toast.success(response.data.message, { duration: 7000 });
-            fetchStudents();
-          }}
-          onClose={() => setEmailFixStudent(null)}
-        />
-      )}
-
-      {showCorrectionModal && selectedStudent && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <GlassCard variant="elevated" className="p-8 w-full max-w-md">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="bg-amber-100 rounded-xl p-2.5"><FileEdit className="text-amber-700" size={22} /></div>
-              <h2 className="text-2xl font-bold text-gray-900">Send back for correction</h2>
-            </div>
-            <p className="text-sm text-gray-600 mb-4">
-              <strong>{selectedStudent.student_name || selectedStudent.name}</strong> stays approved and
-              signed in — they'll be asked to fix what you note below. No re-approval needed.
-            </p>
-            <label className="block text-sm font-bold text-gray-700 mb-2">What should they correct? *</label>
-            <textarea
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-amber-100 focus:border-amber-400 transition-all text-gray-900"
-              rows="3"
-              value={correctionNote}
-              onChange={(e) => setCorrectionNote(e.target.value)}
-              placeholder="e.g. Your branch is wrong, and your photo is not a clear passport photo — please fix both."
-            />
-            <label className="flex items-start gap-3 mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl cursor-pointer">
-              <input
-                type="checkbox"
-                checked={correctionRequirePhoto}
-                onChange={(e) => setCorrectionRequirePhoto(e.target.checked)}
-                className="mt-1"
-              />
-              <span className="text-sm text-amber-900">
-                <strong>Take down their photo and require a new one.</strong> The current photo is removed
-                immediately (use this for a wrong or inappropriate image) and the student must upload a
-                replacement before they can mark the correction done.
-              </span>
-            </label>
-            <div className="flex space-x-3 mt-6">
-              <button
-                onClick={() => setShowCorrectionModal(false)}
-                className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 bg-white hover:bg-gray-50 font-bold rounded-xl transition-all"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmCorrection}
-                disabled={correctionSubmitting || !correctionNote.trim()}
-                className="flex-1 px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl transition-all disabled:opacity-50"
-              >
-                {correctionSubmitting ? 'Sending…' : 'Send for correction'}
-              </button>
-            </div>
-          </GlassCard>
-        </div>
-      )}
-
-      {showBlacklistModal && selectedStudent && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <GlassCard variant="elevated" className="p-8 w-full max-w-md">
-            <h2 className="text-2xl font-bold mb-4 text-gray-900">Blacklist Student</h2>
-            <p className="text-gray-700 mb-6 font-medium">
-              You are about to blacklist <span className="font-bold text-red-600">{selectedStudent.prn}</span>.
-              This will prevent them from applying to jobs.
-            </p>
-            <div className="mb-6">
-              <label className="block text-sm font-bold text-gray-700 mb-2">Reason for Blacklisting *</label>
-              <textarea
-                className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-red-100 focus:border-red-500 outline-none transition-all font-medium bg-white"
-                rows="4"
-                value={blacklistReason}
-                onChange={(e) => setBlacklistReason(e.target.value)}
-                placeholder="Please provide a detailed reason for blacklisting this student..."
-                required
-              />
-            </div>
-            <div className="flex space-x-3">
-              <button
-                onClick={confirmBlacklist}
-                className="flex-1 bg-gradient-to-r from-red-600 to-rose-600 text-white font-bold px-6 py-4 rounded-xl shadow-lg hover:shadow-xl hover:from-red-700 hover:to-rose-700 transition-all duration-200 transform hover:scale-105 active:scale-95"
-              >
-                Confirm Blacklist
-              </button>
-              <button
-                onClick={() => {
-                  setShowBlacklistModal(false);
-                  setBlacklistReason('');
-                  setSelectedStudent(null);
-                }}
-                className="flex-1 bg-gray-200 text-gray-700 font-bold px-6 py-4 rounded-xl hover:bg-gray-300 transition-all transform hover:scale-105"
-              >
-                Cancel
-              </button>
-            </div>
-          </GlassCard>
-        </div>
-      )}
-
-      {/* Request Whitelist Modal */}
-      {showWhitelistModal && selectedStudent && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <GlassCard variant="elevated" className="p-8 w-full max-w-md">
-            <h2 className="text-2xl font-bold mb-4 text-gray-900">Request Whitelist</h2>
-            <p className="text-gray-700 mb-6 font-medium">
-              Submit a request to the Super Admin to whitelist <span className="font-bold text-green-600">{selectedStudent.prn}</span>.
-            </p>
-            <div className="mb-6">
-              <label className="block text-sm font-bold text-gray-700 mb-2">Reason for Whitelist Request *</label>
-              <textarea
-                className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-green-100 focus:border-green-500 outline-none transition-all font-medium bg-white"
-                rows="4"
-                value={whitelistReason}
-                onChange={(e) => setWhitelistReason(e.target.value)}
-                placeholder="Please explain why this student should be whitelisted..."
-                required
-              />
-            </div>
-            <div className="flex space-x-3">
-              <button
-                onClick={confirmRequestWhitelist}
-                className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold px-6 py-4 rounded-xl shadow-lg hover:shadow-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-200 transform hover:scale-105 active:scale-95"
-              >
-                Submit Request
-              </button>
-              <button
-                onClick={() => {
-                  setShowWhitelistModal(false);
-                  setWhitelistReason('');
-                  setSelectedStudent(null);
-                }}
-                className="flex-1 bg-gray-200 text-gray-700 font-bold px-6 py-4 rounded-xl hover:bg-gray-300 transition-all transform hover:scale-105"
-              >
-                Cancel
-              </button>
-            </div>
-          </GlassCard>
-        </div>
-      )}
-
-      {/* Excel Configuration Modal */}
-      {showExcelConfigModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <GlassCard variant="elevated" className="p-8 w-full max-w-md">
-            <h2 className="text-2xl font-bold mb-6 text-gray-900">Excel Export Settings</h2>
-
-            <div className="space-y-5 mb-8">
-              <label className="flex items-center space-x-3 cursor-pointer bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-xl border-2 border-blue-200 hover:border-blue-400 transition-all">
-                <input
-                  type="checkbox"
-                  checked={useBranchShortNames}
-                  onChange={(e) => setUseBranchShortNames(e.target.checked)}
-                  className="w-5 h-5 rounded-lg"
-                />
-                <span className="font-bold text-gray-900">Use Branch Short Names (e.g., CE, ME, CSE instead of full names)</span>
-              </label>
-            </div>
-
-            <div className="flex space-x-3">
-              <button
-                onClick={handleExcelExport}
-                className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold px-6 py-4 rounded-xl shadow-lg hover:shadow-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-200 transform hover:scale-105 active:scale-95 disabled:opacity-50"
-                disabled={exporting}
-              >
-                {exporting ? 'Exporting...' : 'Export to Excel'}
-              </button>
-              <button
-                onClick={() => {
-                  setShowExcelConfigModal(false);
-                  setUseBranchShortNames(false);
-                }}
-                className="flex-1 bg-gray-200 text-gray-700 font-bold px-6 py-4 rounded-xl hover:bg-gray-300 transition-all transform hover:scale-105"
-              >
-                Cancel
-              </button>
-            </div>
-          </GlassCard>
-        </div>
-      )}
-
-      {/* Custom Export Modal */}
-      {showCustomExportModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-start justify-center z-50 px-4 pt-[10vh] pb-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-xl flex flex-col max-h-[82vh]">
-            <div className="flex-shrink-0 border-b border-gray-200 px-4 py-3 flex justify-between items-center">
-              <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
-                <Settings size={18} className="text-gray-600" />
-                Custom Export
-              </h2>
-              <button
-                onClick={() => setShowCustomExportModal(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100"
-              >
-                <XCircle size={18} />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3.5">
-              {/* Export Format Selection */}
-              <div>
-                <h3 className="text-xs font-semibold text-gray-700 mb-1.5">Export Format</h3>
-                <div className="grid grid-cols-2 gap-2">
-                  <label className={`flex items-center gap-2 cursor-pointer px-3 py-2 border-2 rounded-lg transition-all text-sm ${
-                    exportFormat === 'excel' ? 'border-primary-600 bg-primary-50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                  }`}>
-                    <input
-                      type="radio"
-                      name="format"
-                      value="excel"
-                      checked={exportFormat === 'excel'}
-                      onChange={(e) => setExportFormat(e.target.value)}
-                      className="w-3.5 h-3.5 text-primary-600"
-                    />
-                    <span className="font-medium">Excel (.xlsx)</span>
-                  </label>
-                  <label className={`flex items-center gap-2 cursor-pointer px-3 py-2 border-2 rounded-lg transition-all text-sm ${
-                    exportFormat === 'pdf' ? 'border-primary-600 bg-primary-50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                  }`}>
-                    <input
-                      type="radio"
-                      name="format"
-                      value="pdf"
-                      checked={exportFormat === 'pdf'}
-                      onChange={(e) => setExportFormat(e.target.value)}
-                      className="w-3.5 h-3.5 text-primary-600"
-                    />
-                    <span className="font-medium">PDF (.pdf)</span>
-                  </label>
-                </div>
-              </div>
-
-              {/* PDF Settings */}
-              {exportFormat === 'pdf' && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                  <h3 className="text-xs font-semibold text-gray-700 mb-2">PDF Settings</h3>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="label text-xs">Company Name</label>
-                      <input
-                        type="text"
-                        placeholder="e.g., TNSER Technology Solutions"
-                        className="input text-sm"
-                        value={customExportSettings.companyName}
-                        onChange={(e) => setCustomExportSettings({...customExportSettings, companyName: e.target.value})}
-                      />
-                    </div>
-                    <div>
-                      <label className="label text-xs">Drive Date</label>
-                      <input
-                        type="date"
-                        className="input text-sm"
-                        value={customExportSettings.driveDate}
-                        onChange={(e) => setCustomExportSettings({...customExportSettings, driveDate: e.target.value})}
-                      />
-                    </div>
-                    <label className="flex items-center gap-2 cursor-pointer col-span-2">
-                      <input
-                        type="checkbox"
-                        checked={customExportSettings.includeSignature}
-                        onChange={(e) => setCustomExportSettings({...customExportSettings, includeSignature: e.target.checked})}
-                        className="w-4 h-4"
-                      />
-                      <span className="text-sm">Include Signature Column</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer col-span-2">
-                      <input
-                        type="checkbox"
-                        checked={customExportSettings.useBranchShortNames}
-                        onChange={(e) => setCustomExportSettings({...customExportSettings, useBranchShortNames: e.target.checked})}
-                        className="w-4 h-4"
-                      />
-                      <span className="text-sm">Use Branch Short Names (e.g., CE, ME, CSE)</span>
-                    </label>
-                  </div>
-                </div>
-              )}
-
-              {/* Branch Filter */}
-              <div>
-                <div className="flex justify-between items-center mb-1.5">
-                  <h3 className="text-xs font-semibold text-gray-700">Filter by Branch (Optional)</h3>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (exportBranches.length === collegeBranches.length) {
-                        setExportBranches([]);
-                      } else {
-                        setExportBranches([...collegeBranches]);
-                      }
-                    }}
-                    className="text-xs font-medium text-primary-600 hover:text-primary-700 px-2 py-1 rounded hover:bg-primary-50 transition-colors"
-                  >
-                    {exportBranches.length === collegeBranches.length ? 'Deselect All' : 'Select All'}
-                  </button>
-                </div>
-                <div className="grid grid-cols-2 gap-0.5 max-h-28 overflow-y-auto border border-gray-200 rounded-lg p-1.5 bg-gray-50">
-                  {collegeBranches.map((branch) => (
-                    <label key={branch} className="flex items-center gap-1.5 cursor-pointer hover:bg-white px-1.5 py-1 rounded text-[11px] transition-colors">
-                      <input
-                        type="checkbox"
-                        checked={exportBranches.includes(branch)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setExportBranches([...exportBranches, branch]);
-                          } else {
-                            setExportBranches(exportBranches.filter(b => b !== branch));
-                          }
-                        }}
-                        className="w-3 h-3 flex-shrink-0"
-                      />
-                      <span className="leading-tight truncate">{branch}</span>
-                    </label>
-                  ))}
-                </div>
-                <p className="text-xs text-gray-400 mt-1">
-                  {exportBranches.length > 0 ? `${exportBranches.length} branch(es) selected` : 'All branches will be included'}
-                </p>
-              </div>
-
-              {/* Fields Selection */}
-              <div>
-                <div className="flex justify-between items-center mb-1.5">
-                  <h3 className="text-xs font-semibold text-gray-700">Select Fields to Export <span className="text-red-500">*</span></h3>
-                  <button
-                    onClick={handleSelectAllFields}
-                    className="text-xs font-medium text-primary-600 hover:text-primary-700 px-2 py-0.5 rounded hover:bg-primary-50 transition-colors"
-                  >
-                    {exportFields.length === 19 ? 'Deselect All' : 'Select All'}
-                  </button>
-                </div>
-                <div className="grid grid-cols-2 gap-0.5 max-h-36 overflow-y-auto border border-gray-200 rounded-lg p-1.5 bg-gray-50">
-                  {[
-                    { label: 'PRN', value: 'prn' },
-                    { label: 'Student Name', value: 'student_name' },
-                    { label: 'Email', value: 'email' },
-                    { label: 'Mobile Number', value: 'mobile_number' },
-                    { label: 'Date of Birth', value: 'date_of_birth' },
-                    { label: 'Age', value: 'age' },
-                    { label: 'Gender', value: 'gender' },
-                    { label: 'Branch', value: 'branch' },
-                    { label: 'Programme CGPA', value: 'programme_cgpa' },
-                    { label: 'Semester 1 CGPA', value: 'cgpa_sem1' },
-                    { label: 'Semester 2 CGPA', value: 'cgpa_sem2' },
-                    { label: 'Semester 3 CGPA', value: 'cgpa_sem3' },
-                    { label: 'Semester 4 CGPA', value: 'cgpa_sem4' },
-                    { label: 'Semester 5 CGPA', value: 'cgpa_sem5' },
-                    { label: 'Semester 6 CGPA', value: 'cgpa_sem6' },
-                    { label: 'Backlog Count', value: 'backlog_count' },
-                    { label: 'Driving License', value: 'has_driving_license' },
-                    { label: 'PAN Card', value: 'has_pan_card' },
-                    { label: 'Registration Status', value: 'registration_status' },
-                  ].map((field) => (
-                    <label key={field.value} className="flex items-center gap-1.5 cursor-pointer hover:bg-white px-1.5 py-1 rounded text-[11px] transition-colors">
-                      <input
-                        type="checkbox"
-                        checked={exportFields.includes(field.value)}
-                        onChange={() => handleFieldToggle(field.value)}
-                        className="w-3 h-3 flex-shrink-0"
-                      />
-                      <span className="leading-tight">{field.label}</span>
-                    </label>
-                  ))}
-                </div>
-                <p className={`text-xs mt-1 ${exportFormat === 'pdf' && exportFields.length > 12 ? 'text-red-500 font-semibold' : 'text-gray-400'}`}>
-                  {exportFields.length} field(s) selected
-                  {exportFormat === 'pdf' && ' — PDF fits up to 12 columns; use Excel for more'}
-                </p>
-              </div>
-
-              {/* Excel-only Options */}
-              {exportFormat === 'excel' && (
-                <div className="space-y-1.5">
-                  <label className="flex items-center gap-2 cursor-pointer p-2 bg-blue-50 border border-blue-100 rounded-lg hover:bg-blue-100/70 transition-colors">
-                    <input
-                      type="checkbox"
-                      checked={includePhotoUrl}
-                      onChange={(e) => setIncludePhotoUrl(e.target.checked)}
-                      className="w-3.5 h-3.5 flex-shrink-0"
-                    />
-                    <span className="text-xs text-gray-700">Include Student Photo URLs</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer p-2 bg-blue-50 border border-blue-100 rounded-lg hover:bg-blue-100/70 transition-colors">
-                    <input
-                      type="checkbox"
-                      checked={customExportSettings.useBranchShortNames}
-                      onChange={(e) => setCustomExportSettings({...customExportSettings, useBranchShortNames: e.target.checked})}
-                      className="w-3.5 h-3.5 flex-shrink-0"
-                    />
-                    <span className="text-xs text-gray-700">Use Branch Short Names (CE, ME, CSE)</span>
-                  </label>
-                </div>
-              )}
-            </div>
-
-            {/* Sticky Footer */}
-            <div className="flex-shrink-0 border-t border-gray-200 px-4 py-2.5 flex justify-between items-center bg-gray-50 rounded-b-xl">
-              <p className="text-[11px] text-gray-400">{exportFields.length} fields selected</p>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setShowCustomExportModal(false)}
-                  className="btn btn-secondary text-xs px-3 py-1.5"
-                  disabled={processing}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleCustomExport}
-                  className="btn btn-primary text-xs px-3 py-1.5 flex items-center gap-1"
-                  disabled={processing || exportFields.length === 0}
-                >
-                  <Download size={14} />
-                  <span>{processing ? 'Exporting...' : `Export ${exportFormat === 'pdf' ? 'PDF' : 'Excel'}`}</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* PDF Configuration Modal */}
-      {showPdfConfigModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <GlassCard variant="elevated" className="p-8 w-full max-w-md">
-            <h2 className="text-2xl font-bold mb-6 text-gray-900">PDF Export Settings</h2>
-
-            <div className="space-y-5 mb-8">
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Company Name (Optional)</label>
-                <input
-                  type="text"
-                  placeholder="e.g., TNSER Technology Solutions (P) Ltd"
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium bg-white"
-                  value={pdfCompanyName}
-                  onChange={(e) => setPdfCompanyName(e.target.value)}
-                />
-                <p className="text-xs text-gray-500 mt-2 font-medium">Leave empty for data collection exports</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Placement Drive Date (Optional)</label>
-                <input
-                  type="date"
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium bg-white"
-                  value={pdfDriveDate}
-                  onChange={(e) => setPdfDriveDate(e.target.value)}
-                />
-              </div>
-
-              <label className="flex items-center space-x-3 cursor-pointer bg-gray-50 p-4 rounded-xl border-2 border-gray-200 hover:border-blue-300 transition-all">
-                <input
-                  type="checkbox"
-                  checked={pdfIncludeSignature}
-                  onChange={(e) => setPdfIncludeSignature(e.target.checked)}
-                  className="w-5 h-5 rounded-lg"
-                />
-                <span className="font-bold text-gray-900">Include Signature Column</span>
-              </label>
-
-              <label className="flex items-center space-x-3 cursor-pointer bg-gray-50 p-4 rounded-xl border-2 border-gray-200 hover:border-blue-300 transition-all">
-                <input
-                  type="checkbox"
-                  checked={pdfSeparateColleges}
-                  onChange={(e) => setPdfSeparateColleges(e.target.checked)}
-                  className="w-5 h-5 rounded-lg"
-                />
-                <span className="font-bold text-gray-900">Separate Colleges by Page (Each college starts on a new page)</span>
-              </label>
-
-              <label className="flex items-center space-x-3 cursor-pointer bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-xl border-2 border-blue-200 hover:border-blue-400 transition-all">
-                <input
-                  type="checkbox"
-                  checked={useBranchShortNames}
-                  onChange={(e) => setUseBranchShortNames(e.target.checked)}
-                  className="w-5 h-5 rounded-lg"
-                />
-                <span className="font-bold text-gray-900">Use Branch Short Names (e.g., CE, ME, CSE instead of full names)</span>
-              </label>
-            </div>
-
-            <div className="flex space-x-3">
-              <button
-                onClick={handlePdfExport}
-                className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold px-6 py-4 rounded-xl shadow-lg hover:shadow-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 transform hover:scale-105 active:scale-95 disabled:opacity-50"
-                disabled={exporting}
-              >
-                {exporting ? 'Exporting...' : 'Export PDF'}
-              </button>
-              <button
-                onClick={() => {
-                  setShowPdfConfigModal(false);
-                  setPdfCompanyName('');
-                  setPdfDriveDate('');
-                  setPdfIncludeSignature(false);
-                  setPdfSeparateColleges(false);
-                  setUseBranchShortNames(false);
-                }}
-                className="flex-1 bg-gray-200 text-gray-700 font-bold px-6 py-4 rounded-xl hover:bg-gray-300 transition-all transform hover:scale-105"
-              >
-                Cancel
-              </button>
-            </div>
-          </GlassCard>
-        </div>
-      )}
-    </div>
+      <ExportModals
+        showExcelConfigModal={showExcelConfigModal}
+        useBranchShortNames={useBranchShortNames}
+        onUseBranchShortNamesChange={(e) => setUseBranchShortNames(e.target.checked)}
+        exporting={exporting}
+        onExcelExport={handleExcelExport}
+        onCloseExcel={() => {
+          setShowExcelConfigModal(false);
+          setUseBranchShortNames(false);
+        }}
+        showPdfConfigModal={showPdfConfigModal}
+        pdfCompanyName={pdfCompanyName}
+        onPdfCompanyNameChange={(e) => setPdfCompanyName(e.target.value)}
+        pdfDriveDate={pdfDriveDate}
+        onPdfDriveDateChange={(e) => setPdfDriveDate(e.target.value)}
+        pdfIncludeSignature={pdfIncludeSignature}
+        onPdfIncludeSignatureChange={(e) => setPdfIncludeSignature(e.target.checked)}
+        pdfSeparateColleges={pdfSeparateColleges}
+        onPdfSeparateCollegesChange={(e) => setPdfSeparateColleges(e.target.checked)}
+        onPdfExport={handlePdfExport}
+        onClosePdf={() => setShowPdfConfigModal(false)}
+        showCustomExportModal={showCustomExportModal}
+        exportFormat={exportFormat}
+        onExportFormatChange={(e) => setExportFormat(e.target.value)}
+        exportFields={exportFields}
+        onFieldToggle={handleFieldToggle}
+        onSelectAllFields={handleSelectAllFields}
+        exportBranches={exportBranches}
+        onExportBranchesChange={setExportBranches}
+        collegeBranches={collegeBranches}
+        includePhotoUrl={includePhotoUrl}
+        onIncludePhotoUrlChange={(e) => setIncludePhotoUrl(e.target.checked)}
+        customExportSettings={customExportSettings}
+        onCustomSettingChange={handleCustomSettingChange}
+        processing={processing}
+        onCustomExport={handleCustomExport}
+        onCloseCustom={() => setShowCustomExportModal(false)}
+      />
+    </>
   );
 }

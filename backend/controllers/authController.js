@@ -13,6 +13,7 @@ import logActivity from '../middleware/activityLogger.js';
 import { uploadImage, deleteImage } from '../config/cloudinary.js';
 import { isDisposableEmail, DISPOSABLE_EMAIL_MESSAGE } from '../utils/emailPolicy.js';
 import { isRegistrationBlocked } from '../utils/collegeLocks.js';
+import { calculateProgrammeCgpa, hasSemesterValue } from '../utils/cgpaCalculation.js';
 import { checkVerificationQuota, DAY_AWARE_COUNT_SQL } from '../utils/verificationEmailPolicy.js';
 
 // ============================================================================
@@ -648,7 +649,8 @@ export const registerStudent = async (req, res) => {
       cgpa_sem2,
       cgpa_sem3,
       cgpa_sem4,
-      programme_cgpa,
+      cgpa_sem5,
+      cgpa_sem6,
       complete_address,
       has_driving_license,
       has_pan_card,
@@ -678,6 +680,25 @@ export const registerStudent = async (req, res) => {
       (parseInt(backlogs_sem3) || 0) + (parseInt(backlogs_sem4) || 0) +
       (parseInt(backlogs_sem5) || 0) + (parseInt(backlogs_sem6) || 0);
 
+    // Auto-compute programme_cgpa from the semester marks. The form shows the
+    // same average in a disabled field, but that number is display only — a
+    // hand-edited request could otherwise store any CGPA it liked, and this is
+    // the value every eligibility filter and shortlist export reads.
+    const semesterCgpas = {
+      cgpa_sem1, cgpa_sem2, cgpa_sem3, cgpa_sem4, cgpa_sem5, cgpa_sem6,
+    };
+    for (const [field, value] of Object.entries(semesterCgpas)) {
+      if (!hasSemesterValue(value)) continue;
+      const num = parseFloat(value);
+      if (isNaN(num) || num < 0 || num > 10) {
+        return res.status(400).json({
+          success: false,
+          message: `Semester ${field.slice(-1)} SGPA must be between 0 and 10`,
+        });
+      }
+    }
+    const programme_cgpa = calculateProgrammeCgpa(semesterCgpas);
+
     // Validate required fields
     if (
       !prn ||
@@ -696,7 +717,6 @@ export const registerStudent = async (req, res) => {
       !cgpa_sem2 ||
       !cgpa_sem3 ||
       !cgpa_sem4 ||
-      !programme_cgpa ||
       !complete_address ||
       has_driving_license === undefined ||
       has_pan_card === undefined ||
@@ -707,6 +727,15 @@ export const registerStudent = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Please provide all required fields',
+      });
+    }
+
+    // programme_cgpa is NOT NULL: every semester coming in as 0 leaves nothing
+    // to average, which means the marks were never really filled in
+    if (programme_cgpa === null) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please enter your semester SGPAs — at least one must be above 0',
       });
     }
 
@@ -878,7 +907,7 @@ export const registerStudent = async (req, res) => {
             photo_url, photo_cloudinary_id, email_verification_token,
             backlog_count, backlogs_sem1, backlogs_sem2, backlogs_sem3, backlogs_sem4, backlogs_sem5, backlogs_sem6,
             backlog_details)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 0, 0, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36)
            RETURNING id`,
           [
             userId,
@@ -898,6 +927,8 @@ export const registerStudent = async (req, res) => {
             cgpa_sem2,
             cgpa_sem3,
             cgpa_sem4,
+            parseFloat(cgpa_sem5) || 0,
+            parseFloat(cgpa_sem6) || 0,
             programme_cgpa,
             complete_address,
             has_driving_license,

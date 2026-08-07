@@ -83,6 +83,15 @@ export function RangeActions({ range, locked, showLabels, onViewStudents, onTogg
   const label = range.single_prn || `${range.start_prn}–${range.end_prn}`;
   const enabled = range.is_enabled !== undefined ? range.is_enabled : range.is_active;
 
+  // Two reasons a row is read-only: the Super Admin has frozen PRN management
+  // for this college, or the range is one the Super Admin created and is not
+  // the officer's to change. The second cannot currently reach an officer —
+  // the endpoint is scoped to their college and a super_admin row is always
+  // college-less — but it is the correct rule for the row and costs nothing,
+  // so it stays rather than being an assumption about the query.
+  const bySuperAdmin = range.created_by === 'super_admin';
+  const readOnly = locked || bySuperAdmin;
+
   return (
     <div className="flex items-center gap-0.5 flex-nowrap">
       <ActionButton
@@ -94,11 +103,14 @@ export function RangeActions({ range, locked, showLabels, onViewStudents, onTogg
         <Eye size={18} aria-hidden="true" />
       </ActionButton>
 
-      {locked ? (
-        <span className="inline-flex items-center gap-1.5 px-2.5 min-h-[44px] text-spc-xs
-          font-bold text-spc-muted whitespace-nowrap">
+      {readOnly ? (
+        <span
+          title={bySuperAdmin && !locked ? 'Added by the Super Admin — ask them to change it' : undefined}
+          className="inline-flex items-center gap-1.5 px-2.5 min-h-[44px] text-spc-xs
+            font-bold text-spc-muted whitespace-nowrap"
+        >
           <Lock size={15} aria-hidden="true" />
-          <span>Locked</span>
+          <span>{bySuperAdmin && !locked ? 'Super Admin' : 'Locked'}</span>
         </span>
       ) : (
         <>

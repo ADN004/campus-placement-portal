@@ -1,4 +1,4 @@
-import { Plus, Hash, Lock, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, Hash, Lock } from 'lucide-react';
 import {
   PageHeading, Panel, PanelHeading, SectionLabel, PrimaryButton, SecondaryButton, SelectField,
 } from '../../../components/officer/OfficerUI';
@@ -16,10 +16,7 @@ export default function PrnRangesPage({
   locked,
   ownRanges,
   filteredOwn,
-  systemRanges,
   availableYears = [],
-  showSystemRanges,
-  onToggleSystemRanges,
   viewFilter,
   onViewFilterChange,
   onAddRange,
@@ -115,38 +112,16 @@ export default function PrnRangesPage({
         </Panel>
       </section>
 
-      {systemRanges.length > 0 && (
-        <section className="mt-5">
-          <Panel>
-            <button
-              type="button"
-              onClick={onToggleSystemRanges}
-              aria-expanded={showSystemRanges}
-              className="w-full flex items-center justify-between gap-2 px-4 py-3 min-h-[52px]
-                text-left hover:bg-spc-surface-2 transition-colors"
-            >
-              <span className="text-spc-xs font-bold uppercase tracking-[0.11em] text-spc-muted">
-                Added by the Super Admin ({systemRanges.length}) — read only
-              </span>
-              {showSystemRanges
-                ? <ChevronDown size={17} className="text-spc-muted flex-shrink-0" aria-hidden="true" />
-                : <ChevronRight size={17} className="text-spc-muted flex-shrink-0" aria-hidden="true" />}
-            </button>
-            {showSystemRanges && (
-              <div className="border-t border-spc-line">
-                {/* Locked regardless of the college's own lock: these are not
-                    the officer's to change. */}
-                <RangeView
-                  ranges={systemRanges}
-                  locked
-                  actionHandlers={actionHandlers}
-                  emptyTitle="None."
-                />
-              </div>
-            )}
-          </Panel>
-        </section>
-      )}
+      {/*
+        There was a collapsed "Added by the Super Admin — read only" section
+        here. It listed every range the Super Admin had created anywhere in the
+        state, because the endpoint returned them all, so an officer could read
+        other colleges' PRN blocks out of it. The endpoint is scoped to the
+        officer's own college now, and a Super-Admin range that does belong to
+        this college simply sits in the list above with its actions locked —
+        one list, in PRN order, instead of the same college's ranges split
+        across two panels by who happened to type them in.
+      */}
     </div>
   );
 }

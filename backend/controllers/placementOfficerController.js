@@ -2504,7 +2504,27 @@ export const getPRNRanges = async (req, res) => {
 
     const officer = officerResult.rows[0];
 
-    // Get PRN ranges for this college (both super admin and placement officer created)
+    // PRN ranges for THIS college only — whoever created them.
+    //
+    // This used to read `WHERE pr.college_id = $1 OR pr.created_by_role =
+    // 'super_admin'`, and that OR was a cross-college disclosure: every range
+    // the Super Admin had ever created, for any college in the state, was
+    // returned to every placement officer. A PRN is a student identifier, so
+    // one college's officer could read another college's PRN blocks straight
+    // out of this response.
+    //
+    // Scoped to the officer's own college. In practice that excludes every
+    // Super-Admin range, because the table's own constraint
+    // (check_prn_range_creator_college) requires a super_admin row to have
+    // college_id IS NULL and a placement_officer row to have one set — so a
+    // Super-Admin range is never recorded against a college even when the PRN
+    // block it covers plainly belongs to one. That is exactly why they leaked:
+    // college-less did not mean college-neutral.
+    //
+    // Consequence worth knowing: those ranges still govern registration.
+    // commonController.validatePRN checks a PRN against every active range with
+    // no college filter at all, so a Super-Admin range can still admit a student
+    // to this college while the officer can no longer see it here.
     const rangesResult = await query(
       `SELECT pr.*,
               u.email as added_by_email,
@@ -2513,7 +2533,7 @@ export const getPRNRanges = async (req, res) => {
        FROM prn_ranges pr
        LEFT JOIN users u ON pr.added_by = u.id
        LEFT JOIN colleges c ON pr.college_id = c.id
-       WHERE pr.college_id = $1 OR pr.created_by_role = 'super_admin'
+       WHERE pr.college_id = $1
        ORDER BY pr.created_at DESC`,
       [officer.college_id]
     );

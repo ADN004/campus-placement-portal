@@ -24,7 +24,6 @@ export default function ManagePRNRanges() {
   // disabled ranges pile up after every academic reset, so hide them unless
   // asked. SA system-wide ranges live in their own collapsed section.
   const [viewFilter, setViewFilter] = useState('active');
-  const [showSystemRanges, setShowSystemRanges] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showAddSingleModal, setShowAddSingleModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -280,10 +279,11 @@ export default function ManagePRNRanges() {
     return <DesktopPrnRangesSkeleton />;
   }
 
-  // Split: this college's own ranges (the main list) vs Super-Admin
-  // system-wide entries (collapsed reference section below)
-  const ownRanges = prnRanges.filter(r => r.created_by !== 'super_admin');
-  const systemRanges = prnRanges.filter(r => r.created_by === 'super_admin');
+  // One list. The endpoint returns this college's ranges and nothing else now,
+  // so there is no longer a "system-wide" set to separate out — a Super-Admin
+  // range that belongs to this college is one of this college's ranges, shown
+  // in PRN order with the rest and marked read-only on its own row.
+  const ownRanges = prnRanges;
 
   const availableYears = [...new Set(ownRanges.map(r => r.year).filter(Boolean))].sort((a, b) => b - a);
 
@@ -307,10 +307,7 @@ export default function ManagePRNRanges() {
         locked={locked}
         ownRanges={ownRanges}
         filteredOwn={filteredOwn}
-        systemRanges={systemRanges}
         availableYears={availableYears}
-        showSystemRanges={showSystemRanges}
-        onToggleSystemRanges={() => setShowSystemRanges(!showSystemRanges)}
         viewFilter={viewFilter}
         onViewFilterChange={(e) => setViewFilter(e.target.value)}
         onAddRange={() => {

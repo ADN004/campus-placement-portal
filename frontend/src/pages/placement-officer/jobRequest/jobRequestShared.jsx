@@ -131,6 +131,49 @@ export function StatBlock({ requests, columns = 3 }) {
   );
 }
 
+/* --------------------------------------------------------------- filters */
+
+export const REQUEST_FILTERS = [
+  { key: 'all', label: 'All' },
+  { key: 'pending', label: 'Pending' },
+  { key: 'approved', label: 'Approved' },
+  { key: 'rejected', label: 'Rejected' },
+];
+
+/**
+ * Filter strip, same treatment as the student status tabs: the active one is a
+ * step up the surface ladder plus a rule, because the tint alone measures
+ * 1.29:1 against white and is invisible on a bright monitor.
+ */
+export function RequestFilterTabs({ active, counts, onChange, scroll = false }) {
+  return (
+    <div
+      className={`flex gap-px bg-spc-line border border-spc-line-strong rounded-spc-panel
+        ${scroll ? 'overflow-x-auto' : 'overflow-hidden'}`}
+    >
+      {REQUEST_FILTERS.map(({ key, label }) => {
+        const isActive = active === key;
+        return (
+          <button
+            key={key}
+            type="button"
+            onClick={() => onChange(key)}
+            aria-current={isActive ? 'page' : undefined}
+            className={`flex-1 min-w-[88px] min-h-[52px] px-3 flex flex-col items-center justify-center
+              gap-0.5 transition-colors border-t-2
+              ${isActive
+                ? 'bg-spc-surface-3 text-spc-ink border-spc-accent'
+                : 'bg-spc-surface text-spc-muted border-transparent hover:bg-spc-surface-2 hover:text-spc-ink'}`}
+          >
+            <span className="text-spc-xs font-bold whitespace-nowrap">{label}</span>
+            <span className="text-xs font-semibold tabular-nums">{counts[key] ?? 0}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 /* ----------------------------------------------------------- how it works */
 
 /**

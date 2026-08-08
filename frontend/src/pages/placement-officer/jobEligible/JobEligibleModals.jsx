@@ -85,11 +85,26 @@ export function ExportOptionsModal({
   isHost, jobCollegeCount, exportCollegeIds, onOpenCollegePicker,
   onExportExcel, onExportPdf, onEnhancedExport, onExportNotApplied,
   placedCount, includePlaced, onIncludePlacedChange,
+  barredCount = 0,
   onClose,
 }) {
   return (
     <Dialog id="export-options-title" title="Export options" onClose={onClose}>
       <div className="max-h-[70vh] overflow-y-auto spc-scroll-contain">
+        {/*
+          * The list shows applicants who have since been blacklisted or lost
+          * their approval; the exports leave them out, which is the right
+          * default for a file that goes to a company. Said here so the row
+          * count in the file is not a surprise.
+          */}
+        {barredCount > 0 && (
+          <p className="text-spc-xs text-spc-body bg-spc-warn-bg border-b border-spc-warn/40
+            px-4 py-3">
+            {barredCount} applicant{barredCount === 1 ? '' : 's'} shown in the list
+            {barredCount === 1 ? ' is' : ' are'} left out of every export —
+            {barredCount === 1 ? ' their' : ' their'} account is blacklisted or no longer approved.
+          </p>
+        )}
         {isHost && jobCollegeCount > 1 && (
           <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-spc-line">
             <p className="text-spc-xs font-bold text-spc-ink">Filter by college</p>

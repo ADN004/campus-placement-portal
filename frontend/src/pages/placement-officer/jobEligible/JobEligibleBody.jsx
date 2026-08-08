@@ -7,7 +7,7 @@ import {
 } from '../../../components/officer/OfficerUI';
 import {
   StatBlock, DrivePanel, JobSummary, BulkActionBar, FilterToggle,
-  ApplicantTable, ApplicantList,
+  ApplicantTable, ApplicantList, barredReason,
 } from './jobEligibleShared';
 import AdditionalFilters from './AdditionalFilters';
 
@@ -38,6 +38,8 @@ export default function JobEligibleBody({ layout, ...p }) {
 
   const currentApplicants = p.filteredStudents.filter((s) => !s.is_already_placed);
   const placedApplicants = p.filteredStudents.filter((s) => s.is_already_placed);
+  const selectableApplicants = currentApplicants.filter((s) => !barredReason(s));
+  const barredCount = currentApplicants.length - selectableApplicants.length;
 
   /*
    * The list that actually gets big.
@@ -158,6 +160,15 @@ export default function JobEligibleBody({ layout, ...p }) {
               <PanelHeading action={p.refreshControl}>
                 Applicants ({currentApplicants.length})
               </PanelHeading>
+              {/* Says why some rows cannot be ticked, before the officer tries. */}
+              {barredCount > 0 && (
+                <p className="px-4 pt-3 text-xs text-spc-body">
+                  {barredCount} of these applied and{' '}
+                  {barredCount === 1 ? 'has' : 'have'} since been blacklisted or lost approval.
+                  {barredCount === 1 ? ' It' : ' They'} can be opened but not selected, and
+                  {barredCount === 1 ? ' it is' : ' they are'} left out of exports.
+                </p>
+              )}
               <ApplicantView
                 students={applicantWindow.visible}
                 isHost={p.isHost}
@@ -166,10 +177,15 @@ export default function JobEligibleBody({ layout, ...p }) {
                 selectedIds={p.selectedStudents}
                 onSelect={p.onSelectStudent}
                 onSelectAll={p.onSelectAll}
-                /* Every applicant, not every visible one — the box means "all". */
+                /*
+                 * Every applicant, not every visible one — the box means "all".
+                 * Barred applicants are excluded on both sides: they cannot be
+                 * ticked, so counting them here would leave the header box
+                 * permanently unticked no matter what the officer does.
+                 */
                 allSelected={
-                  currentApplicants.length > 0 &&
-                  currentApplicants.every((s) => p.selectedStudents.includes(s.application_id))
+                  selectableApplicants.length > 0 &&
+                  selectableApplicants.every((s) => p.selectedStudents.includes(s.application_id))
                 }
                 onView={p.onViewStudent}
                 onPlacement={p.onEditPlacement}

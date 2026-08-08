@@ -26,6 +26,7 @@ import {
   TabletJobEligibleSkeleton,
   MobileJobEligibleSkeleton,
 } from './jobEligible/JobEligibleSkeleton';
+import { barredReason } from './jobEligible/jobEligibleShared';
 
 export default function JobApplicants() {
   const { jobId } = useParams();
@@ -340,7 +341,12 @@ export default function JobApplicants() {
 
   const handleSelectAll = (e) => {
     if (e.target.checked) {
-      setSelectedStudents(filteredStudents.map((s) => s.application_id));
+      // Applicants who have since been blacklisted or lost their approval are
+      // shown so the officer can see them, but they are not selectable one by
+      // one, so "select all" must not sweep them in either.
+      setSelectedStudents(
+        filteredStudents.filter((s) => !barredReason(s)).map((s) => s.application_id)
+      );
     } else {
       setSelectedStudents([]);
     }
@@ -930,6 +936,7 @@ export default function JobApplicants() {
           onEnhancedExport={handleEnhancedExport}
           onExportNotApplied={() => handleExportEligibleNotApplied()}
           placedCount={filteredStudents.filter((s) => s.is_already_placed).length}
+          barredCount={filteredStudents.filter((s) => barredReason(s)).length}
           includePlaced={includePlacedInExport}
           onIncludePlacedChange={(e) => setIncludePlacedInExport(e.target.checked)}
           onClose={() => setShowExportModal(false)}

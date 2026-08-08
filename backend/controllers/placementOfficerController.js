@@ -2451,13 +2451,30 @@ export const getJobApplicants = async (req, res) => {
     const collegeFilter = isHost ? '' : 'AND s.college_id = $2';
     const queryParams = isHost ? [jobId] : [jobId, collegeId];
 
-    // Get students who have applied to this job
-    // Sorted by: college_name → branch → PRN (grouping same college, same branch, with PRN order)
+    /*
+     * Every application on this job, including those from students who have
+     * since been blacklisted or had their approval revoked.
+     *
+     * Applying already requires an approved, non-blacklisted account
+     * (checkStudentApproval), so these are people who applied legitimately and
+     * whose standing changed afterwards. Filtering them out here left the
+     * placement statistics — which count every application — reporting a number
+     * the officer could not reconcile against the list, with one applicant that
+     * could never be opened or acted on. Worse, an officer building a shortlist
+     * had no way to notice that someone on it had since been barred.
+     *
+     * They come back flagged instead, for the page to mark. The exports still
+     * leave them out, which is the safe default for a file that goes to a
+     * company.
+     *
+     * Sorted by: college_name → branch → PRN (grouping same college, same
+     * branch, with PRN order)
+     */
     const applicantsResult = await query(
       `SELECT
         s.id, s.prn, s.student_name as name, s.email, s.mobile_number, s.branch,
         s.programme_cgpa as cgpa, s.backlog_count, s.date_of_birth, s.college_id,
-        s.registration_status, s.gender, s.age,
+        s.registration_status, s.is_blacklisted, s.gender, s.age,
         c.college_name,
         ja.id as application_id, ja.applied_date, ja.application_status,
         ja.placement_package, ja.joining_date, ja.placement_location,
@@ -2500,8 +2517,6 @@ export const getJobApplicants = async (req, res) => {
       LEFT JOIN student_extended_profiles sep ON s.id = sep.student_id
       WHERE ja.job_id = $1
         ${collegeFilter}
-        AND s.registration_status = 'approved'
-        AND s.is_blacklisted = FALSE
       ORDER BY c.college_name ASC, s.branch ASC, s.prn ASC`,
       queryParams
     );

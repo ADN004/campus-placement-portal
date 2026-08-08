@@ -17,6 +17,38 @@ import {
  * Until then it renders in its original colours inside these ruled tables.
  */
 
+/**
+ * Someone who applied while their account was in good standing and has since
+ * been blacklisted or lost their approval.
+ *
+ * Applying requires an approved, non-blacklisted account, so this can only
+ * happen after the fact. The application is real and still counts, which is why
+ * these rows are shown at all — but they are not something to shortlist or hand
+ * to a company, so the row carries a marker and the bulk actions skip it.
+ *
+ * Returns the word to print, or null for an ordinary applicant.
+ */
+export function barredReason(student) {
+  if (student.is_blacklisted) return 'Blacklisted';
+  if (student.registration_status && student.registration_status !== 'approved') {
+    return student.registration_status === 'pending' ? 'Approval pending' : 'Not approved';
+  }
+  return null;
+}
+
+function BarredMark({ reason }) {
+  if (!reason) return null;
+  return (
+    <span
+      className="ml-2 inline-block align-middle px-1.5 py-0.5 rounded-spc-badge
+        text-[10px] font-bold uppercase tracking-[0.08em] bg-spc-bad-bg text-spc-bad
+        whitespace-nowrap"
+    >
+      {reason}
+    </span>
+  );
+}
+
 /* -------------------------------------------------------------- job picker */
 
 /**
@@ -380,6 +412,7 @@ export function ApplicantTable({
         <tbody>
           {students.map((student) => {
             const checked = selectedIds.includes(student.application_id);
+            const barred = barredReason(student);
             return (
               <tr
                 key={student.application_id || student.id}
@@ -391,9 +424,14 @@ export function ApplicantTable({
                     <input
                       type="checkbox"
                       checked={checked}
+                      disabled={Boolean(barred)}
                       onChange={() => onSelect(student.application_id)}
-                      aria-label={`Select ${student.name || student.prn}`}
-                      className={CHECKBOX_CLASS}
+                      aria-label={
+                        barred
+                          ? `${student.name || student.prn} cannot be included — ${barred}`
+                          : `Select ${student.name || student.prn}`
+                      }
+                      className={`${CHECKBOX_CLASS} disabled:opacity-40 disabled:cursor-not-allowed`}
                     />
                   </td>
                 )}
@@ -404,7 +442,10 @@ export function ApplicantTable({
                 >
                   {student.prn}
                 </th>
-                <Td bold>{student.name}</Td>
+                <Td bold>
+                  {student.name}
+                  <BarredMark reason={barred} />
+                </Td>
                 {isHost && <Td muted>{student.college_name}</Td>}
                 <Td muted>{student.branch}</Td>
                 <Td align="right" bold>{student.cgpa}</Td>
@@ -445,6 +486,7 @@ export function ApplicantList({
     <ul>
       {students.map((student) => {
         const checked = selectedIds.includes(student.application_id);
+        const barred = barredReason(student);
         return (
           <li
             key={student.application_id || student.id}
@@ -457,9 +499,14 @@ export function ApplicantList({
                   <input
                     type="checkbox"
                     checked={checked}
+                    disabled={Boolean(barred)}
                     onChange={() => onSelect(student.application_id)}
-                    aria-label={`Select ${student.name || student.prn}`}
-                    className={CHECKBOX_CLASS}
+                    aria-label={
+                      barred
+                        ? `${student.name || student.prn} cannot be included — ${barred}`
+                        : `Select ${student.name || student.prn}`
+                    }
+                    className={`${CHECKBOX_CLASS} disabled:opacity-40 disabled:cursor-not-allowed`}
                   />
                 </span>
               )}
@@ -474,6 +521,7 @@ export function ApplicantList({
 
                 <p className="text-spc-sm font-bold text-spc-ink mt-0.5 break-words">
                   {student.name}
+                  <BarredMark reason={barred} />
                 </p>
 
                 <p className="text-xs text-spc-muted mt-1 break-words">

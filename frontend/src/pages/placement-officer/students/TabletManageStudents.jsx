@@ -220,7 +220,7 @@ export default function TabletManageStudents(props) {
                     </div>
 
                     <div className="flex-shrink-0">
-                      <StudentActions student={student} showLabels {...actionHandlers} />
+                      <StudentActions student={student} {...actionHandlers} />
                     </div>
                   </li>
                 );

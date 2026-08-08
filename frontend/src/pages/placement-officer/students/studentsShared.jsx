@@ -5,8 +5,9 @@ import {
 import {
   formatDate, Panel, PanelHeading, PageHeading,
   PrimaryButton, SecondaryButton, DangerButton,
-  FieldLabel, FIELD_CLASS, TextField, SelectField, CHECKBOX_CLASS, ActionButton,
+  FieldLabel, FIELD_CLASS, TextField, SelectField, CHECKBOX_CLASS,
 } from '../../../components/officer/OfficerUI';
+import RowActions from '../../../components/officer/RowActions';
 
 // Re-exported so the presenters keep importing everything from one place.
 export {
@@ -364,11 +365,11 @@ export function BulkBar({ pendingInView, count, onApprove, onReject, onClear }) 
  * which on a screen where an officer approves fifty students in a sitting is a
  * genuine mis-click risk.
  *
- * `showLabels` renders the word beside the icon wherever there is width.
+ * Approve and reject stay in the row; everything else is behind the menu, so
+ * the column is the same width whatever an action list grows into.
  */
 export function StudentActions({
   student,
-  showLabels = false,
   onReview,
   onApprove,
   onReject,
@@ -381,90 +382,82 @@ export function StudentActions({
   const isApproved = student.registration_status === 'approved' && !student.is_blacklisted;
   const name = student.name || student.student_name || student.prn;
 
-  return (
-    <div className="flex items-center gap-0.5 flex-nowrap">
-      {/* Review is available for EVERY status — approving or rejecting without
-          seeing the details makes no sense. */}
-      <ActionButton
-        label="View"
-        description={`Review details for ${name}`}
-        showLabel={showLabels}
-        onClick={() => onReview(student)}
-      >
-        <Eye size={18} aria-hidden="true" />
-      </ActionButton>
+  /*
+   * Approve and reject stay in the row. They are the volume task — an officer
+   * clears a whole intake in one sitting — and burying them would cost a tap
+   * every time. Everything else lives in the menu, which is also where any
+   * future action goes without touching a column width.
+   */
+  const actions = [
+    {
+      key: 'approve',
+      label: 'Approve',
+      description: `Approve ${name}`,
+      icon: Check,
+      tone: 'positive',
+      inline: true,
+      hidden: !isPending,
+      onSelect: () => onApprove(student.id),
+    },
+    {
+      key: 'reject',
+      label: 'Reject',
+      description: `Reject ${name}`,
+      icon: X,
+      tone: 'danger',
+      inline: true,
+      hidden: !isPending,
+      onSelect: () => onReject(student.id),
+    },
+    {
+      // Available for every status — approving or rejecting without seeing the
+      // details makes no sense.
+      key: 'review',
+      label: 'View details',
+      description: `Review details for ${name}`,
+      icon: Eye,
+      onSelect: () => onReview(student),
+    },
+    {
+      key: 'email',
+      label: student.email_verified ? 'Update email' : 'Email not verified',
+      description: student.email_verified
+        ? `Update email for ${name}`
+        : `Email not verified for ${name} — fix and resend the link`,
+      icon: MailWarning,
+      tone: student.email_verified ? undefined : 'warn',
+      hidden: !isApproved,
+      onSelect: () => onEmailFix(student),
+    },
+    {
+      key: 'correct',
+      label: 'Request correction',
+      description: `Send ${name} back for correction`,
+      icon: FileEdit,
+      hidden: !isApproved,
+      onSelect: () => onCorrection(student),
+    },
+    {
+      key: 'blacklist',
+      label: 'Blacklist',
+      description: `Blacklist ${name}`,
+      icon: Ban,
+      tone: 'danger',
+      hidden: !isApproved,
+      onSelect: () => onBlacklist(student),
+    },
+    {
+      key: 'whitelist',
+      label: 'Request whitelist',
+      description: `Request whitelist for ${name}`,
+      icon: Shield,
+      tone: 'positive',
+      hidden: !student.is_blacklisted,
+      onSelect: () => onWhitelist(student),
+    },
+  ];
 
-      {isPending && (
-        <>
-          <ActionButton
-            label="Approve"
-            description={`Approve ${name}`}
-            tone="positive"
-            showLabel={showLabels}
-            onClick={() => onApprove(student.id)}
-          >
-            <Check size={18} aria-hidden="true" />
-          </ActionButton>
-          <ActionButton
-            label="Reject"
-            description={`Reject ${name}`}
-            tone="danger"
-            showLabel={showLabels}
-            onClick={() => onReject(student.id)}
-          >
-            <X size={18} aria-hidden="true" />
-          </ActionButton>
-        </>
-      )}
-
-      {isApproved && (
-        <>
-          <ActionButton
-            label="Email"
-            description={
-              student.email_verified
-                ? `Update email for ${name}`
-                : `Email not verified for ${name} — fix and resend the link`
-            }
-            tone={student.email_verified ? 'default' : 'warn'}
-            showLabel={showLabels}
-            onClick={() => onEmailFix(student)}
-          >
-            <MailWarning size={18} aria-hidden="true" />
-          </ActionButton>
-          <ActionButton
-            label="Correct"
-            description={`Send ${name} back for correction`}
-            showLabel={showLabels}
-            onClick={() => onCorrection(student)}
-          >
-            <FileEdit size={18} aria-hidden="true" />
-          </ActionButton>
-          <ActionButton
-            label="Blacklist"
-            description={`Blacklist ${name}`}
-            tone="danger"
-            showLabel={showLabels}
-            onClick={() => onBlacklist(student)}
-          >
-            <Ban size={18} aria-hidden="true" />
-          </ActionButton>
-        </>
-      )}
-
-      {student.is_blacklisted && (
-        <ActionButton
-          label="Whitelist"
-          description={`Request whitelist for ${name}`}
-          tone="positive"
-          showLabel={showLabels}
-          onClick={() => onWhitelist(student)}
-        >
-          <Shield size={18} aria-hidden="true" />
-        </ActionButton>
-      )}
-    </div>
-  );
+  return <RowActions actions={actions} subject={name} />;
 }
 
 /* -------------------------------------------------------------- pagination */

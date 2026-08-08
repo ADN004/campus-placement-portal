@@ -172,7 +172,7 @@ export function PositiveButton({ children, className = '', ...props }) {
 
 /* ----------------------------------------------------------- row actions */
 
-const ACTION_TONE = {
+export const ACTION_TONE = {
   default: 'text-spc-body hover:bg-spc-surface-2 hover:text-spc-ink',
   positive: 'text-spc-ok hover:bg-spc-ok-bg',
   danger: 'text-spc-bad hover:bg-spc-bad-bg',

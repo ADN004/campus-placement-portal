@@ -161,7 +161,20 @@ export default function DesktopManageStudents(props) {
                     <Th>Status</Th>
                     <Th>Blacklist</Th>
                     <Th align="right">Registered</Th>
-                    <Th>Actions</Th>
+                    {/* Pinned to the right edge. Even with the actions behind
+                        one menu, ten columns of student data still outrun a
+                        1200px viewport — which is what a 1440px window at 120%
+                        zoom is. Sticky means the actions are reachable at any
+                        zoom and any column count, instead of living past a
+                        horizontal scroll the officer has to discover. */}
+                    <th
+                      scope="col"
+                      className="sticky right-0 z-10 bg-spc-surface-2 px-3 py-2 text-left
+                        text-spc-label font-bold uppercase tracking-[0.11em] text-spc-muted
+                        border-l border-spc-line-strong"
+                    >
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -172,7 +185,7 @@ export default function DesktopManageStudents(props) {
                     return (
                       <tr
                         key={student.id}
-                        className={`border-b border-spc-line last:border-b-0 transition-colors
+                        className={`group border-b border-spc-line last:border-b-0 transition-colors
                           ${selected ? 'bg-spc-selected' : 'hover:bg-spc-surface-2'}`}
                       >
                         {pendingInView.length > 0 && (
@@ -198,7 +211,19 @@ export default function DesktopManageStudents(props) {
                           {student.prn}
                         </th>
                         <Td bold>{student.name || '–'}</Td>
-                        <Td muted>{student.email}</Td>
+                        {/* Capped and truncated. Addresses run to 40 characters
+                            and were the widest column after Actions, which is
+                            what pushed the table past its container on the
+                            pending tab. The full address is in the row's
+                            details, and the title shows it on hover. */}
+                        <Td muted>
+                          <span
+                            className="block max-w-[13rem] truncate"
+                            title={student.email}
+                          >
+                            {student.email}
+                          </span>
+                        </Td>
                         <Td muted nowrap>{student.mobile_number || '–'}</Td>
                         <Td align="right" bold>{student.programme_cgpa || '–'}</Td>
                         <Td align="right">
@@ -207,8 +232,16 @@ export default function DesktopManageStudents(props) {
                         <Td><StatusMark status={student.registration_status} /></Td>
                         <Td><BlacklistMark isBlacklisted={student.is_blacklisted} /></Td>
                         <Td align="right" muted nowrap>{formatDate(student.created_at)}</Td>
-                        <td className="px-3 py-2 whitespace-nowrap">
-                          <StudentActions student={student} showLabels {...actionHandlers} />
+                        {/* Matches the header: same pin, and an opaque
+                            background so the columns it covers pass underneath
+                            rather than showing through. Inherits the row's own
+                            tint when selected or hovered. */}
+                        <td
+                          className={`sticky right-0 z-10 px-3 py-2 whitespace-nowrap
+                            border-l border-spc-line-strong
+                            ${selected ? 'bg-spc-selected' : 'bg-spc-surface group-hover:bg-spc-surface-2'}`}
+                        >
+                          <StudentActions student={student} {...actionHandlers} />
                         </td>
                       </tr>
                     );

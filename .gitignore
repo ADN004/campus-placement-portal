@@ -77,3 +77,7 @@ redesigning/
 # Ignored so a stray `git add -A` can never sweep one into a commit.
 _*.mjs
 _*.cjs
+# Their saved state too — the local fixtures write the original password hash
+# here so they can put it back, and a run interrupted before teardown leaves it
+# on disk.
+_*.json

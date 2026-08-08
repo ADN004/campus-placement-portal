@@ -837,3 +837,35 @@ body[data-spc-actionbar] .spc-tabbar {
 @media (prefers-reduced-motion: reduce) {
   .spc-pulse { animation: none; }
 }
+
+/* ---------------------------------------------------------- pixel loader */
+
+/*
+ * The full-page loader: a block matrix lit in a diagonal sweep, replacing the
+ * rotating ring.
+ *
+ * Only opacity animates. A pixel that grows is not a pixel — scaling a 14px
+ * square lands its edges on fractional device pixels and the crisp corners
+ * that carry the whole idea go soft. Opacity is also the cheapest thing to
+ * animate: it composites, so sixteen cells cost nothing on the frame this
+ * screen exists to cover.
+ *
+ * Each cell's delay is set inline from its row and column. Tailwind cannot see
+ * a class name assembled at runtime, and sixteen delay utilities are not worth
+ * putting in the config for one component.
+ */
+@keyframes spc-pixel {
+  0%, 100% { opacity: 0.13; }
+  45%      { opacity: 1; }
+}
+
+.spc-pixel-cell {
+  animation: spc-pixel 1.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Still a legible mark, just a still one — a static checker holds the shape
+     without anything moving. */
+  .spc-pixel-cell { animation: none; opacity: 0.85; }
+  .spc-pixel-cell:nth-child(2n) { opacity: 0.3; }
+}

@@ -65,7 +65,9 @@ export default function VerifyEmailPage() {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full">
           <div className="card text-center p-8">
-            <LoadingSpinner />
+            {/* Sits inside the card, and the heading below already says what
+                is happening — so no full-screen frame and no second label. */}
+            <LoadingSpinner inline label={null} />
             <h2 className="text-2xl font-bold text-gray-900 mb-2 mt-6">Verifying Your Email</h2>
             <p className="text-gray-600">Please wait while we verify your email address...</p>
           </div>

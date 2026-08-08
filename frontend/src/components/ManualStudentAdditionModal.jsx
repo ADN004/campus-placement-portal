@@ -10,6 +10,23 @@ import {
 } from './officer/OfficerUI';
 
 /**
+ * A job's advertised package as a number, or null when the text names no single
+ * figure. Mirrors parseSingleFigurePackage on the server, which is the backstop:
+ * this keeps the officer from being handed a value that would be refused.
+ *
+ * Accepts "4.5", "4.5 LPA", "6 lakhs"; returns null for "1.8 to 3.66",
+ * "Negotiable", "As per norms".
+ */
+function singleFigurePackage(text) {
+  if (text === null || text === undefined) return null;
+  const value = String(text).trim();
+  if (value === '') return null;
+  if (/\d\s*(?:-|–|—|to|\/|,)\s*\d/i.test(value)) return null;
+  const match = value.match(/^(\d+(?:\.\d+)?)\s*(?:lpa|lakhs?|lac|l)?$/i);
+  return match ? Number(match[1]) : null;
+}
+
+/**
  * Add a student who was selected at the drive but never applied on the portal.
  *
  * `variant="officer"` renders the Register treatment; every other caller keeps
@@ -49,7 +66,13 @@ const ManualStudentAdditionModal = ({
       setStudentData(null);
       setValidationResult(null);
       setFormData({
-        placement_package: job?.salary_package || '',
+        // Only pre-fill a package the field can actually submit. salary_package
+        // is free text an officer typed on the job — "3 LPA", "1.8 to 3.66",
+        // "Negotiable" — while this posts to a numeric column. Pre-filling it
+        // blindly handed the officer a value the server then refused, on a job
+        // they had no reason to think was unusual. A range or a word leaves the
+        // field empty, and the hint below it still shows what the job says.
+        placement_package: singleFigurePackage(job?.salary_package) ?? '',
         joining_date: '',
         placement_location: '',
         notes: '',
@@ -343,8 +366,17 @@ const ManualStudentAdditionModal = ({
                       placeholder="e.g. 5.5"
                       className={FIELD_CLASS}
                     />
+                    {/*
+                      The old hint promised the job's package would be used and
+                      printed it with " LPA" appended, so a job advertised as
+                      "3 LPA" read "3 LPA LPA" — and on a job advertised as a
+                      range the promise was false, because no single figure can
+                      be taken from it.
+                    */}
                     <p className="text-xs text-spc-muted mt-1">
-                      Leave blank to use the job&rsquo;s package ({job.salary_package} LPA).
+                      {singleFigurePackage(job.salary_package) !== null
+                        ? `Leave blank to use the job’s package, ${job.salary_package}.`
+                        : `This job is advertised as “${job.salary_package}”, which is not one figure — enter the package agreed for this student, or leave it blank and add it later.`}
                     </p>
                   </div>
                   <div>

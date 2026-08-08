@@ -182,22 +182,50 @@ export default function ManagePRNRanges() {
     }
   };
 
-  const handleDelete = (id, createdBy) => {
+  /*
+   * Deleting a PRN range deletes every student whose PRN falls inside it — the
+   * account, the login and the job applications, permanently. The server says so
+   * in its own response ("N students and their records permanently deleted") and
+   * nothing in the UI ever did: the old browser confirm just asked "Are you
+   * sure?", and the dialog that replaced it wrongly reassured the officer that
+   * registered students were safe.
+   *
+   * So the count is fetched before the dialog can be answered, and it comes from
+   * the same function the deletion uses — a number produced by a different rule
+   * than the one doing the deleting would be worse than no number at all.
+   */
+  const handleDelete = async (id, createdBy) => {
     if (createdBy === 'super_admin') {
       toast.error('You cannot delete PRN ranges created by Super Admin');
       return;
     }
-    // Was a browser confirm, which could not name the range being deleted or
-    // say what deleting one costs — and this page already has a Disable that
-    // most officers actually want instead.
-    setDeletingRange(prnRanges.find((r) => r.id === id) || { id });
+    const range = prnRanges.find((r) => r.id === id) || { id };
+    setDeletingRange({ ...range, impact: null });
+    try {
+      const res = await placementOfficerAPI.getPRNRangeDeleteImpact(id);
+      setDeletingRange({
+        ...range,
+        impact: {
+          students: res.data.student_count ?? 0,
+          applications: res.data.application_count ?? 0,
+        },
+      });
+    } catch {
+      // Unknown is not the same as none. Say so rather than imply zero.
+      setDeletingRange({ ...range, impact: 'unknown' });
+    }
   };
 
   const confirmDelete = async () => {
     try {
       setDeletingBusy(true);
-      await placementOfficerAPI.deletePRNRange(deletingRange.id);
-      toast.success('PRN range deleted successfully');
+      const res = await placementOfficerAPI.deletePRNRange(deletingRange.id);
+      const removed = res.data?.deletedStudents ?? 0;
+      toast.success(
+        removed > 0
+          ? `PRN range deleted, along with ${removed} student${removed === 1 ? '' : 's'}`
+          : 'PRN range deleted'
+      );
       setDeletingRange(null);
       fetchPRNRanges();
     } catch (error) {
@@ -382,17 +410,63 @@ export default function ManagePRNRanges() {
           }
           confirmLabel="Delete range"
           busyLabel="Deleting…"
-          busy={deletingBusy}
+          busy={deletingBusy || deletingRange.impact === null}
+          /* Typing is only demanded when real accounts are at stake. On an
+             unused range there is nothing to lose and nothing to slow down. */
+          confirmPhrase={
+            deletingRange.impact && deletingRange.impact !== 'unknown' && deletingRange.impact.students > 0
+              ? 'DELETE'
+              : null
+          }
           body={(
             <>
-              <p>
-                Students in this range can no longer register, and the range disappears from
-                this page.
-              </p>
-              <p className="text-spc-muted">
-                Anyone who already registered keeps their account. To stop new registrations
-                without losing the record, disable it instead.
-              </p>
+              {deletingRange.impact === null && (
+                <p className="text-spc-muted">Checking who is in this range…</p>
+              )}
+
+              {deletingRange.impact === 'unknown' && (
+                <p className="text-spc-bad font-bold">
+                  Could not check who is in this range. Deleting it removes every student whose
+                  PRN falls inside it, so close this and try again rather than guessing.
+                </p>
+              )}
+
+              {deletingRange.impact && deletingRange.impact !== 'unknown' && (
+                deletingRange.impact.students > 0 ? (
+                  <>
+                    <p className="text-spc-bad font-bold">
+                      This deletes{' '}
+                      <span className="tabular-nums">{deletingRange.impact.students}</span> student
+                      {deletingRange.impact.students === 1 ? '' : 's'} as well — their account,
+                      their login
+                      {deletingRange.impact.applications > 0 ? (
+                        <>
+                          {' '}and{' '}
+                          <span className="tabular-nums">{deletingRange.impact.applications}</span>{' '}
+                          job application
+                          {deletingRange.impact.applications === 1 ? '' : 's'}
+                        </>
+                      ) : null}
+                      . Permanently.
+                    </p>
+                    <p>
+                      To close the range without touching anyone, <strong>disable</strong> it
+                      instead: students can no longer register against it, and everyone who
+                      already did keeps their account.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p>
+                      Nobody has registered against this range, so only the range itself goes.
+                      Students will no longer be able to register with a PRN inside it.
+                    </p>
+                    <p className="text-spc-muted">
+                      To keep the record and just stop new registrations, disable it instead.
+                    </p>
+                  </>
+                )
+              )}
             </>
           )}
           onConfirm={confirmDelete}

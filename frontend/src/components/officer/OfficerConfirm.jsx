@@ -24,6 +24,10 @@ import { OfficerDialogClose } from './OfficerDialog';
  *   positive; rejecting and deleting are danger.
  * @param {object|null} reason  When set, the dialog collects free text:
  *   `{ label, hint, placeholder, required }`. The value is handed to onConfirm.
+ * @param {string|null} confirmPhrase  When set, the officer must type this word
+ *   before the confirm button will do anything. For the handful of actions that
+ *   destroy records belonging to someone else, where a mis-click cannot be
+ *   walked back — deleting a PRN range takes every student inside it with it.
  * @param {(reason: string) => void} onConfirm
  */
 export default function OfficerConfirm({
@@ -34,13 +38,16 @@ export default function OfficerConfirm({
   confirmLabel = 'Confirm',
   busyLabel = 'Working…',
   reason = null,
+  confirmPhrase = null,
   busy = false,
   onConfirm,
   onClose,
 }) {
   const [text, setText] = useState('');
+  const [typed, setTyped] = useState('');
   const Confirm = tone === 'positive' ? PositiveButton : DangerButton;
-  const blocked = Boolean(reason?.required) && text.trim() === '';
+  const phraseMet = !confirmPhrase || typed.trim().toUpperCase() === confirmPhrase.toUpperCase();
+  const blocked = (Boolean(reason?.required) && text.trim() === '') || !phraseMet;
 
   return (
     <Modal
@@ -75,6 +82,27 @@ export default function OfficerConfirm({
               className={`${FIELD_CLASS} resize-y`}
             />
             {reason.hint && <p className="text-xs text-spc-muted mt-1">{reason.hint}</p>}
+          </div>
+        )}
+
+        {confirmPhrase && (
+          <div>
+            <FieldLabel htmlFor="officer-confirm-phrase">
+              Type {confirmPhrase} to confirm
+            </FieldLabel>
+            <input
+              id="officer-confirm-phrase"
+              type="text"
+              autoComplete="off"
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+              placeholder={confirmPhrase}
+              aria-describedby="officer-confirm-phrase-hint"
+              className={FIELD_CLASS}
+            />
+            <p id="officer-confirm-phrase-hint" className="text-xs text-spc-muted mt-1">
+              This cannot be undone, so it asks for more than a click.
+            </p>
           </div>
         )}
       </div>

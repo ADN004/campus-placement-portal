@@ -1,5 +1,6 @@
 import { query, transaction } from '../config/database.js';
 import logActivity from '../middleware/activityLogger.js';
+import { deleteImage, deleteFolderOnly, extractFolderPath } from '../config/cloudinary.js';
 import ExcelJS from 'exceljs';
 import { sendVerificationEmail, sendRegistrationRejectedEmail } from '../config/emailService.js';
 import { buildVerificationDetails } from '../utils/studentEmailDetails.js';
@@ -54,14 +55,16 @@ const deactivateStudentsInRange = async (range, officerId, collegeId) => {
     if (range.single_prn) {
       // Handle single PRN - only from this college
       const studentsResult = await query(
-        `SELECT s.id, s.prn, s.user_id FROM students s WHERE s.prn = $1 AND s.college_id = $2`,
+        `SELECT s.id, s.prn, s.user_id, s.photo_cloudinary_id
+         FROM students s WHERE s.prn = $1 AND s.college_id = $2`,
         [range.single_prn, collegeId]
       );
       studentsToDeactivate = studentsResult.rows;
     } else if (range.range_start && range.range_end) {
       // Handle range - get all students from this college and filter
       const studentsResult = await query(
-        `SELECT s.id, s.prn, s.user_id FROM students s WHERE s.college_id = $1`,
+        `SELECT s.id, s.prn, s.user_id, s.photo_cloudinary_id
+         FROM students s WHERE s.college_id = $1`,
         [collegeId]
       );
 
@@ -101,31 +104,51 @@ const deactivateStudentsInRange = async (range, officerId, collegeId) => {
 };
 
 /**
+ * Students a range covers, in the officer's college.
+ *
+ * Extracted so the count shown before a deletion and the deletion itself cannot
+ * disagree. They must come from one function: the officer is now asked to type
+ * DELETE against a specific number of student accounts, and a number produced by
+ * a different rule than the one doing the deleting is worse than no number.
+ *
+ * Note this is deliberately NOT the same rule as getStudentsByPRNRange, which
+ * compares PRNs as SQL strings. isPRNInRange compares numerically when it can,
+ * so the two answers differ once PRNs vary in length — '5000' is inside
+ * 999–10000 numerically but not as a string. That inconsistency is pre-existing
+ * and is left alone here rather than quietly changing who any range covers; the
+ * point of this extraction is that the destructive path and its warning agree.
+ */
+const findStudentsInRange = async (range, collegeId) => {
+  if (range.single_prn) {
+    // Handle single PRN - only from this college
+    const studentsResult = await query(
+      `SELECT s.id, s.prn, s.user_id, s.photo_cloudinary_id
+         FROM students s WHERE s.prn = $1 AND s.college_id = $2`,
+      [range.single_prn, collegeId]
+    );
+    return studentsResult.rows;
+  }
+  if (range.range_start && range.range_end) {
+    // Handle range - get all students from this college and filter
+    const studentsResult = await query(
+      `SELECT s.id, s.prn, s.user_id, s.photo_cloudinary_id
+         FROM students s WHERE s.college_id = $1`,
+      [collegeId]
+    );
+    return studentsResult.rows.filter((student) =>
+      isPRNInRange(student.prn, range.range_start, range.range_end)
+    );
+  }
+  return [];
+};
+
+/**
  * Delete students whose PRN matches the given range (college-scoped)
  * This is a hard delete - removes all records from database
  */
 const deleteStudentsInRange = async (range, officerId, collegeId) => {
   try {
-    let studentsToDelete = [];
-
-    if (range.single_prn) {
-      // Handle single PRN - only from this college
-      const studentsResult = await query(
-        `SELECT s.id, s.prn, s.user_id FROM students s WHERE s.prn = $1 AND s.college_id = $2`,
-        [range.single_prn, collegeId]
-      );
-      studentsToDelete = studentsResult.rows;
-    } else if (range.range_start && range.range_end) {
-      // Handle range - get all students from this college and filter
-      const studentsResult = await query(
-        `SELECT s.id, s.prn, s.user_id FROM students s WHERE s.college_id = $1`,
-        [collegeId]
-      );
-
-      studentsToDelete = studentsResult.rows.filter(student =>
-        isPRNInRange(student.prn, range.range_start, range.range_end)
-      );
-    }
+    const studentsToDelete = await findStudentsInRange(range, collegeId);
 
     if (studentsToDelete.length === 0) {
       return 0;
@@ -150,6 +173,31 @@ const deleteStudentsInRange = async (range, officerId, collegeId) => {
       [userIds]
     );
 
+    /*
+     * Their photos go too. CASCADE only reaches the database, so this was the
+     * one path that deleted students and left their photographs in Cloudinary
+     * for good — with the rows gone, nothing remembered the public IDs, so
+     * nobody could ever find them again. The Super Admin's own delete-student
+     * already does this; this was simply missed.
+     *
+     * Best-effort and after the rows: a storage hiccup must not undo a deletion
+     * the officer has confirmed, and the photo of a student who no longer
+     * exists is the smaller problem of the two.
+     */
+    for (const student of studentsToDelete) {
+      if (!student.photo_cloudinary_id) continue;
+      try {
+        await deleteImage(student.photo_cloudinary_id);
+        const folderPath = extractFolderPath(student.photo_cloudinary_id);
+        if (folderPath) await deleteFolderOnly(folderPath);
+      } catch (photoError) {
+        console.error(
+          `Photo cleanup failed for deleted student ${student.prn} (non-fatal):`,
+          photoError.message
+        );
+      }
+    }
+
     return studentsToDelete.length;
   } catch (error) {
     console.error('Error deleting students in range:', error);
@@ -168,14 +216,16 @@ const reactivateStudentsInRange = async (range, officerId, collegeId) => {
     if (range.single_prn) {
       // Handle single PRN - only from this college
       const studentsResult = await query(
-        `SELECT s.id, s.prn, s.user_id FROM students s WHERE s.prn = $1 AND s.college_id = $2`,
+        `SELECT s.id, s.prn, s.user_id, s.photo_cloudinary_id
+         FROM students s WHERE s.prn = $1 AND s.college_id = $2`,
         [range.single_prn, collegeId]
       );
       studentsToReactivate = studentsResult.rows;
     } else if (range.range_start && range.range_end) {
       // Handle range - get all students from this college and filter
       const studentsResult = await query(
-        `SELECT s.id, s.prn, s.user_id FROM students s WHERE s.college_id = $1`,
+        `SELECT s.id, s.prn, s.user_id, s.photo_cloudinary_id
+         FROM students s WHERE s.college_id = $1`,
         [collegeId]
       );
 
@@ -3014,6 +3064,62 @@ export const deletePRNRange = async (req, res) => {
 // @desc    Get students by PRN range (college-scoped for placement officer)
 // @route   GET /api/placement-officer/prn-ranges/:id/students
 // @access  Private (Placement Officer)
+/**
+ * What deleting this range would destroy.
+ *
+ * Deleting a PRN range deletes every student it covers — their account, their
+ * login and their job applications — and until now nothing said so before the
+ * fact. The dialog asks the officer to type DELETE against this number, so it is
+ * counted with findStudentsInRange, the same function the deletion uses.
+ *
+ * @route   GET /api/placement-officer/prn-ranges/:id/delete-impact
+ * @access  Private (Placement Officer)
+ */
+export const getPRNRangeDeleteImpact = async (req, res) => {
+  try {
+    const officerResult = await query(
+      'SELECT id, college_id FROM placement_officers WHERE user_id = $1',
+      [req.user.id]
+    );
+    if (officerResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Placement officer profile not found' });
+    }
+    const officer = officerResult.rows[0];
+
+    const rangeResult = await query('SELECT * FROM prn_ranges WHERE id = $1', [req.params.id]);
+    if (rangeResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'PRN range not found' });
+    }
+    const range = rangeResult.rows[0];
+
+    // Same ownership rule as deletion: an officer only sees the impact of a
+    // range that is theirs to delete.
+    if (range.created_by_role === 'super_admin' || range.college_id !== officer.college_id) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only check ranges belonging to your college',
+      });
+    }
+
+    const students = await findStudentsInRange(range, officer.college_id);
+    const applications = students.length
+      ? (await query(
+          'SELECT COUNT(*)::int AS n FROM job_applications WHERE student_id = ANY($1::int[])',
+          [students.map((s) => s.id)]
+        )).rows[0].n
+      : 0;
+
+    res.status(200).json({
+      success: true,
+      student_count: students.length,
+      application_count: applications,
+    });
+  } catch (error) {
+    console.error('PRN range delete impact error:', error);
+    res.status(500).json({ success: false, message: 'Error checking the range', error: error.message });
+  }
+};
+
 export const getStudentsByPRNRange = async (req, res) => {
   try {
     const rangeId = req.params.id;

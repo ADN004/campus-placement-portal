@@ -165,6 +165,7 @@ export const placementOfficerAPI = {
   getPRNRanges: () => API.get('/placement-officer/prn-ranges'),
   addPRNRange: (data) => API.post('/placement-officer/prn-ranges', data),
   updatePRNRange: (id, data) => API.put(`/placement-officer/prn-ranges/${id}`, data),
+  getPRNRangeDeleteImpact: (id) => API.get(`/placement-officer/prn-ranges/${id}/delete-impact`),
   deletePRNRange: (id) => API.delete(`/placement-officer/prn-ranges/${id}`),
   getStudentsByPRNRange: (rangeId) => API.get(`/placement-officer/prn-ranges/${rangeId}/students`),
   exportStudentsByPRNRange: (rangeId, format = 'excel') => API.get(`/placement-officer/prn-ranges/${rangeId}/students/export`, {

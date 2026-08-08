@@ -24,6 +24,7 @@ import {
   updatePRNRange,
   deletePRNRange,
   getStudentsByPRNRange,
+  getPRNRangeDeleteImpact,
   exportStudentsByPRNRange,
   getCollegeBranches as getBranchesForNotifications,
   getSentNotifications,
@@ -142,6 +143,7 @@ router.post('/prn-ranges', addPRNRange);
 router.put('/prn-ranges/:id', updatePRNRange);
 router.delete('/prn-ranges/:id', deletePRNRange);
 router.get('/prn-ranges/:id/students', getStudentsByPRNRange);
+router.get('/prn-ranges/:id/delete-impact', getPRNRangeDeleteImpact);
 router.get('/prn-ranges/:id/students/export', exportStudentsByPRNRange);
 
 // Job Request Requirements Routes

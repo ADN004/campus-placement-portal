@@ -1,7 +1,8 @@
 import { Eye, Edit2, Trash2, Ban, CheckCircle, Lock } from 'lucide-react';
 import {
-  Panel, PanelHeading, ActionButton, EmptyState,
+  Panel, PanelHeading, EmptyState,
 } from '../../../components/officer/OfficerUI';
+import RowActions from '../../../components/officer/RowActions';
 
 /**
  * Pieces shared by the three ManagePRNRanges presenters.
@@ -79,7 +80,7 @@ export function RangeIdentity({ range }) {
  * deleting disappear and a plain "Locked" marker takes their place — the same
  * rule as before, said in words.
  */
-export function RangeActions({ range, locked, showLabels, onViewStudents, onToggle, onEdit, onDelete }) {
+export function RangeActions({ range, locked, onViewStudents, onToggle, onEdit, onDelete }) {
   const label = range.single_prn || `${range.start_prn}–${range.end_prn}`;
   const enabled = range.is_enabled !== undefined ? range.is_enabled : range.is_active;
 
@@ -92,18 +93,16 @@ export function RangeActions({ range, locked, showLabels, onViewStudents, onTogg
   const bySuperAdmin = range.created_by === 'super_admin';
   const readOnly = locked || bySuperAdmin;
 
-  return (
-    <div className="flex items-center gap-0.5 flex-nowrap">
-      <ActionButton
-        label="Students"
-        description={`View students in range ${label}`}
-        showLabel={showLabels}
-        onClick={() => onViewStudents(range)}
-      >
-        <Eye size={18} aria-hidden="true" />
-      </ActionButton>
-
-      {readOnly ? (
+  /*
+   * All of it behind the one trigger. Nothing here is repeated across rows in a
+   * sitting the way approving an intake is, so nothing earns a permanent seat.
+   *
+   * The read-only case is not a menu at all — a row an officer cannot act on
+   * should say why, not offer a trigger that opens an empty list.
+   */
+  if (readOnly) {
+    return (
+      <div className="flex items-center justify-end gap-0.5 flex-nowrap">
         <span
           title={bySuperAdmin && !locked ? 'Added by the Super Admin — ask them to change it' : undefined}
           className="inline-flex items-center gap-1.5 px-2.5 min-h-[44px] text-spc-xs
@@ -112,53 +111,51 @@ export function RangeActions({ range, locked, showLabels, onViewStudents, onTogg
           <Lock size={15} aria-hidden="true" />
           <span>{bySuperAdmin && !locked ? 'Super Admin' : 'Locked'}</span>
         </span>
-      ) : (
-        <>
-          {/*
-            An action, so it carries an action's icon.
-            This was a toggle switch glyph — ToggleRight when the range was
-            enabled, ToggleLeft when it was not. A switch is a *state* control:
-            drawn in the "on" position it says "this is currently on", which is
-            what the Status column two cells to the left already says, and it
-            sat on a button whose entire job is to turn that off, in red. It did
-            not behave like a switch either — clicking it opens a confirmation
-            dialog rather than flipping anything.
+      </div>
+    );
+  }
 
-            State belongs in the Status column and nowhere else. Here: a slashed
-            circle for "stop this", a tick for "turn this back on".
-          */}
-          <ActionButton
-            label={enabled ? 'Disable' : 'Enable'}
-            description={enabled ? `Disable range ${label}` : `Enable range ${label}`}
-            tone={enabled ? 'danger' : 'positive'}
-            showLabel={showLabels}
-            onClick={() => onToggle(range)}
-          >
-            {enabled
-              ? <Ban size={18} aria-hidden="true" />
-              : <CheckCircle size={18} aria-hidden="true" />}
-          </ActionButton>
-          <ActionButton
-            label="Edit"
-            description={`Edit range ${label}`}
-            showLabel={false}
-            onClick={() => onEdit(range)}
-          >
-            <Edit2 size={18} aria-hidden="true" />
-          </ActionButton>
-          <ActionButton
-            label="Delete"
-            description={`Delete range ${label}`}
-            tone="danger"
-            showLabel={showLabels}
-            onClick={() => onDelete(range.id, range.created_by)}
-          >
-            <Trash2 size={18} aria-hidden="true" />
-          </ActionButton>
-        </>
-      )}
-    </div>
-  );
+  const actions = [
+    {
+      key: 'students',
+      label: 'View students',
+      description: `View students in range ${label}`,
+      icon: Eye,
+      onSelect: () => onViewStudents(range),
+    },
+    {
+      /*
+       * An action, so it carries an action's icon. This was a toggle switch
+       * glyph, which is a *state* control: drawn "on" it repeated what the
+       * Status column already says, while sitting on a button whose job is to
+       * turn that off. A slashed circle for "stop this", a tick for "turn it
+       * back on".
+       */
+      key: 'toggle',
+      label: enabled ? 'Disable range' : 'Enable range',
+      description: enabled ? `Disable range ${label}` : `Enable range ${label}`,
+      icon: enabled ? Ban : CheckCircle,
+      tone: enabled ? 'danger' : 'positive',
+      onSelect: () => onToggle(range),
+    },
+    {
+      key: 'edit',
+      label: 'Edit range',
+      description: `Edit range ${label}`,
+      icon: Edit2,
+      onSelect: () => onEdit(range),
+    },
+    {
+      key: 'delete',
+      label: 'Delete range',
+      description: `Delete range ${label}`,
+      icon: Trash2,
+      tone: 'danger',
+      onSelect: () => onDelete(range.id, range.created_by),
+    },
+  ];
+
+  return <RowActions actions={actions} subject={label} />;
 }
 
 /* ------------------------------------------------------------------ table */
@@ -200,7 +197,7 @@ export function RangeTable({ ranges, locked, actionHandlers, emptyTitle, emptyHi
               <td className="px-3 py-2 text-spc-xs text-spc-body">{range.description || '–'}</td>
               <td className="px-3 py-2"><RangeStatus range={range} /></td>
               <td className="px-3 py-2 whitespace-nowrap">
-                <RangeActions range={range} locked={locked} showLabels {...actionHandlers} />
+                <RangeActions range={range} locked={locked} {...actionHandlers} />
               </td>
             </tr>
           ))}
@@ -233,7 +230,7 @@ export function RangeList({ ranges, locked, actionHandlers, emptyTitle, emptyHin
             {range.description ? ` · ${range.description}` : ''}
           </p>
           <div className="flex justify-end mt-1">
-            <RangeActions range={range} locked={locked} showLabels={false} {...actionHandlers} />
+            <RangeActions range={range} locked={locked} {...actionHandlers} />
           </div>
         </li>
       ))}

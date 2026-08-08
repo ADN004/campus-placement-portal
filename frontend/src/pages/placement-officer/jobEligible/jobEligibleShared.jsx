@@ -2,8 +2,9 @@ import { Download, Eye, DollarSign, Calendar, Send, Filter, ChevronDown, Chevron
 import StatusBadge from '../../../components/StatusBadge';
 import {
   Panel, PanelHeading, SectionLabel, PrimaryButton, SecondaryButton, DangerButton,
-  CHECKBOX_CLASS, EmptyState, formatDate, ActionButton,
+  CHECKBOX_CLASS, EmptyState, formatDate,
 } from '../../../components/officer/OfficerUI';
+import RowActions from '../../../components/officer/RowActions';
 
 /**
  * Pieces shared by the three JobEligibleStudents presenters.
@@ -334,48 +335,51 @@ export function FilterToggle({ open, onToggle, active, label }) {
 /**
  * Row actions. Identical in all three tables, so one component.
  */
-export function ApplicantActions({ student, showLabels = false, onView, onPlacement, onRemove }) {
+/**
+ * Nothing stays in the row here.
+ *
+ * The rule across the officer tables is that an action earns a place in the row
+ * only if it is repeated across many rows in one sitting — which on Manage
+ * Students means approve and reject, and on this page means nothing. Status
+ * changes go through the bulk bar above the table, and the three below are all
+ * one-at-a-time.
+ */
+export function ApplicantActions({ student, onView, onPlacement, onRemove }) {
   const name = student.name || student.prn;
-  /*
-   * Only an application an officer typed in by hand can be taken back. A
-   * student's own application is theirs even after an officer marks it
-   * selected, so the button simply is not there for those rows.
-   */
-  const removable = Boolean(student.created_by_officer) && Boolean(onRemove);
-  return (
-    <div className="flex items-center gap-0.5 flex-nowrap">
-      <ActionButton
-        label="View"
-        description={`View details for ${name}`}
-        showLabel={showLabels}
-        onClick={() => onView(student)}
-      >
-        <Eye size={18} aria-hidden="true" />
-      </ActionButton>
-      {student.application_status === 'selected' && (
-        <ActionButton
-          label="Placement"
-          description={`Add or edit placement details for ${name}`}
-          tone="positive"
-          showLabel={showLabels}
-          onClick={() => onPlacement(student)}
-        >
-          <DollarSign size={18} aria-hidden="true" />
-        </ActionButton>
-      )}
-      {removable && (
-        <ActionButton
-          label="Remove"
-          description={`Remove ${name}, who was added to this job by hand`}
-          tone="danger"
-          showLabel={showLabels}
-          onClick={() => onRemove(student)}
-        >
-          <Trash2 size={18} aria-hidden="true" />
-        </ActionButton>
-      )}
-    </div>
-  );
+  const actions = [
+    {
+      key: 'view',
+      label: 'View details',
+      description: `View details for ${name}`,
+      icon: Eye,
+      onSelect: () => onView(student),
+    },
+    {
+      key: 'placement',
+      label: 'Placement details',
+      description: `Add or edit placement details for ${name}`,
+      icon: DollarSign,
+      tone: 'positive',
+      hidden: student.application_status !== 'selected',
+      onSelect: () => onPlacement(student),
+    },
+    {
+      /*
+       * Only an application an officer typed in by hand can be taken back. A
+       * student's own application is theirs even after an officer marks it
+       * selected, so this is simply absent on those rows.
+       */
+      key: 'remove',
+      label: 'Remove from job',
+      description: `Remove ${name}, who was added to this job by hand`,
+      icon: Trash2,
+      tone: 'danger',
+      hidden: !(student.created_by_officer && onRemove),
+      onSelect: () => onRemove(student),
+    },
+  ];
+
+  return <RowActions actions={actions} subject={name} />;
 }
 
 /**
@@ -388,7 +392,7 @@ export function ApplicantActions({ student, showLabels = false, onView, onPlacem
  * three can no longer drift apart.
  */
 export function ApplicantTable({
-  students, isHost, caption, showLabels = true,
+  students, isHost, caption,
   selectable = false, selectedIds = [], onSelect, onSelectAll, allSelected,
   showPlacedAt = false,
   onView, onPlacement, onRemove,
@@ -423,7 +427,17 @@ export function ApplicantTable({
             <Th align="right">Backlogs</Th>
             <Th>Status</Th>
             {showPlacedAt && <Th>Already placed at</Th>}
-            <Th>Actions</Th>
+            {/* Pinned, same as Manage Students: this table carries college and
+                branch names, so it outruns a laptop before the actions are
+                even reached. */}
+            <th
+              scope="col"
+              className="sticky right-0 z-10 bg-spc-surface-2 px-3 py-2 text-left
+                text-spc-label font-bold uppercase tracking-[0.11em] text-spc-muted
+                border-l border-spc-line-strong"
+            >
+              Actions
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -433,7 +447,7 @@ export function ApplicantTable({
             return (
               <tr
                 key={student.application_id || student.id}
-                className={`border-b border-spc-line last:border-b-0 transition-colors
+                className={`group border-b border-spc-line last:border-b-0 transition-colors
                   ${checked ? 'bg-spc-selected' : 'hover:bg-spc-surface-2'}`}
               >
                 {selectable && (
@@ -471,8 +485,11 @@ export function ApplicantTable({
                 </Td>
                 <Td><StatusBadge status={student.application_status} variant="officer" /></Td>
                 {showPlacedAt && <Td muted>{student.placed_company || '–'}</Td>}
-                <td className="px-3 py-2">
-                  <ApplicantActions student={student} showLabels={showLabels} onView={onView} onPlacement={onPlacement} onRemove={onRemove} />
+                <td
+                  className={`sticky right-0 z-10 px-3 py-2 border-l border-spc-line-strong
+                    ${checked ? 'bg-spc-selected' : 'bg-spc-surface group-hover:bg-spc-surface-2'}`}
+                >
+                  <ApplicantActions student={student} onView={onView} onPlacement={onPlacement} onRemove={onRemove} />
                 </td>
               </tr>
             );
@@ -489,7 +506,7 @@ export function ApplicantTable({
  * status — with college added when the officer is hosting.
  */
 export function ApplicantList({
-  students, isHost, showLabels = false,
+  students, isHost,
   selectable = false, selectedIds = [], onSelect,
   showPlacedAt = false,
   onView, onPlacement, onRemove,
@@ -562,7 +579,7 @@ export function ApplicantList({
             </div>
 
             <div className="flex justify-end mt-1">
-              <ApplicantActions student={student} showLabels={showLabels} onView={onView} onPlacement={onPlacement} onRemove={onRemove} />
+              <ApplicantActions student={student} onView={onView} onPlacement={onPlacement} onRemove={onRemove} />
             </div>
           </li>
         );

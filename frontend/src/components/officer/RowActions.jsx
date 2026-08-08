@@ -61,8 +61,19 @@ export default function RowActions({ actions, subject }) {
       if (menuRef.current?.contains(e.target) || triggerRef.current?.contains(e.target)) return;
       setOpen(false);
     };
-    // A menu anchored to a row cannot follow it, so close rather than drift.
-    const onScroll = () => setOpen(false);
+    /*
+     * A menu anchored to a row cannot follow it, so close rather than drift.
+     *
+     * Ignored for a moment after opening, though: the act of opening can itself
+     * scroll something — the browser bringing the trigger fully into view, or a
+     * focus landing inside a scrollable ancestor — and that scroll would close
+     * the menu in the same frame it appeared. It read as a dead button.
+     */
+    const openedAt = Date.now();
+    const onScroll = () => {
+      if (Date.now() - openedAt < 250) return;
+      setOpen(false);
+    };
     document.addEventListener('keydown', onKey);
     document.addEventListener('mousedown', onPointer);
     window.addEventListener('resize', onScroll);

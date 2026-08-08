@@ -13,7 +13,16 @@ import {
 } from './profile/ProfilePageSkeleton';
 
 const MAX_IMAGE_BYTES = 500 * 1024;
-const ACCEPTED = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+/*
+ * PNG and JPEG only, because those are the two formats PDFKit can embed.
+ *
+ * GIF and WebP were accepted here, and both upload perfectly happily — then
+ * every PDF that draws the logo throws "Unknown image format" at doc.image().
+ * For the college logo that is the placement poster, which is the main reason
+ * the logo exists: the officer would upload one, be told it worked, and find
+ * the poster failing with no hint the two were connected.
+ */
+const ACCEPTED = ['image/png', 'image/jpeg'];
 
 /** Read a File as a base64 data URL, as both upload endpoints expect. */
 function readAsDataUrl(file) {
@@ -28,7 +37,7 @@ function readAsDataUrl(file) {
 /** Shared validation for both images, so they cannot disagree about limits. */
 function rejectionReason(file) {
   if (!file.type.startsWith('image/')) return 'That is not an image file.';
-  if (!ACCEPTED.includes(file.type)) return 'Use a PNG, JPG, GIF or WebP image.';
+  if (!ACCEPTED.includes(file.type)) return 'Use a PNG or JPG image.';
   if (file.size > MAX_IMAGE_BYTES) {
     return `That image is ${Math.round(file.size / 1024)} KB. The limit is 500 KB.`;
   }

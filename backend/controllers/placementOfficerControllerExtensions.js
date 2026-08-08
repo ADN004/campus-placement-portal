@@ -11,6 +11,7 @@ import {
   sendShortlistEmail,
 } from '../config/emailService.js';
 import { TOTAL_BACKLOGS_SQL, parseMaxBacklogs } from '../utils/backlogPolicy.js';
+import { validateImageFormat } from '../utils/photoValidation.js';
 
 // ========================================
 // CONSTANTS
@@ -2495,6 +2496,16 @@ export const uploadCollegeLogo = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: logoValidation.message,
+      });
+    }
+
+    // And the format, which the page also checks — but only this side of it
+    // decides what ends up on the placement poster.
+    const formatValidation = validateImageFormat(logo);
+    if (!formatValidation.valid) {
+      return res.status(400).json({
+        success: false,
+        message: formatValidation.message,
       });
     }
 

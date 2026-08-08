@@ -2249,12 +2249,45 @@ export const generateJobApplicantsPDF = async (applicants, options, res) => {
  * @param {String} url - Image URL
  * @returns {Promise<Buffer|null>} Image buffer or null if failed
  */
+/**
+ * Draw an image, and carry on if it cannot be drawn.
+ *
+ * PDFKit reads JPEG and PNG only; anything else throws "Unknown image format"
+ * when the page is drawn rather than when the file was uploaded. Uploads are
+ * restricted now, but images accepted before that are still in the database,
+ * and student photos still come through a picker that offers `image/*`.
+ *
+ * Unguarded, one bad file takes the whole document down — on the placement
+ * poster that means a single student's photo costing their college its poster.
+ * Losing one image is a much smaller failure than losing the export.
+ *
+ * @returns {boolean} whether the image was drawn
+ */
+const placeImage = (doc, buffer, ...args) => {
+  try {
+    doc.image(buffer, ...args);
+    return true;
+  } catch (error) {
+    console.error('PDF: skipping an image PDFKit cannot read —', error.message);
+    return false;
+  }
+};
+
 const downloadImage = async (url) => {
   try {
     const https = await import('https');
     const http = await import('http');
 
-    return new Promise((resolve, reject) => {
+    /*
+     * Awaited, not just returned. Without the await the promise leaves the
+     * function before the catch below can see it, so every rejection here —
+     * a 404 on a deleted photo, a dead logo URL, a network blip — escaped to
+     * the caller instead of becoming the null this was written to return. The
+     * callers treat null as "no image" and carry on; an exception took the
+     * whole document down, which is how one missing student photo could cost a
+     * college its placement poster.
+     */
+    return await new Promise((resolve, reject) => {
       const protocol = url.startsWith('https') ? https : http;
 
       protocol.get(url, (response) => {
@@ -2304,11 +2337,25 @@ const drawCircularImageWithBorder = async (doc, imgUrl, x, y, size, borderColor)
       // Create circular clipping path for image
       doc.circle(centerX, centerY, radius - 3).clip();
 
-      // Draw the image from buffer
-      doc.image(imageBuffer, x, y, { width: size, height: size, fit: [size, size], align: 'center', valign: 'center' });
+      /*
+       * Through placeImage so the restore below always runs. When doc.image
+       * threw here it skipped the restore, which left the circular clip in
+       * force: the catch below drew its fallback, and everything else on the
+       * page after it, clipped to one small circle. The page came out mostly
+       * blank with nothing in the logs to connect it to a photo.
+       */
+      const drawn = placeImage(doc, imageBuffer, x, y, {
+        width: size, height: size, fit: [size, size], align: 'center', valign: 'center',
+      });
 
       // Restore graphics state
       doc.restore();
+
+      // An unreadable photo falls back to the same placeholder as a missing one
+      if (!drawn) {
+        doc.fillColor('#991b1e');
+        doc.circle(centerX, centerY, radius).fill();
+      }
 
       // Draw colored border around circle
       doc.lineWidth(11);
@@ -3184,7 +3231,7 @@ const generateSingleCollegePosterPages = async (doc, placements, collegeName, co
       const logoY = 12.5;
       doc.roundedRect(logoX, logoY, logoSize, logoSize, 6)
          .fill('#FFFFFF');
-      doc.image(logoBuffer, logoX + 3, logoY + 3, {
+      placeImage(doc, logoBuffer, logoX + 3, logoY + 3, {
         width: logoSize - 6,
         height: logoSize - 6
       });
@@ -3362,7 +3409,7 @@ const generateSingleCollegePosterPages = async (doc, placements, collegeName, co
         if (photoMap[student.id]) {
           doc.save();
           doc.circle(photoCenterX, photoCenterY, photoRadius).clip();
-          doc.image(photoMap[student.id], photoCenterX - photoRadius, photoCenterY - photoRadius, {
+          placeImage(doc, photoMap[student.id], photoCenterX - photoRadius, photoCenterY - photoRadius, {
             width: photoRadius * 2,
             height: photoRadius * 2
           });
@@ -3535,7 +3582,7 @@ export const generatePlacementPosterPDF = async (placements, options, res) => {
            .fill('#FFFFFF');
 
         // Logo image
-        doc.image(logoBuffer, logoX + 3, logoY + 3, {
+        placeImage(doc, logoBuffer, logoX + 3, logoY + 3, {
           width: logoSize - 6,
           height: logoSize - 6
         });
@@ -3735,7 +3782,7 @@ export const generatePlacementPosterPDF = async (placements, options, res) => {
           if (photoMap[student.id]) {
             doc.save();
             doc.circle(photoCenterX, photoCenterY, photoRadius).clip();
-            doc.image(photoMap[student.id], photoCenterX - photoRadius, photoCenterY - photoRadius, {
+            placeImage(doc, photoMap[student.id], photoCenterX - photoRadius, photoCenterY - photoRadius, {
               width: photoRadius * 2,
               height: photoRadius * 2
             });

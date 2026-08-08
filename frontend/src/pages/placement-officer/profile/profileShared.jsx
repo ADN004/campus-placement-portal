@@ -144,7 +144,7 @@ export function MediaBlock({
               ref={inputRef}
               id={inputId}
               type="file"
-              accept="image/png,image/jpeg,image/gif,image/webp"
+              accept="image/png,image/jpeg"
               onChange={onSelect}
               disabled={busy}
               className="sr-only"
@@ -177,7 +177,7 @@ export function MediaBlock({
             </div>
 
             <p className="text-xs text-spc-muted mt-2 leading-snug">
-              PNG, JPG, GIF or WebP. Up to 500&nbsp;KB.
+              PNG or JPG. Up to 500&nbsp;KB.
               {footNote ? ` ${footNote}` : ''}
             </p>
 

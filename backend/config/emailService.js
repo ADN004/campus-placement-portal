@@ -47,31 +47,37 @@ const APP_ENV = process.env.APP_ENV || 'production';
 const EMAIL_MODE = process.env.EMAIL_MODE || (APP_ENV === 'production' ? 'smtp' : 'log');
 const isRealDeliveryEnabled = APP_ENV === 'production' && EMAIL_MODE === 'smtp';
 
+/**
+ * Resolve the SMTP connection settings from the environment.
+ *
+ * Priority:
+ *   1. EMAIL_HOST set             -> use it as the SMTP host (explicit override).
+ *   2. EMAIL_SERVICE is a hostname -> (i.e. it contains a dot, e.g.
+ *      (contains a ".")              "smtp-relay.gmail.com") use it as the host. This
+ *                                    lets us point at the Google Workspace SMTP relay
+ *                                    with only an env change, since EMAIL_SERVICE is
+ *                                    already passed through to the container.
+ *   3. otherwise                  -> a nodemailer "service" shortcut (default "gmail").
+ *
+ * For a host, port 465 = implicit SSL; any other port (typically 587) = STARTTLS.
+ */
+function resolveSmtpConfig() {
+  const auth = {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASSWORD, // App Password
+  };
+  const service = process.env.EMAIL_SERVICE || 'gmail';
+  const host = process.env.EMAIL_HOST || (service.includes('.') ? service : null);
+
+  if (host) {
+    const port = Number(process.env.EMAIL_PORT) || 587;
+    return { host, port, secure: port === 465, requireTLS: port !== 465, auth };
+  }
+  return { service, auth };
+}
+
 const smtpTransporter = nodemailer.createTransport(
-  isRealDeliveryEnabled
-    ? process.env.EMAIL_HOST
-      ? {
-          // Explicit SMTP host — e.g. smtp-relay.gmail.com for the Google
-          // Workspace SMTP relay service. Port 465 = implicit SSL; any other
-          // port (typically 587) uses STARTTLS, which we require.
-          host: process.env.EMAIL_HOST,
-          port: Number(process.env.EMAIL_PORT) || 587,
-          secure: Number(process.env.EMAIL_PORT) === 465,
-          requireTLS: true,
-          auth: {
-            user: process.env.EMAIL_USER,
-            pass: process.env.EMAIL_PASSWORD, // App Password
-          },
-        }
-      : {
-          // Fallback: well-known service shortcut (defaults to Gmail SMTP).
-          service: process.env.EMAIL_SERVICE || 'gmail',
-          auth: {
-            user: process.env.EMAIL_USER,
-            pass: process.env.EMAIL_PASSWORD, // Gmail App Password
-          },
-        }
-    : { jsonTransport: true } // composes the full message, delivers nowhere
+  isRealDeliveryEnabled ? resolveSmtpConfig() : { jsonTransport: true } // log-only elsewhere
 );
 
 const transporter = isRealDeliveryEnabled

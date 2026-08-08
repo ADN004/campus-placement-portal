@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import useSkeletonLoading from '../../hooks/useSkeletonLoading';
 import useDeviceType from '../../hooks/useDeviceType';
 import PrnRangesPage from './prnRanges/PrnRangesPage';
+import OfficerConfirm from '../../components/officer/OfficerConfirm';
 import {
   RangeFormModal,
   SinglePrnModal,
@@ -28,6 +29,8 @@ export default function ManagePRNRanges() {
   const [showAddSingleModal, setShowAddSingleModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [showDisableModal, setShowDisableModal] = useState(false);
+  const [deletingRange, setDeletingRange] = useState(null);
+  const [deletingBusy, setDeletingBusy] = useState(false);
   const [selectedRange, setSelectedRange] = useState(null);
   const [disableReason, setDisableReason] = useState('');
   const [showViewStudentsModal, setShowViewStudentsModal] = useState(false);
@@ -179,22 +182,28 @@ export default function ManagePRNRanges() {
     }
   };
 
-  const handleDelete = async (id, createdBy) => {
+  const handleDelete = (id, createdBy) => {
     if (createdBy === 'super_admin') {
       toast.error('You cannot delete PRN ranges created by Super Admin');
       return;
     }
+    // Was a browser confirm, which could not name the range being deleted or
+    // say what deleting one costs — and this page already has a Disable that
+    // most officers actually want instead.
+    setDeletingRange(prnRanges.find((r) => r.id === id) || { id });
+  };
 
-    if (!window.confirm('Are you sure you want to delete this PRN range?')) {
-      return;
-    }
-
+  const confirmDelete = async () => {
     try {
-      await placementOfficerAPI.deletePRNRange(id);
+      setDeletingBusy(true);
+      await placementOfficerAPI.deletePRNRange(deletingRange.id);
       toast.success('PRN range deleted successfully');
+      setDeletingRange(null);
       fetchPRNRanges();
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to delete PRN range');
+    } finally {
+      setDeletingBusy(false);
     }
   };
 
@@ -362,6 +371,34 @@ export default function ManagePRNRanges() {
         }}
         actionHandlers={actionHandlers}
       />
+
+      {deletingRange && (
+        <OfficerConfirm
+          title="Delete this PRN range?"
+          subtitle={
+            deletingRange.single_prn
+              ? `${deletingRange.single_prn}${deletingRange.year ? ` · ${deletingRange.year}` : ''}`
+              : `${deletingRange.start_prn} – ${deletingRange.end_prn}${deletingRange.year ? ` · ${deletingRange.year}` : ''}`
+          }
+          confirmLabel="Delete range"
+          busyLabel="Deleting…"
+          busy={deletingBusy}
+          body={(
+            <>
+              <p>
+                Students in this range can no longer register, and the range disappears from
+                this page.
+              </p>
+              <p className="text-spc-muted">
+                Anyone who already registered keeps their account. To stop new registrations
+                without losing the record, disable it instead.
+              </p>
+            </>
+          )}
+          onConfirm={confirmDelete}
+          onClose={() => setDeletingRange(null)}
+        />
+      )}
 
       {showAddModal && (
         <RangeFormModal

@@ -9,12 +9,62 @@ import DesktopManageStudents from './students/DesktopManageStudents';
 import TabletManageStudents from './students/TabletManageStudents';
 import MobileManageStudents from './students/MobileManageStudents';
 import StudentModals from './students/StudentModals';
+import OfficerConfirm from '../../components/officer/OfficerConfirm';
 import ExportModals, { EXPORT_FIELDS } from './students/ExportModals';
 import {
   DesktopManageStudentsSkeleton,
   TabletManageStudentsSkeleton,
   MobileManageStudentsSkeleton,
 } from './students/ManageStudentsSkeleton';
+
+/*
+ * What each confirmation says. The native popups these replace could only ask
+ * "Are you sure?" — so the count, the consequence, and who reads the rejection
+ * reason all live here instead of nowhere.
+ */
+const REJECT_REASON = {
+  label: 'Reason (optional)',
+  placeholder: 'e.g. The photo is unclear — please upload a clearer one.',
+  hint: 'Shown to the student, so write it for them: they can fix it and register again.',
+};
+
+const CONFIRM_COPY = {
+  approve: () => ({
+    title: 'Approve this student?',
+    tone: 'positive',
+    confirmLabel: 'Approve',
+    busyLabel: 'Approving…',
+    body: <p>They will be able to sign in, see jobs they are eligible for, and apply.</p>,
+  }),
+  reject: () => ({
+    title: 'Reject this registration?',
+    tone: 'danger',
+    confirmLabel: 'Reject',
+    busyLabel: 'Rejecting…',
+    reason: REJECT_REASON,
+    body: <p>They will not be able to apply for jobs. They can register again once the problem is fixed.</p>,
+  }),
+  bulkApprove: ({ count }) => ({
+    title: `Approve ${count} student${count === 1 ? '' : 's'}?`,
+    tone: 'positive',
+    confirmLabel: `Approve ${count}`,
+    busyLabel: 'Approving…',
+    body: (
+      <p>
+        All {count} will be able to sign in and apply. Anyone in the selection who is no longer
+        pending is skipped.
+      </p>
+    ),
+  }),
+  bulkReject: ({ count }) => ({
+    title: `Reject ${count} registration${count === 1 ? '' : 's'}?`,
+    tone: 'danger',
+    confirmLabel: `Reject ${count}`,
+    busyLabel: 'Rejecting…',
+    reason: { ...REJECT_REASON, hint: 'The same reason is shown to every student in this selection.' },
+    body: <p>None of them will be able to apply. Each can register again once it is fixed.</p>,
+  }),
+};
 
 export default function ManageStudents() {
   const navigate = useNavigate();
@@ -71,6 +121,9 @@ export default function ManageStudents() {
 
   // Bulk Selection
   const [selectedStudents, setSelectedStudents] = useState([]);
+  // The pending approve/reject, single or bulk, while its dialog is open.
+  const [confirmAction, setConfirmAction] = useState(null);
+  const [confirmBusy, setConfirmBusy] = useState(false);
 
   // Modals
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -422,8 +475,21 @@ export default function ManageStudents() {
     }
   };
 
-  const handleApprove = async (studentId) => {
-    if (!window.confirm('Are you sure you want to approve this student?')) return false;
+  /*
+   * Approve and reject both used browser popups — `window.confirm` for the
+   * yes/no, and `window.prompt` for the rejection reason, which is the text the
+   * student is shown so they can fix their registration. A prompt cannot label
+   * that field, cannot say who reads it, and on a phone it is whatever the OS
+   * feels like drawing. Both now go through the role's own dialog.
+   *
+   * Each action splits in two: `ask*` opens the dialog, `do*` performs the work
+   * once it is confirmed. `after` lets the caller close the details modal on
+   * success, which is what the old boolean return value was for.
+   */
+  const askApprove = (studentId, after) => setConfirmAction({ kind: 'approve', studentId, after });
+  const askReject = (studentId, after) => setConfirmAction({ kind: 'reject', studentId, after });
+
+  const doApprove = async (studentId) => {
     try {
       await placementOfficerAPI.approveStudent(studentId);
       toast.success('Student approved successfully');
@@ -435,14 +501,9 @@ export default function ManageStudents() {
     }
   };
 
-  const handleReject = async (studentId) => {
-    const reason = window.prompt(
-      'Reason for rejection (optional — shown to the student so they can fix it and re-register):',
-      ''
-    );
-    if (reason === null) return false; // Cancel pressed — abort; empty is allowed
+  const doReject = async (studentId, reason) => {
     try {
-      await placementOfficerAPI.rejectStudent(studentId, reason.trim() || undefined);
+      await placementOfficerAPI.rejectStudent(studentId, reason || undefined);
       toast.success('Student rejected');
       refreshStudentsAndCounts();
       return true;
@@ -475,14 +536,23 @@ export default function ManageStudents() {
     );
   };
 
-  const handleBulkApprove = async () => {
+  const askBulkApprove = () => {
     if (selectedStudents.length === 0) {
       toast.error('Please select at least one student');
       return;
     }
-    if (!window.confirm(`Are you sure you want to approve ${selectedStudents.length} student(s)?`)) {
+    setConfirmAction({ kind: 'bulkApprove', count: selectedStudents.length });
+  };
+
+  const askBulkReject = () => {
+    if (selectedStudents.length === 0) {
+      toast.error('Please select at least one student');
       return;
     }
+    setConfirmAction({ kind: 'bulkReject', count: selectedStudents.length });
+  };
+
+  const doBulkApprove = async () => {
     const selectedCount = selectedStudents.length;
     try {
       // One atomic request. This used to fire one PUT per student in parallel:
@@ -515,23 +585,14 @@ export default function ManageStudents() {
     }
   };
 
-  const handleBulkReject = async () => {
-    if (selectedStudents.length === 0) {
-      toast.error('Please select at least one student');
-      return;
-    }
-    const reason = window.prompt(
-      'Reason for rejecting these students (optional — shown to each student):',
-      ''
-    );
-    if (reason === null) return; // Cancel pressed — abort; empty is allowed
+  const doBulkReject = async (reason) => {
     const selectedCount = selectedStudents.length;
     try {
       // Same swap as bulk approve: one transactional request instead of N
       // racing ones. The reason applies to the whole batch, as it did before.
       const response = await placementOfficerAPI.bulkRejectStudents(
         selectedStudents,
-        reason.trim() || undefined
+        reason || undefined
       );
 
       const rejectedCount = response.data?.data?.rejectedCount ?? 0;
@@ -551,6 +612,27 @@ export default function ManageStudents() {
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to reject students');
       refreshStudentsAndCounts();
+    }
+  };
+
+  /** Runs whichever action the open confirmation belongs to. */
+  const runConfirmAction = async (reason) => {
+    if (!confirmAction) return;
+    const { kind, studentId, after } = confirmAction;
+    setConfirmBusy(true);
+    try {
+      if (kind === 'approve') {
+        if (await doApprove(studentId)) after?.();
+      } else if (kind === 'reject') {
+        if (await doReject(studentId, reason)) after?.();
+      } else if (kind === 'bulkApprove') {
+        await doBulkApprove();
+      } else if (kind === 'bulkReject') {
+        await doBulkReject(reason);
+      }
+      setConfirmAction(null);
+    } finally {
+      setConfirmBusy(false);
     }
   };
 
@@ -1007,8 +1089,8 @@ export default function ManageStudents() {
   // Row actions. Every presenter gets these same functions.
   const actionHandlers = {
     onReview: openDetailsModal,
-    onApprove: handleApprove,
-    onReject: handleReject,
+    onApprove: askApprove,
+    onReject: askReject,
     onEmailFix: setEmailFixStudent,
     onCorrection: openCorrectionModal,
     onBlacklist: handleBlacklist,
@@ -1067,8 +1149,8 @@ export default function ManageStudents() {
     pendingInView,
     onSelectStudent: handleSelectStudent,
     onSelectAll: handleSelectAll,
-    onBulkApprove: handleBulkApprove,
-    onBulkReject: handleBulkReject,
+    onBulkApprove: askBulkApprove,
+    onBulkReject: askBulkReject,
     onClearSelection: () => setSelectedStudents([]),
     currentPage,
     totalPages,
@@ -1092,18 +1174,24 @@ export default function ManageStudents() {
         <DesktopManageStudents {...presenterProps} />
       )}
 
+      {confirmAction && (
+        <OfficerConfirm
+          {...CONFIRM_COPY[confirmAction.kind](confirmAction)}
+          busy={confirmBusy}
+          onConfirm={runConfirmAction}
+          onClose={() => setConfirmAction(null)}
+        />
+      )}
+
       <StudentModals
         showDetailsModal={showDetailsModal}
         selectedStudent={selectedStudent}
         onCloseDetails={() => setShowDetailsModal(false)}
-        /* Approving or rejecting from the review dialog closes it on success,
-           exactly as before — both handlers return a boolean for this. */
-        onApprove={async (id) => {
-          if (await handleApprove(id)) setShowDetailsModal(false);
-        }}
-        onReject={async (id) => {
-          if (await handleReject(id)) setShowDetailsModal(false);
-        }}
+        /* Approving or rejecting from the review dialog still closes it on
+           success — the confirmation now sits in front, and carries the
+           close as its  callback. */
+        onApprove={(id) => askApprove(id, () => setShowDetailsModal(false))}
+        onReject={(id) => askReject(id, () => setShowDetailsModal(false))}
         emailFixStudent={emailFixStudent}
         onEmailFixSubmit={async (email) => {
           const response = await placementOfficerAPI.updateStudentEmail(emailFixStudent.id, email);

@@ -166,12 +166,30 @@ const deleteStudentsInRange = async (range, officerId, collegeId) => {
       );
     }
 
-    // Delete users (CASCADE will handle students, job_applications, etc.)
     const userIds = studentsToDelete.map(s => s.user_id);
-    await query(
-      `DELETE FROM users WHERE id = ANY($1::int[])`,
-      [userIds]
-    );
+
+    /*
+     * Their activity log has to go first. activity_logs.user_id references
+     * users with NO ACTION, not CASCADE, so a student who has ever done
+     * anything logged — signing in is enough — made the DELETE below fail on a
+     * foreign key. The officer got a raw Postgres string in a 500 and nothing
+     * was deleted at all: not the students, not even the range. Since real
+     * students do sign in, deleting a range with anyone in it mostly did not
+     * work.
+     *
+     * The Super Admin's delete-student already clears these first; this path
+     * never did.
+     *
+     * Both deletes go in one transaction. Separately, a failure on the second
+     * would leave the activity log wiped for accounts that then survived —
+     * destroying the audit trail of students who are still there.
+     */
+    await transaction(async (client) => {
+      await client.query(`DELETE FROM activity_logs WHERE user_id = ANY($1::int[])`, [userIds]);
+      // CASCADE handles students, job_applications, extended profiles, resumes,
+      // whitelist requests and notification recipients.
+      await client.query(`DELETE FROM users WHERE id = ANY($1::int[])`, [userIds]);
+    });
 
     /*
      * Their photos go too. CASCADE only reaches the database, so this was the

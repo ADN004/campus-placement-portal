@@ -72,9 +72,11 @@ export default function AutoRefreshIndicator({
               autoRefreshEnabled ? 'bg-spc-ok' : 'bg-spc-muted'
             }`}
           />
-          {/* "Live"/"Paused" reads as a label for the data; these say what the
-              button does to it, which is what a button should say. */}
-          <span>{autoRefreshEnabled ? 'Updating' : 'Paused'}</span>
+          {/* "Updating" sat next to the text that reads "Refreshing…" while a
+              refresh is genuinely in flight, so the two looked like the same
+              claim. These name the setting instead, and the title says what
+              clicking does. */}
+          <span>{autoRefreshEnabled ? 'Auto on' : 'Auto off'}</span>
         </button>
       </div>
     );

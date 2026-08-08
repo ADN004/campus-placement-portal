@@ -57,6 +57,11 @@ export default function JobEligibleBody({ layout, ...p }) {
    */
   const applicantWindow = useLongList(currentApplicants, { step: 50 });
   const placedWindow = useLongList(placedApplicants, { step: 25 });
+  // The selected summary was left whole when the other two were windowed. It is
+  // the smallest of the three on a normal job and the largest on a good one —
+  // a statewide drive that selects several hundred renders every row twice,
+  // once here and once in the applicants table above.
+  const selectedWindow = useLongList(p.selectedSummary, { step: 25 });
 
   return (
     <>
@@ -225,13 +230,20 @@ export default function JobEligibleBody({ layout, ...p }) {
                   Marked selected ({p.selectedSummary.length})
                 </PanelHeading>
                 <ApplicantView
-                  students={p.selectedSummary}
+                  students={selectedWindow.visible}
                   isHost={p.isHost}
                   caption="Students marked as selected for this job."
                   showLabels={showActionLabels}
                   onView={p.onViewStudent}
                   onPlacement={p.onEditPlacement}
                 />
+                {selectedWindow.hasMore && (
+                  <ShowMore
+                    onClick={selectedWindow.showMore}
+                    remaining={selectedWindow.remaining}
+                    noun="student"
+                  />
+                )}
               </Panel>
             </section>
           )}

@@ -2477,6 +2477,7 @@ export const getJobApplicants = async (req, res) => {
         s.registration_status, s.is_blacklisted, s.gender, s.age,
         c.college_name,
         ja.id as application_id, ja.applied_date, ja.application_status,
+        ja.created_by_officer,
         ja.placement_package, ja.joining_date, ja.placement_location,
         j.job_title, j.company_name, j.min_cgpa, j.max_backlogs, j.allowed_branches,
         sep.sslc_marks, sep.sslc_year, sep.sslc_board,

@@ -450,3 +450,37 @@ export function ConfirmRemoveJobModal({ job, applicantCount, busy, onConfirm, on
     </Dialog>
   );
 }
+
+/**
+ * Undoing a manual addition. Says plainly that the student never applied, so
+ * the officer can tell this apart from removing a real application — which this
+ * never does, because those rows have no Remove button.
+ */
+export function ConfirmRemoveApplicantModal({ student, job, busy, onConfirm, onClose }) {
+  const name = student.name || student.prn;
+  return (
+    <Dialog
+      id="confirm-remove-applicant"
+      title="Remove this student from the job?"
+      subtitle={`${name} · ${student.prn}`}
+      onClose={onClose}
+    >
+      <div className="px-5 py-4 text-spc-xs text-spc-body leading-snug space-y-2">
+        <p>
+          {name} was added to <span className="font-bold text-spc-ink">{job.job_title}</span> by
+          hand — they never applied through the portal. Removing them undoes that.
+        </p>
+        <p className="text-spc-muted">
+          Any placement details recorded against this entry go with it. Nothing else about the
+          student changes, and they can be added again.
+        </p>
+      </div>
+      <Footer>
+        <SecondaryButton type="button" onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
+        <DangerButton type="button" onClick={onConfirm} disabled={busy}>
+          {busy ? 'Removing…' : 'Remove student'}
+        </DangerButton>
+      </Footer>
+    </Dialog>
+  );
+}

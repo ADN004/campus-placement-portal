@@ -2795,8 +2795,38 @@ export const manuallyAddStudentToJob = async (req, res) => {
     // Check for existing placements in other jobs (informational only)
     const existingPlacements = await checkExistingPlacements(student.id, job_id);
 
-    // Prepare application data
-    const packageToUse = placement_package || job.salary_package;
+    /*
+     * jobs.salary_package is free text — officers write "3 LPA",
+     * "1.8 to 3.66", "Negotiable" — while job_applications.placement_package
+     * is DECIMAL(10,2). Handing one straight to the other made a manual
+     * addition fail with a raw Postgres error whenever the officer left the
+     * package blank, which is a quarter of the jobs on staging.
+     *
+     * An explicit figure the officer typed is taken at its word, and rejected
+     * with a message if it is not a number. The job's own text is only
+     * borrowed when it clearly is a single number; a range is not one package,
+     * so it is left empty for the placement form to fill in later.
+     */
+    const suppliedPackage = placement_package !== undefined && placement_package !== null
+      && String(placement_package).trim() !== '';
+    let packageToUse;
+    if (suppliedPackage) {
+      // The dialog pre-fills this from the job's advertised text, so "3 LPA"
+      // arrives here written by the form rather than typed by anyone. Read it
+      // the same lenient way; only refuse what genuinely names no single
+      // figure, and say so instead of letting Postgres reject it.
+      packageToUse = parseSingleFigurePackage(placement_package);
+      if (packageToUse === null) {
+        return res.status(400).json({
+          success: false,
+          message:
+            `"${String(placement_package).trim()}" does not name one package. `
+            + 'Enter a single figure such as 4.5, or leave it blank to fill in later.',
+        });
+      }
+    } else {
+      packageToUse = parseSingleFigurePackage(job.salary_package);
+    }
     const reviewNotes = notes
       ? `[MANUAL ADDITION by Placement Officer on ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}]\n${notes}`
       : `[MANUAL ADDITION by Placement Officer on ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}]`;
@@ -2849,9 +2879,13 @@ export const manuallyAddStudentToJob = async (req, res) => {
           joining_date,
           placement_location,
           is_manual_addition,
+          -- Only this branch sets it. The branch above updates an application
+          -- the student submitted, which stays theirs and must not become
+          -- removable.
+          created_by_officer,
           applied_date,
           updated_at
-        ) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, $5, $6, $7, $8, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        ) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, $5, $6, $7, $8, TRUE, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         RETURNING id, job_id, student_id, application_status, placement_package, joining_date, placement_location`,
         [
           job_id,
@@ -2930,6 +2964,101 @@ export const manuallyAddStudentToJob = async (req, res) => {
     });
   } finally {
     client.release();
+  }
+};
+
+/**
+ * A job's advertised package as a number, or null when the text does not name
+ * exactly one. Accepts "4.5", "4.5 LPA", "6 lakhs"; refuses "1.8 to 3.66",
+ * "Negotiable", "As per norms".
+ */
+function parseSingleFigurePackage(text) {
+  if (text === null || text === undefined) return null;
+  const value = String(text).trim();
+  if (value === '') return null;
+  // A range or a list is not one package.
+  if (/\d\s*(?:-|–|—|to|\/|,)\s*\d/i.test(value)) return null;
+  const match = value.match(/^(\d+(?:\.\d+)?)\s*(?:lpa|lakhs?|lac|l)?$/i);
+  return match ? Number(match[1]) : null;
+}
+
+/**
+ * Remove an application an officer created by hand.
+ *
+ * Adding a student to a job had no undo: the only DELETEs against
+ * job_applications anywhere are the cascades from removing an entire student or
+ * an entire job, so a mistyped PRN stayed on the job forever.
+ *
+ * Scope is deliberately narrow. Only rows with created_by_officer set can go,
+ * which is only ever a row this feature inserted for a student who never
+ * applied. An application the student submitted themselves is never removable
+ * here, even when an officer later marked it selected and is_manual_addition
+ * became true — that record is the student's.
+ *
+ * @route   DELETE /api/placement-officer/jobs/:jobId/applicants/:applicationId
+ * @access  Private (Placement Officer)
+ */
+export const removeManualApplicant = async (req, res) => {
+  try {
+    const { jobId, applicationId } = req.params;
+
+    const officer = await query(
+      'SELECT id FROM placement_officers WHERE user_id = $1',
+      [req.user.id]
+    );
+    if (officer.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Placement officer profile not found' });
+    }
+
+    const found = await query(
+      `SELECT ja.id, ja.created_by_officer, ja.application_status,
+              j.placement_officer_id, j.job_title,
+              s.student_name, s.prn
+         FROM job_applications ja
+         JOIN jobs j ON j.id = ja.job_id
+         JOIN students s ON s.id = ja.student_id
+        WHERE ja.id = $1 AND ja.job_id = $2`,
+      [applicationId, jobId]
+    );
+    if (found.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Application not found on this job' });
+    }
+    const app = found.rows[0];
+
+    if (!app.created_by_officer) {
+      return res.status(403).json({
+        success: false,
+        message:
+          'This student applied themselves, so their application cannot be removed here. '
+          + 'Change its status instead.',
+      });
+    }
+
+    // Whoever added it can take it back, and so can the officer whose job it is.
+    const ownsJob = app.placement_officer_id === officer.rows[0].id;
+    if (app.created_by_officer !== req.user.id && !ownsJob) {
+      return res.status(403).json({
+        success: false,
+        message: 'Only the officer who added this student, or the officer who owns this job, can remove it.',
+      });
+    }
+
+    await query('DELETE FROM job_applications WHERE id = $1', [applicationId]);
+
+    await logActivity(
+      req.user.id,
+      'REMOVE_MANUAL_APPLICANT',
+      `Removed manually added applicant ${app.student_name} (${app.prn}) from job: ${app.job_title}`,
+      'job_application',
+      Number(applicationId),
+      { job_id: Number(jobId), prn: app.prn, application_status: app.application_status },
+      req
+    );
+
+    res.status(200).json({ success: true, message: 'Applicant removed' });
+  } catch (error) {
+    console.error('Remove manual applicant error:', error);
+    res.status(500).json({ success: false, message: 'Error removing applicant', error: error.message });
   }
 };
 

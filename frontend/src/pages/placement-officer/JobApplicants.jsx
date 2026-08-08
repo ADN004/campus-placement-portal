@@ -20,6 +20,7 @@ import {
   CollegePickerModal,
   EditJobModal,
   ConfirmRemoveJobModal,
+  ConfirmRemoveApplicantModal,
 } from './jobEligible/JobEligibleModals';
 import {
   DesktopJobEligibleSkeleton,
@@ -75,6 +76,8 @@ export default function JobApplicants() {
   const [showEditJobModal, setShowEditJobModal] = useState(false);
   const [confirmRemoveJob, setConfirmRemoveJob] = useState(false);
   const [removingJob, setRemovingJob] = useState(false);
+  const [removingApplicant, setRemovingApplicant] = useState(null);
+  const [removingApplicantBusy, setRemovingApplicantBusy] = useState(false);
   const [editJobData, setEditJobData] = useState({});
   const [editJobLoading, setEditJobLoading] = useState(false);
 
@@ -429,6 +432,30 @@ export default function JobApplicants() {
     } catch (error) {
       console.error('Update placement error:', error);
       toast.error('Failed to update placement details');
+    }
+  };
+
+  /*
+   * The undo for a manual addition. Only offered on rows the officer typed in
+   * themselves — a student's own application has no Remove button and the
+   * server refuses it regardless.
+   */
+  const handleRemoveApplicant = async () => {
+    if (!removingApplicant) return;
+    try {
+      setRemovingApplicantBusy(true);
+      await placementOfficerAPI.removeManualApplicant(
+        selectedJob.id,
+        removingApplicant.application_id
+      );
+      toast.success(`${removingApplicant.name || removingApplicant.prn} removed from this job`);
+      setRemovingApplicant(null);
+      await fetchJobApplicants();
+      await fetchPlacementStats();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to remove applicant');
+    } finally {
+      setRemovingApplicantBusy(false);
     }
   };
 
@@ -819,6 +846,7 @@ export default function JobApplicants() {
     onEditJob: handleOpenEditJob,
     applicantCount: students.length,
     onDeleteJob: () => setConfirmRemoveJob(true),
+    onRemoveApplicant: (student) => setRemovingApplicant(student),
     onUnpublishJob: () => setConfirmRemoveJob(true),
     onExport: handleOpenExport,
     exporting,
@@ -969,6 +997,16 @@ export default function JobApplicants() {
           busy={removingJob}
           onConfirm={students.length === 0 ? handleDeleteJob : handleUnpublishJob}
           onClose={() => setConfirmRemoveJob(false)}
+        />
+      )}
+
+      {removingApplicant && selectedJob && (
+        <ConfirmRemoveApplicantModal
+          student={removingApplicant}
+          job={selectedJob}
+          busy={removingApplicantBusy}
+          onConfirm={handleRemoveApplicant}
+          onClose={() => setRemovingApplicant(null)}
         />
       )}
 

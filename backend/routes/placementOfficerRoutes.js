@@ -53,6 +53,7 @@ import {
   uploadCollegeLogo,
   deleteCollegeLogo,
   manuallyAddStudentToJob,
+  removeManualApplicant,
   validateStudentForManualAddition,
   exportEligibleNotApplied,
   getCgpaLockStatusPO,
@@ -158,6 +159,7 @@ router.delete('/college/logo', deleteCollegeLogo);
 // Manual Student Addition Routes
 router.post('/manually-add-student-to-job', manuallyAddStudentToJob);
 router.post('/validate-student-for-manual-addition', validateStudentForManualAddition);
+router.delete('/jobs/:jobId/applicants/:applicationId', removeManualApplicant);
 
 // CGPA Lock/Unlock Management Routes
 router.get('/cgpa-lock-status', getCgpaLockStatusPO);

@@ -618,6 +618,11 @@ CREATE TABLE job_applications (
 
     -- Manual addition tracking
     is_manual_addition BOOLEAN DEFAULT FALSE,
+    -- Set only when an officer created the row for a student who never applied.
+    -- is_manual_addition is also set when an officer marks a student's own
+    -- application selected, so it cannot tell the two apart; only rows with
+    -- created_by_officer set may be removed from the applicants page.
+    created_by_officer INTEGER REFERENCES users(id) ON DELETE SET NULL,
 
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(job_id, student_id)
@@ -630,6 +635,7 @@ CREATE INDEX idx_applications_status_updated ON job_applications(application_sta
 CREATE INDEX idx_applications_reviewed_by ON job_applications(reviewed_by);
 CREATE INDEX idx_job_applications_manual_addition ON job_applications(is_manual_addition);
 CREATE INDEX idx_job_applications_job_manual ON job_applications(job_id, is_manual_addition) WHERE is_manual_addition = TRUE;
+CREATE INDEX idx_job_applications_created_by_officer ON job_applications(created_by_officer) WHERE created_by_officer IS NOT NULL;
 
 -- ============================================
 -- 18. JOB APPLICATIONS EXTENDED TABLE

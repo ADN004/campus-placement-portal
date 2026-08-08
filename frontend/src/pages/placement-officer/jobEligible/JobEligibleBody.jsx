@@ -189,6 +189,7 @@ export default function JobEligibleBody({ layout, ...p }) {
                 }
                 onView={p.onViewStudent}
                 onPlacement={p.onEditPlacement}
+                  onRemove={p.onRemoveApplicant}
                 showLabels={showActionLabels}
                 loading={p.loadingStudents}
               />
@@ -227,6 +228,7 @@ export default function JobEligibleBody({ layout, ...p }) {
                   showLabels={showActionLabels}
                   onView={p.onViewStudent}
                   onPlacement={p.onEditPlacement}
+                  onRemove={p.onRemoveApplicant}
                 />
                 {placedWindow.hasMore && (
                   <ShowMore
@@ -252,6 +254,7 @@ export default function JobEligibleBody({ layout, ...p }) {
                   showLabels={showActionLabels}
                   onView={p.onViewStudent}
                   onPlacement={p.onEditPlacement}
+                  onRemove={p.onRemoveApplicant}
                 />
                 {selectedWindow.hasMore && (
                   <ShowMore

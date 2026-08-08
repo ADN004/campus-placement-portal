@@ -334,8 +334,14 @@ export function FilterToggle({ open, onToggle, active, label }) {
 /**
  * Row actions. Identical in all three tables, so one component.
  */
-export function ApplicantActions({ student, showLabels = false, onView, onPlacement }) {
+export function ApplicantActions({ student, showLabels = false, onView, onPlacement, onRemove }) {
   const name = student.name || student.prn;
+  /*
+   * Only an application an officer typed in by hand can be taken back. A
+   * student's own application is theirs even after an officer marks it
+   * selected, so the button simply is not there for those rows.
+   */
+  const removable = Boolean(student.created_by_officer) && Boolean(onRemove);
   return (
     <div className="flex items-center gap-0.5 flex-nowrap">
       <ActionButton
@@ -357,6 +363,17 @@ export function ApplicantActions({ student, showLabels = false, onView, onPlacem
           <DollarSign size={18} aria-hidden="true" />
         </ActionButton>
       )}
+      {removable && (
+        <ActionButton
+          label="Remove"
+          description={`Remove ${name}, who was added to this job by hand`}
+          tone="danger"
+          showLabel={showLabels}
+          onClick={() => onRemove(student)}
+        >
+          <Trash2 size={18} aria-hidden="true" />
+        </ActionButton>
+      )}
     </div>
   );
 }
@@ -374,7 +391,7 @@ export function ApplicantTable({
   students, isHost, caption, showLabels = true,
   selectable = false, selectedIds = [], onSelect, onSelectAll, allSelected,
   showPlacedAt = false,
-  onView, onPlacement,
+  onView, onPlacement, onRemove,
   emptyMessage = 'No students match the current filters.',
   loading = false,
 }) {
@@ -455,7 +472,7 @@ export function ApplicantTable({
                 <Td><StatusBadge status={student.application_status} variant="officer" /></Td>
                 {showPlacedAt && <Td muted>{student.placed_company || '–'}</Td>}
                 <td className="px-3 py-2">
-                  <ApplicantActions student={student} showLabels={showLabels} onView={onView} onPlacement={onPlacement} />
+                  <ApplicantActions student={student} showLabels={showLabels} onView={onView} onPlacement={onPlacement} onRemove={onRemove} />
                 </td>
               </tr>
             );
@@ -475,7 +492,7 @@ export function ApplicantList({
   students, isHost, showLabels = false,
   selectable = false, selectedIds = [], onSelect,
   showPlacedAt = false,
-  onView, onPlacement,
+  onView, onPlacement, onRemove,
   emptyMessage = 'No students match the current filters.',
   loading = false,
 }) {
@@ -545,7 +562,7 @@ export function ApplicantList({
             </div>
 
             <div className="flex justify-end mt-1">
-              <ApplicantActions student={student} showLabels={showLabels} onView={onView} onPlacement={onPlacement} />
+              <ApplicantActions student={student} showLabels={showLabels} onView={onView} onPlacement={onPlacement} onRemove={onRemove} />
             </div>
           </li>
         );

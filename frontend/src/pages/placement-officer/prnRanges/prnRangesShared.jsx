@@ -186,6 +186,34 @@ export function RangeActions({ range, locked, onViewStudents, onToggle, onEdit, 
 
 /* ------------------------------------------------------------------ table */
 
+/*
+ * Column widths, which this table needs and the wider ones do not.
+ *
+ * It is `w-full` and only five columns across. With no width set anywhere a
+ * browser shares the leftover width out among all five, so on a 1920px screen
+ * the Actions column was padded to a few hundred pixels and its trigger sat
+ * against the window edge — correctly right-aligned under its header, and a
+ * long way from the row it acts on. Alignment was never the problem; the
+ * column being stretched was.
+ *
+ * Description takes the slack instead: it is the one column whose content
+ * genuinely varies in length, and the one that reads better wide. `w-px` with
+ * `whitespace-nowrap` is the table idiom for "no wider than the content", so
+ * every other column shrinks to fit and the actions come to rest just after
+ * the status, where the eye already is.
+ *
+ * Manage Students and Job Applicants have ten and nine columns of real data,
+ * so they fill a desktop on their own and are pinned besides. This is the only
+ * officer table narrow enough for the slack to show.
+ */
+const PRN_COLUMNS = [
+  { label: 'PRN range', align: 'text-left', width: 'w-px' },
+  { label: 'Year', align: 'text-left', width: 'w-px' },
+  { label: 'Description', align: 'text-left', width: 'w-full' },
+  { label: 'Status', align: 'text-left', width: 'w-px' },
+  { label: 'Actions', align: 'text-right', width: 'w-px' },
+];
+
 export function RangeTable({ ranges, locked, actionHandlers, emptyTitle, emptyHint }) {
   if (ranges.length === 0) {
     return (
@@ -206,12 +234,11 @@ export function RangeTable({ ranges, locked, actionHandlers, emptyTitle, emptyHi
           <tr className="bg-spc-surface-2 border-b-[1.5px] border-spc-rule-structural">
             {/* Actions sits right, because its trigger does. A left-aligned
                 header over a right-aligned button reads as two columns. */}
-            {['PRN range', 'Year', 'Description', 'Status', 'Actions'].map((h) => (
-              <th key={h} scope="col"
+            {PRN_COLUMNS.map(({ label, align, width }) => (
+              <th key={label} scope="col"
                 className={`px-3 py-2 font-khand font-medium uppercase tracking-[0.06em]
-                  text-spc-xs text-spc-muted whitespace-nowrap
-                  ${h === 'Actions' ? 'text-right' : 'text-left'}`}>
-                {h}
+                  text-spc-xs text-spc-muted whitespace-nowrap ${align} ${width}`}>
+                {label}
               </th>
             ))}
           </tr>
@@ -219,13 +246,15 @@ export function RangeTable({ ranges, locked, actionHandlers, emptyTitle, emptyHi
         <tbody>
           {ranges.map((range) => (
             <tr key={range.id} className="border-b border-spc-line last:border-b-0 hover:bg-spc-surface-2 transition-colors">
-              <th scope="row" className="px-3 py-2 text-left font-normal">
+              <th scope="row" className="px-3 py-2 text-left font-normal whitespace-nowrap w-px">
                 <RangeIdentity range={range} />
               </th>
-              <td className="px-3 py-2 text-spc-xs text-spc-ink tabular-nums">{range.year || '–'}</td>
-              <td className="px-3 py-2 text-spc-xs text-spc-body">{range.description || '–'}</td>
-              <td className="px-3 py-2"><RangeStatus range={range} /></td>
-              <td className="px-3 py-2 whitespace-nowrap">
+              <td className="px-3 py-2 text-spc-xs text-spc-ink tabular-nums whitespace-nowrap w-px">
+                {range.year || '–'}
+              </td>
+              <td className="px-3 py-2 text-spc-xs text-spc-body w-full">{range.description || '–'}</td>
+              <td className="px-3 py-2 whitespace-nowrap w-px"><RangeStatus range={range} /></td>
+              <td className="px-3 py-2 whitespace-nowrap w-px">
                 <RangeActions range={range} locked={locked} {...actionHandlers} />
               </td>
             </tr>
@@ -273,7 +302,12 @@ export const PRN_POINTS = [
   'A PRN range decides which students are allowed to register for your college.',
   'Disabling a range deactivates the accounts of students whose PRN falls inside it.',
   'Excepted PRNs stay out of a range even when they fall between its start and end.',
-  'Ranges added by the Super Admin are shown separately and cannot be edited here.',
+  // Was "Ranges added by the Super Admin are shown separately and cannot be
+  // edited here", which stopped being true when the endpoint was scoped to the
+  // officer's own college: they are not shown separately, they are not shown at
+  // all. The page still needs to say so, because such a range can admit a
+  // student to this college without ever appearing on this list.
+  'The Super Admin can add ranges for your college that do not appear here. They still decide who may register.',
 ];
 
 export function HowPrnRangesWork({ points = PRN_POINTS }) {

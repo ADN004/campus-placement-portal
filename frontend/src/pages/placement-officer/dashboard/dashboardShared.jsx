@@ -137,8 +137,8 @@ export function RefreshControl({
           hover:bg-spc-surface-2 transition-colors"
         title={
           autoRefreshEnabled
-            ? 'Auto-refresh is ON (click to disable)'
-            : 'Auto-refresh is OFF (click to enable)'
+            ? 'Updating on its own. Click to stop.'
+            : 'Not updating on its own. Click to start.'
         }
       >
         <span
@@ -147,7 +147,10 @@ export function RefreshControl({
             autoRefreshEnabled ? 'bg-spc-ink' : 'border border-spc-control'
           }`}
         />
-        <span>{autoRefreshEnabled ? 'Live' : 'Paused'}</span>
+        {/* Same words as the applicants page's control. Two controls doing the
+            same job in one role should not have two vocabularies — and "Live"
+            describes the data while the button acts on the setting. */}
+        <span>{autoRefreshEnabled ? 'Auto on' : 'Auto off'}</span>
       </button>
     </div>
   );

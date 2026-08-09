@@ -188,38 +188,40 @@ export function RangeActions({ range, locked, onViewStudents, onToggle, onEdit, 
 /* ------------------------------------------------------------------ table */
 
 /*
- * Five columns could not fill a desktop, and the fix was not a width.
+ * Eight columns, fixed proportions, full width.
  *
- * The table is `w-full` and was five short columns across, so a browser shared
- * several hundred pixels of slack among them and the actions ended up stranded
- * at the window edge. Handing that slack to one column only moved the hole.
+ * This took four goes because the first three all assumed the leftover width
+ * had to be given to a column. Under `table-layout: auto` a browser hands it to
+ * whichever column holds the widest content, and wherever it lands it reads as
+ * a hole — the actions stranded 265px from the status, or 300px between a
+ * description and the count beside it.
  *
- * The real problem was that the table had less to say than the officer wanted
- * to know. "How many students does this cover?" is the first question anyone
- * has about a PRN range, and the page could not answer it — the only way was
- * to open each range in turn. Counting them fills the row with something worth
- * reading, and the width takes care of itself.
+ * Two things fix it together. The table had less to say than an officer wanted
+ * to know, so it now says more: how many students a range covers, when it was
+ * added, and by whom. "How many does this cover?" is the first question anyone
+ * has about a range and the page could not answer it without opening each one.
+ * And `table-fixed` with a declared share per column spreads the remaining
+ * slack thinly across all eight instead of pooling it in one.
  *
- * Actions stays `w-px` regardless: it holds one 44px trigger and should never
- * be padded out again, whatever else the table gains or loses later.
- */
-/*
- * Two groups, not seven columns in a zig-zag.
+ * The shares are measured, not guessed. Minimum content widths at this type
+ * size are PRN 192px, Added by 86, Added 80, Status 61, Year 35, Students 18,
+ * plus a 44px trigger and 24px of padding each — 807px in total, which is why
+ * the table carries min-w-[52rem] and stops shrinking there. The percentages
+ * give every column its minimum at that width and share what is left over.
  *
- * What the range *is* reads from the left — its PRNs, its year, its note. What
- * it currently amounts to reads from the right — how many students, when it was
- * added, whether it is on, and what you can do about it. Alignment used to
- * alternate left-left-left-right-right-left-right, and a status sitting left
- * between two right-aligned columns is what made the row look ragged.
+ * Alignment is two groups rather than a zig-zag: what the range *is* on the
+ * left, what it currently amounts to on the right. Status used to sit left
+ * between two right-aligned columns, which is what made the row look ragged.
  */
 const PRN_COLUMNS = [
-  { label: 'PRN range', align: 'text-left', width: '' },
-  { label: 'Year', align: 'text-left', width: '' },
-  { label: 'Description', align: 'text-left', width: '' },
-  { label: 'Students', align: 'text-right', width: '' },
-  { label: 'Added', align: 'text-right', width: '' },
-  { label: 'Status', align: 'text-right', width: '' },
-  { label: 'Actions', align: 'text-right', width: '' },
+  { label: 'PRN range', align: 'text-left', width: 'w-[23%]' },
+  { label: 'Year', align: 'text-left', width: 'w-[8%]' },
+  { label: 'Description', align: 'text-left', width: 'w-[13%]' },
+  { label: 'Students', align: 'text-right', width: 'w-[9%]' },
+  { label: 'Added', align: 'text-right', width: 'w-[12%]' },
+  { label: 'Added by', align: 'text-left', width: 'w-[14%]' },
+  { label: 'Status', align: 'text-right', width: 'w-[14%]' },
+  { label: 'Actions', align: 'text-right', width: 'w-[7%]' },
 ];
 
 export function RangeTable({ ranges, locked, actionHandlers, emptyTitle, emptyHint }) {
@@ -232,24 +234,13 @@ export function RangeTable({ ranges, locked, actionHandlers, emptyTitle, emptyHi
     );
   }
 
-  /*
-   * `w-auto`, not `w-full` — the whole point.
-   *
-   * A full-width table has to give its leftover width to some column, and
-   * whichever one gets it ends up holding a hole: the actions stranded at the
-   * window edge, or 300px of nothing between a description and the count it
-   * belongs to. There is no good column to put it in, so the table stops asking
-   * for width it has no use for and sizes itself to its content. The panel does
-   * the same, so the empty space ends up outside the border, where it reads as
-   * margin instead of as a gap in the row.
-   */
   return (
     <div className="overflow-x-auto">
-      <table className="w-auto border-collapse">
+      <table className="w-full table-fixed border-collapse min-w-[52rem]">
         <caption className="sr-only">
           PRN ranges for your college. Columns: the PRN range, the year it covers, its
-          description, how many students it currently covers, when it was added, whether
-          it is enabled, and actions.
+          description, how many students it currently covers, when it was added and by whom,
+          whether it is enabled, and actions.
         </caption>
         <thead>
           <tr className="bg-spc-surface-2 border-b-[1.5px] border-spc-rule-structural">
@@ -273,11 +264,11 @@ export function RangeTable({ ranges, locked, actionHandlers, emptyTitle, emptyHi
               <td className="px-3 py-2 text-spc-xs text-spc-ink tabular-nums whitespace-nowrap">
                 {range.year || '–'}
               </td>
-              {/* Capped and truncated, with the full text on hover. Free text
-                  is the one thing here with no natural limit, and a single long
-                  note would otherwise set the width of every row. */}
+              {/* Truncated, with the full text on hover. Free text is the one
+                  thing here with no natural limit, and under a fixed layout an
+                  overlong note would run into the column beside it. */}
               <td className="px-3 py-2 text-spc-xs text-spc-body">
-                <span className="block max-w-[15rem] truncate" title={range.description || undefined}>
+                <span className="block truncate" title={range.description || undefined}>
                   {range.description || '–'}
                 </span>
               </td>
@@ -291,8 +282,16 @@ export function RangeTable({ ranges, locked, actionHandlers, emptyTitle, emptyHi
               <td className="px-3 py-2 text-spc-xs text-spc-body text-right tabular-nums whitespace-nowrap">
                 {formatDate(range.created_at)}
               </td>
+              {/* Already in the response and never shown. Officers change
+                  between intakes, and "who set this range up" is the question
+                  behind half the ones that look wrong. */}
+              <td className="px-3 py-2 text-spc-xs text-spc-body">
+                <span className="block truncate" title={range.added_by_email || undefined}>
+                  {range.added_by_email || '–'}
+                </span>
+              </td>
               <td className="px-3 py-2 whitespace-nowrap text-right"><RangeStatus range={range} /></td>
-              <td className="px-3 py-2 whitespace-nowrap w-px">
+              <td className="px-3 py-2 whitespace-nowrap">
                 <RangeActions range={range} locked={locked} {...actionHandlers} />
               </td>
             </tr>

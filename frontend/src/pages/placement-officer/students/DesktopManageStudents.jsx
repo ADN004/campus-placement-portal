@@ -169,7 +169,7 @@ export default function DesktopManageStudents(props) {
                         horizontal scroll the officer has to discover. */}
                     <th
                       scope="col"
-                      className="sticky right-0 z-10 bg-spc-surface-2 px-3 py-2 text-left
+                      className="sticky right-0 z-10 bg-spc-surface-2 px-3 py-2 text-right
                         text-spc-label font-bold uppercase tracking-[0.11em] text-spc-muted
                         border-l border-spc-line-strong"
                     >

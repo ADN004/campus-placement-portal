@@ -2,7 +2,9 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { MoreVertical } from 'lucide-react';
 import useDeviceType from '../../hooks/useDeviceType';
+import Modal from '../Modal';
 import { ACTION_TONE } from './OfficerUI';
+import { OfficerDialogClose } from './OfficerDialog';
 
 /**
  * The actions on a table row: a few kept in place, the rest behind one trigger.
@@ -50,7 +52,10 @@ export default function RowActions({ actions, subject }) {
   }, [open, isSheet, menu.length]);
 
   useEffect(() => {
-    if (!open) return undefined;
+    // The popover only. On a phone this is a Modal, which already owns Escape,
+    // the backdrop and the scroll lock — running these as well would mean two
+    // things trying to close one dialog.
+    if (!open || isSheet) return undefined;
     const onKey = (e) => {
       if (e.key === 'Escape') {
         setOpen(false);
@@ -77,7 +82,7 @@ export default function RowActions({ actions, subject }) {
     document.addEventListener('keydown', onKey);
     document.addEventListener('mousedown', onPointer);
     window.addEventListener('resize', onScroll);
-    if (!isSheet) window.addEventListener('scroll', onScroll, true);
+    window.addEventListener('scroll', onScroll, true);
     return () => {
       document.removeEventListener('keydown', onKey);
       document.removeEventListener('mousedown', onPointer);
@@ -102,25 +107,8 @@ export default function RowActions({ actions, subject }) {
     action.onSelect();
   };
 
-  const panel = (
-    <div
-      ref={menuRef}
-      role="menu"
-      aria-label={`Actions for ${subject}`}
-      className={
-        isSheet
-          ? `fixed inset-x-0 bottom-0 z-[60] bg-spc-surface border-t-[1.5px] border-spc-rule-structural
-             rounded-t-spc-panel pb-[env(safe-area-inset-bottom)]`
-          : `fixed z-[60] min-w-[13rem] bg-spc-surface border border-spc-line-strong
-             rounded-spc-panel overflow-hidden`
-      }
-      style={isSheet ? undefined : { top: coords?.top ?? -9999, right: coords?.right ?? 8 }}
-    >
-      {isSheet && (
-        <p className="px-4 pt-3 pb-2 text-spc-label font-bold uppercase tracking-[0.11em] text-spc-muted">
-          {subject}
-        </p>
-      )}
+  const items = (
+    <>
       {menu.map((a) => {
         const Icon = a.icon;
         return (
@@ -138,6 +126,52 @@ export default function RowActions({ actions, subject }) {
           </button>
         );
       })}
+    </>
+  );
+
+  /*
+   * On a phone this is a dialog, not a floating menu.
+   *
+   * It was a hand-rolled overlay: no way to dismiss it but tapping outside, and
+   * the page kept scrolling underneath because nothing locked the body. Modal
+   * already does the scroll lock, the focus trap, Escape and focus restore —
+   * everything the popover version had to implement by hand and this one simply
+   * did not have.
+   */
+  const sheet = (
+    <Modal
+      onClose={() => setOpen(false)}
+      labelledBy="row-actions-subject"
+      closeOnBackdrop
+      overlayClassName="fixed inset-0 z-[60] flex items-end justify-center bg-spc-ink/40"
+      panelClassName={`w-full bg-spc-surface border-t-[1.5px] border-spc-rule-structural
+        rounded-t-spc-panel pb-[env(safe-area-inset-bottom)] max-h-[80vh] overflow-y-auto`}
+    >
+      <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-spc-line">
+        <p
+          id="row-actions-subject"
+          className="text-spc-label font-bold uppercase tracking-[0.11em] text-spc-muted truncate"
+        >
+          {subject}
+        </p>
+        <OfficerDialogClose onClose={() => setOpen(false)} />
+      </div>
+      <div role="menu" aria-label={`Actions for ${subject}`} ref={menuRef}>
+        {items}
+      </div>
+    </Modal>
+  );
+
+  const popover = (
+    <div
+      ref={menuRef}
+      role="menu"
+      aria-label={`Actions for ${subject}`}
+      className="fixed z-[60] min-w-[13rem] bg-spc-surface border border-spc-line-strong
+        rounded-spc-panel overflow-hidden"
+      style={{ top: coords?.top ?? -9999, right: coords?.right ?? 8 }}
+    >
+      {items}
     </div>
   );
 
@@ -189,19 +223,7 @@ export default function RowActions({ actions, subject }) {
         </button>
       )}
 
-      {open && createPortal(
-        <>
-          {isSheet && (
-            <div
-              className="fixed inset-0 z-[55] bg-spc-ink/40"
-              onClick={() => setOpen(false)}
-              aria-hidden="true"
-            />
-          )}
-          {panel}
-        </>,
-        document.body
-      )}
+      {open && (isSheet ? sheet : createPortal(popover, document.body))}
     </div>
   );
 }

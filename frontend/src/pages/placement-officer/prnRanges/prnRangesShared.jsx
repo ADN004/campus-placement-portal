@@ -204,10 +204,13 @@ export function RangeTable({ ranges, locked, actionHandlers, emptyTitle, emptyHi
         </caption>
         <thead>
           <tr className="bg-spc-surface-2 border-b-[1.5px] border-spc-rule-structural">
+            {/* Actions sits right, because its trigger does. A left-aligned
+                header over a right-aligned button reads as two columns. */}
             {['PRN range', 'Year', 'Description', 'Status', 'Actions'].map((h) => (
               <th key={h} scope="col"
-                className="px-3 py-2 font-khand font-medium uppercase tracking-[0.06em]
-                  text-spc-xs text-spc-muted whitespace-nowrap text-left">
+                className={`px-3 py-2 font-khand font-medium uppercase tracking-[0.06em]
+                  text-spc-xs text-spc-muted whitespace-nowrap
+                  ${h === 'Actions' ? 'text-right' : 'text-left'}`}>
                 {h}
               </th>
             ))}

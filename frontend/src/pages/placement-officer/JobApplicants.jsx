@@ -489,6 +489,11 @@ export default function JobApplicants() {
       delete payload.max_backlogs;
       delete payload.allowed_backlog_semesters;
       delete payload.allowed_branches;
+      // Frozen with the rest of eligibility, so they have to be dropped with
+      // it. Left in, saving a corrected job title on a job with one applicant
+      // would come back "cannot be changed" for a field nobody touched.
+      delete payload.dob_on_or_before;
+      delete payload.gender_requirement;
     }
 
     try {
@@ -812,6 +817,11 @@ export default function JobApplicants() {
       allowed_branches: Array.isArray(selectedJob.allowed_branches)
         ? selectedJob.allowed_branches
         : [],
+      // A DATE arrives as a full ISO timestamp; the picker wants YYYY-MM-DD.
+      dob_on_or_before: selectedJob.dob_on_or_before
+        ? String(selectedJob.dob_on_or_before).slice(0, 10)
+        : '',
+      gender_requirement: selectedJob.gender_requirement || 'all',
     });
     setShowEditJobModal(true);
   };

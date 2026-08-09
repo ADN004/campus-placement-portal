@@ -305,6 +305,27 @@ export function EditJobModal({ data, onChange, onSave, saving, applicantCount = 
               className={`${FIELD_CLASS}${lockedField}`} disabled={eligibilityLocked}
               value={data.max_backlogs || ''} onChange={(e) => set('max_backlogs', e.target.value)} />
           </div>
+          {/* Locked with the rest of eligibility once anyone has applied:
+              narrowing a live drive to one gender would leave the applicant
+              list contradicting the criteria. */}
+          <div>
+            <FieldLabel htmlFor="edit-dob">Born on or before</FieldLabel>
+            <input id="edit-dob" type="date" max={new Date().toISOString().slice(0, 10)}
+              className={`${FIELD_CLASS}${lockedField}`} disabled={eligibilityLocked}
+              value={(data.dob_on_or_before || '').slice(0, 10)}
+              onChange={(e) => set('dob_on_or_before', e.target.value)} />
+          </div>
+          <div>
+            <FieldLabel htmlFor="edit-gender">Open to</FieldLabel>
+            <select id="edit-gender"
+              className={`${FIELD_CLASS}${lockedField}`} disabled={eligibilityLocked}
+              value={data.gender_requirement || 'all'}
+              onChange={(e) => set('gender_requirement', e.target.value)}>
+              <option value="all">All candidates</option>
+              <option value="male">Male candidates only</option>
+              <option value="female">Female candidates only</option>
+            </select>
+          </div>
         </div>
 
         <div>

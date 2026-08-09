@@ -10,6 +10,15 @@ import {
 import Modal from '../../../components/Modal';
 import { EmptyState, ErrorState, formatPackage } from '../../../components/student/StudentUI';
 
+/** A cutoff date as DD-MM-YYYY, matching every other date in the role. */
+function formatDobCriteria(value) {
+  if (!value) return '';
+  const d = new Date(String(value).slice(0, 10) + 'T00:00:00');
+  if (Number.isNaN(d.getTime())) return String(value).slice(0, 10);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()}`;
+}
+
 export { SearchField, FilterChips } from '../../../components/student/StudentUI';
 
 /**
@@ -311,6 +320,22 @@ export function JobDetailsModal({ job, onClose, onApply }) {
                       : job.backlog_max_semester
                       ? `Max ${job.max_backlogs} within Sem 1–${job.backlog_max_semester}`
                       : `Max ${job.max_backlogs}`}
+                  </p>
+                </div>
+              )}
+              {job.dob_on_or_before && (
+                <div className="rounded-spc bg-spc-surface border border-spc-line p-4">
+                  <p className="text-spc-label font-bold uppercase text-spc-muted">Born on or before</p>
+                  <p className="text-spc-h2 font-bold text-spc-ink mt-1">
+                    {formatDobCriteria(job.dob_on_or_before)}
+                  </p>
+                </div>
+              )}
+              {job.gender_requirement && job.gender_requirement !== 'all' && (
+                <div className="rounded-spc bg-spc-surface border border-spc-line p-4">
+                  <p className="text-spc-label font-bold uppercase text-spc-muted">Open to</p>
+                  <p className="text-spc-h2 font-bold text-spc-ink mt-1">
+                    {job.gender_requirement === 'male' ? 'Male candidates' : 'Female candidates'}
                   </p>
                 </div>
               )}

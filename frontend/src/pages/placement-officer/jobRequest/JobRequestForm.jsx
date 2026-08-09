@@ -5,6 +5,10 @@ import {
 import { FormSection, FieldGrid, RequiredMark } from './jobRequestShared';
 import { KERALA_POLYTECHNIC_BRANCHES } from '../../../constants/branches';
 
+/* Bound for the cutoff picker. A cutoff in the future is always a typo — 2026
+   typed where 2006 was meant — and the server refuses it either way. */
+const TODAY = new Date().toISOString().slice(0, 10);
+
 /**
  * The create-job-request form.
  *
@@ -157,6 +161,46 @@ export default function JobRequestForm({
               <option value="no_backlogs">No backlogs allowed</option>
               <option value="limited">Allow limited backlogs</option>
             </select>
+          </div>
+        </FieldGrid>
+
+        {/* A cutoff date, not an age in years — it is how a company words the
+            requirement, and it names one fixed set of students. An age would
+            drift: whoever qualifies would change as birthdays pass during the
+            drive, and a list exported on day one would be wrong by the last. */}
+        <FieldGrid columns={pairCols} className="mt-4">
+          <div className="min-w-0">
+            <FieldLabel htmlFor="jr-dob">Date of birth on or before</FieldLabel>
+            <input
+              id="jr-dob"
+              type="date"
+              max={TODAY}
+              className={FIELD_CLASS}
+              value={formData.dob_on_or_before || ''}
+              onChange={(e) => set('dob_on_or_before', e.target.value)}
+            />
+            <p className="mt-1 text-xs text-spc-muted">
+              Optional. Only students born on or before this date may apply. Leave blank
+              for no age requirement.
+            </p>
+          </div>
+          <div className="min-w-0">
+            <FieldLabel htmlFor="jr-gender">Open to</FieldLabel>
+            <select
+              id="jr-gender"
+              className={FIELD_CLASS}
+              value={formData.gender_requirement || 'all'}
+              onChange={(e) => set('gender_requirement', e.target.value)}
+            >
+              <option value="all">All candidates</option>
+              <option value="male">Male candidates only</option>
+              <option value="female">Female candidates only</option>
+            </select>
+            <p className="mt-1 text-xs text-spc-muted">
+              {formData.gender_requirement === 'male' || formData.gender_requirement === 'female'
+                ? `Only students recorded as ${formData.gender_requirement} will be able to apply.`
+                : 'Optional. Restrict only when the company has asked for it.'}
+            </p>
           </div>
         </FieldGrid>
 

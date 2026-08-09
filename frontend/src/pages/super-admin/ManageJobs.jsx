@@ -70,6 +70,8 @@ export default function ManageJobs() {
     backlog_policy: 'no_restriction',
     allowed_backlog_semesters: [],
     allowed_branches: [],
+    dob_on_or_before: '',
+    gender_requirement: 'all',
     target_type: 'region', // 'region' or 'college'
     target_regions: [],
     target_colleges: [],
@@ -178,6 +180,8 @@ export default function ManageJobs() {
       backlog_policy: 'no_restriction',
       allowed_backlog_semesters: [],
       allowed_branches: [],
+      dob_on_or_before: '',
+      gender_requirement: 'all',
       target_type: 'region',
       target_regions: [],
       target_colleges: [],
@@ -230,6 +234,9 @@ export default function ManageJobs() {
       backlog_policy: job.max_backlogs === null || job.max_backlogs === undefined ? 'no_restriction' : job.max_backlogs === 0 ? 'no_backlogs' : 'limited',
       allowed_backlog_semesters: Array.isArray(job.allowed_backlog_semesters) ? job.allowed_backlog_semesters.map(Number) : [],
       allowed_branches: parseJsonField(job.allowed_branches),
+      // A DATE comes back as a full ISO timestamp; the picker wants a day.
+      dob_on_or_before: job.dob_on_or_before ? String(job.dob_on_or_before).slice(0, 10) : '',
+      gender_requirement: job.gender_requirement || 'all',
       target_type: job.target_type || 'region',
       target_regions: parseJsonField(job.target_regions),
       target_colleges: parseJsonField(job.target_colleges),
@@ -1187,6 +1194,40 @@ export default function ManageJobs() {
                       onChange={(e) => setFormData({ ...formData, min_cgpa: e.target.value })}
                       placeholder="e.g., 7.0"
                     />
+                  </div>
+                  {/* A cutoff date rather than an age in years: it is how a
+                      company words the requirement, and it names one fixed set
+                      of students instead of one that changes as birthdays pass
+                      during the drive. */}
+                  <div>
+                    <label className="label">Born On or Before</label>
+                    <input
+                      type="date"
+                      max={new Date().toISOString().slice(0, 10)}
+                      className="input"
+                      value={formData.dob_on_or_before}
+                      onChange={(e) => setFormData({ ...formData, dob_on_or_before: e.target.value })}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Optional. Only students born on or before this date may apply.
+                    </p>
+                  </div>
+                  <div>
+                    <label className="label">Open To</label>
+                    <select
+                      className="input"
+                      value={formData.gender_requirement}
+                      onChange={(e) => setFormData({ ...formData, gender_requirement: e.target.value })}
+                    >
+                      <option value="all">All candidates</option>
+                      <option value="male">Male candidates only</option>
+                      <option value="female">Female candidates only</option>
+                    </select>
+                    {formData.gender_requirement !== 'all' && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Only students recorded as {formData.gender_requirement} will be able to apply.
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label className="label">Backlog Policy</label>

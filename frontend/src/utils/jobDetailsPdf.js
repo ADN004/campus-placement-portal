@@ -210,6 +210,16 @@ export function generateJobDetailsPDF(job) {
     else t = `Max ${job.max_backlogs}`;
     eligF.push({ label: 'Backlog Criteria', value: t });
   }
+  if (job.dob_on_or_before) {
+    const d = String(job.dob_on_or_before).slice(0, 10).split('-');
+    eligF.push({ label: 'Born On or Before', value: `${d[2]}-${d[1]}-${d[0]}` });
+  }
+  if (job.gender_requirement && job.gender_requirement !== 'all') {
+    eligF.push({
+      label: 'Open To',
+      value: job.gender_requirement === 'male' ? 'Male candidates only' : 'Female candidates only',
+    });
+  }
   if (eligF.length > 0) infoCard(eligF);
 
   // Height / Weight

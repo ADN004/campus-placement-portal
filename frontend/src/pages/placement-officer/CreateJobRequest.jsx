@@ -59,6 +59,8 @@ export default function CreateJobRequest() {
     backlog_policy: 'no_restriction',
     allowed_backlog_semesters: [],
     allowed_branches: [],
+    dob_on_or_before: '',
+    gender_requirement: 'all',
     target_type: 'college', // Defaults to own college (auto-approved)
     target_regions: [],
     target_colleges: [], // New: specific colleges within regions
@@ -132,6 +134,8 @@ export default function CreateJobRequest() {
       backlog_policy: 'no_restriction',
       allowed_backlog_semesters: [],
       allowed_branches: [],
+    dob_on_or_before: '',
+    gender_requirement: 'all',
       target_type: 'college',
       target_regions: [],
       target_colleges: [],
@@ -316,6 +320,10 @@ export default function CreateJobRequest() {
         max_backlogs: formData.max_backlogs !== '' ? parseInt(formData.max_backlogs) : null,
         allowed_backlog_semesters: formData.allowed_backlog_semesters || [],
         allowed_branches: formData.allowed_branches,
+        // Blank means no age requirement; send null rather than '' so the
+        // server stores it instead of rejecting it as an unparseable date.
+        dob_on_or_before: formData.dob_on_or_before || null,
+        gender_requirement: formData.gender_requirement || 'all',
         target_type: formData.target_type,
         // For region/specific_colleges, send both regions and specific colleges
         target_regions: (formData.target_type === 'region' || formData.target_type === 'specific_colleges')

@@ -42,10 +42,10 @@ export function FormSection({ title, hint, children }) {
 }
 
 /** A responsive field grid. Only the column count differs by device. */
-export function FieldGrid({ columns = 2, children }) {
+export function FieldGrid({ columns = 2, className = '', children }) {
   const cols =
     columns === 1 ? 'grid-cols-1' : columns === 3 ? 'grid-cols-3' : 'grid-cols-2';
-  return <div className={`grid ${cols} gap-4`}>{children}</div>;
+  return <div className={`grid ${cols} gap-4 ${className}`}>{children}</div>;
 }
 
 /** Marks a required field without spending a status colour on decoration. */

@@ -81,7 +81,7 @@ export const generateStudentCountsPDF = (colleges, meta) =>
         doc.font('Helvetica-Bold').fontSize(9.5).fillColor(INK)
           .text(meta.scopeLabel, { width: W });
         doc.font('Helvetica').fontSize(8.5).fillColor(MUTED)
-          .text(`Generated ${meta.generatedAt.toLocaleString('en-IN')}`, { width: W })
+          .text(`Generated ${meta.generatedLabel}`, { width: W })
           .text(meta.basis, { width: W });
         return doc.y + 10;
       };

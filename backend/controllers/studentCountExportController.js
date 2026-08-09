@@ -29,6 +29,25 @@ import { generateStudentCountsPDF } from '../utils/studentCountsPdf.js';
  * intake in this year's roll would overstate every college. Both exclusions are
  * printed on the file rather than left for the reader to guess.
  */
+/*
+ * When the file was made, in Indian time, as dd/mm/yyyy.
+ *
+ * The containers run UTC — nothing sets TZ — and toLocaleString('en-IN') only
+ * picks the formatting conventions, not the zone. So a file generated at 3:34am
+ * IST was stamped "9/8/2026, 10:04:19 pm": the right format, five and a half
+ * hours out, and dated the previous day. Every other generator in
+ * utils/pdfGenerator.js already passes the zone; this one did not.
+ *
+ * Built once here so the PDF and the workbook cannot disagree, and labelled IST
+ * so nobody has to wonder which it is.
+ */
+const IST = new Intl.DateTimeFormat('en-IN', {
+  timeZone: 'Asia/Kolkata',
+  day: '2-digit', month: '2-digit', year: 'numeric',
+  hour: '2-digit', minute: '2-digit', hour12: true,
+});
+const generatedLabel = (date) => `${IST.format(date)} IST`;
+
 const COUNT_BASIS = `
   s.registration_status IN ('approved', 'pending')
   AND s.archived_academic_year IS NULL
@@ -169,10 +188,12 @@ export const exportStudentCounts = async (req, res) => {
         : scope === 'region' ? `${[...new Set(colleges.map((c) => c.region_name))].join(', ')}`
         : 'All colleges';
 
+    const now = new Date();
     const meta = {
       detail,
       scopeLabel,
-      generatedAt: new Date(),
+      generatedAt: now,
+      generatedLabel: generatedLabel(now),
       collegeCount: colleges.length,
       grand,
       basis: 'Counts approved and pending registrations. Rejected registrations and '
@@ -244,7 +265,7 @@ const buildWorkbook = async (colleges, meta) => {
   const summary = wb.addWorksheet('Summary');
   summary.addRow(['Student registration counts']).font = { bold: true, size: 14 };
   summary.addRow([`Scope: ${meta.scopeLabel}`]);
-  summary.addRow([`Generated: ${meta.generatedAt.toLocaleString('en-IN')}`]);
+  summary.addRow([`Generated: ${meta.generatedLabel}`]);
   summary.addRow([meta.basis]);
   summary.addRow([]);
 

@@ -283,6 +283,11 @@ export const superAdminAPI = {
   whitelistStudent: (studentId) => API.put(`/super-admin/students/${studentId}/whitelist`),
   deleteStudent: (id) => API.delete(`/super-admin/students/${id}`),
   customExportStudents: (data) => API.post('/super-admin/students/custom-export', data, { responseType: 'blob' }),
+  // Consolidated counts. `format: 'json'` returns the figures for the screen;
+  // pdf and excel need responseType blob or the binary arrives corrupted.
+  getStudentCounts: (params) => API.get('/super-admin/exports/student-counts', { params }),
+  getStudentCountsFile: (params) =>
+    API.get('/super-admin/exports/student-counts', { params, responseType: 'blob' }),
   enhancedCustomExport: (data) => API.post('/super-admin/students/enhanced-export', data, { responseType: 'blob' }),
   bulkDeleteStudentPhotos: (data) => API.post('/super-admin/students/bulk-delete-photos', data),
 

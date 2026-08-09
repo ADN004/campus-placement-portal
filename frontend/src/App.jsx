@@ -57,6 +57,7 @@ const ActivityLogs = lazy(() => import('./pages/super-admin/ActivityLogs'));
 const SuperAdminProfile = lazy(() => import('./pages/super-admin/Profile'));
 const SuperAdminJobEligibleStudents = lazy(() => import('./pages/super-admin/JobEligibleStudents'));
 const ManageAllStudents = lazy(() => import('./pages/super-admin/ManageAllStudents'));
+const ConsolidatedExport = lazy(() => import('./pages/super-admin/ConsolidatedExport'));
 const ManageRequirementTemplates = lazy(() => import('./pages/super-admin/ManageRequirementTemplates'));
 const SuperAdminManageCollegeBranches = lazy(() => import('./pages/super-admin/ManageCollegeBranches'));
 const ManageColleges = lazy(() => import('./pages/super-admin/ManageColleges'));
@@ -133,6 +134,7 @@ function App() {
                 <Route path="/super-admin/job-requests" element={<ManageJobRequests />} />
                 <Route path="/super-admin/requirement-templates" element={<ManageRequirementTemplates />} />
                 <Route path="/super-admin/students" element={<ManageAllStudents />} />
+                <Route path="/super-admin/student-counts" element={<ConsolidatedExport />} />
                 <Route path="/super-admin/send-notification" element={<SuperAdminSendNotification />} />
                 <Route path="/super-admin/whitelist-requests" element={<ManageWhitelistRequests />} />
                 <Route path="/super-admin/admins" element={<ManageSuperAdmins />} />

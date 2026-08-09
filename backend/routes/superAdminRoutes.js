@@ -134,6 +134,7 @@ import {
 } from '../controllers/collegeLockController.js';
 import { protect, authorize } from '../middleware/auth.js';
 import { exportLimiter } from '../middleware/rateLimiter.js';
+import { exportStudentCounts } from '../controllers/studentCountExportController.js';
 
 const router = express.Router();
 
@@ -226,6 +227,8 @@ router.get('/students/:studentId/detailed-profile', getDetailedStudentProfile);
 router.get('/students/:studentId/resume/status', getStudentResumeStatusSA);
 router.get('/students/:studentId/resume/download', downloadStudentResumeSA);
 router.post('/students/custom-export', customExportStudents);
+// Consolidated counts per college, optionally per branch. Read-only.
+router.get('/exports/student-counts', exportStudentCounts);
 router.post('/students/enhanced-export', enhancedCustomExport);
 router.post('/students/bulk-delete-photos', bulkDeleteStudentPhotos);
 router.put('/students/:id/blacklist', blacklistStudent);

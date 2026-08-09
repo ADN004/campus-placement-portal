@@ -15,6 +15,7 @@ import {
   Shield,
   UserCheck,
   ClipboardList,
+  BarChart3,
   Activity,
   User,
   GraduationCap,
@@ -210,6 +211,7 @@ export default function Layout() {
         return [
           { name: 'Dashboard', path: '/super-admin/dashboard', icon: Home },
           { name: 'All Students', path: '/super-admin/students', icon: Users },
+          { name: 'Student Counts', path: '/super-admin/student-counts', icon: BarChart3 },
           { name: 'Send Notification', path: '/super-admin/send-notification', icon: Bell },
           { name: 'PRN Ranges', path: '/super-admin/prn-ranges', icon: ClipboardList },
           { name: 'Registration Locks', path: '/super-admin/college-locks', icon: Lock },

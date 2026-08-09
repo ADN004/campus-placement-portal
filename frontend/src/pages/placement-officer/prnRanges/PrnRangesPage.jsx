@@ -112,7 +112,10 @@ export default function PrnRangesPage({
 
       <section>
         <SectionLabel>Your college&rsquo;s ranges</SectionLabel>
-        <Panel>
+        {/* Shrinks to the table it holds, so no width is left over inside the
+            border to show up as a gap in a row. `max-w-full` keeps it from
+            outgrowing the page when a description is long. */}
+        <Panel className={isTable ? 'w-fit max-w-full' : undefined}>
           <PanelHeading>
             {filteredOwn.length} range{filteredOwn.length === 1 ? '' : 's'}
           </PanelHeading>

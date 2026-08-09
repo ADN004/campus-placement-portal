@@ -215,11 +215,11 @@ export function RangeActions({ range, locked, onViewStudents, onToggle, onEdit, 
 const PRN_COLUMNS = [
   { label: 'PRN range', align: 'text-left', width: '' },
   { label: 'Year', align: 'text-left', width: '' },
-  { label: 'Description', align: 'text-left', width: 'w-full' },
+  { label: 'Description', align: 'text-left', width: '' },
   { label: 'Students', align: 'text-right', width: '' },
   { label: 'Added', align: 'text-right', width: '' },
   { label: 'Status', align: 'text-right', width: '' },
-  { label: 'Actions', align: 'text-right', width: 'w-px' },
+  { label: 'Actions', align: 'text-right', width: '' },
 ];
 
 export function RangeTable({ ranges, locked, actionHandlers, emptyTitle, emptyHint }) {
@@ -232,9 +232,20 @@ export function RangeTable({ ranges, locked, actionHandlers, emptyTitle, emptyHi
     );
   }
 
+  /*
+   * `w-auto`, not `w-full` — the whole point.
+   *
+   * A full-width table has to give its leftover width to some column, and
+   * whichever one gets it ends up holding a hole: the actions stranded at the
+   * window edge, or 300px of nothing between a description and the count it
+   * belongs to. There is no good column to put it in, so the table stops asking
+   * for width it has no use for and sizes itself to its content. The panel does
+   * the same, so the empty space ends up outside the border, where it reads as
+   * margin instead of as a gap in the row.
+   */
   return (
     <div className="overflow-x-auto">
-      <table className="w-full border-collapse">
+      <table className="w-auto border-collapse">
         <caption className="sr-only">
           PRN ranges for your college. Columns: the PRN range, the year it covers, its
           description, how many students it currently covers, when it was added, whether
@@ -262,7 +273,14 @@ export function RangeTable({ ranges, locked, actionHandlers, emptyTitle, emptyHi
               <td className="px-3 py-2 text-spc-xs text-spc-ink tabular-nums whitespace-nowrap">
                 {range.year || '–'}
               </td>
-              <td className="px-3 py-2 text-spc-xs text-spc-body w-full">{range.description || '–'}</td>
+              {/* Capped and truncated, with the full text on hover. Free text
+                  is the one thing here with no natural limit, and a single long
+                  note would otherwise set the width of every row. */}
+              <td className="px-3 py-2 text-spc-xs text-spc-body">
+                <span className="block max-w-[15rem] truncate" title={range.description || undefined}>
+                  {range.description || '–'}
+                </span>
+              </td>
               {/* Right-aligned and tabular, like every other figure in the
                   role. Zero is said as a zero rather than a dash: "no student
                   has registered under this range yet" is information, and a

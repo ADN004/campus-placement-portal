@@ -45,6 +45,33 @@ const isPRNInRange = (prn, start, end) => {
 };
 
 /**
+ * Does this PRN belong to this range?
+ *
+ * One rule, used by the count the page shows and by every action that touches
+ * the students a range covers, so the number an officer reads and the students
+ * an action reaches can never come from different logic.
+ *
+ * Excepted PRNs are outside the range — that is the whole point of the field.
+ * Registration has always enforced it (commonController.validatePRN), but
+ * disable, enable and delete each carried their own copy of the range test and
+ * none of them checked it. So a PRN the officer had deliberately carved out of
+ * a range was deactivated when the range was disabled, and deleted along with
+ * the range: the one student the exception existed to protect was the one it
+ * failed to protect. Pre-existing, and fixed here rather than reproduced a
+ * fourth time in the count.
+ */
+const prnMatchesRange = (prn, range) => {
+  if (!prn) return false;
+  const excepted = Array.isArray(range.excepted_prns) ? range.excepted_prns : [];
+  if (excepted.includes(prn)) return false;
+  if (range.single_prn) return prn === range.single_prn;
+  if (range.range_start && range.range_end) {
+    return isPRNInRange(prn, range.range_start, range.range_end);
+  }
+  return false;
+};
+
+/**
  * Deactivate students whose PRN matches the given range (college-scoped)
  * Sets is_active to FALSE in users table
  */
@@ -69,7 +96,7 @@ const deactivateStudentsInRange = async (range, officerId, collegeId) => {
       );
 
       studentsToDeactivate = studentsResult.rows.filter(student =>
-        isPRNInRange(student.prn, range.range_start, range.range_end)
+        prnMatchesRange(student.prn, range)
       );
     }
 
@@ -135,9 +162,7 @@ const findStudentsInRange = async (range, collegeId) => {
          FROM students s WHERE s.college_id = $1`,
       [collegeId]
     );
-    return studentsResult.rows.filter((student) =>
-      isPRNInRange(student.prn, range.range_start, range.range_end)
-    );
+    return studentsResult.rows.filter((student) => prnMatchesRange(student.prn, range));
   }
   return [];
 };
@@ -256,7 +281,7 @@ const reactivateStudentsInRange = async (range, officerId, collegeId) => {
       );
 
       studentsToReactivate = studentsResult.rows.filter(student =>
-        isPRNInRange(student.prn, range.range_start, range.range_end)
+        prnMatchesRange(student.prn, range)
       );
     }
 
@@ -2682,12 +2707,35 @@ export const getPRNRanges = async (req, res) => {
       [officer.college_id]
     );
 
+    /*
+     * How many students each range actually covers.
+     *
+     * "How many does this cover?" is the first question an officer has about a
+     * range and the page could not answer it — they had to open each one.
+     *
+     * One pass over the college's PRNs, not one query per range. The obvious
+     * shape is a count query inside the map, but a college can hold a hundred
+     * ranges and each of those queries scans its whole student list: a hundred
+     * scans to draw one page. Read the PRNs once and count in memory instead —
+     * a college's roll is thousands, not millions, and this is a page load.
+     *
+     * Counted with prnMatchesRange, the same rule the disable and delete paths
+     * use, so the number here and the students an action reaches are the same
+     * set. A count produced by its own logic is worse than no count.
+     */
+    const prnRows = await query(
+      'SELECT prn FROM students WHERE college_id = $1',
+      [officer.college_id]
+    );
+    const collegePrns = prnRows.rows.map((r) => r.prn);
+
     // Map database field names to frontend expected names
     const mappedData = rangesResult.rows.map(range => ({
       ...range,
       start_prn: range.single_prn || range.range_start,
       end_prn: range.single_prn ? null : range.range_end,
       single_prn: range.single_prn || null,
+      student_count: collegePrns.filter((prn) => prnMatchesRange(prn, range)).length,
     }));
 
     res.status(200).json({
@@ -3245,37 +3293,37 @@ export const getStudentsByPRNRange = async (req, res) => {
       });
     }
 
-    let studentsResult;
-
-    // Query students based on range type, scoped to placement officer's college
-    if (range.single_prn) {
-      // Single PRN
-      studentsResult = await query(
-        `SELECT s.*, s.student_name as name, c.college_name, r.region_name
-         FROM students s
-         JOIN colleges c ON s.college_id = c.id
-         JOIN regions r ON s.region_id = r.id
-         WHERE s.prn = $1 AND s.college_id = $2
-         ORDER BY s.prn`,
-        [range.single_prn, officer.college_id]
-      );
-    } else {
-      // PRN Range
-      studentsResult = await query(
-        `SELECT s.*, s.student_name as name, c.college_name, r.region_name
-         FROM students s
-         JOIN colleges c ON s.college_id = c.id
-         JOIN regions r ON s.region_id = r.id
-         WHERE s.prn >= $1 AND s.prn <= $2 AND s.college_id = $3
-         ORDER BY s.prn`,
-        [range.range_start, range.range_end, officer.college_id]
-      );
-    }
+    /*
+     * The same rule as the count on the page and as disable and delete.
+     *
+     * This used to select `WHERE s.prn >= $1 AND s.prn <= $2`, which is a
+     * string comparison, and it ignored excepted_prns. So this list, the
+     * count beside it, and the students a delete actually removed were three
+     * different sets. String bounds also disagree with numeric ones the moment
+     * PRNs differ in length — '5000' is inside 999–10000 as a number and
+     * outside it as text — and an excepted PRN appeared here as a member of
+     * the very range it had been carved out of.
+     *
+     * Filtered in JS against the college's roll rather than in SQL, because
+     * neither the numeric comparison nor the exception list expresses cleanly
+     * in the WHERE clause, and because being consistent with the destructive
+     * paths matters more here than saving a scan of one college's students.
+     */
+    const studentsResult = await query(
+      `SELECT s.*, s.student_name as name, c.college_name, r.region_name
+       FROM students s
+       JOIN colleges c ON s.college_id = c.id
+       JOIN regions r ON s.region_id = r.id
+       WHERE s.college_id = $1
+       ORDER BY s.prn`,
+      [officer.college_id]
+    );
+    const students = studentsResult.rows.filter((s) => prnMatchesRange(s.prn, range));
 
     res.status(200).json({
       success: true,
-      count: studentsResult.rows.length,
-      data: studentsResult.rows,
+      count: students.length,
+      data: students,
       range: {
         type: range.single_prn ? 'single' : 'range',
         value: range.single_prn || `${range.range_start} - ${range.range_end}`,

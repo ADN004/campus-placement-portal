@@ -1,6 +1,7 @@
-import { Eye, Edit2, Trash2, Ban, CheckCircle, Lock } from 'lucide-react';
+import { useState } from 'react';
+import { Eye, Edit2, Trash2, Ban, CheckCircle, Lock, ChevronDown } from 'lucide-react';
 import {
-  Panel, PanelHeading, EmptyState,
+  Panel, EmptyState, formatDate,
 } from '../../../components/officer/OfficerUI';
 import RowActions from '../../../components/officer/RowActions';
 
@@ -187,30 +188,28 @@ export function RangeActions({ range, locked, onViewStudents, onToggle, onEdit, 
 /* ------------------------------------------------------------------ table */
 
 /*
- * Column widths, which this table needs and the wider ones do not.
+ * Five columns could not fill a desktop, and the fix was not a width.
  *
- * It is `w-full` and only five columns across. With no width set anywhere a
- * browser shares the leftover width out among all five, so on a 1920px screen
- * the Actions column was padded to a few hundred pixels and its trigger sat
- * against the window edge — correctly right-aligned under its header, and a
- * long way from the row it acts on. Alignment was never the problem; the
- * column being stretched was.
+ * The table is `w-full` and was five short columns across, so a browser shared
+ * several hundred pixels of slack among them and the actions ended up stranded
+ * at the window edge. Handing that slack to one column only moved the hole.
  *
- * Description takes the slack instead: it is the one column whose content
- * genuinely varies in length, and the one that reads better wide. `w-px` with
- * `whitespace-nowrap` is the table idiom for "no wider than the content", so
- * every other column shrinks to fit and the actions come to rest just after
- * the status, where the eye already is.
+ * The real problem was that the table had less to say than the officer wanted
+ * to know. "How many students does this cover?" is the first question anyone
+ * has about a PRN range, and the page could not answer it — the only way was
+ * to open each range in turn. Counting them fills the row with something worth
+ * reading, and the width takes care of itself.
  *
- * Manage Students and Job Applicants have ten and nine columns of real data,
- * so they fill a desktop on their own and are pinned besides. This is the only
- * officer table narrow enough for the slack to show.
+ * Actions stays `w-px` regardless: it holds one 44px trigger and should never
+ * be padded out again, whatever else the table gains or loses later.
  */
 const PRN_COLUMNS = [
-  { label: 'PRN range', align: 'text-left', width: 'w-px' },
-  { label: 'Year', align: 'text-left', width: 'w-px' },
-  { label: 'Description', align: 'text-left', width: 'w-full' },
-  { label: 'Status', align: 'text-left', width: 'w-px' },
+  { label: 'PRN range', align: 'text-left', width: '' },
+  { label: 'Year', align: 'text-left', width: '' },
+  { label: 'Description', align: 'text-left', width: '' },
+  { label: 'Students', align: 'text-right', width: '' },
+  { label: 'Added', align: 'text-right', width: '' },
+  { label: 'Status', align: 'text-left', width: '' },
   { label: 'Actions', align: 'text-right', width: 'w-px' },
 ];
 
@@ -228,7 +227,9 @@ export function RangeTable({ ranges, locked, actionHandlers, emptyTitle, emptyHi
     <div className="overflow-x-auto">
       <table className="w-full border-collapse">
         <caption className="sr-only">
-          PRN ranges for your college, with the years they cover and whether each is enabled.
+          PRN ranges for your college. Columns: the PRN range, the year it covers, its
+          description, how many students it currently covers, when it was added, whether
+          it is enabled, and actions.
         </caption>
         <thead>
           <tr className="bg-spc-surface-2 border-b-[1.5px] border-spc-rule-structural">
@@ -246,14 +247,24 @@ export function RangeTable({ ranges, locked, actionHandlers, emptyTitle, emptyHi
         <tbody>
           {ranges.map((range) => (
             <tr key={range.id} className="border-b border-spc-line last:border-b-0 hover:bg-spc-surface-2 transition-colors">
-              <th scope="row" className="px-3 py-2 text-left font-normal whitespace-nowrap w-px">
+              <th scope="row" className="px-3 py-2 text-left font-normal whitespace-nowrap">
                 <RangeIdentity range={range} />
               </th>
-              <td className="px-3 py-2 text-spc-xs text-spc-ink tabular-nums whitespace-nowrap w-px">
+              <td className="px-3 py-2 text-spc-xs text-spc-ink tabular-nums whitespace-nowrap">
                 {range.year || '–'}
               </td>
-              <td className="px-3 py-2 text-spc-xs text-spc-body w-full">{range.description || '–'}</td>
-              <td className="px-3 py-2 whitespace-nowrap w-px"><RangeStatus range={range} /></td>
+              <td className="px-3 py-2 text-spc-xs text-spc-body">{range.description || '–'}</td>
+              {/* Right-aligned and tabular, like every other figure in the
+                  role. Zero is said as a zero rather than a dash: "no student
+                  has registered under this range yet" is information, and a
+                  dash reads as "not known". */}
+              <td className="px-3 py-2 text-spc-xs text-spc-ink font-bold text-right tabular-nums whitespace-nowrap">
+                {typeof range.student_count === 'number' ? range.student_count : '–'}
+              </td>
+              <td className="px-3 py-2 text-spc-xs text-spc-body text-right tabular-nums whitespace-nowrap">
+                {formatDate(range.created_at)}
+              </td>
+              <td className="px-3 py-2 whitespace-nowrap"><RangeStatus range={range} /></td>
               <td className="px-3 py-2 whitespace-nowrap w-px">
                 <RangeActions range={range} locked={locked} {...actionHandlers} />
               </td>
@@ -283,9 +294,16 @@ export function RangeList({ ranges, locked, actionHandlers, emptyTitle, emptyHin
             <RangeIdentity range={range} />
             <RangeStatus range={range} />
           </div>
+          {/* Same facts as the desktop row, in the phone's idiom. The count
+              leads, because it is the one an officer is actually looking for
+              and a phone gives it nowhere else to hide. */}
           <p className="text-xs text-spc-muted mt-1 break-words">
-            {range.year ? `Year ${range.year}` : 'No year'}
+            {typeof range.student_count === 'number'
+              ? `${range.student_count} student${range.student_count === 1 ? '' : 's'}`
+              : 'Students not counted'}
+            {range.year ? ` · Year ${range.year}` : ''}
             {range.description ? ` · ${range.description}` : ''}
+            {range.created_at ? ` · Added ${formatDate(range.created_at)}` : ''}
           </p>
           <div className="flex justify-end mt-1">
             <RangeActions range={range} locked={locked} {...actionHandlers} />
@@ -310,18 +328,71 @@ export const PRN_POINTS = [
   'The Super Admin can add ranges for your college that do not appear here. They still decide who may register.',
 ];
 
+const EXPLAINER_KEY = 'spc-officer-prn-explainer';
+
+/**
+ * The four rules, as a disclosure that remembers whether it was closed.
+ *
+ * It used to be a plain panel: 216px of tutorial above the table, on every
+ * visit, for the whole life of the account. It is worth reading once — the
+ * consequence of disabling a range is not guessable — and worth nothing on the
+ * fiftieth visit, when it is just pushing the ranges below the fold.
+ *
+ * Open on first arrival, so it still teaches. Closed from then on once the
+ * officer closes it, because the choice is kept. Reading the preference during
+ * the initialiser rather than in an effect avoids the panel expanding and then
+ * snapping shut on every load.
+ */
 export function HowPrnRangesWork({ points = PRN_POINTS }) {
+  const [open, setOpen] = useState(() => {
+    try {
+      return window.localStorage.getItem(EXPLAINER_KEY) !== 'closed';
+    } catch {
+      // Private mode, or storage disabled. Showing it is the safe default.
+      return true;
+    }
+  });
+
+  const toggle = () => {
+    setOpen((wasOpen) => {
+      try {
+        window.localStorage.setItem(EXPLAINER_KEY, wasOpen ? 'closed' : 'open');
+      } catch {
+        /* not being able to remember the choice must not break the toggle */
+      }
+      return !wasOpen;
+    });
+  };
+
   return (
     <Panel>
-      <PanelHeading>How PRN ranges work</PanelHeading>
-      <ul>
-        {points.map((point) => (
-          <li key={point}
-            className="px-4 py-3 text-spc-xs text-spc-body leading-snug border-b border-spc-line last:border-b-0">
-            {point}
-          </li>
-        ))}
-      </ul>
+      <button
+        type="button"
+        onClick={toggle}
+        aria-expanded={open}
+        aria-controls="prn-explainer"
+        className="w-full flex items-center justify-between gap-3 px-4 min-h-[44px] text-left
+          border-b border-spc-line transition-colors hover:bg-spc-surface-2"
+      >
+        <span className="font-khand font-medium uppercase tracking-[0.06em] text-spc-xs text-spc-muted">
+          How PRN ranges work
+        </span>
+        <ChevronDown
+          size={16}
+          aria-hidden="true"
+          className={`flex-shrink-0 text-spc-muted transition-transform ${open ? 'rotate-180' : ''}`}
+        />
+      </button>
+      {open && (
+        <ul id="prn-explainer">
+          {points.map((point) => (
+            <li key={point}
+              className="px-4 py-3 text-spc-xs text-spc-body leading-snug border-b border-spc-line last:border-b-0">
+              {point}
+            </li>
+          ))}
+        </ul>
+      )}
     </Panel>
   );
 }

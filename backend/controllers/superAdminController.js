@@ -2,7 +2,7 @@ import bcrypt from 'bcrypt';
 import ExcelJS from 'exceljs';
 import { query, transaction } from '../config/database.js';
 import { getPortalCounts } from '../utils/portalMode.js';
-import { parseExceptedPrns } from '../utils/prnExceptions.js';
+import { parseExceptedPrns, prnMatchesRange } from '../utils/prnExceptions.js';
 import logActivity from '../middleware/activityLogger.js';
 import { generateStudentPDF } from '../utils/pdfGenerator.js';
 import { deleteImage, deleteFolderOnly, extractFolderPath } from '../config/cloudinary.js';
@@ -12,23 +12,6 @@ import { ACTIVE_STUDENT_ACCOUNT_SQL } from '../utils/notificationAudience.js';
 // ========================================
 // HELPER FUNCTIONS
 // ========================================
-
-/**
- * Check if PRN falls within a given range
- * Handles both numeric and string comparisons
- */
-const isPRNInRange = (prn, start, end) => {
-  // Handle numeric comparison
-  if (!isNaN(prn) && !isNaN(start) && !isNaN(end)) {
-    const prnNum = parseInt(prn);
-    const startNum = parseInt(start);
-    const endNum = parseInt(end);
-    return prnNum >= startNum && prnNum <= endNum;
-  }
-
-  // Handle string comparison
-  return prn >= start && prn <= end;
-};
 
 /**
  * Deactivate students whose PRN matches the given range
@@ -56,7 +39,7 @@ const deactivateStudentsInRange = async (range, adminId) => {
       );
 
       studentsToDeactivate = studentsResult.rows.filter(student =>
-        isPRNInRange(student.prn, range.range_start, range.range_end)
+        prnMatchesRange(student.prn, range)
       );
     }
 
@@ -116,7 +99,7 @@ const deleteStudentsInRange = async (range, adminId) => {
       );
 
       studentsToDelete = studentsResult.rows.filter(student =>
-        isPRNInRange(student.prn, range.range_start, range.range_end)
+        prnMatchesRange(student.prn, range)
       );
     }
 
@@ -223,7 +206,7 @@ const reactivateStudentsInRange = async (range, adminId) => {
       );
 
       studentsToReactivate = studentsResult.rows.filter(student =>
-        isPRNInRange(student.prn, range.range_start, range.range_end)
+        prnMatchesRange(student.prn, range)
       );
     }
 

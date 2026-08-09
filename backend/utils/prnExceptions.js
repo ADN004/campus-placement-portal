@@ -15,6 +15,40 @@ export const isPRNInRange = (prn, start, end) => {
 };
 
 /**
+ * Does this PRN belong to this range?
+ *
+ * The single answer to that question. Both roles ask it in six places between
+ * them — the count on the page, the students list, its export, and disable,
+ * enable and delete — and they used to answer it three different ways: numeric
+ * bounds, SQL string bounds, and in every case ignoring excepted_prns.
+ *
+ * Excepted PRNs are outside the range; that is the entire purpose of the field.
+ * Registration enforced it (commonController.validatePRN) and nothing else did,
+ * so a PRN an officer had deliberately carved out of a range was deactivated
+ * when the range was disabled and deleted along with the range — the one
+ * student the exception existed to protect was the one it failed to protect.
+ *
+ * String bounds are the other half: '5000' is inside 999–10000 as a number and
+ * outside it as text, so a list read before a delete was not always the set
+ * that got deleted. Numeric wins, which is what the destructive paths already
+ * used.
+ *
+ * @param {string} prn
+ * @param {{single_prn?: string, range_start?: string, range_end?: string,
+ *          excepted_prns?: string[]}} range
+ */
+export const prnMatchesRange = (prn, range) => {
+  if (!prn || !range) return false;
+  const excepted = Array.isArray(range.excepted_prns) ? range.excepted_prns : [];
+  if (excepted.includes(prn)) return false;
+  if (range.single_prn) return prn === range.single_prn;
+  if (range.range_start && range.range_end) {
+    return isPRNInRange(prn, range.range_start, range.range_end);
+  }
+  return false;
+};
+
+/**
  * Normalize + validate a raw exceptions input (array, or a string separated
  * by commas/spaces/newlines) against the range bounds.
  * Returns { prns } on success or { error } with a user-facing message.

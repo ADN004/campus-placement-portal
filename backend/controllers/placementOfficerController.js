@@ -7,7 +7,7 @@ import { buildVerificationDetails } from '../utils/studentEmailDetails.js';
 import { generateStudentPDF } from '../utils/pdfGenerator.js';
 import { BRANCH_SHORT_NAMES } from '../constants/branches.js';
 import { singleCollegeJobApprovalRequired } from '../utils/portalMode.js';
-import { parseExceptedPrns } from '../utils/prnExceptions.js';
+import { parseExceptedPrns, prnMatchesRange } from '../utils/prnExceptions.js';
 import { isCollegeLocked } from '../utils/collegeLocks.js';
 import { DAY_AWARE_COUNT_SQL } from '../utils/verificationEmailPolicy.js';
 import { TOTAL_BACKLOGS_SQL, parseMaxBacklogs } from '../utils/backlogPolicy.js';
@@ -26,50 +26,6 @@ const PRN_RANGE_LOCK_MESSAGE =
 // ========================================
 // HELPER FUNCTIONS
 // ========================================
-
-/**
- * Check if PRN falls within a given range
- * Handles both numeric and string comparisons
- */
-const isPRNInRange = (prn, start, end) => {
-  // Handle numeric comparison
-  if (!isNaN(prn) && !isNaN(start) && !isNaN(end)) {
-    const prnNum = parseInt(prn);
-    const startNum = parseInt(start);
-    const endNum = parseInt(end);
-    return prnNum >= startNum && prnNum <= endNum;
-  }
-
-  // Handle string comparison
-  return prn >= start && prn <= end;
-};
-
-/**
- * Does this PRN belong to this range?
- *
- * One rule, used by the count the page shows and by every action that touches
- * the students a range covers, so the number an officer reads and the students
- * an action reaches can never come from different logic.
- *
- * Excepted PRNs are outside the range — that is the whole point of the field.
- * Registration has always enforced it (commonController.validatePRN), but
- * disable, enable and delete each carried their own copy of the range test and
- * none of them checked it. So a PRN the officer had deliberately carved out of
- * a range was deactivated when the range was disabled, and deleted along with
- * the range: the one student the exception existed to protect was the one it
- * failed to protect. Pre-existing, and fixed here rather than reproduced a
- * fourth time in the count.
- */
-const prnMatchesRange = (prn, range) => {
-  if (!prn) return false;
-  const excepted = Array.isArray(range.excepted_prns) ? range.excepted_prns : [];
-  if (excepted.includes(prn)) return false;
-  if (range.single_prn) return prn === range.single_prn;
-  if (range.range_start && range.range_end) {
-    return isPRNInRange(prn, range.range_start, range.range_end);
-  }
-  return false;
-};
 
 /**
  * Deactivate students whose PRN matches the given range (college-scoped)
@@ -138,12 +94,11 @@ const deactivateStudentsInRange = async (range, officerId, collegeId) => {
  * DELETE against a specific number of student accounts, and a number produced by
  * a different rule than the one doing the deleting is worse than no number.
  *
- * Note this is deliberately NOT the same rule as getStudentsByPRNRange, which
- * compares PRNs as SQL strings. isPRNInRange compares numerically when it can,
- * so the two answers differ once PRNs vary in length — '5000' is inside
- * 999–10000 numerically but not as a string. That inconsistency is pre-existing
- * and is left alone here rather than quietly changing who any range covers; the
- * point of this extraction is that the destructive path and its warning agree.
+ * The membership test itself is prnMatchesRange, shared with the page's count,
+ * the students list, its export and both roles. This comment used to record
+ * that getStudentsByPRNRange answered the same question differently — SQL
+ * string bounds rather than numeric, and neither honouring excepted PRNs — and
+ * that the divergence was left alone. It is not left alone any more.
  */
 const findStudentsInRange = async (range, collegeId) => {
   if (range.single_prn) {
@@ -3386,40 +3341,25 @@ export const exportStudentsByPRNRange = async (req, res) => {
       });
     }
 
-    let studentsResult;
-
-    // Query students based on range type, scoped to placement officer's college
-    if (range.single_prn) {
-      // Single PRN
-      studentsResult = await query(
-        `SELECT s.prn, s.student_name as name, s.email, s.mobile_number,
-                s.date_of_birth, s.age, s.gender, s.branch,
-                s.programme_cgpa, s.backlog_count,
-                c.college_name, r.region_name, s.created_at
-         FROM students s
-         JOIN colleges c ON s.college_id = c.id
-         JOIN regions r ON s.region_id = r.id
-         WHERE s.prn = $1 AND s.college_id = $2
-         ORDER BY s.prn`,
-        [range.single_prn, officer.college_id]
-      );
-    } else {
-      // PRN Range
-      studentsResult = await query(
-        `SELECT s.prn, s.student_name as name, s.email, s.mobile_number,
-                s.date_of_birth, s.age, s.gender, s.branch,
-                s.programme_cgpa, s.backlog_count,
-                c.college_name, r.region_name, s.created_at
-         FROM students s
-         JOIN colleges c ON s.college_id = c.id
-         JOIN regions r ON s.region_id = r.id
-         WHERE s.prn >= $1 AND s.prn <= $2 AND s.college_id = $3
-         ORDER BY s.prn`,
-        [range.range_start, range.range_end, officer.college_id]
-      );
-    }
-
-    const students = studentsResult.rows;
+    /*
+     * The export is the students list in another format, so it has to be the
+     * same students. It carried its own copy of the string-bounds query, which
+     * meant the file an officer downloaded could hold a PRN the page had just
+     * told them was excepted from the range.
+     */
+    const studentsResult = await query(
+      `SELECT s.prn, s.student_name as name, s.email, s.mobile_number,
+              s.date_of_birth, s.age, s.gender, s.branch,
+              s.programme_cgpa, s.backlog_count,
+              c.college_name, r.region_name, s.created_at
+       FROM students s
+       JOIN colleges c ON s.college_id = c.id
+       JOIN regions r ON s.region_id = r.id
+       WHERE s.college_id = $1
+       ORDER BY s.prn`,
+      [officer.college_id]
+    );
+    const students = studentsResult.rows.filter((s) => prnMatchesRange(s.prn, range));
 
     if (students.length === 0) {
       return res.status(404).json({

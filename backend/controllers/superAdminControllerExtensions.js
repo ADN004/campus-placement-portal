@@ -10,6 +10,7 @@ import {
   sendRejectionEmail,
   sendShortlistEmail
 } from '../config/emailService.js';
+import { prnMatchesRange } from '../utils/prnExceptions.js';
 
 // ========================================
 // BULK PHOTO DELETION
@@ -893,21 +894,38 @@ export const getStudentsByPRNRange = async (req, res) => {
       );
     } else {
       // PRN Range
+    /*
+     * A superset in SQL, then the shared rule in JS.
+     *
+     * This is statewide, so pulling every student row back to filter in memory
+     * the way the college-scoped officer endpoint does is not an option. The
+     * WHERE below is deliberately wider than the answer: it is the numeric band
+     * OR the string band, and prnMatchesRange picks exactly one of those two
+     * per row, so nothing it would accept is filtered out here. The precise
+     * decision — which band applies, and whether the PRN is excepted — is made
+     * once, in the same helper disable, enable and delete use.
+     */
       studentsResult = await query(
         `SELECT s.*, s.student_name as name, c.college_name, r.region_name
          FROM students s
          JOIN colleges c ON s.college_id = c.id
          JOIN regions r ON s.region_id = r.id
-         WHERE s.prn >= $1 AND s.prn <= $2
+         WHERE (
+           (s.prn ~ '^[0-9]+$' AND $1::text ~ '^[0-9]+$' AND $2::text ~ '^[0-9]+$'
+             AND s.prn::bigint BETWEEN $1::bigint AND $2::bigint)
+           OR (s.prn >= $1 AND s.prn <= $2)
+         )
          ORDER BY s.prn`,
         [range.range_start, range.range_end]
       );
     }
 
+    const students = studentsResult.rows.filter((s) => prnMatchesRange(s.prn, range));
+
     res.status(200).json({
       success: true,
-      count: studentsResult.rows.length,
-      data: studentsResult.rows,
+      count: students.length,
+      data: students,
       range: {
         type: range.single_prn ? 'single' : 'range',
         value: range.single_prn || `${range.range_start} - ${range.range_end}`,
@@ -965,6 +983,17 @@ export const exportStudentsByPRNRange = async (req, res) => {
       );
     } else {
       // PRN Range
+    /*
+     * A superset in SQL, then the shared rule in JS.
+     *
+     * This is statewide, so pulling every student row back to filter in memory
+     * the way the college-scoped officer endpoint does is not an option. The
+     * WHERE below is deliberately wider than the answer: it is the numeric band
+     * OR the string band, and prnMatchesRange picks exactly one of those two
+     * per row, so nothing it would accept is filtered out here. The precise
+     * decision — which band applies, and whether the PRN is excepted — is made
+     * once, in the same helper disable, enable and delete use.
+     */
       studentsResult = await query(
         `SELECT s.prn, s.student_name as name, s.email, s.mobile_number,
                 s.date_of_birth, s.age, s.gender, s.branch,
@@ -973,13 +1002,17 @@ export const exportStudentsByPRNRange = async (req, res) => {
          FROM students s
          JOIN colleges c ON s.college_id = c.id
          JOIN regions r ON s.region_id = r.id
-         WHERE s.prn >= $1 AND s.prn <= $2
+         WHERE (
+           (s.prn ~ '^[0-9]+$' AND $1::text ~ '^[0-9]+$' AND $2::text ~ '^[0-9]+$'
+             AND s.prn::bigint BETWEEN $1::bigint AND $2::bigint)
+           OR (s.prn >= $1 AND s.prn <= $2)
+         )
          ORDER BY s.prn`,
         [range.range_start, range.range_end]
       );
     }
 
-    const students = studentsResult.rows;
+    const students = studentsResult.rows.filter((s) => prnMatchesRange(s.prn, range));
 
     if (students.length === 0) {
       return res.status(404).json({

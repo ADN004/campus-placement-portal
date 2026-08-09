@@ -105,14 +105,14 @@ const deleteStudentsInRange = async (range, adminId) => {
     if (range.single_prn) {
       // Handle single PRN
       const studentsResult = await query(
-        `SELECT s.id, s.prn, s.user_id FROM students s WHERE s.prn = $1`,
+        `SELECT s.id, s.prn, s.user_id, s.photo_cloudinary_id FROM students s WHERE s.prn = $1`,
         [range.single_prn]
       );
       studentsToDelete = studentsResult.rows;
     } else if (range.range_start && range.range_end) {
       // Handle range - get all students and filter
       const studentsResult = await query(
-        `SELECT s.id, s.prn, s.user_id FROM students s`
+        `SELECT s.id, s.prn, s.user_id, s.photo_cloudinary_id FROM students s`
       );
 
       studentsToDelete = studentsResult.rows.filter(student =>
@@ -136,12 +136,44 @@ const deleteStudentsInRange = async (range, adminId) => {
       );
     }
 
-    // Delete users (CASCADE will handle students, job_applications, etc.)
     const userIds = studentsToDelete.map(s => s.user_id);
-    await query(
-      `DELETE FROM users WHERE id = ANY($1::int[])`,
-      [userIds]
-    );
+
+    /*
+     * Their activity log first. activity_logs.user_id references users with NO
+     * ACTION rather than CASCADE, so a student who has ever done anything
+     * logged — signing in is enough — made the delete below fail on a foreign
+     * key, returning a raw Postgres string and leaving everything in place,
+     * range included. Same trap the officer-side copy had.
+     *
+     * One transaction: separately, a failure on the second would wipe the
+     * activity log of accounts that then survived.
+     */
+    await transaction(async (client) => {
+      await client.query(`DELETE FROM activity_logs WHERE user_id = ANY($1::int[])`, [userIds]);
+      // CASCADE handles students, job_applications, extended profiles, resumes,
+      // whitelist requests and notification recipients.
+      await client.query(`DELETE FROM users WHERE id = ANY($1::int[])`, [userIds]);
+    });
+
+    /*
+     * And their photos, which CASCADE cannot reach. With the rows gone nothing
+     * remembers the public IDs, so anything left here is unfindable for good.
+     * Best-effort and after the rows: a storage hiccup must not undo a deletion
+     * that has been confirmed.
+     */
+    for (const student of studentsToDelete) {
+      if (!student.photo_cloudinary_id) continue;
+      try {
+        await deleteImage(student.photo_cloudinary_id);
+        const folderPath = extractFolderPath(student.photo_cloudinary_id);
+        if (folderPath) await deleteFolderOnly(folderPath);
+      } catch (photoError) {
+        console.error(
+          `Photo cleanup failed for deleted student ${student.prn} (non-fatal):`,
+          photoError.message
+        );
+      }
+    }
 
     return studentsToDelete.length;
   } catch (error) {
@@ -158,6 +190,19 @@ const deleteStudentsInRange = async (range, adminId) => {
  * @param {number} adminId - ID of the admin performing the action
  * @returns {number} Count of reactivated students
  */
+/**
+ * Reactivate students whose PRN matches a range.
+ *
+ * Students the year-end reset archived are never reactivated, whatever range
+ * covers them. Enabling a closed range is refused in updatePRNRange, but this
+ * is the rule that matters: a passed-out batch coming back to life is the
+ * damage, and it should not rest on every caller remembering to check which
+ * range they were handed. The officer-side copy of this function carries the
+ * same guard.
+ *
+ * Wider blast radius than the officer's version — a super admin range is
+ * college-less, so this reaches every college at once.
+ */
 const reactivateStudentsInRange = async (range, adminId) => {
   try {
     let studentsToReactivate = [];
@@ -165,14 +210,16 @@ const reactivateStudentsInRange = async (range, adminId) => {
     if (range.single_prn) {
       // Handle single PRN
       const studentsResult = await query(
-        `SELECT s.id, s.prn, s.user_id FROM students s WHERE s.prn = $1`,
+        `SELECT s.id, s.prn, s.user_id FROM students s
+          WHERE s.prn = $1 AND s.archived_academic_year IS NULL`,
         [range.single_prn]
       );
       studentsToReactivate = studentsResult.rows;
     } else if (range.range_start && range.range_end) {
       // Handle range - get all students and filter
       const studentsResult = await query(
-        `SELECT s.id, s.prn, s.user_id FROM students s`
+        `SELECT s.id, s.prn, s.user_id FROM students s
+          WHERE s.archived_academic_year IS NULL`
       );
 
       studentsToReactivate = studentsResult.rows.filter(student =>
@@ -330,6 +377,32 @@ export const updatePRNRange = async (req, res) => {
     }
 
     const currentRange = currentRangeResult.rows[0];
+
+    /*
+     * A range the year-end reset closed stays closed, for the super admin too.
+     *
+     * Enabling one calls reactivateStudentsInRange, which switches accounts back
+     * on for everyone whose PRN falls inside it — so pressing Enable on a
+     * closed range would bring a passed-out batch back: able to sign in,
+     * counted as current students, back in the notification audience and the
+     * exports, while still stamped with the year they were archived in.
+     *
+     * Worse here than on the officer side. A super admin range is college-less,
+     * so one press reaches every college in the state at once.
+     *
+     * Everything else about a closed range stays editable; only bringing it
+     * back to life is refused.
+     */
+    if (currentRange.closed_for_year && req.body.is_enabled === true) {
+      return res.status(409).json({
+        success: false,
+        message:
+          `This range was closed by the ${currentRange.closed_for_year} year-end reset. `
+          + 'It cannot be reopened — doing so would restore the accounts of students who have '
+          + 'passed out. Add a new range for the current intake instead.',
+        closed_for_year: currentRange.closed_for_year,
+      });
+    }
 
     // Build update query dynamically
     const updates = [];
@@ -495,8 +568,21 @@ export const deletePRNRange = async (req, res) => {
 
     const rangeToDelete = rangeResult.rows[0];
 
-    // Delete all students in this range
-    const deletedStudentsCount = await deleteStudentsInRange(rangeToDelete, req.user.id);
+    /*
+     * A closed range loses only its own record, same as on the officer side.
+     *
+     * Deleting a range takes its students with it, which is right for a live
+     * one — a PRN block entered wrongly, with people registered against it by
+     * mistake. It is exactly wrong for a range the year-end reset closed, where
+     * those students are a batch that graduated and whose records are kept
+     * deliberately for reference and export.
+     *
+     * Blocking the delete was the other obvious answer and a bad one: closed
+     * ranges accumulate an intake a year and have to be tidy-able.
+     */
+    const deletedStudentsCount = rangeToDelete.closed_for_year
+      ? 0
+      : await deleteStudentsInRange(rangeToDelete, req.user.id);
 
     // Delete the PRN range
     await query('DELETE FROM prn_ranges WHERE id = $1', [rangeId]);

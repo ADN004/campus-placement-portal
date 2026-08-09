@@ -76,6 +76,7 @@ import {
 import { updateStudentEmailByStaff } from '../controllers/studentEmailController.js';
 import { protect, authorize } from '../middleware/auth.js';
 import { exportLimiter, uploadLimiter } from '../middleware/rateLimiter.js';
+import { noStore } from '../middleware/noStore.js';
 
 const router = express.Router();
 
@@ -92,7 +93,7 @@ router.delete('/profile/photo', deleteOwnPhoto);
 router.get('/students', getStudents);
 router.get('/students/counts', getStudentCounts);
 router.get('/archived-years', getArchivedAcademicYears);
-router.get('/students/export', exportStudents);
+router.get('/students/export', noStore, exportStudents);
 router.post('/students/custom-export', customExportStudents);
 router.put('/students/bulk-approve', bulkApproveStudents);
 router.put('/students/bulk-reject', bulkRejectStudents);
@@ -110,7 +111,7 @@ router.get('/jobs', getJobs);
 router.put('/jobs/:id', updateJob);
 router.delete('/jobs/:id', deleteJob);
 router.get('/jobs/:jobId/applicants', getJobApplicants);
-router.get('/jobs/:jobId/applicants/export', exportJobApplicants);
+router.get('/jobs/:jobId/applicants/export', noStore, exportJobApplicants);
 router.post('/job-requests', createJobRequest);
 router.get('/job-requests', getJobRequests);
 router.get('/college/branches', getCollegeBranches);
@@ -144,7 +145,7 @@ router.put('/prn-ranges/:id', updatePRNRange);
 router.delete('/prn-ranges/:id', deletePRNRange);
 router.get('/prn-ranges/:id/students', getStudentsByPRNRange);
 router.get('/prn-ranges/:id/delete-impact', getPRNRangeDeleteImpact);
-router.get('/prn-ranges/:id/students/export', exportStudentsByPRNRange);
+router.get('/prn-ranges/:id/students/export', noStore, exportStudentsByPRNRange);
 
 // Job Request Requirements Routes
 router.post('/job-requests/:jobRequestId/requirements', createOrUpdateJobRequestRequirements);

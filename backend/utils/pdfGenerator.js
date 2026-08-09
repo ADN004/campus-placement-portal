@@ -676,225 +676,110 @@ const drawTableRow = (doc, student, fields, columnWidths, hasSignature, hasSlNo,
 };
 
 /**
- * Draw branch legend table showing short name to full name mapping
+ * Draw the branch code reference: short code on the left, full branch name on
+ * the right, one row per branch used in the export.
+ *
+ * One column, flowing onto as many pages as it needs.
+ *
+ * It used to switch to two side-by-side Code/Name pairs past twelve branches,
+ * with a hard-coded table width of 750pt. That only fits landscape A4. On a
+ * portrait export the page is 595pt wide, so startX came out at -77.5 and the
+ * whole table hung off both edges of the paper: the first Code column was
+ * entirely off-page and the branch names in it were sliced down their opening
+ * letters — "Architecture" printing as "itecture". Nothing clips a PDF; it
+ * simply draws where it is told. With thirty-odd branches statewide, most
+ * portrait exports carrying short names were affected.
+ *
+ * Neither did it ever check whether the rows fitted the page height, so a long
+ * list ran off the bottom as well.
+ *
+ * Both faults were the same mistake — assuming the content fits — so the fix is
+ * to stop assuming. The table is sized from the actual page, and a row that
+ * would cross the bottom margin starts a new page with the header repeated.
+ *
  * @param {PDFDocument} doc - PDF document instance
- * @param {Array} uniqueBranches - Array of unique branch names used in export
- * @param {String} layout - Page layout ('portrait' or 'landscape') to maintain consistency
- * @param {Number} borderMargin - Margin for page border
- * @returns {void}
+ * @param {Array} uniqueBranches - Unique branch names used in the export
+ * @param {String} layout - 'portrait' or 'landscape', matching the pages before it
+ * @param {Number} borderMargin - Margin for the page border
  */
-const drawBranchLegend = (doc, uniqueBranches, layout, borderMargin) => {
+export const drawBranchLegend = (doc, uniqueBranches, layout, borderMargin) => {
   if (!uniqueBranches || uniqueBranches.length === 0) return;
 
-  // Add a new page for the legend - maintain the same orientation as previous pages
-  doc.addPage({
-    layout: layout,
-    size: 'A4',
-    margins: {
-      top: 50,
-      bottom: 50,
-      left: borderMargin,
-      right: borderMargin
-    }
-  });
+  const newLegendPage = () => {
+    doc.addPage({
+      layout,
+      size: 'A4',
+      margins: { top: 50, bottom: 50, left: borderMargin, right: borderMargin },
+    });
+  };
 
-  const pageWidth = doc.page.width;
-  let currentY = 65; // Start at 65 for proper spacing from top border at 50
+  newLegendPage();
 
-  // Draw title
-  doc.fontSize(16)
-     .font('Helvetica-Bold')
-     .fillColor('black')
-     .text('BRANCH CODE REFERENCE', 0, currentY, {
-       width: pageWidth,
-       align: 'center'
-     });
-  currentY += 35;
-
-  // Sort branches alphabetically for better presentation
   const sortedBranches = [...uniqueBranches].sort();
+  const headerHeight = 30;
+  const rowHeight = 25;
 
-  // Calculate optimal column layout based on number of branches
-  const numBranches = sortedBranches.length;
-  const numColumns = numBranches > 12 ? 2 : 1; // Use 2 columns if more than 12 branches
+  // Sized from the page it is actually on, so it cannot hang off the edge
+  // whichever orientation the export used.
+  const pageWidth = doc.page.width;
+  const pageHeight = doc.page.height;
+  const tableWidth = Math.min(450, pageWidth - (borderMargin * 2) - 40);
+  const startX = (pageWidth - tableWidth) / 2;
+  const codeWidth = Math.min(110, Math.round(tableWidth * 0.25));
+  const nameWidth = tableWidth - codeWidth;
+  const bottomLimit = pageHeight - borderMargin - 30; // leaves room for the page number
 
-  if (numColumns === 1) {
-    // Single column layout - centered table
-    const tableWidth = 450;
-    const startX = (pageWidth - tableWidth) / 2;
-    const colWidths = {
-      shortName: 100,
-      fullName: 350
-    };
+  const drawHeader = (y) => {
+    doc.lineWidth(1).strokeColor('#000000');
+    doc.rect(startX, y, codeWidth, headerHeight).fillAndStroke('#4B5563', '#000000');
+    doc.rect(startX + codeWidth, y, nameWidth, headerHeight).fillAndStroke('#4B5563', '#000000');
+    doc.fontSize(10).font('Helvetica-Bold').fillColor('white');
+    doc.text('Code', startX + 2, y + 10, { width: codeWidth - 4, align: 'center' });
+    doc.text('Branch Name', startX + codeWidth + 2, y + 10, { width: nameWidth - 4, align: 'center' });
+    return y + headerHeight;
+  };
 
-    // Draw table headers
-    const headerHeight = 30;
-    doc.lineWidth(1);
-    doc.strokeColor('#000000');
+  const drawTitle = (y, continued) => {
+    doc.fontSize(16).font('Helvetica-Bold').fillColor('black')
+       .text(continued ? 'BRANCH CODE REFERENCE (continued)' : 'BRANCH CODE REFERENCE', 0, y, {
+         width: pageWidth,
+         align: 'center',
+       });
+    return y + 35;
+  };
 
-    // Header cells
-    doc.rect(startX, currentY, colWidths.shortName, headerHeight)
-       .fillAndStroke('#4B5563', '#000000');
-    doc.rect(startX + colWidths.shortName, currentY, colWidths.fullName, headerHeight)
-       .fillAndStroke('#4B5563', '#000000');
+  let currentY = drawHeader(drawTitle(65, false));
 
-    // Header text
-    doc.fontSize(10)
-       .font('Helvetica-Bold')
-       .fillColor('white');
-    doc.text('Code', startX + 2, currentY + 10, {
-      width: colWidths.shortName - 4,
-      align: 'center'
-    });
-    doc.text('Branch Name', startX + colWidths.shortName + 2, currentY + 10, {
-      width: colWidths.fullName - 4,
-      align: 'center'
-    });
-
-    currentY += headerHeight;
-
-    // Draw rows
-    const rowHeight = 25;
-    doc.lineWidth(0.5);
-    doc.strokeColor('#000000');
-
-    sortedBranches.forEach((branch, index) => {
-      const shortName = BRANCH_SHORT_NAMES[branch] || branch;
-      const fillColor = index % 2 === 0 ? '#F9FAFB' : 'white';
-
-      // Draw cells
-      doc.rect(startX, currentY, colWidths.shortName, rowHeight)
-         .fillAndStroke(fillColor, '#000000');
-      doc.rect(startX + colWidths.shortName, currentY, colWidths.fullName, rowHeight)
-         .fillAndStroke(fillColor, '#000000');
-
-      // Draw text
-      doc.fontSize(9)
-         .font('Helvetica-Bold')
-         .fillColor('black');
-      doc.text(shortName, startX + 2, currentY + 8, {
-        width: colWidths.shortName - 4,
-        align: 'center'
-      });
-
-      doc.font('Helvetica');
-      doc.text(branch, startX + colWidths.shortName + 2, currentY + 8, {
-        width: colWidths.fullName - 4,
-        align: 'left'
-      });
-
-      currentY += rowHeight;
-    });
-  } else {
-    // Two column layout for many branches
-    const tableWidth = 750;
-    const startX = (pageWidth - tableWidth) / 2;
-    const columnWidth = tableWidth / 2;
-    const colWidths = {
-      shortName: 60,
-      fullName: columnWidth - 60
-    };
-
-    const midpoint = Math.ceil(sortedBranches.length / 2);
-    const leftBranches = sortedBranches.slice(0, midpoint);
-    const rightBranches = sortedBranches.slice(midpoint);
-
-    const headerHeight = 30;
-    const rowHeight = 25;
-
-    doc.lineWidth(1);
-    doc.strokeColor('#000000');
-
-    // Draw headers for both columns
-    for (let col = 0; col < 2; col++) {
-      const colStartX = startX + (col * columnWidth);
-
-      doc.rect(colStartX, currentY, colWidths.shortName, headerHeight)
-         .fillAndStroke('#4B5563', '#000000');
-      doc.rect(colStartX + colWidths.shortName, currentY, colWidths.fullName, headerHeight)
-         .fillAndStroke('#4B5563', '#000000');
-
-      doc.fontSize(9)
-         .font('Helvetica-Bold')
-         .fillColor('white');
-      doc.text('Code', colStartX + 2, currentY + 10, {
-        width: colWidths.shortName - 4,
-        align: 'center'
-      });
-      doc.text('Branch Name', colStartX + colWidths.shortName + 2, currentY + 10, {
-        width: colWidths.fullName - 4,
-        align: 'center'
-      });
+  sortedBranches.forEach((branch, index) => {
+    // A row that would cross the bottom margin starts the next page instead of
+    // being drawn past the edge of the paper.
+    if (currentY + rowHeight > bottomLimit) {
+      newLegendPage();
+      currentY = drawHeader(drawTitle(65, true));
     }
 
-    currentY += headerHeight;
+    const shortName = BRANCH_SHORT_NAMES[branch] || branch;
+    const fillColor = index % 2 === 0 ? '#F9FAFB' : 'white';
 
-    // Draw rows for both columns
-    doc.lineWidth(0.5);
-    doc.strokeColor('#000000');
+    doc.lineWidth(0.5).strokeColor('#000000');
+    doc.rect(startX, currentY, codeWidth, rowHeight).fillAndStroke(fillColor, '#000000');
+    doc.rect(startX + codeWidth, currentY, nameWidth, rowHeight).fillAndStroke(fillColor, '#000000');
 
-    const maxRows = Math.max(leftBranches.length, rightBranches.length);
+    doc.fontSize(9).font('Helvetica-Bold').fillColor('black');
+    doc.text(shortName, startX + 2, currentY + 8, { width: codeWidth - 4, align: 'center' });
 
-    for (let row = 0; row < maxRows; row++) {
-      // Left column
-      if (row < leftBranches.length) {
-        const branch = leftBranches[row];
-        const shortName = BRANCH_SHORT_NAMES[branch] || branch;
-        const fillColor = row % 2 === 0 ? '#F9FAFB' : 'white';
-        const colStartX = startX;
+    doc.font('Helvetica');
+    doc.text(branch, startX + codeWidth + 6, currentY + 8, {
+      width: nameWidth - 12,
+      align: 'left',
+      // One line per row: the row height is fixed, so a name long enough to
+      // wrap would otherwise print over the row beneath it.
+      lineBreak: false,
+      ellipsis: true,
+    });
 
-        doc.rect(colStartX, currentY, colWidths.shortName, rowHeight)
-           .fillAndStroke(fillColor, '#000000');
-        doc.rect(colStartX + colWidths.shortName, currentY, colWidths.fullName, rowHeight)
-           .fillAndStroke(fillColor, '#000000');
-
-        doc.fontSize(7.5)
-           .font('Helvetica-Bold')
-           .fillColor('black');
-        doc.text(shortName, colStartX + 2, currentY + 8, {
-          width: colWidths.shortName - 4,
-          align: 'center'
-        });
-
-        doc.font('Helvetica');
-        doc.text(branch, colStartX + colWidths.shortName + 2, currentY + 7, {
-          width: colWidths.fullName - 4,
-          align: 'left',
-          lineBreak: true
-        });
-      }
-
-      // Right column
-      if (row < rightBranches.length) {
-        const branch = rightBranches[row];
-        const shortName = BRANCH_SHORT_NAMES[branch] || branch;
-        const fillColor = row % 2 === 0 ? '#F9FAFB' : 'white';
-        const colStartX = startX + columnWidth;
-
-        doc.rect(colStartX, currentY, colWidths.shortName, rowHeight)
-           .fillAndStroke(fillColor, '#000000');
-        doc.rect(colStartX + colWidths.shortName, currentY, colWidths.fullName, rowHeight)
-           .fillAndStroke(fillColor, '#000000');
-
-        doc.fontSize(7.5)
-           .font('Helvetica-Bold')
-           .fillColor('black');
-        doc.text(shortName, colStartX + 2, currentY + 8, {
-          width: colWidths.shortName - 4,
-          align: 'center'
-        });
-
-        doc.font('Helvetica');
-        doc.text(branch, colStartX + colWidths.shortName + 2, currentY + 7, {
-          width: colWidths.fullName - 4,
-          align: 'left',
-          lineBreak: true
-        });
-      }
-
-      currentY += rowHeight;
-    }
-  }
+    currentY += rowHeight;
+  });
 
   // Note: Border will be added by the main function's page loop
   // No need to draw border here to avoid duplication

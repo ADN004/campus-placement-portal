@@ -5,6 +5,7 @@ import {
   calculateProgrammeCgpa,
   hasSemesterValue,
 } from '../utils/cgpaCalculation.js';
+import { dobAndGenderFailure } from '../utils/jobEligibility.js';
 
 // @desc    Get student dashboard data
 // @route   GET /api/students/dashboard
@@ -823,6 +824,13 @@ const checkJobEligibility = async (jobId, student) => {
           return { isEligible: false, reason: `You have ${totalBacklogs} backlogs, maximum allowed is ${job.max_backlogs}` };
         }
       }
+    }
+
+    // Date-of-birth cutoff and gender, from the one definition both the apply
+    // path and the eligible-students list also use.
+    const dobOrGender = dobAndGenderFailure(job, student);
+    if (dobOrGender) {
+      return { isEligible: false, reason: dobOrGender };
     }
 
     // Check height requirement

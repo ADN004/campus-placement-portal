@@ -10,6 +10,7 @@ import {
   sendRejectionEmail,
   sendShortlistEmail,
 } from '../config/emailService.js';
+import { eligibilitySqlClauses } from '../utils/jobEligibility.js';
 import { TOTAL_BACKLOGS_SQL, parseMaxBacklogs } from '../utils/backlogPolicy.js';
 import { validateImageFormat } from '../utils/photoValidation.js';
 
@@ -951,7 +952,19 @@ export const exportEligibleNotApplied = async (req, res) => {
     }
     if (job.max_weight !== null && job.max_weight !== undefined) {
       params.push(parseFloat(job.max_weight));
-      whereClauses.push(`(s.weight <= $${params.length})`);
+      // The IS NULL guard its three siblings have and this one did not. A
+      // student with no weight recorded passed min_weight and failed
+      // max_weight, so the same student was eligible or not depending on which
+      // end the officer had filled in — while checkJobEligibility skips the
+      // check entirely when the weight is unknown, so this list and the
+      // student's own page disagreed about them.
+      whereClauses.push(`(s.weight IS NULL OR s.weight <= $${params.length})`);
+    }
+
+    // Date of birth and gender, from the same definition the student-side
+    // check uses, so this list cannot drift from it the way weight did.
+    for (const clause of eligibilitySqlClauses(job, params, 's')) {
+      whereClauses.push(clause);
     }
 
     // Backlog checks (3 modes mirroring checkJobEligibility)

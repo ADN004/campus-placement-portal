@@ -9,6 +9,7 @@
  */
 
 import { query, transaction } from '../config/database.js';
+import { dobCutoffFailure, genderFailure } from '../utils/jobEligibility.js';
 
 // Normalize branch name for comparison: lowercase, & → and, collapse spaces
 const normalizeBranch = (b) => b?.toLowerCase().replace(/&/g, 'and').replace(/\s+/g, ' ').trim() || '';
@@ -107,11 +108,21 @@ export const checkApplicationReadiness = async (req, res) => {
       [jobId]
     );
 
-    // Get job details for fallback
+    /*
+     * The whole row, not a hand-picked list.
+     *
+     * This used to name eight columns, and the targeting checks fifty lines
+     * below read job.target_type, job.target_regions and job.target_colleges —
+     * none of which were selected. They were undefined on every request, so all
+     * three blocks evaluated false and this screen never once told a student
+     * that a drive was not open to their college. Submitting anyway got them a
+     * flat rejection with no explanation, because the submit path does check.
+     * Selecting the row makes the code that is already written do its job, and
+     * keeps the next criterion added to jobs from being invisible here the same
+     * way the date-of-birth cutoff and gender would have been.
+     */
     const jobResult = await query(
-      `SELECT id, job_title, company_name, min_cgpa, max_backlogs, backlog_max_semester, allowed_backlog_semesters, allowed_branches
-       FROM jobs
-       WHERE id = $1 AND is_active = TRUE`,
+      `SELECT * FROM jobs WHERE id = $1 AND is_active = TRUE`,
       [jobId]
     );
 
@@ -194,6 +205,34 @@ export const checkApplicationReadiness = async (req, res) => {
           blocking: true
         });
       }
+    }
+
+    /*
+     * The date-of-birth cutoff and the gender requirement, before the shortcut
+     * below — which is the point. That shortcut returns "ready to apply"
+     * whenever CGPA, backlogs and branches are all unset, and it has never
+     * looked at height, weight or targeting, so a drive restricted only by
+     * those said "you can apply for this job" and then refused the submission.
+     * A criterion that is not in this list is a criterion this screen lies
+     * about.
+     */
+    const dobFailure = dobCutoffFailure(job, student);
+    if (dobFailure) {
+      missingFields.push({
+        field: 'date_of_birth', section: 'core', label: 'Date of birth',
+        required_value: job.dob_on_or_before,
+        current_value: student.date_of_birth,
+        message: dobFailure, blocking: true,
+      });
+    }
+    const genderIssue = genderFailure(job, student);
+    if (genderIssue) {
+      missingFields.push({
+        field: 'gender', section: 'core', label: 'Gender',
+        required_value: job.gender_requirement,
+        current_value: student.gender,
+        message: genderIssue, blocking: true,
+      });
     }
 
     // If no requirements at all and no targeting issues, student is ready to apply
@@ -638,7 +677,7 @@ export const submitEnhancedApplication = async (req, res) => {
         `SELECT
           s.id, s.user_id, s.prn, s.region_id, s.college_id, s.email, s.mobile_number,
           s.programme_cgpa, s.date_of_birth, s.backlog_count, s.backlog_details,
-          s.registration_status, s.is_blacklisted, s.student_name, s.age, s.gender,
+          s.registration_status, s.is_blacklisted, s.student_name, s.age, s.gender, s.date_of_birth,
           s.height, s.weight, s.complete_address, s.cgpa_sem1, s.cgpa_sem2, s.cgpa_sem3,
           s.cgpa_sem4, s.cgpa_sem5, s.cgpa_sem6, s.branch, s.has_driving_license,
           s.has_pan_card, s.photo_url, s.email_verified,
@@ -702,11 +741,34 @@ export const submitEnhancedApplication = async (req, res) => {
 
       // Also check jobs table for criteria if no template requirements
       const jobCriteriaResult = await client.query(
-        'SELECT min_cgpa, max_backlogs, backlog_max_semester, allowed_branches FROM jobs WHERE id = $1',
+        'SELECT * FROM jobs WHERE id = $1',
         [jobId]
       );
 
       const jobCriteria = jobCriteriaResult.rows[0];
+
+      /*
+       * The two criteria that live only on the job, checked here where the row
+       * is actually written.
+       *
+       * Outside the `if (requirements)` block on purpose: that block is skipped
+       * entirely when a job has no requirement template and no CGPA, backlog or
+       * branch rules, which is exactly the shape of a job restricted only by
+       * date of birth or gender. Inside it, these would be enforced on some
+       * jobs and not others depending on whether an unrelated field was set.
+       */
+      if (jobCriteria) {
+        const dobFailure = dobCutoffFailure(jobCriteria, student);
+        if (dobFailure) {
+          meetsRequirements = false;
+          validationErrors.push(dobFailure);
+        }
+        const genderIssue = genderFailure(jobCriteria, student);
+        if (genderIssue) {
+          meetsRequirements = false;
+          validationErrors.push(genderIssue);
+        }
+      }
       let requirements;
 
       if (requirementsResult.rows.length > 0) {
@@ -795,7 +857,7 @@ export const submitEnhancedApplication = async (req, res) => {
         `SELECT
           s.id, s.user_id, s.prn, s.region_id, s.college_id, s.email, s.mobile_number,
           s.programme_cgpa, s.date_of_birth, s.backlog_count, s.backlog_details,
-          s.registration_status, s.is_blacklisted, s.student_name, s.age, s.gender,
+          s.registration_status, s.is_blacklisted, s.student_name, s.age, s.gender, s.date_of_birth,
           s.height, s.weight, s.complete_address, s.cgpa_sem1, s.cgpa_sem2, s.cgpa_sem3,
           s.cgpa_sem4, s.cgpa_sem5, s.cgpa_sem6, s.branch, s.has_driving_license,
           s.has_pan_card, s.photo_url, s.email_verified,

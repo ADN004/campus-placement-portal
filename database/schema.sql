@@ -451,6 +451,13 @@ CREATE TABLE jobs (
     allowed_backlog_semesters JSONB DEFAULT '[]'::jsonb,
     allowed_branches JSONB,
 
+    -- Date-of-birth cutoff and gender, both optional (migration 015).
+    -- Stored as a cutoff date rather than an age in years so the set of
+    -- students it admits is fixed and cannot drift as birthdays pass.
+    dob_on_or_before DATE,
+    gender_requirement VARCHAR(10) NOT NULL DEFAULT 'all'
+      CHECK (gender_requirement IN ('all', 'male', 'female')),
+
     -- Height/Weight criteria
     min_height INTEGER CHECK (min_height >= 140 AND min_height <= 220),
     max_height INTEGER CHECK (max_height >= 140 AND max_height <= 220),
@@ -678,6 +685,9 @@ CREATE TABLE job_requests (
     backlog_max_semester INTEGER CHECK (backlog_max_semester >= 1 AND backlog_max_semester <= 6),
     allowed_backlog_semesters JSONB DEFAULT '[]'::jsonb,
     allowed_branches JSONB,
+    dob_on_or_before DATE,
+    gender_requirement VARCHAR(10) NOT NULL DEFAULT 'all'
+      CHECK (gender_requirement IN ('all', 'male', 'female')),
     target_type VARCHAR(50) DEFAULT 'specific' CHECK (target_type IN ('all', 'specific')),
     target_regions JSONB,
     target_colleges JSONB,

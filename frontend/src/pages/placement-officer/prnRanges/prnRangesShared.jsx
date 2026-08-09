@@ -203,13 +203,22 @@ export function RangeActions({ range, locked, onViewStudents, onToggle, onEdit, 
  * Actions stays `w-px` regardless: it holds one 44px trigger and should never
  * be padded out again, whatever else the table gains or loses later.
  */
+/*
+ * Two groups, not seven columns in a zig-zag.
+ *
+ * What the range *is* reads from the left — its PRNs, its year, its note. What
+ * it currently amounts to reads from the right — how many students, when it was
+ * added, whether it is on, and what you can do about it. Alignment used to
+ * alternate left-left-left-right-right-left-right, and a status sitting left
+ * between two right-aligned columns is what made the row look ragged.
+ */
 const PRN_COLUMNS = [
   { label: 'PRN range', align: 'text-left', width: '' },
   { label: 'Year', align: 'text-left', width: '' },
-  { label: 'Description', align: 'text-left', width: '' },
+  { label: 'Description', align: 'text-left', width: 'w-full' },
   { label: 'Students', align: 'text-right', width: '' },
   { label: 'Added', align: 'text-right', width: '' },
-  { label: 'Status', align: 'text-left', width: '' },
+  { label: 'Status', align: 'text-right', width: '' },
   { label: 'Actions', align: 'text-right', width: 'w-px' },
 ];
 
@@ -253,7 +262,7 @@ export function RangeTable({ ranges, locked, actionHandlers, emptyTitle, emptyHi
               <td className="px-3 py-2 text-spc-xs text-spc-ink tabular-nums whitespace-nowrap">
                 {range.year || '–'}
               </td>
-              <td className="px-3 py-2 text-spc-xs text-spc-body">{range.description || '–'}</td>
+              <td className="px-3 py-2 text-spc-xs text-spc-body w-full">{range.description || '–'}</td>
               {/* Right-aligned and tabular, like every other figure in the
                   role. Zero is said as a zero rather than a dash: "no student
                   has registered under this range yet" is information, and a
@@ -264,7 +273,7 @@ export function RangeTable({ ranges, locked, actionHandlers, emptyTitle, emptyHi
               <td className="px-3 py-2 text-spc-xs text-spc-body text-right tabular-nums whitespace-nowrap">
                 {formatDate(range.created_at)}
               </td>
-              <td className="px-3 py-2 whitespace-nowrap"><RangeStatus range={range} /></td>
+              <td className="px-3 py-2 whitespace-nowrap text-right"><RangeStatus range={range} /></td>
               <td className="px-3 py-2 whitespace-nowrap w-px">
                 <RangeActions range={range} locked={locked} {...actionHandlers} />
               </td>

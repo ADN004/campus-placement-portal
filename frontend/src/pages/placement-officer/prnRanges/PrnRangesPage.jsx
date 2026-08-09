@@ -36,8 +36,22 @@ export default function PrnRangesPage({
   // Newest closed year first — the one an officer is most likely to look for.
   const closedYears = [...new Set(closedRanges.map((r) => r.closed_for_year))].sort().reverse();
 
+  /*
+   * A measure, not the full window.
+   *
+   * This page holds seven short columns and a four-line explainer. Stretched
+   * across a 1920px screen there is nothing to fill the middle with, and every
+   * attempt to hand that slack to one column or another only moved the hole:
+   * the numbers drifted away from the ranges they belong to and the row stopped
+   * reading as one line. Capping the measure removes the slack instead of
+   * relocating it — the columns sit at their natural widths, next to each
+   * other, and the page ends where its content ends.
+   *
+   * The cap applies to the whole page rather than the table alone, so the
+   * heading, the explainer and the ranges share one left and right edge.
+   */
   return (
-    <div className={layout === 'mobile' ? 'pb-2' : undefined}>
+    <div className={layout === 'mobile' ? 'pb-2' : 'max-w-[58rem]'}>
       <PageHeading
         title="PRN Ranges"
         subline="Decide which PRNs are allowed to register for your college"

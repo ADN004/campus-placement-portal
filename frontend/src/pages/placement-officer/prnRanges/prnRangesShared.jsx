@@ -94,6 +94,16 @@ export function RangeActions({ range, locked, onViewStudents, onToggle, onEdit, 
   const readOnly = locked || bySuperAdmin;
 
   /*
+   * A range the year-end reset closed is a third state, between the two.
+   *
+   * It cannot be reopened or edited — its intake has passed out — but it can
+   * still be looked at and cleared away, because otherwise closed ranges pile
+   * up one intake at a time and there is no way to tidy them. Deleting one
+   * removes only the range record; the graduates keep everything.
+   */
+  const closed = Boolean(range.closed_for_year);
+
+  /*
    * All of it behind the one trigger. Nothing here is repeated across rows in a
    * sitting the way approving an intake is, so nothing earns a permanent seat.
    *
@@ -115,7 +125,23 @@ export function RangeActions({ range, locked, onViewStudents, onToggle, onEdit, 
     );
   }
 
-  const actions = [
+  const actions = closed ? [
+    {
+      key: 'students',
+      label: 'View students',
+      description: `View students in range ${label}`,
+      icon: Eye,
+      onSelect: () => onViewStudents(range),
+    },
+    {
+      key: 'delete',
+      label: 'Remove from the list',
+      description: `Remove the closed range ${label} from the list`,
+      icon: Trash2,
+      tone: 'danger',
+      onSelect: () => onDelete(range.id, range.created_by),
+    },
+  ] : [
     {
       key: 'students',
       label: 'View students',

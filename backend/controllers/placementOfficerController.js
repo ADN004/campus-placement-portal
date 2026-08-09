@@ -3080,8 +3080,22 @@ export const deletePRNRange = async (req, res) => {
 
     const rangeToDelete = rangeCheck.rows[0];
 
-    // Delete all students in this range (only from this college)
-    const deletedStudentsCount = await deleteStudentsInRange(rangeToDelete, req.user.id, officer.college_id);
+    /*
+     * A closed range loses only its own record.
+     *
+     * Deleting a range takes its students with it, which is right for a live
+     * one: the case it exists for is a PRN block typed wrongly, with people
+     * registered against it by mistake. It is exactly wrong for a range the
+     * year-end reset closed, where those students are a batch that graduated
+     * and whose records are deliberately kept for reference and export.
+     *
+     * Blocking the delete instead was the other obvious answer and a bad one —
+     * closed ranges accumulate every year and an officer needs to be able to
+     * tidy them away. So the range goes and the graduates stay.
+     */
+    const deletedStudentsCount = rangeToDelete.closed_for_year
+      ? 0
+      : await deleteStudentsInRange(rangeToDelete, req.user.id, officer.college_id);
 
     // Delete the PRN range
     await query('DELETE FROM prn_ranges WHERE id = $1', [rangeId]);
@@ -3153,6 +3167,22 @@ export const getPRNRangeDeleteImpact = async (req, res) => {
     }
 
     const students = await findStudentsInRange(range, officer.college_id);
+
+    /*
+     * A closed range deletes nobody, so it reports nobody. The count is still
+     * useful the other way round — "42 students from that intake keep their
+     * records" is what makes it obvious this is a tidy-up and not a purge.
+     */
+    if (range.closed_for_year) {
+      return res.status(200).json({
+        success: true,
+        closed_for_year: range.closed_for_year,
+        student_count: 0,
+        application_count: 0,
+        kept_count: students.length,
+      });
+    }
+
     const applications = students.length
       ? (await query(
           'SELECT COUNT(*)::int AS n FROM job_applications WHERE student_id = ANY($1::int[])',
@@ -3162,6 +3192,7 @@ export const getPRNRangeDeleteImpact = async (req, res) => {
 
     res.status(200).json({
       success: true,
+      closed_for_year: null,
       student_count: students.length,
       application_count: applications,
     });

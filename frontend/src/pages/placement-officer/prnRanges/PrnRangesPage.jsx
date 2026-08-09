@@ -174,9 +174,10 @@ export default function PrnRangesPage({
               {closedYears.map((year) => (
                 <Panel key={year}>
                   <PanelHeading>{year}</PanelHeading>
+                  {/* Not `locked`: RangeActions gives a closed range its own
+                      short menu — look at who was in it, or clear it away. */}
                   <RangeView
                     ranges={closedRanges.filter((r) => r.closed_for_year === year)}
-                    locked
                     actionHandlers={actionHandlers}
                     emptyTitle="No ranges."
                   />

@@ -208,6 +208,7 @@ export default function ManagePRNRanges() {
         impact: {
           students: res.data.student_count ?? 0,
           applications: res.data.application_count ?? 0,
+          kept: res.data.kept_count ?? 0,
         },
       });
     } catch {
@@ -224,7 +225,9 @@ export default function ManagePRNRanges() {
       toast.success(
         removed > 0
           ? `PRN range deleted, along with ${removed} student${removed === 1 ? '' : 's'}`
-          : 'PRN range deleted'
+          : deletingRange.closed_for_year
+            ? 'Closed range removed from the list'
+            : 'PRN range deleted'
       );
       setDeletingRange(null);
       fetchPRNRanges();
@@ -413,14 +416,14 @@ export default function ManagePRNRanges() {
 
       {deletingRange && (
         <OfficerConfirm
-          title="Delete this PRN range?"
+          title={deletingRange.closed_for_year ? 'Remove this closed range?' : 'Delete this PRN range?'}
           subtitle={
             deletingRange.single_prn
               ? `${deletingRange.single_prn}${deletingRange.year ? ` · ${deletingRange.year}` : ''}`
               : `${deletingRange.start_prn} – ${deletingRange.end_prn}${deletingRange.year ? ` · ${deletingRange.year}` : ''}`
           }
-          confirmLabel="Delete range"
-          busyLabel="Deleting…"
+          confirmLabel={deletingRange.closed_for_year ? 'Remove from list' : 'Delete range'}
+          busyLabel={deletingRange.closed_for_year ? 'Removing…' : 'Deleting…'}
           busy={deletingBusy || deletingRange.impact === null}
           /* Typing is only demanded when real accounts are at stake. On an
              unused range there is nothing to lose and nothing to slow down. */
@@ -442,7 +445,28 @@ export default function ManagePRNRanges() {
                 </p>
               )}
 
-              {deletingRange.impact && deletingRange.impact !== 'unknown' && (
+              {/* A closed range deletes nobody: its intake has already passed
+                  out and their records are the thing being kept. Only the range
+                  record goes, which is what stops closed ranges piling up. */}
+              {deletingRange.impact && deletingRange.impact !== 'unknown' && deletingRange.closed_for_year && (
+                <>
+                  <p>
+                    This only removes the range from your list. It was closed by the{' '}
+                    {deletingRange.closed_for_year} year-end reset, so nobody can register
+                    against it any more.
+                  </p>
+                  <p className="text-spc-muted">
+                    The{' '}
+                    <span className="font-bold text-spc-ink tabular-nums">
+                      {deletingRange.impact.kept ?? 0}
+                    </span>{' '}
+                    student{(deletingRange.impact.kept ?? 0) === 1 ? '' : 's'} from that intake keep
+                    their records — they stay under Archived students and can still be exported.
+                  </p>
+                </>
+              )}
+
+              {deletingRange.impact && deletingRange.impact !== 'unknown' && !deletingRange.closed_for_year && (
                 deletingRange.impact.students > 0 ? (
                   <>
                     <p className="text-spc-bad font-bold">

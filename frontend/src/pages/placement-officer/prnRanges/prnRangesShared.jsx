@@ -77,9 +77,9 @@ export function RangeIdentity({ range }) {
 /* ---------------------------------------------------------------- actions */
 
 /**
- * Row actions. When the Super Admin has locked PRN management, editing and
- * deleting disappear and a plain "Locked" marker takes their place — the same
- * rule as before, said in words.
+ * Row actions. When the Super Admin has locked PRN management, editing,
+ * enabling and deleting disappear behind a padlock and only View students is
+ * left — which is exactly what the banner at the top of the page promises.
  */
 export function RangeActions({ range, locked, onViewStudents, onToggle, onEdit, onDelete }) {
   const label = range.single_prn || `${range.start_prn}–${range.end_prn}`;
@@ -104,36 +104,49 @@ export function RangeActions({ range, locked, onViewStudents, onToggle, onEdit, 
    */
   const closed = Boolean(range.closed_for_year);
 
+  const viewStudents = {
+    key: 'students',
+    label: 'View students',
+    description: `View students in range ${label}`,
+    icon: Eye,
+    onSelect: () => onViewStudents(range),
+  };
+
   /*
-   * All of it behind the one trigger. Nothing here is repeated across rows in a
-   * sitting the way approving an intake is, so nothing earns a permanent seat.
+   * Read-only still means readable.
    *
-   * The read-only case is not a menu at all — a row an officer cannot act on
-   * should say why, not offer a trigger that opens an empty list.
+   * This branch used to render the word "Locked" and nothing else, which
+   * contradicted the banner directly above it: that banner promises an officer
+   * can still see the ranges and the students inside them. Before the actions
+   * moved behind one trigger, View students sat outside this branch and only
+   * the editing actions were replaced by the marker — collapsing them into the
+   * menu took the view with them, and locking a college quietly removed the one
+   * thing a locked officer is still allowed to do.
+   *
+   * The padlock stays, because a row missing three of its four actions has to
+   * say why, and it carries the reason as its accessible name rather than as a
+   * word: the column holds a 44px trigger and has no room for both.
    */
   if (readOnly) {
+    const why = bySuperAdmin && !locked
+      ? 'Added by the Super Admin — ask them to change it'
+      : 'The Super Admin has frozen PRN range changes for your college';
     return (
       <div className="flex items-center justify-end gap-0.5 flex-nowrap">
         <span
-          title={bySuperAdmin && !locked ? 'Added by the Super Admin — ask them to change it' : undefined}
-          className="inline-flex items-center gap-1.5 px-2.5 min-h-[44px] text-spc-xs
-            font-bold text-spc-muted whitespace-nowrap"
+          title={why}
+          className="inline-flex items-center justify-center w-6 flex-shrink-0 text-spc-muted"
         >
           <Lock size={15} aria-hidden="true" />
-          <span>{bySuperAdmin && !locked ? 'Super Admin' : 'Locked'}</span>
+          <span className="sr-only">{why}</span>
         </span>
+        <RowActions actions={[{ ...viewStudents, inline: true }]} subject={label} />
       </div>
     );
   }
 
   const actions = closed ? [
-    {
-      key: 'students',
-      label: 'View students',
-      description: `View students in range ${label}`,
-      icon: Eye,
-      onSelect: () => onViewStudents(range),
-    },
+    viewStudents,
     {
       key: 'delete',
       label: 'Remove from the list',
@@ -143,13 +156,7 @@ export function RangeActions({ range, locked, onViewStudents, onToggle, onEdit, 
       onSelect: () => onDelete(range.id, range.created_by),
     },
   ] : [
-    {
-      key: 'students',
-      label: 'View students',
-      description: `View students in range ${label}`,
-      icon: Eye,
-      onSelect: () => onViewStudents(range),
-    },
+    viewStudents,
     {
       /*
        * An action, so it carries an action's icon. This was a toggle switch

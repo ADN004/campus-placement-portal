@@ -42,8 +42,8 @@ export const formatDob = (value) => {
  * previous day, which would silently shift the cutoff by one and change who is
  * eligible. Reading the local parts avoids the round trip entirely.
  */
-export const dobCutoffValue = (job) => {
-  const raw = job?.dob_on_or_before;
+export const dobCutoffValue = (job, field = 'dob_on_or_before') => {
+  const raw = job?.[field];
   if (!raw) return null;
   if (raw instanceof Date) {
     if (Number.isNaN(raw.getTime())) return null;
@@ -73,14 +73,25 @@ const studentDobValue = (student) => {
  * height and weight there is no "not filled in" case to let through.
  */
 export const dobCutoffFailure = (job, student) => {
-  const cutoff = dobCutoffValue(job);
-  if (!cutoff) return null;
+  const before = dobCutoffValue(job, 'dob_on_or_before');
+  const after = dobCutoffValue(job, 'dob_on_or_after');
+  if (!before && !after) return null;
+
   const dob = studentDobValue(student);
   if (!dob) {
-    return `This drive is open to students born on or before ${formatDob(cutoff)}, and your date of birth is not recorded`;
+    return 'This drive has a date-of-birth requirement and yours is not recorded';
   }
-  if (dob <= cutoff) return null;
-  return `This drive is open to students born on or before ${formatDob(cutoff)}; yours is ${formatDob(dob)}`;
+  // "on or before" is the older bound — a minimum age. "on or after" is the
+  // younger one — a maximum age. Either may be set alone; together they are a
+  // window, and the two messages stay separate so a student is told which end
+  // they fall outside rather than just "you do not qualify".
+  if (before && dob > before) {
+    return `This drive is open to students born on or before ${formatDob(before)}; yours is ${formatDob(dob)}`;
+  }
+  if (after && dob < after) {
+    return `This drive is open to students born on or after ${formatDob(after)}; yours is ${formatDob(dob)}`;
+  }
+  return null;
 };
 
 /**
@@ -112,10 +123,15 @@ export const genderFailure = (job, student) => {
 export const eligibilitySqlClauses = (job, params, alias = 's') => {
   const clauses = [];
 
-  const cutoff = dobCutoffValue(job);
-  if (cutoff) {
-    params.push(cutoff);
+  const before = dobCutoffValue(job, 'dob_on_or_before');
+  if (before) {
+    params.push(before);
     clauses.push(`${alias}.date_of_birth <= $${params.length}::date`);
+  }
+  const after = dobCutoffValue(job, 'dob_on_or_after');
+  if (after) {
+    params.push(after);
+    clauses.push(`${alias}.date_of_birth >= $${params.length}::date`);
   }
 
   const required = (job?.gender_requirement || 'all').toLowerCase();
@@ -177,4 +193,28 @@ export const normalizeGenderRequirement = (raw) => {
     return { error: `Gender requirement must be one of: ${GENDER_REQUIREMENTS.join(', ')}` };
   }
   return { value: text };
+};
+
+/**
+ * Both bounds and the window between them, for a request body.
+ *
+ * Returns { before, after, error }. `undefined` for either means "not supplied,
+ * leave it alone", which is what an update needs; null means "clear it".
+ *
+ * The window is checked here rather than only at the database so an officer who
+ * transposes the two dates gets a sentence instead of a constraint violation.
+ */
+export const normalizeDobWindow = (body) => {
+  const before = normalizeDobCutoff(body?.dob_on_or_before);
+  if (before.error) return { error: before.error };
+  const after = normalizeDobCutoff(body?.dob_on_or_after);
+  if (after.error) return { error: after.error.replace('cutoff', 'earliest date') };
+
+  if (before.value && after.value && after.value > before.value) {
+    return {
+      error: 'The date-of-birth range is back to front: "on or after" must be the '
+        + 'earlier date and "on or before" the later one.',
+    };
+  }
+  return { before: before.value, after: after.value };
 };

@@ -3,7 +3,7 @@ import ExcelJS from 'exceljs';
 import { query, transaction } from '../config/database.js';
 import { getPortalCounts } from '../utils/portalMode.js';
 import { parseExceptedPrns, prnMatchesRange } from '../utils/prnExceptions.js';
-import { normalizeDobCutoff, normalizeGenderRequirement } from '../utils/jobEligibility.js';
+import { normalizeDobWindow, normalizeGenderRequirement } from '../utils/jobEligibility.js';
 import logActivity from '../middleware/activityLogger.js';
 import { generateStudentPDF } from '../utils/pdfGenerator.js';
 import { deleteImage, deleteFolderOnly, extractFolderPath } from '../config/cloudinary.js';
@@ -1170,15 +1170,16 @@ export const createJob = async (req, res) => {
       allowed_backlog_semesters,
       allowed_branches,
       dob_on_or_before,
+      dob_on_or_after,
       gender_requirement,
       target_type,
       target_regions,
       target_colleges,
     } = req.body;
 
-    const dobCutoff = normalizeDobCutoff(dob_on_or_before);
-    if (dobCutoff.error) {
-      return res.status(400).json({ success: false, message: dobCutoff.error });
+    const dobWindow = normalizeDobWindow(req.body);
+    if (dobWindow.error) {
+      return res.status(400).json({ success: false, message: dobWindow.error });
     }
     const genderReq = normalizeGenderRequirement(gender_requirement);
     if (genderReq.error) {
@@ -1223,8 +1224,8 @@ export const createJob = async (req, res) => {
         `INSERT INTO jobs
          (job_title, company_name, job_description, job_location, no_of_vacancies, salary_package,
           application_form_url, application_start_date, application_deadline, min_cgpa, max_backlogs, backlog_max_semester, allowed_backlog_semesters, allowed_branches,
-          dob_on_or_before, gender_requirement, target_type, target_regions, target_colleges, created_by, is_active)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, $8, $9, $10, $11, $12::jsonb, $13, $14, $15, $16, $17, $18, $19, TRUE)
+          dob_on_or_before, dob_on_or_after, gender_requirement, target_type, target_regions, target_colleges, created_by, is_active)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, $8, $9, $10, $11, $12::jsonb, $13, $14, $15, $16, $17, $18, $19, $20, TRUE)
          RETURNING *`,
         [
           title,
@@ -1240,7 +1241,8 @@ export const createJob = async (req, res) => {
           backlog_max_semester || null,
           JSON.stringify(allowed_backlog_semesters && allowed_backlog_semesters.length > 0 ? allowed_backlog_semesters : []),
           allowed_branches ? (typeof allowed_branches === 'string' ? allowed_branches : JSON.stringify(allowed_branches)) : null,
-          dobCutoff.value ?? null,
+          dobWindow.before ?? null,
+          dobWindow.after ?? null,
           genderReq.value ?? 'all',
           finalTargetType,
           target_regions ? (typeof target_regions === 'string' ? target_regions : JSON.stringify(target_regions)) : null,
@@ -1349,6 +1351,7 @@ export const updateJob = async (req, res) => {
       allowed_backlog_semesters,
       allowed_branches,
       dob_on_or_before,
+      dob_on_or_after,
       gender_requirement,
       target_type,
       target_regions,
@@ -1356,9 +1359,9 @@ export const updateJob = async (req, res) => {
       is_active,
     } = req.body;
 
-    const dobCutoff = normalizeDobCutoff(dob_on_or_before);
-    if (dobCutoff.error) {
-      return res.status(400).json({ success: false, message: dobCutoff.error });
+    const dobWindow = normalizeDobWindow(req.body);
+    if (dobWindow.error) {
+      return res.status(400).json({ success: false, message: dobWindow.error });
     }
     const genderReq = normalizeGenderRequirement(gender_requirement);
     if (genderReq.error) {
@@ -1422,9 +1425,13 @@ export const updateJob = async (req, res) => {
       updates.push(`allowed_branches = $${paramCount++}`);
       values.push(allowed_branches ? (typeof allowed_branches === 'string' ? allowed_branches : JSON.stringify(allowed_branches)) : null);
     }
-    if (dobCutoff.value !== undefined) {
+    if (dobWindow.before !== undefined) {
       updates.push(`dob_on_or_before = $${paramCount++}`);
-      values.push(dobCutoff.value);
+      values.push(dobWindow.before);
+    }
+    if (dobWindow.after !== undefined) {
+      updates.push(`dob_on_or_after = $${paramCount++}`);
+      values.push(dobWindow.after);
     }
     if (genderReq.value !== undefined) {
       updates.push(`gender_requirement = $${paramCount++}`);
@@ -2834,10 +2841,10 @@ export const approveJobRequest = async (req, res) => {
         `INSERT INTO jobs
          (job_title, company_name, job_description, job_location, no_of_vacancies, salary_package,
           application_form_url, application_start_date, application_deadline, min_cgpa, max_backlogs, backlog_max_semester, allowed_backlog_semesters,
-          allowed_branches, dob_on_or_before, gender_requirement,
+          allowed_branches, dob_on_or_before, dob_on_or_after, gender_requirement,
           target_type, target_regions, target_colleges, created_by, is_active,
           placement_officer_id, source_job_request_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, $8, $9, $10, $11, $12::jsonb, $13::jsonb, $14, $15, $16, $17::jsonb, $18::jsonb, $19, TRUE, $20, $21)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, $8, $9, $10, $11, $12::jsonb, $13::jsonb, $14, $15, $16, $17, $18::jsonb, $19::jsonb, $20, TRUE, $21, $22)
          RETURNING *`,
         [
           jobRequest.job_title,
@@ -2857,6 +2864,7 @@ export const approveJobRequest = async (req, res) => {
           // found the approved job admitting everybody would have no way to tell
           // whether the Super Admin overruled them or the value was dropped.
           jobRequest.dob_on_or_before || null,
+          jobRequest.dob_on_or_after || null,
           jobRequest.gender_requirement || 'all',
           targetType,
           targetRegions ? JSON.stringify(targetRegions) : null,

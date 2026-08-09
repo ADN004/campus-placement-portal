@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { dateForAge, ageForDate } from '../../utils/ageCutoff';
 import ModalScrollLock from '../../components/ModalScrollLock';
 import { superAdminAPI, commonAPI } from '../../services/api';
 import toast from 'react-hot-toast';
@@ -71,6 +72,7 @@ export default function ManageJobs() {
     allowed_backlog_semesters: [],
     allowed_branches: [],
     dob_on_or_before: '',
+    dob_on_or_after: '',
     gender_requirement: 'all',
     target_type: 'region', // 'region' or 'college'
     target_regions: [],
@@ -181,6 +183,7 @@ export default function ManageJobs() {
       allowed_backlog_semesters: [],
       allowed_branches: [],
       dob_on_or_before: '',
+      dob_on_or_after: '',
       gender_requirement: 'all',
       target_type: 'region',
       target_regions: [],
@@ -236,6 +239,7 @@ export default function ManageJobs() {
       allowed_branches: parseJsonField(job.allowed_branches),
       // A DATE comes back as a full ISO timestamp; the picker wants a day.
       dob_on_or_before: job.dob_on_or_before ? String(job.dob_on_or_before).slice(0, 10) : '',
+      dob_on_or_after: job.dob_on_or_after ? String(job.dob_on_or_after).slice(0, 10) : '',
       gender_requirement: job.gender_requirement || 'all',
       target_type: job.target_type || 'region',
       target_regions: parseJsonField(job.target_regions),
@@ -1208,9 +1212,43 @@ export default function ManageJobs() {
                       value={formData.dob_on_or_before}
                       onChange={(e) => setFormData({ ...formData, dob_on_or_before: e.target.value })}
                     />
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="text-xs text-gray-500 whitespace-nowrap">or minimum age</span>
+                      <input
+                        type="number" min="1" max="99" className="input w-20" placeholder="18"
+                        value={ageForDate(formData.dob_on_or_before) ?? ''}
+                        onChange={(e) => setFormData({ ...formData, dob_on_or_before: dateForAge(e.target.value) })}
+                      />
+                      <span className="text-xs text-gray-500">years</span>
+                    </div>
                     <p className="text-xs text-gray-500 mt-1">
-                      Optional. Only students born on or before this date may apply.
+                      The older end. Optional.
                     </p>
+                  </div>
+                  <div>
+                    <label className="label">Born On or After</label>
+                    <input
+                      type="date"
+                      max={new Date().toISOString().slice(0, 10)}
+                      className="input"
+                      value={formData.dob_on_or_after}
+                      onChange={(e) => setFormData({ ...formData, dob_on_or_after: e.target.value })}
+                    />
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="text-xs text-gray-500 whitespace-nowrap">or maximum age</span>
+                      <input
+                        type="number" min="1" max="99" className="input w-20" placeholder="25"
+                        value={ageForDate(formData.dob_on_or_after) ?? ''}
+                        onChange={(e) => setFormData({ ...formData, dob_on_or_after: dateForAge(e.target.value) })}
+                      />
+                      <span className="text-xs text-gray-500">years</span>
+                    </div>
+                    {formData.dob_on_or_before && formData.dob_on_or_after
+                      && formData.dob_on_or_after > formData.dob_on_or_before && (
+                      <p className="text-xs font-bold text-red-600 mt-1">
+                        Back to front — "on or after" must be the earlier date. As set, no student qualifies.
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label className="label">Open To</label>

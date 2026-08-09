@@ -331,6 +331,14 @@ export function JobDetailsModal({ job, onClose, onApply }) {
                   </p>
                 </div>
               )}
+              {job.dob_on_or_after && (
+                <div className="rounded-spc bg-spc-surface border border-spc-line p-4">
+                  <p className="text-spc-label font-bold uppercase text-spc-muted">Born on or after</p>
+                  <p className="text-spc-h2 font-bold text-spc-ink mt-1">
+                    {formatDobCriteria(job.dob_on_or_after)}
+                  </p>
+                </div>
+              )}
               {job.gender_requirement && job.gender_requirement !== 'all' && (
                 <div className="rounded-spc bg-spc-surface border border-spc-line p-4">
                   <p className="text-spc-label font-bold uppercase text-spc-muted">Open to</p>

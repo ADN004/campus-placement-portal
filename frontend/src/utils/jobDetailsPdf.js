@@ -214,6 +214,10 @@ export function generateJobDetailsPDF(job) {
     const d = String(job.dob_on_or_before).slice(0, 10).split('-');
     eligF.push({ label: 'Born On or Before', value: `${d[2]}-${d[1]}-${d[0]}` });
   }
+  if (job.dob_on_or_after) {
+    const d = String(job.dob_on_or_after).slice(0, 10).split('-');
+    eligF.push({ label: 'Born On or After', value: `${d[2]}-${d[1]}-${d[0]}` });
+  }
   if (job.gender_requirement && job.gender_requirement !== 'all') {
     eligF.push({
       label: 'Open To',

@@ -4,6 +4,7 @@ import {
 } from '../../../components/officer/OfficerUI';
 import { FormSection, FieldGrid, RequiredMark } from './jobRequestShared';
 import { KERALA_POLYTECHNIC_BRANCHES } from '../../../constants/branches';
+import { dateForAge, ageForDate } from '../../../utils/ageCutoff';
 
 /* Bound for the cutoff picker. A cutoff in the future is always a typo — 2026
    typed where 2006 was meant — and the server refuses it either way. */
@@ -164,26 +165,83 @@ export default function JobRequestForm({
           </div>
         </FieldGrid>
 
-        {/* A cutoff date, not an age in years — it is how a company words the
-            requirement, and it names one fixed set of students. An age would
-            drift: whoever qualifies would change as birthdays pass during the
-            drive, and a list exported on day one would be wrong by the last. */}
-        <FieldGrid columns={pairCols} className="mt-4">
-          <div className="min-w-0">
-            <FieldLabel htmlFor="jr-dob">Date of birth on or before</FieldLabel>
-            <input
-              id="jr-dob"
-              type="date"
-              max={TODAY}
-              className={FIELD_CLASS}
-              value={formData.dob_on_or_before || ''}
-              onChange={(e) => set('dob_on_or_before', e.target.value)}
-            />
-            <p className="mt-1 text-xs text-spc-muted">
-              Optional. Only students born on or before this date may apply. Leave blank
-              for no age requirement.
+        {/*
+          Dates are what get saved, because a date names one fixed set of
+          students and an age in years does not — "18 or over" admits somebody
+          new every day as birthdays pass, so a list exported at the start of a
+          drive would be wrong by the end.
+
+          But a company states the requirement three ways: on or before, on or
+          after, or a plain minimum age. The age boxes convert, so an officer
+          handed "minimum 18" never works the date out themselves, and can see
+          and correct whatever it produced.
+        */}
+        <div className="mt-5">
+          <p className="text-spc-xs font-bold uppercase tracking-[0.11em] text-spc-muted mb-2">
+            Age / date of birth
+          </p>
+          <FieldGrid columns={pairCols}>
+            <div className="min-w-0">
+              <FieldLabel htmlFor="jr-dob-before">Born on or before</FieldLabel>
+              <input
+                id="jr-dob-before" type="date" max={TODAY} className={FIELD_CLASS}
+                value={formData.dob_on_or_before || ''}
+                onChange={(e) => set('dob_on_or_before', e.target.value)}
+              />
+              <div className="mt-2 flex items-center gap-2">
+                <label htmlFor="jr-min-age" className="text-xs text-spc-muted whitespace-nowrap">
+                  or minimum age
+                </label>
+                <input
+                  id="jr-min-age" type="number" min="1" max="99"
+                  className={`${FIELD_CLASS} w-20`} placeholder="18"
+                  value={ageForDate(formData.dob_on_or_before) ?? ''}
+                  onChange={(e) => set('dob_on_or_before', dateForAge(e.target.value))}
+                />
+                <span className="text-xs text-spc-muted">years</span>
+              </div>
+              <p className="mt-1 text-xs text-spc-muted">
+                The older end. Leave both blank for no minimum age.
+              </p>
+            </div>
+
+            <div className="min-w-0">
+              <FieldLabel htmlFor="jr-dob-after">Born on or after</FieldLabel>
+              <input
+                id="jr-dob-after" type="date" max={TODAY} className={FIELD_CLASS}
+                value={formData.dob_on_or_after || ''}
+                onChange={(e) => set('dob_on_or_after', e.target.value)}
+              />
+              <div className="mt-2 flex items-center gap-2">
+                <label htmlFor="jr-max-age" className="text-xs text-spc-muted whitespace-nowrap">
+                  or maximum age
+                </label>
+                <input
+                  id="jr-max-age" type="number" min="1" max="99"
+                  className={`${FIELD_CLASS} w-20`} placeholder="25"
+                  value={ageForDate(formData.dob_on_or_after) ?? ''}
+                  onChange={(e) => set('dob_on_or_after', dateForAge(e.target.value))}
+                />
+                <span className="text-xs text-spc-muted">years</span>
+              </div>
+              <p className="mt-1 text-xs text-spc-muted">
+                The younger end. Leave both blank for no maximum age.
+              </p>
+            </div>
+          </FieldGrid>
+
+          {/* Said before the server has to say it. Both ends set the wrong way
+              round admits nobody at all. */}
+          {formData.dob_on_or_before && formData.dob_on_or_after
+            && formData.dob_on_or_after > formData.dob_on_or_before && (
+            <p className="mt-2 text-spc-xs font-bold text-spc-bad">
+              These are back to front — &ldquo;on or after&rdquo; must be the earlier date.
+              As set, no student can qualify.
             </p>
-          </div>
+          )}
+        </div>
+
+        <FieldGrid columns={pairCols} className="mt-4">
           <div className="min-w-0">
             <FieldLabel htmlFor="jr-gender">Open to</FieldLabel>
             <select

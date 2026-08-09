@@ -316,6 +316,13 @@ export function EditJobModal({ data, onChange, onSave, saving, applicantCount = 
               onChange={(e) => set('dob_on_or_before', e.target.value)} />
           </div>
           <div>
+            <FieldLabel htmlFor="edit-dob-after">Born on or after</FieldLabel>
+            <input id="edit-dob-after" type="date" max={new Date().toISOString().slice(0, 10)}
+              className={`${FIELD_CLASS}${lockedField}`} disabled={eligibilityLocked}
+              value={(data.dob_on_or_after || '').slice(0, 10)}
+              onChange={(e) => set('dob_on_or_after', e.target.value)} />
+          </div>
+          <div>
             <FieldLabel htmlFor="edit-gender">Open to</FieldLabel>
             <select id="edit-gender"
               className={`${FIELD_CLASS}${lockedField}`} disabled={eligibilityLocked}

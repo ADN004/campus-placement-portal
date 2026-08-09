@@ -493,6 +493,7 @@ export default function JobApplicants() {
       // it. Left in, saving a corrected job title on a job with one applicant
       // would come back "cannot be changed" for a field nobody touched.
       delete payload.dob_on_or_before;
+      delete payload.dob_on_or_after;
       delete payload.gender_requirement;
     }
 
@@ -820,6 +821,9 @@ export default function JobApplicants() {
       // A DATE arrives as a full ISO timestamp; the picker wants YYYY-MM-DD.
       dob_on_or_before: selectedJob.dob_on_or_before
         ? String(selectedJob.dob_on_or_before).slice(0, 10)
+        : '',
+      dob_on_or_after: selectedJob.dob_on_or_after
+        ? String(selectedJob.dob_on_or_after).slice(0, 10)
         : '',
       gender_requirement: selectedJob.gender_requirement || 'all',
     });

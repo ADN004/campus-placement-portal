@@ -8,7 +8,7 @@ import { generateStudentPDF } from '../utils/pdfGenerator.js';
 import { BRANCH_SHORT_NAMES } from '../constants/branches.js';
 import { singleCollegeJobApprovalRequired } from '../utils/portalMode.js';
 import { parseExceptedPrns, prnMatchesRange } from '../utils/prnExceptions.js';
-import { normalizeDobCutoff, normalizeGenderRequirement } from '../utils/jobEligibility.js';
+import { normalizeDobWindow, normalizeGenderRequirement } from '../utils/jobEligibility.js';
 import { isCollegeLocked } from '../utils/collegeLocks.js';
 import { DAY_AWARE_COUNT_SQL } from '../utils/verificationEmailPolicy.js';
 import { TOTAL_BACKLOGS_SQL, parseMaxBacklogs } from '../utils/backlogPolicy.js';
@@ -1903,6 +1903,7 @@ export const createJobRequest = async (req, res) => {
       allowed_backlog_semesters,
       allowed_branches,
       dob_on_or_before,
+      dob_on_or_after,
       gender_requirement,
       target_type,
       target_regions,
@@ -1921,9 +1922,9 @@ export const createJobRequest = async (req, res) => {
     // Rejected rather than quietly dropped: an eligibility rule the officer
     // believes they set, silently stored as null, produces a drive that admits
     // everybody with nothing on screen to explain it.
-    const dobCutoff = normalizeDobCutoff(dob_on_or_before);
-    if (dobCutoff.error) {
-      return res.status(400).json({ success: false, message: dobCutoff.error });
+    const dobWindow = normalizeDobWindow(req.body);
+    if (dobWindow.error) {
+      return res.status(400).json({ success: false, message: dobWindow.error });
     }
     const genderReq = normalizeGenderRequirement(gender_requirement);
     if (genderReq.error) {
@@ -2003,9 +2004,9 @@ export const createJobRequest = async (req, res) => {
             placement_officer_id, college_id, job_title, company_name, job_description,
             no_of_vacancies, location, salary_range, application_deadline, application_form_url,
             min_cgpa, max_backlogs, backlog_max_semester, allowed_backlog_semesters, allowed_branches,
-            dob_on_or_before, gender_requirement, target_type, target_regions, target_colleges,
+            dob_on_or_before, dob_on_or_after, gender_requirement, target_type, target_regions, target_colleges,
             status, reviewed_date
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb, $15, $16, $17, $18, $19, $20, $21, CURRENT_TIMESTAMP)
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb, $15, $16, $17, $18, $19, $20, $21, $22, CURRENT_TIMESTAMP)
           RETURNING *`,
           [
             officer.id,
@@ -2023,7 +2024,8 @@ export const createJobRequest = async (req, res) => {
             backlog_max_semester || null,
             JSON.stringify(allowed_backlog_semesters && allowed_backlog_semesters.length > 0 ? allowed_backlog_semesters : []),
             allowed_branches && allowed_branches.length > 0 ? JSON.stringify(allowed_branches) : null,
-            dobCutoff.value ?? null,
+            dobWindow.before ?? null,
+            dobWindow.after ?? null,
             genderReq.value ?? 'all',
             'specific',
             null, // No target regions for own college
@@ -2039,9 +2041,9 @@ export const createJobRequest = async (req, res) => {
           `INSERT INTO jobs
            (job_title, company_name, job_description, job_location, no_of_vacancies, salary_package,
             application_form_url, application_start_date, application_deadline, min_cgpa, max_backlogs, backlog_max_semester, allowed_backlog_semesters,
-            allowed_branches, dob_on_or_before, gender_requirement, target_type, target_regions, target_colleges, created_by, is_active,
+            allowed_branches, dob_on_or_before, dob_on_or_after, gender_requirement, target_type, target_regions, target_colleges, created_by, is_active,
             placement_officer_id, is_auto_approved, source_job_request_id)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, $8, $9, $10, $11, $12::jsonb, $13::jsonb, $14, $15, $16, $17::jsonb, $18::jsonb, $19, TRUE, $20, TRUE, $21)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, $8, $9, $10, $11, $12::jsonb, $13::jsonb, $14, $15, $16, $17, $18::jsonb, $19::jsonb, $20, TRUE, $21, TRUE, $22)
            RETURNING *`,
           [
             job_title.trim(),
@@ -2057,7 +2059,8 @@ export const createJobRequest = async (req, res) => {
             backlog_max_semester || null,
             JSON.stringify(allowed_backlog_semesters && allowed_backlog_semesters.length > 0 ? allowed_backlog_semesters : []),
             allowed_branches && allowed_branches.length > 0 ? JSON.stringify(allowed_branches) : null,
-            dobCutoff.value ?? null,
+            dobWindow.before ?? null,
+            dobWindow.after ?? null,
             genderReq.value ?? 'all',
             'college', // Target type is college
             null, // No target regions
@@ -2181,9 +2184,9 @@ export const createJobRequest = async (req, res) => {
         placement_officer_id, college_id, job_title, company_name, job_description,
         no_of_vacancies, location, salary_range, application_deadline, application_form_url,
         min_cgpa, max_backlogs, backlog_max_semester, allowed_backlog_semesters, allowed_branches,
-        dob_on_or_before, gender_requirement, target_type, target_regions, target_colleges,
+        dob_on_or_before, dob_on_or_after, gender_requirement, target_type, target_regions, target_colleges,
         status
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb, $15, $16, $17, $18, $19, $20, $21)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb, $15, $16, $17, $18, $19, $20, $21, $22)
       RETURNING *`,
       [
         officer.id,
@@ -2201,7 +2204,8 @@ export const createJobRequest = async (req, res) => {
         backlog_max_semester || null,
         JSON.stringify(allowed_backlog_semesters && allowed_backlog_semesters.length > 0 ? allowed_backlog_semesters : []),
         allowed_branches && allowed_branches.length > 0 ? JSON.stringify(allowed_branches) : null,
-        dobCutoff.value ?? null,
+        dobWindow.before ?? null,
+        dobWindow.after ?? null,
         genderReq.value ?? 'all',
         'specific',
         target_regions && target_regions.length > 0 ? JSON.stringify(target_regions) : null,
@@ -2394,13 +2398,14 @@ export const updateJob = async (req, res) => {
       allowed_backlog_semesters,
       allowed_branches,
       dob_on_or_before,
+      dob_on_or_after,
       gender_requirement,
       is_active,
     } = req.body;
 
-    const dobCutoff = normalizeDobCutoff(dob_on_or_before);
-    if (dobCutoff.error) {
-      return res.status(400).json({ success: false, message: dobCutoff.error });
+    const dobWindow = normalizeDobWindow(req.body);
+    if (dobWindow.error) {
+      return res.status(400).json({ success: false, message: dobWindow.error });
     }
     const genderReq = normalizeGenderRequirement(gender_requirement);
     if (genderReq.error) {
@@ -2437,7 +2442,7 @@ export const updateJob = async (req, res) => {
       // with them. Left out, an officer could narrow a live drive to one gender
       // after fifty students had already applied, and the applicant list would
       // then contradict the criteria with nothing on screen to explain it.
-      dob_on_or_before, gender_requirement,
+      dob_on_or_before, dob_on_or_after, gender_requirement,
     };
     const changingEligibility = Object.entries(ELIGIBILITY)
       .filter(([, v]) => v !== undefined)
@@ -2481,7 +2486,8 @@ export const updateJob = async (req, res) => {
     if (max_backlogs !== undefined) { updates.push(`max_backlogs = $${paramCount}`); values.push(max_backlogs !== '' ? max_backlogs : null); paramCount++; }
     if (allowed_backlog_semesters !== undefined) { updates.push(`allowed_backlog_semesters = $${paramCount}::jsonb`); values.push(JSON.stringify(allowed_backlog_semesters || [])); paramCount++; }
     if (allowed_branches !== undefined) { updates.push(`allowed_branches = $${paramCount}`); values.push(JSON.stringify(allowed_branches || [])); paramCount++; }
-    if (dobCutoff.value !== undefined) { updates.push(`dob_on_or_before = $${paramCount}`); values.push(dobCutoff.value); paramCount++; }
+    if (dobWindow.before !== undefined) { updates.push(`dob_on_or_before = $${paramCount}`); values.push(dobWindow.before); paramCount++; }
+    if (dobWindow.after !== undefined) { updates.push(`dob_on_or_after = $${paramCount}`); values.push(dobWindow.after); paramCount++; }
     if (genderReq.value !== undefined) { updates.push(`gender_requirement = $${paramCount}`); values.push(genderReq.value); paramCount++; }
 
     if (updates.length === 0) {

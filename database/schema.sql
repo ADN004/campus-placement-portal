@@ -455,8 +455,13 @@ CREATE TABLE jobs (
     -- Stored as a cutoff date rather than an age in years so the set of
     -- students it admits is fixed and cannot drift as birthdays pass.
     dob_on_or_before DATE,
+    dob_on_or_after DATE,
     gender_requirement VARCHAR(10) NOT NULL DEFAULT 'all'
       CHECK (gender_requirement IN ('all', 'male', 'female')),
+    CONSTRAINT check_jobs_dob_window CHECK (
+      dob_on_or_after IS NULL OR dob_on_or_before IS NULL
+      OR dob_on_or_after <= dob_on_or_before
+    ),
 
     -- Height/Weight criteria
     min_height INTEGER CHECK (min_height >= 140 AND min_height <= 220),
@@ -686,8 +691,13 @@ CREATE TABLE job_requests (
     allowed_backlog_semesters JSONB DEFAULT '[]'::jsonb,
     allowed_branches JSONB,
     dob_on_or_before DATE,
+    dob_on_or_after DATE,
     gender_requirement VARCHAR(10) NOT NULL DEFAULT 'all'
       CHECK (gender_requirement IN ('all', 'male', 'female')),
+    CONSTRAINT check_job_requests_dob_window CHECK (
+      dob_on_or_after IS NULL OR dob_on_or_before IS NULL
+      OR dob_on_or_after <= dob_on_or_before
+    ),
     target_type VARCHAR(50) DEFAULT 'specific' CHECK (target_type IN ('all', 'specific')),
     target_regions JSONB,
     target_colleges JSONB,

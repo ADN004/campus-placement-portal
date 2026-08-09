@@ -60,6 +60,7 @@ export default function CreateJobRequest() {
     allowed_backlog_semesters: [],
     allowed_branches: [],
     dob_on_or_before: '',
+    dob_on_or_after: '',
     gender_requirement: 'all',
     target_type: 'college', // Defaults to own college (auto-approved)
     target_regions: [],
@@ -135,6 +136,7 @@ export default function CreateJobRequest() {
       allowed_backlog_semesters: [],
       allowed_branches: [],
     dob_on_or_before: '',
+    dob_on_or_after: '',
     gender_requirement: 'all',
       target_type: 'college',
       target_regions: [],
@@ -323,6 +325,7 @@ export default function CreateJobRequest() {
         // Blank means no age requirement; send null rather than '' so the
         // server stores it instead of rejecting it as an unparseable date.
         dob_on_or_before: formData.dob_on_or_before || null,
+        dob_on_or_after: formData.dob_on_or_after || null,
         gender_requirement: formData.gender_requirement || 'all',
         target_type: formData.target_type,
         // For region/specific_colleges, send both regions and specific colleges

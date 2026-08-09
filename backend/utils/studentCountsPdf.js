@@ -2,138 +2,186 @@
  * The consolidated student-count report as a PDF.
  *
  * Its own module rather than another generator inside pdfGenerator.js, which is
- * already several thousand lines. Kept deliberately plain: this is a table of
- * figures somebody prints or forwards, so it needs headers that repeat on every
- * page and totals that are obviously totals.
+ * already several thousand lines. Helvetica throughout, matching every other
+ * PDF this project produces — there is no embedded font on the backend, and a
+ * report that looks different from the rest of the exports looks like a mistake.
+ *
+ * It is a table of figures somebody prints or forwards, so it gets a real
+ * bordered grid, a header band that repeats on every page, right-aligned
+ * numbers, and totals that are visibly totals.
  */
 
 import PDFDocument from 'pdfkit';
 
-// bufferPages, because the footer numbers every page once the count is
-// known — without it switchToPage throws and the whole export fails.
-const PAGE = { size: 'A4', bufferPages: true, margins: { top: 44, bottom: 52, left: 44, right: 44 } };
-const INK = '#10141A';
-const MUTED = '#5C6570';
-const RULE = '#C6CBD3';
+const MARGIN = { top: 46, bottom: 56, left: 42, right: 42 };
+/*
+ * A fresh margins object per page, never the shared MARGIN.
+ *
+ * PDFKit keeps the object it is handed, so doc.page.margins WAS this module's
+ * MARGIN. The footer loop sets margins.bottom to 0 for the width of one write,
+ * which silently set MARGIN.bottom to 0 as well — and the next line computed
+ * the footer's y from MARGIN.bottom, landing it at 862 on an 842pt page. Off
+ * the page is an overflow, an overflow starts a new page, and that page got a
+ * footer of its own: three blank numbered pages after three real ones.
+ */
+const pageOptions = () => ({ size: 'A4', bufferPages: true, margins: { ...MARGIN } });
 
-const money = (n) => String(n ?? 0);
+const INK = '#111111';
+const MUTED = '#5C6570';
+const GRID = '#9AA0A8';       // table borders — dark enough to read when printed
+const BAND = '#ECEEF1';       // header band and total row fill
+const ZEBRA = '#F7F8F9';
+
+const ROW_H = 16;
+const HEAD_H = 19;
 
 export const generateStudentCountsPDF = (colleges, meta) =>
   new Promise((resolve, reject) => {
     try {
-      const doc = new PDFDocument(PAGE);
+      const doc = new PDFDocument(pageOptions());
       const chunks = [];
       doc.on('data', (c) => chunks.push(c));
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
-      const left = doc.page.margins.left;
-      const right = doc.page.width - doc.page.margins.right;
-      const width = right - left;
-      const bottomLimit = doc.page.height - doc.page.margins.bottom;
+      const L = MARGIN.left;
+      const R = doc.page.width - MARGIN.right;
+      const W = R - L;
+      const FLOOR = doc.page.height - MARGIN.bottom;
 
-      const rule = (y, colour = RULE, w = 0.7) => {
-        doc.save().lineWidth(w).strokeColor(colour)
-          .moveTo(left, y).lineTo(right, y).stroke().restore();
+      // Figure columns are fixed width and right-aligned; the name column takes
+      // whatever is left, so long college names use the space rather than the
+      // numbers drifting about.
+      const NUM = 66;
+      const COL = {
+        name: { x: L, w: W - NUM * 3 },
+        approved: { x: R - NUM * 3, w: NUM },
+        pending: { x: R - NUM * 2, w: NUM },
+        total: { x: R - NUM, w: NUM },
       };
 
-      /* ------------------------------------------------------------ header */
-      doc.fillColor(INK).fontSize(16).font('Helvetica-Bold')
-        .text('Student Registration Counts', left, doc.y);
-      doc.moveDown(0.2);
-      doc.fontSize(9.5).font('Helvetica').fillColor(MUTED)
-        .text(meta.scopeLabel, { width })
-        .text(`Generated ${meta.generatedAt.toLocaleString('en-IN')}`, { width })
-        .text(meta.basis, { width });
-      doc.moveDown(0.5);
-      rule(doc.y, INK, 1.2);
-      doc.moveDown(0.6);
-
-      /* ------------------------------------------------- the summary table */
-      // Right-aligned figure columns, measured from the right edge so they line
-      // up whatever the college name does.
-      const numW = 62;
-      const cols = {
-        name: { x: left, w: width - numW * 3 - 8 },
-        approved: { x: right - numW * 3, w: numW },
-        pending: { x: right - numW * 2, w: numW },
-        total: { x: right - numW, w: numW },
+      const line = (x1, y1, x2, y2, colour = GRID, w = 0.6) => {
+        doc.save().lineWidth(w).strokeColor(colour).moveTo(x1, y1).lineTo(x2, y2).stroke().restore();
+      };
+      const box = (y, h, fill) => {
+        if (fill) doc.save().rect(L, y, W, h).fill(fill).restore();
+      };
+      /** The vertical rules, drawn per row so they never outrun the table. */
+      const verticals = (y, h) => {
+        for (const x of [L, COL.approved.x, COL.pending.x, COL.total.x, R]) {
+          line(x, y, x, y + h);
+        }
       };
 
-      const headerRow = (y, first) => {
-        doc.fontSize(8).font('Helvetica-Bold').fillColor(MUTED);
-        doc.text(first.toUpperCase(), cols.name.x, y, { width: cols.name.w });
-        doc.text('APPROVED', cols.approved.x, y, { width: cols.approved.w, align: 'right' });
-        doc.text('PENDING', cols.pending.x, y, { width: cols.pending.w, align: 'right' });
-        doc.text('TOTAL', cols.total.x, y, { width: cols.total.w, align: 'right' });
-        rule(y + 12, INK, 1);
-        return y + 18;
+      /* --------------------------------------------------------- title block */
+      const title = () => {
+        doc.fillColor(INK).font('Helvetica-Bold').fontSize(15)
+          .text('Student Registration Counts', L, MARGIN.top, { width: W });
+        doc.moveDown(0.25);
+        doc.font('Helvetica-Bold').fontSize(9.5).fillColor(INK)
+          .text(meta.scopeLabel, { width: W });
+        doc.font('Helvetica').fontSize(8.5).fillColor(MUTED)
+          .text(`Generated ${meta.generatedAt.toLocaleString('en-IN')}`, { width: W })
+          .text(meta.basis, { width: W });
+        return doc.y + 10;
       };
 
-      const ensureRoom = (y, needed, headerLabel) => {
-        if (y + needed <= bottomLimit) return y;
-        doc.addPage(PAGE);
-        return headerRow(doc.page.margins.top, headerLabel);
+      /* ------------------------------------------------------- header band */
+      const header = (y) => {
+        box(y, HEAD_H, BAND);
+        doc.fillColor(INK).font('Helvetica-Bold').fontSize(7.5);
+        const ty = y + 6;
+        doc.text('COLLEGE', COL.name.x + 5, ty, { width: COL.name.w - 10, lineBreak: false });
+        doc.text('APPROVED', COL.approved.x, ty, { width: COL.approved.w - 5, align: 'right', lineBreak: false });
+        doc.text('PENDING', COL.pending.x, ty, { width: COL.pending.w - 5, align: 'right', lineBreak: false });
+        doc.text('TOTAL', COL.total.x, ty, { width: COL.total.w - 5, align: 'right', lineBreak: false });
+        verticals(y, HEAD_H);
+        line(L, y, R, y, INK, 1);                 // top of the table
+        line(L, y + HEAD_H, R, y + HEAD_H, INK, 1); // under the band
+        return y + HEAD_H;
       };
 
-      const dataRow = (y, label, r, { bold = false, indent = 0 } = {}) => {
-        doc.fontSize(9).font(bold ? 'Helvetica-Bold' : 'Helvetica').fillColor(INK);
-        doc.text(label, cols.name.x + indent, y, {
-          width: cols.name.w - indent, ellipsis: true, lineBreak: false,
-        });
-        doc.text(money(r.approved), cols.approved.x, y, { width: cols.approved.w, align: 'right' });
-        doc.text(money(r.pending), cols.pending.x, y, { width: cols.pending.w, align: 'right' });
-        doc.text(money(r.total), cols.total.x, y, { width: cols.total.w, align: 'right' });
-        return y + 15;
+      /* ------------------------------------------------------------- a row */
+      const row = (y, label, r, opts = {}) => {
+        const { bold = false, indent = 0, fill = null, muted = false } = opts;
+        box(y, ROW_H, fill);
+        doc.fillColor(muted ? MUTED : INK)
+          .font(bold ? 'Helvetica-Bold' : 'Helvetica')
+          .fontSize(bold ? 8.5 : 8);
+        const ty = y + 5;
+        doc.text(label, COL.name.x + 5 + indent, ty,
+          { width: COL.name.w - 10 - indent, lineBreak: false, ellipsis: true });
+        for (const key of ['approved', 'pending', 'total']) {
+          doc.text(String(r[key] ?? 0), COL[key].x, ty,
+            { width: COL[key].w - 5, align: 'right', lineBreak: false });
+        }
+        verticals(y, ROW_H);
+        line(L, y + ROW_H, R, y + ROW_H);
+        return y + ROW_H;
       };
 
-      let y = headerRow(doc.y, 'College');
+      let y = header(title());
 
+      const room = (needed) => {
+        if (y + needed <= FLOOR) return;
+        doc.addPage(pageOptions());
+        y = header(MARGIN.top);
+      };
+
+      /* ----------------------------------------------------------- the body */
+      let zebra = false;
       if (meta.detail === 'college') {
         for (const c of colleges) {
-          y = ensureRoom(y, 15, 'College');
-          y = dataRow(y, c.college_name, c);
+          room(ROW_H);
+          y = row(y, c.college_name, c, { fill: zebra ? ZEBRA : null });
+          zebra = !zebra;
         }
       } else {
         for (const c of colleges) {
-          // Keep a college's heading with at least its first branch rather than
-          // stranding a name alone at the foot of a page.
-          y = ensureRoom(y, 34, 'College');
-          y = dataRow(y, c.college_name, c, { bold: true });
+          // A college heading alone at the foot of a page is worse than a
+          // slightly short page, so keep it with its first branch.
+          room(ROW_H * 2);
+          y = row(y, c.college_name, c, { bold: true, fill: BAND });
           if (c.branches.length === 0) {
-            doc.fontSize(8.5).font('Helvetica-Oblique').fillColor(MUTED)
-              .text('No students registered', cols.name.x + 14, y, { width: cols.name.w - 14 });
-            y += 14;
+            room(ROW_H);
+            y = row(y, 'No students registered', { approved: 0, pending: 0, total: 0 },
+              { indent: 12, muted: true });
           }
           for (const b of c.branches) {
-            y = ensureRoom(y, 15, 'College');
-            doc.fontSize(8.5).font('Helvetica').fillColor(MUTED);
-            doc.text(b.branch, cols.name.x + 14, y, {
-              width: cols.name.w - 14, ellipsis: true, lineBreak: false,
-            });
-            doc.text(money(b.approved), cols.approved.x, y, { width: cols.approved.w, align: 'right' });
-            doc.text(money(b.pending), cols.pending.x, y, { width: cols.pending.w, align: 'right' });
-            doc.text(money(b.total), cols.total.x, y, { width: cols.total.w, align: 'right' });
-            y += 13;
+            room(ROW_H);
+            y = row(y, b.branch, b, { indent: 12, muted: true });
           }
-          y += 4;
         }
       }
 
-      /* -------------------------------------------------------- grand total */
-      y = ensureRoom(y, 30, 'College');
-      rule(y, INK, 1);
-      y += 5;
-      y = dataRow(y, `${meta.collegeCount} colleges`, meta.grand, { bold: true });
+      /* ----------------------------------------------------------- the total */
+      room(ROW_H + 2);
+      y = row(y, `${meta.collegeCount} college${meta.collegeCount === 1 ? '' : 's'}`,
+        meta.grand, { bold: true, fill: BAND });
+      line(L, y, R, y, INK, 1);   // closes the table
 
-      /* ------------------------------------------------------- page numbers */
+      /* --------------------------------------------------------- page numbers
+       * Written last, once every page exists.
+       *
+       * The footer sits below the bottom margin, and PDFKit treats text that
+       * does not fit inside the margin box as an overflow and helpfully starts
+       * a new page for it — which then gets a footer of its own, and so on. The
+       * first version of this produced three blank numbered pages after three
+       * pages of content, and numbered them "of 3" because the count had been
+       * read before they existed. Dropping the bottom margin to zero for the
+       * duration means the footer is inside the box and no page is created.
+       */
       const range = doc.bufferedPageRange();
+      // Measured once, from the page itself, so nothing below can move it.
+      const footerY = doc.page.height - 34;
       for (let i = 0; i < range.count; i += 1) {
         doc.switchToPage(range.start + i);
-        doc.fontSize(8).font('Helvetica').fillColor(MUTED)
+        const keep = doc.page.margins.bottom;
+        doc.page.margins.bottom = 0;
+        doc.font('Helvetica').fontSize(7.5).fillColor(MUTED)
           .text(`Page ${i + 1} of ${range.count}`,
-            left, doc.page.height - doc.page.margins.bottom + 18,
-            { width, align: 'center' });
+            L, footerY, { width: W, align: 'center', lineBreak: false });
+        doc.page.margins.bottom = keep;
       }
 
       doc.end();

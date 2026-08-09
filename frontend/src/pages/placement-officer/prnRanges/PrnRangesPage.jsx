@@ -1,4 +1,4 @@
-import { Plus, Hash, Lock } from 'lucide-react';
+import { Plus, Hash, Lock, ChevronRight } from 'lucide-react';
 import {
   PageHeading, Panel, PanelHeading, SectionLabel, PrimaryButton, SecondaryButton, SelectField,
 } from '../../../components/officer/OfficerUI';
@@ -18,6 +18,7 @@ export default function PrnRangesPage({
   locked,
   ownRanges,
   filteredOwn,
+  closedRanges = [],
   availableYears = [],
   viewFilter,
   onViewFilterChange,
@@ -32,6 +33,8 @@ export default function PrnRangesPage({
   // every student who falls outside one, so this grows every year it is used.
   // The year filter above narrows it; this bounds what is left.
   const rangeWindow = useLongList(filteredOwn, { step: 25 });
+  // Newest closed year first — the one an officer is most likely to look for.
+  const closedYears = [...new Set(closedRanges.map((r) => r.closed_for_year))].sort().reverse();
 
   return (
     <div className={layout === 'mobile' ? 'pb-2' : undefined}>
@@ -136,6 +139,53 @@ export default function PrnRangesPage({
         one list, in PRN order, instead of the same college's ranges split
         across two panels by who happened to type them in.
       */}
+
+      {/*
+        Ranges the year-end reset closed. Kept out of the working list above:
+        they belong to intakes that have passed out and can never be reopened,
+        and after a few resets they would outnumber the live ones. Collapsed,
+        grouped by the year they were closed for, so the history is there
+        without being in the way.
+      */}
+      {closedRanges.length > 0 && (
+        <section className="mt-6">
+          <details className="group">
+            <summary
+              className="flex items-center gap-2 cursor-pointer list-none min-h-[44px]
+                text-spc-xs font-bold uppercase tracking-[0.11em] text-spc-muted
+                hover:text-spc-ink transition-colors"
+            >
+              <ChevronRight
+                size={16}
+                aria-hidden="true"
+                className="transition-transform group-open:rotate-90 flex-shrink-0"
+              />
+              <span>
+                Closed by year-end reset ({closedRanges.length})
+              </span>
+            </summary>
+
+            <div className="mt-3 space-y-4">
+              <p className="text-xs text-spc-muted">
+                These belonged to intakes that have passed out. They cannot be reopened —
+                doing so would restore those students&rsquo; accounts. Add a new range for the
+                current intake instead.
+              </p>
+              {closedYears.map((year) => (
+                <Panel key={year}>
+                  <PanelHeading>{year}</PanelHeading>
+                  <RangeView
+                    ranges={closedRanges.filter((r) => r.closed_for_year === year)}
+                    locked
+                    actionHandlers={actionHandlers}
+                    emptyTitle="No ranges."
+                  />
+                </Panel>
+              ))}
+            </div>
+          </details>
+        </section>
+      )}
     </div>
   );
 }

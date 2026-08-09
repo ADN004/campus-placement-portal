@@ -226,6 +226,12 @@ const deleteStudentsInRange = async (range, officerId, collegeId) => {
 /**
  * Reactivate students whose PRN matches active ranges (college-scoped)
  * Called when a PRN range is enabled
+ *
+ * Students the year-end reset archived are never reactivated, whatever range
+ * covers them. Enabling a closed range is refused a layer up, but this is the
+ * rule that actually matters: a passed-out batch coming back to life is the
+ * damage, and it should not depend on every future caller remembering to check
+ * which range they were handed.
  */
 const reactivateStudentsInRange = async (range, officerId, collegeId) => {
   try {
@@ -235,7 +241,8 @@ const reactivateStudentsInRange = async (range, officerId, collegeId) => {
       // Handle single PRN - only from this college
       const studentsResult = await query(
         `SELECT s.id, s.prn, s.user_id, s.photo_cloudinary_id
-         FROM students s WHERE s.prn = $1 AND s.college_id = $2`,
+         FROM students s WHERE s.prn = $1 AND s.college_id = $2
+           AND s.archived_academic_year IS NULL`,
         [range.single_prn, collegeId]
       );
       studentsToReactivate = studentsResult.rows;
@@ -243,7 +250,8 @@ const reactivateStudentsInRange = async (range, officerId, collegeId) => {
       // Handle range - get all students from this college and filter
       const studentsResult = await query(
         `SELECT s.id, s.prn, s.user_id, s.photo_cloudinary_id
-         FROM students s WHERE s.college_id = $1`,
+         FROM students s WHERE s.college_id = $1
+           AND s.archived_academic_year IS NULL`,
         [collegeId]
       );
 
@@ -2849,6 +2857,31 @@ export const updatePRNRange = async (req, res) => {
     }
 
     const currentRange = rangeCheck.rows[0];
+
+    /*
+     * A range the year-end reset closed stays closed.
+     *
+     * Enabling one calls reactivateStudentsInRange, which flips is_active back
+     * on for everyone whose PRN falls inside it — so pressing Enable on last
+     * year's range brought a whole passed-out batch back: able to sign in,
+     * counted as current students, back in eligibility lists and exports, while
+     * still stamped with the year they were archived in. The endpoint reported
+     * it as a success ("N students reactivated").
+     *
+     * Next year's intake gets its own range, which is what happens in practice
+     * anyway. Everything else about a closed range is still editable — only
+     * bringing it back to life is refused.
+     */
+    if (currentRange.closed_for_year && req.body.is_enabled === true) {
+      return res.status(409).json({
+        success: false,
+        message:
+          `This range was closed by the ${currentRange.closed_for_year} year-end reset. `
+          + 'It cannot be reopened — doing so would restore the accounts of students who have '
+          + 'passed out. Add a new range for the current intake instead.',
+        closed_for_year: currentRange.closed_for_year,
+      });
+    }
 
     // Build update query dynamically
     const updates = [];

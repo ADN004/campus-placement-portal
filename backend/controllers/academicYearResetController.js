@@ -161,16 +161,30 @@ export const performAcademicYearReset = async (req, res) => {
       // Extend timeout for large datasets
       await client.query("SET LOCAL statement_timeout = '120000'");
 
-      // 1. Disable all active PRN ranges
+      /*
+       * 1. Close every PRN range for this year.
+       *
+       * Not just the enabled ones. A range an officer had disabled by hand
+       * before the reset used to be skipped entirely, so it kept their own
+       * reason, carried nothing to say its year was over, and looked like an
+       * ordinary paused range the following year — at which point enabling it
+       * reactivated that slice of the passed-out batch.
+       *
+       * closed_for_year is what the guard reads. Ranges already closed by an
+       * earlier reset keep the year they were closed for rather than being
+       * restamped, so the record of which intake a range belonged to survives
+       * every later reset.
+       */
       const prnResult = await client.query(
         `UPDATE prn_ranges
          SET is_enabled = FALSE,
+             closed_for_year = $3,
              disabled_reason = $1,
              disabled_date = CURRENT_TIMESTAMP,
              disabled_by = $2,
              updated_at = CURRENT_TIMESTAMP
-         WHERE is_enabled = TRUE`,
-        [disabledReason, req.user.id]
+         WHERE closed_for_year IS NULL`,
+        [disabledReason, req.user.id, academic_year]
       );
       counts.prn_ranges_disabled = prnResult.rowCount;
 

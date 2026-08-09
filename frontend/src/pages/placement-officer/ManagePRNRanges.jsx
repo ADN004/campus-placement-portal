@@ -360,7 +360,17 @@ export default function ManagePRNRanges() {
   // so there is no longer a "system-wide" set to separate out — a Super-Admin
   // range that belongs to this college is one of this college's ranges, shown
   // in PRN order with the rest and marked read-only on its own row.
-  const ownRanges = prnRanges;
+  /*
+   * Ranges closed by a year-end reset are kept out of the working list.
+   *
+   * They are not "disabled ranges an officer might resume" — they belong to an
+   * intake that has passed out, they can never be reopened, and after a few
+   * years there are more of them than live ones. They get their own collapsed
+   * section instead, grouped by the year they were closed for, so the record is
+   * there without being in the way.
+   */
+  const ownRanges = prnRanges.filter((r) => !r.closed_for_year);
+  const closedRanges = prnRanges.filter((r) => r.closed_for_year);
 
   const availableYears = [...new Set(ownRanges.map(r => r.year).filter(Boolean))].sort((a, b) => b - a);
 
@@ -384,6 +394,7 @@ export default function ManagePRNRanges() {
         locked={locked}
         ownRanges={ownRanges}
         filteredOwn={filteredOwn}
+        closedRanges={closedRanges}
         availableYears={availableYears}
         viewFilter={viewFilter}
         onViewFilterChange={(e) => setViewFilter(e.target.value)}

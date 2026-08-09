@@ -166,6 +166,10 @@ CREATE TABLE prn_ranges (
     created_by_role VARCHAR(50) NOT NULL DEFAULT 'super_admin' CHECK (created_by_role IN ('super_admin', 'placement_officer')),
     college_id INTEGER REFERENCES colleges(id) ON DELETE CASCADE,
     year VARCHAR(10),
+    -- Set by the academic-year reset. Non-NULL means the range belongs to a
+    -- finished year and can never be re-enabled: doing so would reactivate that
+    -- year's archived students. Distinct from `year`, which an officer types.
+    closed_for_year VARCHAR(20),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CHECK (
@@ -181,6 +185,7 @@ CREATE TABLE prn_ranges (
 CREATE INDEX idx_prn_ranges_active ON prn_ranges(is_active);
 CREATE INDEX idx_prn_single ON prn_ranges(single_prn);
 CREATE INDEX idx_prn_ranges_creator_role ON prn_ranges(created_by_role);
+CREATE INDEX idx_prn_ranges_closed_for_year ON prn_ranges(closed_for_year) WHERE closed_for_year IS NOT NULL;
 CREATE INDEX idx_prn_ranges_college ON prn_ranges(college_id);
 CREATE INDEX idx_prn_ranges_enabled ON prn_ranges(is_enabled);
 CREATE INDEX idx_prn_ranges_year ON prn_ranges(year);

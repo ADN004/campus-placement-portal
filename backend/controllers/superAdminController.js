@@ -4,6 +4,7 @@ import { query, transaction } from '../config/database.js';
 import { getPortalCounts } from '../utils/portalMode.js';
 import { parseExceptedPrns, prnMatchesRange } from '../utils/prnExceptions.js';
 import { normalizeDobWindow, normalizeGenderRequirement } from '../utils/jobEligibility.js';
+import { REGISTERED_STUDENT_SQL } from '../utils/studentPopulation.js';
 import logActivity from '../middleware/activityLogger.js';
 import { generateStudentPDF } from '../utils/pdfGenerator.js';
 import { deleteImage, deleteFolderOnly, extractFolderPath } from '../config/cloudinary.js';
@@ -1972,10 +1973,10 @@ export const getDashboard = async (req, res) => {
     // Single query to get all dashboard counts instead of 11 separate queries
     const result = await query(`
       SELECT
-        (SELECT COUNT(*) FROM students s JOIN users u ON s.user_id = u.id WHERE u.is_active = TRUE) as total_students,
-        (SELECT COUNT(*) FROM students s JOIN users u ON s.user_id = u.id WHERE u.is_active = TRUE AND s.registration_status = 'approved') as approved_students,
-        (SELECT COUNT(*) FROM students s JOIN users u ON s.user_id = u.id WHERE u.is_active = TRUE AND s.registration_status = 'pending') as pending_students,
-        (SELECT COUNT(*) FROM students s JOIN users u ON s.user_id = u.id WHERE u.is_active = TRUE AND s.is_blacklisted = TRUE) as blacklisted_students,
+        (SELECT COUNT(*) FROM students s WHERE ${REGISTERED_STUDENT_SQL('s')}) as total_students,
+        (SELECT COUNT(*) FROM students s WHERE ${REGISTERED_STUDENT_SQL('s')} AND s.registration_status = 'approved') as approved_students,
+        (SELECT COUNT(*) FROM students s WHERE ${REGISTERED_STUDENT_SQL('s')} AND s.registration_status = 'pending') as pending_students,
+        (SELECT COUNT(*) FROM students s WHERE ${REGISTERED_STUDENT_SQL('s')} AND s.is_blacklisted = TRUE) as blacklisted_students,
         (SELECT COUNT(*) FROM jobs) as total_jobs,
         (SELECT COUNT(*) FROM jobs WHERE is_active = TRUE) as active_jobs,
         (SELECT COUNT(*) FROM colleges) as total_colleges,

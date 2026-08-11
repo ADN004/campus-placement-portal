@@ -9,6 +9,7 @@ import { BRANCH_SHORT_NAMES } from '../constants/branches.js';
 import { singleCollegeJobApprovalRequired } from '../utils/portalMode.js';
 import { parseExceptedPrns, prnMatchesRange } from '../utils/prnExceptions.js';
 import { normalizeDobWindow, normalizeGenderRequirement } from '../utils/jobEligibility.js';
+import { REGISTERED_STUDENT_SQL } from '../utils/studentPopulation.js';
 import { isCollegeLocked } from '../utils/collegeLocks.js';
 import { DAY_AWARE_COUNT_SQL } from '../utils/verificationEmailPolicy.js';
 import { TOTAL_BACKLOGS_SQL, parseMaxBacklogs } from '../utils/backlogPolicy.js';
@@ -364,10 +365,10 @@ export const getDashboard = async (req, res) => {
     // Single query to get all dashboard counts instead of 5 separate queries
     const counts = await query(
       `SELECT
-        (SELECT COUNT(*) FROM students s JOIN users u ON s.user_id = u.id WHERE s.college_id = $1 AND u.is_active = TRUE) as total_students,
-        (SELECT COUNT(*) FROM students s JOIN users u ON s.user_id = u.id WHERE s.college_id = $1 AND u.is_active = TRUE AND s.registration_status = 'pending') as pending_students,
-        (SELECT COUNT(*) FROM students s JOIN users u ON s.user_id = u.id WHERE s.college_id = $1 AND u.is_active = TRUE AND s.registration_status = 'approved') as approved_students,
-        (SELECT COUNT(*) FROM students s JOIN users u ON s.user_id = u.id WHERE s.college_id = $1 AND u.is_active = TRUE AND s.is_blacklisted = TRUE) as blacklisted_students,
+        (SELECT COUNT(*) FROM students s WHERE s.college_id = $1 AND ${REGISTERED_STUDENT_SQL('s')}) as total_students,
+        (SELECT COUNT(*) FROM students s WHERE s.college_id = $1 AND ${REGISTERED_STUDENT_SQL('s')} AND s.registration_status = 'pending') as pending_students,
+        (SELECT COUNT(*) FROM students s WHERE s.college_id = $1 AND ${REGISTERED_STUDENT_SQL('s')} AND s.registration_status = 'approved') as approved_students,
+        (SELECT COUNT(*) FROM students s WHERE s.college_id = $1 AND ${REGISTERED_STUDENT_SQL('s')} AND s.is_blacklisted = TRUE) as blacklisted_students,
         (SELECT COUNT(*) FROM jobs WHERE is_active = TRUE AND application_deadline > CURRENT_TIMESTAMP) as active_jobs`,
       [officer.college_id]
     );

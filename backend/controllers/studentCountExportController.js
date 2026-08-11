@@ -14,6 +14,7 @@
 import ExcelJS from 'exceljs';
 import { query } from '../config/database.js';
 import { generateStudentCountsPDF } from '../utils/studentCountsPdf.js';
+import { REGISTERED_STUDENT_SQL } from '../utils/studentPopulation.js';
 
 /**
  * What "registered" counts.
@@ -48,10 +49,7 @@ const IST = new Intl.DateTimeFormat('en-IN', {
 });
 const generatedLabel = (date) => `${IST.format(date)} IST`;
 
-const COUNT_BASIS = `
-  s.registration_status IN ('approved', 'pending')
-  AND s.archived_academic_year IS NULL
-`;
+const COUNT_BASIS = REGISTERED_STUDENT_SQL('s');
 
 /** Resolve the requested scope into a WHERE fragment and its parameters. */
 const buildScope = (params, { scope, college_id, region_ids }) => {

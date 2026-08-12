@@ -516,13 +516,21 @@ export function buildDriveScheduleEmail(studentName, jobDetails, driveDetails) {
 }
 
 export const sendDriveScheduleEmail = async (email, studentName, jobDetails, driveDetails) => {
-  // A calendar entry rides along, so the drive lands in the student's diary with
-  // a reminder the evening before instead of depending on them re-reading a mail.
+  /*
+   * The calendar file is added to the attachments, not put in place of them.
+   *
+   * shell() already returns the header banner as a CID attachment, and the HTML
+   * references it by that cid. Assigning `attachments` after spreading the
+   * built mail replaced that array, so the banner vanished and every drive
+   * email rendered with a broken image at the top — the calendar file arriving
+   * correctly the whole time, which is what made it easy to miss.
+   */
+  const built = buildDriveScheduleEmail(studentName, jobDetails, driveDetails);
   const invite = driveCalendarInvite(jobDetails.job_title, jobDetails.company_name, driveDetails);
   return dispatch('drive schedule', {
     to: email,
-    ...buildDriveScheduleEmail(studentName, jobDetails, driveDetails),
-    attachments: invite ? [invite] : undefined,
+    ...built,
+    attachments: invite ? [...(built.attachments || []), invite] : built.attachments,
   });
 };
 

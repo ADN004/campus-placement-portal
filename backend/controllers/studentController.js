@@ -6,6 +6,7 @@ import {
   hasSemesterValue,
 } from '../utils/cgpaCalculation.js';
 import { dobAndGenderFailure } from '../utils/jobEligibility.js';
+import { driveForStudent } from '../utils/driveSchedule.js';
 
 // @desc    Get student dashboard data
 // @route   GET /api/students/dashboard
@@ -106,9 +107,11 @@ export const getEligibleJobs = async (req, res) => {
     const jobsResult = await query(
       `SELECT j.*,
               CASE WHEN ja.id IS NOT NULL THEN TRUE ELSE FALSE END as has_applied,
-              ja.application_status
+              ja.application_status,
+              jd.drive_date, jd.drive_time, jd.drive_location, jd.additional_instructions
        FROM jobs j
        LEFT JOIN job_applications ja ON j.id = ja.job_id AND ja.student_id = $1
+       LEFT JOIN job_drives jd ON jd.job_id = j.id
        ORDER BY j.created_at DESC`,
       [student.id]
     );
@@ -148,7 +151,20 @@ export const getEligibleJobs = async (req, res) => {
         can_apply: canApply,
         eligibility_reason: eligibilityReason,
         eligibility_message: eligibilityReason,
+        /*
+         * The drive, but only to someone who applied.
+         *
+         * A drive is the company's visit for the people who are in the process.
+         * Showing a date and a venue to a student who never applied reads as an
+         * instruction to turn up, and there is no worse outcome here than a
+         * student travelling to a drive they were never part of.
+         */
+        drive: job.has_applied ? driveForStudent(job) : null,
       };
+      delete mappedJob.drive_date;
+      delete mappedJob.drive_time;
+      delete mappedJob.drive_location;
+      delete mappedJob.additional_instructions;
 
       jobsWithEligibility.push(mappedJob);
     }
@@ -276,18 +292,36 @@ export const getMyApplications = async (req, res) => {
               ja.applied_date as applied_at, ja.updated_at,
               j.job_title, j.company_name, j.application_deadline, j.application_form_url,
               j.job_description as description, j.job_location as location,
-              j.salary_package, j.min_cgpa, j.max_backlogs
+              j.salary_package, j.min_cgpa, j.max_backlogs,
+              jd.drive_date, jd.drive_time, jd.drive_location, jd.additional_instructions
        FROM job_applications ja
        JOIN jobs j ON ja.job_id = j.id
+       LEFT JOIN job_drives jd ON jd.job_id = j.id
        WHERE ja.student_id = $1
        ORDER BY ja.applied_date DESC`,
       [studentId]
     );
 
+    /*
+     * The drive, on the application it belongs to.
+     *
+     * Until now a scheduled drive reached the student only inside one
+     * notification message. Clear the notification, or let the email go to
+     * spam, and there was nowhere in the portal to look up when or where to
+     * turn up — the job_drives row was read by officer and admin code and by
+     * nothing on this side at all.
+     */
+    const applications = applicationsResult.rows.map((row) => {
+      const {
+        drive_date, drive_time, drive_location, additional_instructions, ...application
+      } = row;
+      return { ...application, drive: driveForStudent(row) };
+    });
+
     res.status(200).json({
       success: true,
-      count: applicationsResult.rows.length,
-      data: applicationsResult.rows,
+      count: applications.length,
+      data: applications,
     });
   } catch (error) {
     console.error('Get my applications error:', error);

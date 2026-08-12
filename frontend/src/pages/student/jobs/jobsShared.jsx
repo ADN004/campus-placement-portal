@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import Modal from '../../../components/Modal';
 import { EmptyState, ErrorState, formatPackage } from '../../../components/student/StudentUI';
+import { DrivePanel } from '../applications/applicationsShared';
 
 /** A cutoff date as DD-MM-YYYY, matching every other date in the role. */
 function formatDobCriteria(value) {
@@ -298,6 +299,13 @@ export function JobDetailsModal({ job, onClose, onApply }) {
               </p>
             </section>
           )}
+
+          {/* The drive comes before the criteria: once a student has applied,
+              when and where to turn up is the only thing on this page they have
+              to act on. Only present for applicants — the API withholds it from
+              everyone else, so a date and a venue never read as an instruction
+              to somebody who was never in the process. */}
+          <DrivePanel drive={job.drive} />
 
           {/* Eligibility */}
           <section>

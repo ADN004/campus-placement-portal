@@ -11,6 +11,7 @@ import {
   sendShortlistEmail,
 } from '../config/emailService.js';
 import { eligibilitySqlClauses } from '../utils/jobEligibility.js';
+import { driveMessage, hasDrive, driveForStudent } from '../utils/driveSchedule.js';
 import { TOTAL_BACKLOGS_SQL, parseMaxBacklogs } from '../utils/backlogPolicy.js';
 import { validateImageFormat } from '../utils/photoValidation.js';
 
@@ -1729,6 +1730,27 @@ export const notifyApplicationStatus = async (req, res) => {
       });
     }
 
+    /*
+     * A drive notification with no drive behind it is refused here, not just in
+     * the form.
+     *
+     * The screen already blocks it, but the screen is not the only way in, and
+     * a drive deleted between the page loading and the button being pressed
+     * slips past it. Without this the message is built from three nulls and
+     * every applicant is told their drive is "on null at null. Venue: null".
+     */
+    if (notification_type === 'drive_scheduled') {
+      const missing = applicationsResult.rows.filter((app) => !hasDrive(app));
+      if (missing.length > 0) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({
+          success: false,
+          message: 'Schedule the drive before notifying students — '
+            + 'no date, time and venue are set for this job yet.',
+        });
+      }
+    }
+
     let notificationsCreated = 0;
     let emailsSent = 0;
 
@@ -1738,7 +1760,7 @@ export const notifyApplicationStatus = async (req, res) => {
       switch (notification_type) {
         case 'drive_scheduled':
           title = `Placement Drive Scheduled - ${app.company_name}`;
-          message = `Placement drive for ${app.job_title} at ${app.company_name} is scheduled on ${app.drive_date} at ${app.drive_time}. Location: ${app.drive_location}`;
+          message = driveMessage(app.job_title, app.company_name, app);
           break;
         case 'shortlisted':
           title = `Application Shortlisted - ${app.company_name}`;

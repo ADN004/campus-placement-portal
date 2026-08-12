@@ -94,6 +94,7 @@ export function ApplicationCard({ application, onViewDetails, size = 'sm' }) {
             {application.company_name}
           </p>
           <p className="text-spc-xs text-spc-muted mt-0.5 break-words">{application.job_title}</p>
+          <DriveLine drive={application.drive} />
         </div>
         <div className="flex-shrink-0">
           <StatusPill status={application.status} />
@@ -114,6 +115,50 @@ export function ApplicationCard({ application, onViewDetails, size = 'sm' }) {
         </button>
       </div>
     </div>
+  );
+}
+
+/* -------------------------------------------------------------- drive */
+
+/**
+ * When and where to turn up.
+ *
+ * Until now a scheduled drive reached a student only inside one notification
+ * message: clear it, or let the email go to spam, and there was nowhere in the
+ * portal to look up the date or the venue. It is the one thing on this page a
+ * student has to act on, so it leads — above the status, and marked, because a
+ * placement drive is an appointment and everything else here is a record.
+ */
+export function DrivePanel({ drive, compact = false }) {
+  if (!drive) return null;
+  return (
+    <section
+      className={`rounded-spc border border-spc-teal/40 bg-spc-teal-soft ${compact ? 'p-3' : 'p-4'}`}
+    >
+      <h3 className="text-spc-label font-bold uppercase text-spc-teal mb-1.5">
+        Placement drive scheduled
+      </h3>
+      <p className="text-spc-h3 font-bold text-spc-ink leading-tight">
+        {drive.date} · {drive.time}
+      </p>
+      <p className="text-spc-sm text-spc-body mt-1 break-words">
+        <span className="font-semibold">Venue:</span> {drive.location}
+      </p>
+      {drive.instructions && (
+        <p className="text-spc-xs text-spc-body mt-2 break-words">{drive.instructions}</p>
+      )}
+    </section>
+  );
+}
+
+/** One line for a card, where a full panel would crowd everything else out. */
+export function DriveLine({ drive }) {
+  if (!drive) return null;
+  return (
+    <span className="inline-flex items-center rounded-spc-sm bg-spc-teal-soft text-spc-teal
+      text-xs font-bold px-2.5 py-1.5 mt-2 break-words">
+      Drive {drive.date} · {drive.time}
+    </span>
   );
 }
 
@@ -152,6 +197,8 @@ export function ApplicationDetailsModal({ application, onClose }) {
         </div>
 
         <div className="px-5 sm:px-6 py-5 space-y-6">
+          <DrivePanel drive={application.drive} />
+
           {/* Status */}
           <section>
             <h3 className="text-spc-label font-bold uppercase text-spc-muted mb-2">Status</h3>

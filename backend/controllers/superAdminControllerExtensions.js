@@ -11,6 +11,7 @@ import {
   sendShortlistEmail
 } from '../config/emailService.js';
 import { prnMatchesRange } from '../utils/prnExceptions.js';
+import { driveMessage, driveForStudent } from '../utils/driveSchedule.js';
 
 // ========================================
 // BULK PHOTO DELETION
@@ -1804,7 +1805,10 @@ export const notifyApplicationStatus = async (req, res) => {
 
           const drive = driveResult.rows[0];
           title = `Placement Drive Scheduled - ${app.company_name}`;
-          message = `A placement drive has been scheduled for ${app.job_title} at ${app.company_name} on ${new Date(drive.drive_date).toLocaleDateString('en-IN')} at ${drive.drive_time}.`;
+          // The same sentence the officer's path sends, from one formatter.
+          // This one formatted the date but left the time as '14:30:00'
+          // and never mentioned the venue at all.
+          message = driveMessage(app.job_title, app.company_name, drive);
           notifType = 'job_posted';
 
           // Send drive schedule email

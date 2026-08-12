@@ -324,3 +324,37 @@ export function JobBadges({ job }) {
     </div>
   );
 }
+
+/**
+ * Drives still to come, for jobs this student applied to.
+ *
+ * The one item on the dashboard that is an appointment rather than a record, so
+ * it sits above the statistics: a student opening the portal the morning of a
+ * drive should not have to go looking for where to be. Empty renders nothing —
+ * an "Upcoming drives: none" heading is noise on every other day of the year.
+ */
+export function UpcomingDrives({ drives = [] }) {
+  if (!drives.length) return null;
+  return (
+    <section className="rounded-spc bg-spc-teal-soft border border-spc-teal/40 p-4 mb-5">
+      <h2 className="text-spc-label font-bold uppercase text-spc-teal mb-2">
+        {drives.length === 1 ? 'Upcoming placement drive' : 'Upcoming placement drives'}
+      </h2>
+      <ul className="space-y-2.5">
+        {drives.map((d) => (
+          <li key={`${d.job_id}-${d.date}`} className="min-w-0">
+            <p className="text-spc-h3 font-bold text-spc-ink leading-tight break-words">
+              {d.company_name} · {d.date} at {d.time}
+            </p>
+            <p className="text-spc-xs text-spc-body mt-0.5 break-words">
+              {d.job_title} — {d.location}
+            </p>
+            {d.instructions && (
+              <p className="text-xs text-spc-muted mt-1 break-words">{d.instructions}</p>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}

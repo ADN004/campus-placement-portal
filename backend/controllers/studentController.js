@@ -58,6 +58,26 @@ export const getDashboard = async (req, res) => {
       [req.user.id]
     );
 
+    /*
+     * Drives still to come, for jobs this student applied to.
+     *
+     * The one thing on this page a student has to act on rather than read.
+     * Today's is included — a drive at 2pm is not past at 9am — and anything
+     * before today is not, since a dashboard listing a drive that already
+     * happened is worse than listing none.
+     */
+    const drivesResult = await query(
+      `SELECT jd.drive_date, jd.drive_time, jd.drive_location, jd.additional_instructions,
+              j.id AS job_id, j.job_title, j.company_name
+         FROM job_applications ja
+         JOIN jobs j ON j.id = ja.job_id
+         JOIN job_drives jd ON jd.job_id = j.id
+        WHERE ja.student_id = $1
+          AND jd.drive_date >= CURRENT_DATE
+        ORDER BY jd.drive_date, jd.drive_time`,
+      [student.id]
+    );
+
     res.status(200).json({
       success: true,
       data: {
@@ -67,6 +87,12 @@ export const getDashboard = async (req, res) => {
           eligibleJobsCount: parseInt(eligibleJobsResult.rows[0].count),
           unreadNotifications: parseInt(notificationsResult.rows[0].count),
         },
+        upcomingDrives: drivesResult.rows.map((row) => ({
+          job_id: row.job_id,
+          job_title: row.job_title,
+          company_name: row.company_name,
+          ...driveForStudent(row),
+        })),
       },
     });
   } catch (error) {

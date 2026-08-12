@@ -239,6 +239,7 @@ export default function StudentDashboard() {
   const presenterProps = {
     profile,
     stats,
+    upcomingDrives: dashboard?.upcomingDrives || [],
     statCards,
     quickActions,
     recentJobs,

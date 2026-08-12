@@ -144,6 +144,15 @@ export function JobCard({ job, onViewDetails, onApply, size = 'sm' }) {
       </p>
       <p className="text-spc-xs text-spc-muted mt-0.5 break-words">{job.title}</p>
 
+      {/* Only ever present for someone who applied — the API withholds it
+          otherwise — so it reads as "yours is on this day", not an advert. */}
+      {job.drive && (
+        <p className="inline-flex items-center rounded-spc-sm bg-spc-teal-soft text-spc-teal
+          text-xs font-bold px-2.5 py-1.5 mt-2 break-words">
+          Drive {job.drive.date} · {job.drive.time}
+        </p>
+      )}
+
       <div className="mt-3">
         <JobBadges job={job} deadlinePassed={deadlinePassed} />
       </div>

@@ -24,6 +24,7 @@ import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { driveCalendarInvite } from '../utils/driveSchedule.js';
 
 dotenv.config();
 
@@ -515,7 +516,14 @@ export function buildDriveScheduleEmail(studentName, jobDetails, driveDetails) {
 }
 
 export const sendDriveScheduleEmail = async (email, studentName, jobDetails, driveDetails) => {
-  return dispatch('drive schedule', { to: email, ...buildDriveScheduleEmail(studentName, jobDetails, driveDetails) });
+  // A calendar entry rides along, so the drive lands in the student's diary with
+  // a reminder the evening before instead of depending on them re-reading a mail.
+  const invite = driveCalendarInvite(jobDetails.job_title, jobDetails.company_name, driveDetails);
+  return dispatch('drive schedule', {
+    to: email,
+    ...buildDriveScheduleEmail(studentName, jobDetails, driveDetails),
+    attachments: invite ? [invite] : undefined,
+  });
 };
 
 /** Selected / placed. */

@@ -14,6 +14,7 @@ import {
   Eyebrow,
   JobFacts,
   JobBadges,
+  UpcomingDrives,
 } from './dashboardShared';
 
 /**
@@ -29,6 +30,7 @@ import {
  */
 export default function MobileStudentDashboard({
   profile,
+  upcomingDrives,
   statCards,
   quickActions,
   recentJobs,
@@ -89,6 +91,7 @@ export default function MobileStudentDashboard({
       )}
 
       {/* ── Stats: 2 × 2 ── */}
+      <UpcomingDrives drives={upcomingDrives} />
       <motion.div
         initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}

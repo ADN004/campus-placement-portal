@@ -101,22 +101,34 @@ export default function DesktopStudentApplications({
           className="rounded-spc bg-spc-surface border border-spc-line overflow-hidden"
         >
           <div className="overflow-x-auto">
-            <table className="w-full">
+            {/*
+              Fixed proportions, because five short columns cannot fill a
+              desktop on their own. Left to itself the browser shared several
+              hundred pixels out and gave the last column 209px to hold a 76px
+              button, stranding View 310px from the status it belongs to — a
+              button so far from its row it reads as unrelated to it.
+
+              Status is right-aligned for the same reason: left-aligned it sat
+              at the far end of its own share with the gap doubled. What the
+              application IS reads from the left, what has become of it and what
+              you can do about it sit together on the right.
+            */}
+            <table className="w-full table-fixed min-w-[52rem]">
               <thead>
                 <tr className="border-b border-spc-line">
-                  <th className="px-5 py-3.5 text-left text-spc-label font-bold uppercase text-spc-muted">
+                  <th className="w-[22%] px-5 py-3.5 text-left text-spc-label font-bold uppercase text-spc-muted">
                     Company
                   </th>
-                  <th className="px-5 py-3.5 text-left text-spc-label font-bold uppercase text-spc-muted">
+                  <th className="w-[30%] px-5 py-3.5 text-left text-spc-label font-bold uppercase text-spc-muted">
                     Job title
                   </th>
-                  <th className="px-5 py-3.5 text-left text-spc-label font-bold uppercase text-spc-muted">
+                  <th className="w-[16%] px-5 py-3.5 text-left text-spc-label font-bold uppercase text-spc-muted">
                     Applied
                   </th>
-                  <th className="px-5 py-3.5 text-left text-spc-label font-bold uppercase text-spc-muted">
+                  <th className="w-[22%] px-5 py-3.5 text-right text-spc-label font-bold uppercase text-spc-muted">
                     Status
                   </th>
-                  <th className="px-5 py-3.5 text-right text-spc-label font-bold uppercase text-spc-muted">
+                  <th className="w-[10%] px-5 py-3.5 text-right text-spc-label font-bold uppercase text-spc-muted">
                     <span className="sr-only">Actions</span>
                   </th>
                 </tr>
@@ -127,14 +139,16 @@ export default function DesktopStudentApplications({
                     key={application.id}
                     className="border-b border-spc-line last:border-b-0 hover:bg-spc-surface-2/60 transition-colors"
                   >
-                    <td className="px-5 py-4 text-spc-sm font-bold text-spc-ink">
+                    <td className="px-5 py-4 text-spc-sm font-bold text-spc-ink truncate">
                       {application.company_name}
                     </td>
-                    <td className="px-5 py-4 text-spc-sm text-spc-body">{application.job_title}</td>
+                    <td className="px-5 py-4 text-spc-sm text-spc-body truncate">
+                      {application.job_title}
+                    </td>
                     <td className="px-5 py-4 text-spc-sm text-spc-muted whitespace-nowrap">
                       {formatDate(application.applied_at)}
                     </td>
-                    <td className="px-5 py-4">
+                    <td className="px-5 py-4 text-right">
                       <StatusPill status={application.status} size="md" />
                     </td>
                     <td className="px-5 py-4 text-right">

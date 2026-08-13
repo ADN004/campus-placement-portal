@@ -3,7 +3,7 @@ import { studentAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import useDeviceType from '../../hooks/useDeviceType';
 import useLongList from '../../hooks/useLongList';
-import { ApplicationDetailsModal } from './applications/applicationsShared';
+import { ApplicationDetailsModal, statusGroup } from './applications/applicationsShared';
 import DesktopStudentApplications, {
   DesktopApplicationsSkeleton,
 } from './applications/DesktopStudentApplications';
@@ -96,13 +96,16 @@ export default function StudentApplications() {
     }
   };
 
+  // Grouped, not compared: the stored statuses are submitted, under_review,
+  // shortlisted, rejected and selected, and counting a literal 'pending' left
+  // that tab reading zero beside a list full of submitted applications.
   const calculateStatusCounts = (applicationsData) => {
     const counts = {
       all: applicationsData.length,
-      pending: applicationsData.filter((a) => a.status === 'pending').length,
-      shortlisted: applicationsData.filter((a) => a.status === 'shortlisted').length,
-      selected: applicationsData.filter((a) => a.status === 'selected').length,
-      rejected: applicationsData.filter((a) => a.status === 'rejected').length,
+      pending: applicationsData.filter((a) => statusGroup(a.status) === 'pending').length,
+      shortlisted: applicationsData.filter((a) => statusGroup(a.status) === 'shortlisted').length,
+      selected: applicationsData.filter((a) => statusGroup(a.status) === 'selected').length,
+      rejected: applicationsData.filter((a) => statusGroup(a.status) === 'rejected').length,
     };
     setStatusCounts(counts);
   };
@@ -110,8 +113,9 @@ export default function StudentApplications() {
   const filterApplications = () => {
     let filtered = applications;
 
+    // The same grouping the counts use, so a tab showing 3 cannot then list 0.
     if (statusFilter !== 'all') {
-      filtered = filtered.filter((app) => app.status === statusFilter);
+      filtered = filtered.filter((app) => statusGroup(app.status) === statusFilter);
     }
 
     if (searchQuery) {

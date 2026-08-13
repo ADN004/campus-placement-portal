@@ -41,11 +41,39 @@ export function formatDateTime(dateString) {
  * `selected` is the only filled chip: it is the outcome that matters most, and
  * filling it makes it findable at a glance in a long list.
  */
+/*
+ * The statuses the database actually stores.
+ *
+ * job_applications.application_status is CHECKed to submitted, under_review,
+ * shortlisted, rejected, selected. This map named a 'pending' that does not
+ * exist and omitted the two that do, so every application nobody had acted on
+ * yet — the majority, most of the time — fell through to the raw fallback and
+ * rendered as a grey pill reading "submitted", or "under_review" complete with
+ * its underscore. The Pending tab counted a status no row can hold and sat at
+ * zero beside three of them.
+ */
 const STATUS_META = {
-  pending: { label: 'Pending', Icon: Clock, classes: 'bg-spc-warn-bg text-spc-warn' },
+  submitted: { label: 'Submitted', Icon: Clock, classes: 'bg-spc-warn-bg text-spc-warn' },
+  under_review: { label: 'Under review', Icon: Clock, classes: 'bg-spc-warn-bg text-spc-warn' },
   shortlisted: { label: 'Shortlisted', Icon: CheckCircle, classes: 'bg-spc-ok-bg text-spc-ok' },
   selected: { label: 'Selected', Icon: Award, classes: 'bg-spc-teal text-spc-on-teal' },
   rejected: { label: 'Rejected', Icon: XCircle, classes: 'bg-spc-bad-bg text-spc-bad' },
+  // Kept as an alias: nothing writes it now, but older rows may carry it.
+  pending: { label: 'Pending', Icon: Clock, classes: 'bg-spc-warn-bg text-spc-warn' },
+};
+
+/**
+ * Which filter tab a status belongs to.
+ *
+ * One definition for the counts and the filtering, so a tab can never show a
+ * number it then fails to produce rows for. Anything unrecognised counts as
+ * pending — a status nobody has acted on yet is the safe reading, and it keeps
+ * a future value visible instead of silently reachable from no tab at all.
+ */
+export const statusGroup = (status) => {
+  const key = String(status || '').toLowerCase();
+  if (key === 'shortlisted' || key === 'selected' || key === 'rejected') return key;
+  return 'pending';
 };
 
 export function StatusPill({ status, size = 'sm' }) {
@@ -71,6 +99,8 @@ export function StatusPill({ status, size = 'sm' }) {
 
 /** The one-line summary shown beside the status inside the detail modal. */
 const STATUS_NOTE = {
+  submitted: 'Your application has been received and is awaiting review.',
+  under_review: 'Your application is being reviewed.',
   shortlisted: 'Congratulations — you have been shortlisted for this position.',
   selected: 'Congratulations — you have been selected for this position.',
   rejected: 'Unfortunately, your application was not selected for this position.',

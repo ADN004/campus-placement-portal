@@ -6,7 +6,7 @@ import {
   hasSemesterValue,
 } from '../utils/cgpaCalculation.js';
 import { dobAndGenderFailure } from '../utils/jobEligibility.js';
-import { driveForStudent } from '../utils/driveSchedule.js';
+import { driveForStudent, applicationSeesDrive, driveVisibleSql } from '../utils/driveSchedule.js';
 
 // @desc    Get student dashboard data
 // @route   GET /api/students/dashboard
@@ -74,6 +74,7 @@ export const getDashboard = async (req, res) => {
          JOIN job_drives jd ON jd.job_id = j.id
         WHERE ja.student_id = $1
           AND jd.drive_date >= CURRENT_DATE
+          AND ${driveVisibleSql('ja')}
         ORDER BY jd.drive_date, jd.drive_time`,
       [student.id]
     );
@@ -185,7 +186,9 @@ export const getEligibleJobs = async (req, res) => {
          * instruction to turn up, and there is no worse outcome here than a
          * student travelling to a drive they were never part of.
          */
-        drive: job.has_applied ? driveForStudent(job) : null,
+        drive: job.has_applied && applicationSeesDrive(job.application_status)
+          ? driveForStudent(job)
+          : null,
       };
       delete mappedJob.drive_date;
       delete mappedJob.drive_time;
@@ -341,7 +344,12 @@ export const getMyApplications = async (req, res) => {
       const {
         drive_date, drive_time, drive_location, additional_instructions, ...application
       } = row;
-      return { ...application, drive: driveForStudent(row) };
+      return {
+        ...application,
+        // A rejected application says "not selected" beside a panel telling
+        // them where to turn up. Withheld rather than contradicting itself.
+        drive: applicationSeesDrive(row.status) ? driveForStudent(row) : null,
+      };
     });
 
     res.status(200).json({

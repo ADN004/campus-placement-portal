@@ -330,31 +330,51 @@ export function JobBadges({ job }) {
  *
  * The one item on the dashboard that is an appointment rather than a record, so
  * it sits above the statistics: a student opening the portal the morning of a
- * drive should not have to go looking for where to be. Empty renders nothing —
- * an "Upcoming drives: none" heading is noise on every other day of the year.
+ * drive should not have to go looking for where to be.
+ *
+ * Three at most, one line each. Officers schedule ahead, so a busy week is four
+ * or five drives at once — and the first version gave every one of them three
+ * lines, which pushed the statistics off the screen for the whole of that week
+ * and gave a drive six weeks away the same weight as tomorrow's. Sorted
+ * nearest-first, so the three shown are always the three that matter; the rest
+ * are a count and a link. Instructions are dropped here and kept on the
+ * application, which is where they are read properly.
+ *
+ * Empty renders nothing — an "Upcoming drives: none" heading is noise on every
+ * other day of the year.
  */
 export function UpcomingDrives({ drives = [] }) {
   if (!drives.length) return null;
+  const shown = drives.slice(0, 3);
+  const rest = drives.length - shown.length;
+
   return (
     <section className="rounded-spc bg-spc-teal-soft border border-spc-teal/40 p-4 mb-5">
       <h2 className="text-spc-label font-bold uppercase text-spc-teal mb-2">
-        {drives.length === 1 ? 'Upcoming placement drive' : 'Upcoming placement drives'}
+        {drives.length === 1 ? 'Upcoming placement drive' : `Upcoming placement drives (${drives.length})`}
       </h2>
-      <ul className="space-y-2.5">
-        {drives.map((d) => (
+      <ul className="space-y-1.5">
+        {shown.map((d) => (
           <li key={`${d.job_id}-${d.date}`} className="min-w-0">
-            <p className="text-spc-h3 font-bold text-spc-ink leading-tight break-words">
-              {d.company_name} · {d.date} at {d.time}
+            <p className="text-spc-sm text-spc-ink break-words">
+              <span className="font-bold">{d.company_name}</span>
+              {' · '}
+              <span className="font-bold tabular-nums">{d.date}</span>
+              {' at '}
+              <span className="font-bold">{d.time}</span>
+              <span className="text-spc-body"> — {d.location}</span>
             </p>
-            <p className="text-spc-xs text-spc-body mt-0.5 break-words">
-              {d.job_title} — {d.location}
-            </p>
-            {d.instructions && (
-              <p className="text-xs text-spc-muted mt-1 break-words">{d.instructions}</p>
-            )}
           </li>
         ))}
       </ul>
+      {rest > 0 && (
+        <Link
+          to="/student/applications"
+          className="inline-block mt-2 text-spc-xs font-bold text-spc-teal hover:underline"
+        >
+          {rest} more {rest === 1 ? 'drive' : 'drives'} — see all
+        </Link>
+      )}
     </section>
   );
 }

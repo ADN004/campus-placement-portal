@@ -147,3 +147,29 @@ export const driveCalendarInvite = (jobTitle, companyName, row) => {
     contentType: 'text/calendar; charset=utf-8; method=PUBLISH',
   };
 };
+
+/* ------------------------------------------------------- who still sees it */
+
+/**
+ * Application states that no longer get shown the drive.
+ *
+ * A student whose application was rejected has been told they are not going
+ * forward. Continuing to show them "Upcoming placement drive — turn up here at
+ * 10am" is not merely untidy: somebody acts on it and travels to a drive they
+ * were dropped from. Every other state is still in the process — submitted and
+ * under review are waiting, shortlisted are expected, and selected already
+ * attended or will.
+ *
+ * One list, used by the SQL on the dashboard and by the JavaScript on the job
+ * list and the applications page, so the three cannot disagree about it.
+ */
+export const DRIVE_HIDDEN_STATUSES = ['rejected'];
+
+/** True when an application in this state should still be shown its drive. */
+export const applicationSeesDrive = (status) =>
+  !DRIVE_HIDDEN_STATUSES.includes(String(status || '').toLowerCase());
+
+/** The same rule as a SQL predicate. */
+export const driveVisibleSql = (alias = 'ja') =>
+  `(${alias}.application_status IS NULL OR ${alias}.application_status <> ALL(ARRAY[${
+    DRIVE_HIDDEN_STATUSES.map((s) => `'${s}'`).join(', ')}]))`;

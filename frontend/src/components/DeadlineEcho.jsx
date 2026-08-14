@@ -47,6 +47,9 @@ export default function DeadlineEcho({ value, variant = 'officer' }) {
           <span className={`font-bold ${strong}`}>
             {parsed.day} at {parsed.time}
           </span>
+          {/* Left unbolded so the emphasis stays on the part being checked. The
+              zone never varies — it is stated so nobody has to assume it. */}
+          <span> IST</span>
           {parsed.isMorning && (
             <>
               <br />

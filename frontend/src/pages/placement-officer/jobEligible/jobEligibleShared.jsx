@@ -154,7 +154,7 @@ export function StatBlock({ stats, columns = 4 }) {
 
 /* ----------------------------------------------------------- drive & job */
 
-export function DrivePanel({ driveData, onSchedule, onNotifyAll }) {
+export function DrivePanel({ driveData, onSchedule, onNotifyAll, canManageDrive = true }) {
   return (
     <Panel>
       <PanelHeading>Drive schedule</PanelHeading>
@@ -186,16 +186,33 @@ export function DrivePanel({ driveData, onSchedule, onNotifyAll }) {
           )}
         </div>
 
+        {/*
+          The drive is the posting college's to set, so an officer who did not
+          post the job reads it and nothing more — the server refuses the write
+          either way, and offering a button that always fails is worse than not
+          offering it. They still see the date, venue and instructions, which is
+          what they need to brief their own students.
+        */}
         <div className="flex items-center gap-2 flex-wrap">
-          <SecondaryButton onClick={onSchedule}>
-            <Calendar size={15} aria-hidden="true" />
-            <span>{driveData ? 'Edit drive' : 'Schedule drive'}</span>
-          </SecondaryButton>
-          {driveData && (
-            <SecondaryButton onClick={onNotifyAll}>
-              <Send size={15} aria-hidden="true" />
-              <span>Notify all</span>
-            </SecondaryButton>
+          {canManageDrive ? (
+            <>
+              <SecondaryButton onClick={onSchedule}>
+                <Calendar size={15} aria-hidden="true" />
+                <span>{driveData ? 'Edit drive' : 'Schedule drive'}</span>
+              </SecondaryButton>
+              {driveData && (
+                <SecondaryButton onClick={onNotifyAll}>
+                  <Send size={15} aria-hidden="true" />
+                  <span>Notify all</span>
+                </SecondaryButton>
+              )}
+            </>
+          ) : (
+            <p className="text-xs text-spc-muted max-w-[16rem]">
+              {driveData
+                ? 'Scheduled by the college that posted this job.'
+                : 'The college that posted this job will schedule the drive.'}
+            </p>
           )}
         </div>
       </div>

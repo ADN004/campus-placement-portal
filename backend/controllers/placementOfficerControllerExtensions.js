@@ -1271,6 +1271,22 @@ export const getJobRequestRequirements = async (req, res) => {
 // ========================================
 
 // Helper function to get placement officer's college ID
+/**
+ * The officer's row, not just their college.
+ *
+ * getOfficerCollegeId below returns only the college, which is all its two
+ * callers needed. Deciding whether someone owns a job needs the officer id as
+ * well, and jobs.placement_officer_id holds exactly that.
+ */
+const getOfficer = async (userId) => {
+  const r = await query(
+    'SELECT id, college_id FROM placement_officers WHERE user_id = $1',
+    [userId]
+  );
+  if (r.rows.length === 0) throw new Error('Placement officer profile not found');
+  return r.rows[0];
+};
+
 const getOfficerCollegeId = async (userId) => {
   const officerResult = await query(
     'SELECT college_id FROM placement_officers WHERE user_id = $1',
@@ -1587,6 +1603,42 @@ export const createOrUpdateJobDrive = async (req, res) => {
     const { jobId } = req.params;
     const { drive_date, drive_time, drive_location, additional_instructions } = req.body;
 
+    /*
+     * Only the officer who posted the job may set its drive.
+     *
+     * job_drives is UNIQUE on job_id, so there is one drive per job and writing
+     * it replaces whatever was there. On a job posted for several colleges that
+     * meant any participating officer could move the host's drive — change the
+     * date, the venue, the instructions — with nothing to stop them and nothing
+     * to tell the host it had happened. Editing the job itself was already the
+     * creator's alone; this was the half that was left open.
+     *
+     * A job with no officer creator is one the Super Admin posted, and those
+     * keep working as they always have: there is no host to defer to, officers
+     * have been scheduling their drives since the beginning, and taking that
+     * away is a different decision from closing this hole.
+     */
+    const officer = await getOfficer(req.user.id);
+    const jobRow = await query(
+      `SELECT j.placement_officer_id, c.college_name AS owner_college
+         FROM jobs j
+         LEFT JOIN placement_officers po ON po.id = j.placement_officer_id
+         LEFT JOIN colleges c ON c.id = po.college_id
+        WHERE j.id = $1 AND j.is_deleted = FALSE`,
+      [jobId]
+    );
+    if (jobRow.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Job not found' });
+    }
+    const { placement_officer_id: ownerId, owner_college: ownerCollege } = jobRow.rows[0];
+    if (ownerId !== null && ownerId !== officer.id) {
+      return res.status(403).json({
+        success: false,
+        message: `This job was posted by ${ownerCollege || 'another college'}, `
+          + 'so only they can schedule or change its drive.',
+      });
+    }
+
     // Check if drive already exists
     const existingDrive = await query(
       'SELECT id FROM job_drives WHERE job_id = $1',
@@ -1690,9 +1742,19 @@ export const notifyApplicationStatus = async (req, res) => {
     await client.query('BEGIN');
 
     const { application_ids, notification_type } = req.body;
-    const collegeId = await getOfficerCollegeId(req.user.id);
+    const officer = await getOfficer(req.user.id);
+    const collegeId = officer.college_id;
 
+    /*
+     * These two rejections roll back before returning.
+     *
+     * BEGIN has already run by this point, and returning straight out of it
+     * hands the connection back to the pool mid-transaction — whoever picks it
+     * up next inherits an open one. Neither path has written anything, so the
+     * rollback costs nothing and closes it properly.
+     */
     if (!application_ids || application_ids.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(400).json({
         success: false,
         message: 'No application IDs provided',
@@ -1701,32 +1763,52 @@ export const notifyApplicationStatus = async (req, res) => {
 
     const validTypes = ['drive_scheduled', 'shortlisted', 'selected', 'rejected'];
     if (!validTypes.includes(notification_type)) {
+      await client.query('ROLLBACK');
       return res.status(400).json({
         success: false,
         message: 'Invalid notification type',
       });
     }
 
-    // Get applications with student and job details - COLLEGE SCOPED
+    // Applications with their student and job details, authorised below.
     const applicationsResult = await client.query(
       `SELECT ja.id as application_id, ja.application_status, ja.placement_package,
               ja.joining_date, ja.placement_location,
-              s.id as student_id, s.student_name, s.email,
-              j.id as job_id, j.job_title, j.company_name,
+              s.id as student_id, s.student_name, s.email, s.college_id,
+              j.id as job_id, j.job_title, j.company_name, j.placement_officer_id,
               jd.drive_date, jd.drive_time, jd.drive_location
        FROM job_applications ja
        JOIN students s ON ja.student_id = s.id
        JOIN jobs j ON ja.job_id = j.id
        LEFT JOIN job_drives jd ON j.id = jd.job_id
-       WHERE ja.id = ANY($1) AND s.college_id = $2`,
-      [application_ids, collegeId]
+       WHERE ja.id = ANY($1)`,
+      [application_ids]
+    );
+
+    /*
+     * Authorised row by row, rather than filtered to one college.
+     *
+     * This used to end `AND s.college_id = $2`, which was both the filter and
+     * the permission check. It meant an officer who had posted a job for six
+     * colleges could only ever notify their own students: the other five
+     * colleges' applicants were unreachable, so a joint drive had to be
+     * announced five more times by five other people, or not at all.
+     *
+     * Two ways to be entitled to notify an applicant now — they are your own
+     * college's student, or you posted the job they applied to — and the check
+     * is per row, so a mixed list is handled correctly rather than being
+     * accepted or rejected wholesale. Anything the caller is not entitled to is
+     * dropped exactly as the college filter used to drop it.
+     */
+    applicationsResult.rows = applicationsResult.rows.filter(
+      (row) => row.college_id === collegeId || row.placement_officer_id === officer.id
     );
 
     if (applicationsResult.rows.length === 0) {
       await client.query('ROLLBACK');
       return res.status(404).json({
         success: false,
-        message: 'No applications found in your college',
+        message: 'No applications you can notify were found',
       });
     }
 

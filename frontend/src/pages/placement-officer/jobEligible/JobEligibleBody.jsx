@@ -92,6 +92,7 @@ export default function JobEligibleBody({ layout, ...p }) {
               driveData={p.driveData}
               onSchedule={p.onScheduleDrive}
               onNotifyAll={p.onNotifyDrive}
+              canManageDrive={p.canManageDrive}
             />
           </div>
 

@@ -5,6 +5,7 @@ import {
 import { FormSection, FieldGrid, RequiredMark } from './jobRequestShared';
 import { KERALA_POLYTECHNIC_BRANCHES } from '../../../constants/branches';
 import { dateForAge, ageForDate } from '../../../utils/ageCutoff';
+import { nowAsLocalInput } from '../../../utils/deadline';
 
 /* Bound for the cutoff picker. A cutoff in the future is always a typo — 2026
    typed where 2006 was meant — and the server refuses it either way. */
@@ -117,10 +118,13 @@ export default function JobRequestForm({
               {/* A past deadline creates a job no student can see — the list only
                   returns rows closing today or later. Blocked here and again on
                   submit and on the server. */}
-              <input id="jr-deadline" type="date" required className={FIELD_CLASS}
-                min={new Date().toISOString().split('T')[0]}
+              <input id="jr-deadline" type="datetime-local" required className={FIELD_CLASS}
+                min={nowAsLocalInput()}
                 value={formData.application_deadline}
                 onChange={(e) => set('application_deadline', e.target.value)} />
+              <p className="mt-1 text-xs text-spc-muted">
+                Indian time. Applications close at this moment, not at the end of the day.
+              </p>
             </div>
             <div className="min-w-0">
               <FieldLabel htmlFor="jr-form-url">Application form URL</FieldLabel>

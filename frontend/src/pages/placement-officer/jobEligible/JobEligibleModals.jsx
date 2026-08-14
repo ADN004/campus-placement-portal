@@ -279,7 +279,7 @@ export function EditJobModal({ data, onChange, onSave, saving, applicantCount = 
           </div>
           <div>
             <FieldLabel htmlFor="edit-deadline">Application deadline *</FieldLabel>
-            <input id="edit-deadline" type="date" className={FIELD_CLASS}
+            <input id="edit-deadline" type="datetime-local" className={FIELD_CLASS}
               value={data.application_deadline || ''} onChange={(e) => set('application_deadline', e.target.value)} />
           </div>
           <div className={eligibilityLocked ? 'col-span-2' : 'contents'}>

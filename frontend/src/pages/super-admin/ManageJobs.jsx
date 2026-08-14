@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { dateForAge, ageForDate } from '../../utils/ageCutoff';
+import { utcToLocalInput, localInputToUtc } from '../../utils/deadline';
 import ModalScrollLock from '../../components/ModalScrollLock';
 import { superAdminAPI, commonAPI } from '../../services/api';
 import toast from 'react-hot-toast';
@@ -229,9 +230,8 @@ export default function ManageJobs() {
       location: job.location || '',
       salary_package: job.salary_package || '',
       no_of_vacancies: job.no_of_vacancies || '',
-      application_deadline: job.application_deadline
-        ? new Date(job.application_deadline).toISOString().split('T')[0]
-        : '',
+      // Indian wall-clock in the box; a UTC instant on the wire.
+      application_deadline: utcToLocalInput(job.application_deadline),
       min_cgpa: job.min_cgpa || '',
       max_backlogs: job.max_backlogs !== null && job.max_backlogs !== undefined ? String(job.max_backlogs) : '',
       backlog_policy: job.max_backlogs === null || job.max_backlogs === undefined ? 'no_restriction' : job.max_backlogs === 0 ? 'no_backlogs' : 'limited',
@@ -372,6 +372,8 @@ export default function ManageJobs() {
     try {
       const submitData = {
         ...formData,
+        // Sent as a UTC instant so no environment reinterprets the hour.
+        application_deadline: localInputToUtc(formData.application_deadline),
         allowed_branches: JSON.stringify(formData.allowed_branches),
         target_regions: JSON.stringify(formData.target_regions),
         target_colleges: JSON.stringify(formData.target_colleges),
@@ -1156,7 +1158,7 @@ export default function ManageJobs() {
                       Application Deadline <span className="text-red-500">*</span>
                     </label>
                     <input
-                      type="date"
+                      type="datetime-local"
                       className="input"
                       value={formData.application_deadline}
                       onChange={(e) =>

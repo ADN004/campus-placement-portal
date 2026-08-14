@@ -28,6 +28,7 @@ import {
   MobileJobEligibleSkeleton,
 } from './jobEligible/JobEligibleSkeleton';
 import { barredReason } from './jobEligible/jobEligibleShared';
+import { utcToLocalInput, localInputToUtc } from '../../utils/deadline';
 
 export default function JobApplicants() {
   const { jobId } = useParams();
@@ -484,6 +485,9 @@ export default function JobApplicants() {
    */
   const handleEditJobSave = async () => {
     const payload = { ...editJobData };
+    // Converted on the way out, so the deadline means the same moment
+    // whatever zone the server reading it happens to be in.
+    payload.application_deadline = localInputToUtc(editJobData.application_deadline);
     if (students.length > 0) {
       delete payload.min_cgpa;
       delete payload.max_backlogs;
@@ -803,9 +807,8 @@ export default function JobApplicants() {
       location: selectedJob.job_location,
       salary_package: selectedJob.salary_package || '',
       no_of_vacancies: selectedJob.no_of_vacancies || '',
-      application_deadline: selectedJob.application_deadline
-        ? new Date(selectedJob.application_deadline).toISOString().split('T')[0]
-        : '',
+      // The box holds Indian wall-clock; the API carries a UTC instant.
+      application_deadline: utcToLocalInput(selectedJob.application_deadline),
       application_form_url: selectedJob.application_form_url || '',
       min_cgpa: selectedJob.min_cgpa || '',
       max_backlogs:

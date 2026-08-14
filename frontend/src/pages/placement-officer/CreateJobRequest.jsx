@@ -17,6 +17,7 @@ import {
   TabletJobRequestSkeleton,
   MobileJobRequestSkeleton,
 } from './jobRequest/JobRequestSkeleton';
+import { localInputToUtc } from '../../utils/deadline';
 
 /** The six extended-profile sections a request can demand. */
 const EXTENDED_SECTIONS = [
@@ -316,7 +317,7 @@ export default function CreateJobRequest() {
         no_of_vacancies: formData.no_of_vacancies || null,
         location: formData.location,
         salary_range: formData.salary_package,
-        application_deadline: formData.application_deadline,
+        application_deadline: localInputToUtc(formData.application_deadline),
         application_form_url: formData.application_form_url,
         min_cgpa: formData.min_cgpa || null,
         max_backlogs: formData.max_backlogs !== '' ? parseInt(formData.max_backlogs) : null,

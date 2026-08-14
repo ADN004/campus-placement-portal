@@ -857,11 +857,11 @@ export default function JobApplicants() {
     selectedJob,
     isHost,
     /*
-     * Whether this officer may set the drive. The host always may; on a job
-     * the Super Admin posted there is no host, and officers have always been
-     * able to schedule those, so that stays as it was.
+     * Whether this officer may set the drive: only the officer who posted the
+     * job. A job with no officer behind it was posted by the Super Admin, and
+     * its drive is arranged centrally, so no officer sees the button there.
      */
-    canManageDrive: isHost || !selectedJob?.placement_officer_id,
+    canManageDrive: isHost,
     placementStats: placementStatCards,
     driveData,
     onScheduleDrive: () => setShowDriveModal(true),

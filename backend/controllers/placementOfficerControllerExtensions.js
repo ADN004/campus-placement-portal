@@ -1613,10 +1613,12 @@ export const createOrUpdateJobDrive = async (req, res) => {
      * to tell the host it had happened. Editing the job itself was already the
      * creator's alone; this was the half that was left open.
      *
-     * A job with no officer creator is one the Super Admin posted, and those
-     * keep working as they always have: there is no host to defer to, officers
-     * have been scheduling their drives since the beginning, and taking that
-     * away is a different decision from closing this hole.
+     * A job with no officer creator is one the Super Admin posted, and its
+     * drive is the Super Admin's to arrange for the same reason: whoever posts
+     * the job manages it. The Super Admin's own drive endpoint has no ownership
+     * restriction, so they can still set the drive on any job — theirs or an
+     * officer's — which is what makes it safe to close this route completely
+     * rather than leave ownerless jobs open to whoever gets there first.
      */
     const officer = await getOfficer(req.user.id);
     const jobRow = await query(
@@ -1631,11 +1633,13 @@ export const createOrUpdateJobDrive = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Job not found' });
     }
     const { placement_officer_id: ownerId, owner_college: ownerCollege } = jobRow.rows[0];
-    if (ownerId !== null && ownerId !== officer.id) {
+    if (ownerId !== officer.id) {
       return res.status(403).json({
         success: false,
-        message: `This job was posted by ${ownerCollege || 'another college'}, `
-          + 'so only they can schedule or change its drive.',
+        message: ownerId === null
+          ? 'This job was posted by the Super Admin, so its drive is scheduled centrally.'
+          : `This job was posted by ${ownerCollege || 'another college'}, `
+            + 'so only they can schedule or change its drive.',
       });
     }
 

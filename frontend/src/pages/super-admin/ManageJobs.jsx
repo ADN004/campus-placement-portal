@@ -52,6 +52,16 @@ export default function ManageJobs() {
    */
   const [editApplicantCount, setEditApplicantCount] = useState(0);
   const eligibilityLocked = editMode && editApplicantCount > 0;
+  /*
+   * The regions and colleges the job already had when the dialog opened.
+   *
+   * Once anyone has applied these can be added to but not removed, so the
+   * boxes for them are ticked and disabled. Held separately from formData
+   * because formData is what the admin is editing — comparing against it would
+   * make every box they tick immediately un-tickable.
+   */
+  const [lockedTargets, setLockedTargets] = useState({ regions: [], colleges: [] });
+  const targetLocked = (kind, id) => eligibilityLocked && lockedTargets[kind].includes(id);
   const [regions, setRegions] = useState([]);
   const [colleges, setColleges] = useState([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -184,6 +194,7 @@ export default function ManageJobs() {
     // opening create straight after editing a job with applicants would
     // otherwise carry the lock over to a blank form.
     setEditApplicantCount(0);
+    setLockedTargets({ regions: [], colleges: [] });
     setFormData({
       title: '',
       company_name: '',
@@ -260,6 +271,7 @@ export default function ManageJobs() {
       target_regions: parseJsonField(job.target_regions),
       target_colleges: parseJsonField(job.target_colleges),
       application_form_url: job.application_form_url || '',
+      // Captured below from these same parsed values — see lockedTargets.
       requires_academic_extended: false,
       requires_physical_details: false,
       requires_family_details: false,
@@ -271,6 +283,10 @@ export default function ManageJobs() {
     };
 
     setFormData(basicFormData);
+    setLockedTargets({
+      regions: basicFormData.target_regions,
+      colleges: basicFormData.target_colleges,
+    });
     setShowJobModal(true);
 
     // Load existing job requirements
@@ -402,12 +418,16 @@ export default function ManageJobs() {
        * changed" — so leaving them in would make correcting a job title come
        * back "cannot be changed" for fields nobody touched. The inputs are
        * disabled in the dialog too; this is what makes the save work.
+       *
+       * Targeting is deliberately not in this list. It is still sent, because
+       * it may still change — the audience is allowed to grow — and the server
+       * compares the colleges reached before and after rather than refusing the
+       * field outright.
        */
       if (eligibilityLocked) {
         [
           'min_cgpa', 'max_backlogs', 'backlog_max_semester', 'allowed_backlog_semesters',
           'allowed_branches', 'dob_on_or_before', 'dob_on_or_after', 'gender_requirement',
-          'target_type', 'target_regions', 'target_colleges',
         ].forEach((field) => delete submitData[field]);
       }
 
@@ -1404,16 +1424,19 @@ export default function ManageJobs() {
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">
                   Target Audience
-                  {eligibilityLocked && <span className="ml-2 text-sm font-normal text-amber-600">— locked</span>}
+                  {eligibilityLocked && (
+                    <span className="ml-2 text-sm font-normal text-amber-600">— can only be widened</span>
+                  )}
                 </h3>
                 {eligibilityLocked && (
                   <p className="text-sm text-gray-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                    Who the job is for cannot be changed either. Moving it to another college would
-                    leave the students who have already applied on a job their college is no longer
-                    part of.
+                    You can open this job to more colleges, but not take it away from any that are
+                    already on it — students there have applied, and removing their college would
+                    leave them attached to a job it is no longer part of. The ones already selected
+                    are fixed; tick any others you want to add.
                   </p>
                 )}
-                <fieldset disabled={eligibilityLocked} className="border-0 p-0 m-0 space-y-4 min-w-0">
+                <fieldset className="border-0 p-0 m-0 space-y-4 min-w-0">
                 <div>
                   <label className="label">Target Type</label>
                   <div className="flex space-x-4">
@@ -1467,9 +1490,16 @@ export default function ManageJobs() {
                                 type="checkbox"
                                 checked={formData.target_regions.includes(region.id)}
                                 onChange={() => handleTargetChange(region.id, 'region')}
-                                className="rounded text-primary-600 focus:ring-primary-500"
+                                disabled={targetLocked('regions', region.id)}
+                                className="rounded text-primary-600 focus:ring-primary-500
+                                  disabled:opacity-60 disabled:cursor-not-allowed"
                               />
-                              <span className="text-sm">{region.region_name || region.name}</span>
+                              <span className="text-sm">
+                                {region.region_name || region.name}
+                                {targetLocked('regions', region.id) && (
+                                  <span className="ml-1 text-xs text-gray-500">(already on the job)</span>
+                                )}
+                              </span>
                             </label>
                           ))}
                         </div>
@@ -1497,9 +1527,16 @@ export default function ManageJobs() {
                                 type="checkbox"
                                 checked={formData.target_colleges.includes(college.id)}
                                 onChange={() => handleTargetChange(college.id, 'college')}
-                                className="rounded text-primary-600 focus:ring-primary-500"
+                                disabled={targetLocked('colleges', college.id)}
+                                className="rounded text-primary-600 focus:ring-primary-500
+                                  disabled:opacity-60 disabled:cursor-not-allowed"
                               />
-                              <span className="text-sm">{college.college_name || college.name}</span>
+                              <span className="text-sm">
+                                {college.college_name || college.name}
+                                {targetLocked('colleges', college.id) && (
+                                  <span className="ml-1 text-xs text-gray-500">(already on the job)</span>
+                                )}
+                              </span>
                             </label>
                           ))}
                         </div>

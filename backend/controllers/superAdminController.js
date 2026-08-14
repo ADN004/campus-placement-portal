@@ -11,6 +11,7 @@ import { deleteImage, deleteFolderOnly, extractFolderPath } from '../config/clou
 import { TOTAL_BACKLOGS_SQL, parseMaxBacklogs } from '../utils/backlogPolicy.js';
 import { ACTIVE_STUDENT_ACCOUNT_SQL } from '../utils/notificationAudience.js';
 import { notifyParticipatingOfficers } from '../utils/jointJobNotice.js';
+import { collegesReachedBy, collegesLosingAccess } from '../utils/jobAudience.js';
 
 // ========================================
 // HELPER FUNCTIONS
@@ -1388,44 +1389,89 @@ export const updateJob = async (req, res) => {
      * Every eligibility view, every "eligible but not applied" export and every
      * re-check would then call an accepted applicant ineligible.
      *
-     * Targeting is included, and it is the worse of the two: moving a job to
-     * another college does not merely contradict an applicant, it orphans them
-     * — their college is no longer on a job they have already applied to. The
-     * officer route never accepts targeting fields at all, so this closes the
-     * only way it could happen.
-     *
      * Everything describing the job — company, package, location, deadline,
      * title, description, vacancies, the form link — stays editable, as on the
      * officer's screen. Those contradict nothing, companies revise them
      * routinely, and students reading something false is worse than students
      * reading something that changed. Withdrawing the job and posting a
      * corrected one remains the way to change the rules themselves.
+     *
+     * Targeting is handled separately below, because it has a safe direction
+     * and these do not.
      */
     const ELIGIBILITY = {
       min_cgpa, max_backlogs, backlog_max_semester, allowed_backlog_semesters, allowed_branches,
       dob_on_or_before, dob_on_or_after, gender_requirement,
-      target_type, target_regions, target_colleges,
     };
     const changingEligibility = Object.entries(ELIGIBILITY)
       .filter(([, v]) => v !== undefined)
       .map(([k]) => k);
+    const changingTargeting =
+      target_type !== undefined || target_regions !== undefined || target_colleges !== undefined;
 
-    if (changingEligibility.length > 0) {
+    let applicantCount = 0;
+    if (changingEligibility.length > 0 || changingTargeting) {
       const applied = await query(
         'SELECT COUNT(*)::int AS n FROM job_applications WHERE job_id = $1',
         [jobId]
       );
-      const n = applied.rows[0].n;
-      if (n > 0) {
-        return res.status(409).json({
-          success: false,
-          message:
-            `${n} student${n === 1 ? ' has' : 's have'} already applied, so who is eligible cannot be ` +
-            'changed — they applied under the current rules. Everything else about the job, including ' +
-            'the company, package, location and deadline, can still be edited.',
-          locked_fields: changingEligibility,
-          applicant_count: n,
+      applicantCount = applied.rows[0].n;
+    }
+
+    if (changingEligibility.length > 0 && applicantCount > 0) {
+      return res.status(409).json({
+        success: false,
+        message:
+          `${applicantCount} student${applicantCount === 1 ? ' has' : 's have'} already applied, so who is ` +
+          'eligible cannot be changed — they applied under the current rules. Everything else about the ' +
+          'job, including the company, package, location and deadline, can still be edited.',
+        locked_fields: changingEligibility,
+        applicant_count: applicantCount,
+      });
+    }
+
+    /*
+     * Targeting may widen but not narrow.
+     *
+     * Adding a college harms nobody — everyone already on the job stays on it,
+     * and the new college's students gain a posting they could not see — and
+     * wanting that halfway through a drive is ordinary, when a company agrees
+     * to take a wider intake. Dropping one is the damaging direction: the
+     * students who have already applied are left attached to a job their
+     * college is no longer part of.
+     *
+     * Compared as the set of colleges actually reached rather than field by
+     * field, because one audience can be described several ways. A job for a
+     * whole region and a job naming that region's colleges individually reach
+     * the same students, and a column-by-column diff would call rewriting one
+     * as the other a removal.
+     */
+    if (changingTargeting && applicantCount > 0) {
+      const current = await query(
+        'SELECT target_type, target_regions, target_colleges FROM jobs WHERE id = $1',
+        [jobId]
+      );
+      if (current.rows.length > 0) {
+        const before = await collegesReachedBy(current.rows[0]);
+        const after = await collegesReachedBy({
+          // Only the fields actually sent change; the rest keep what is stored,
+          // so posting target_colleges alone cannot silently reset the type.
+          target_type: target_type !== undefined ? target_type : current.rows[0].target_type,
+          target_regions: target_regions !== undefined ? target_regions : current.rows[0].target_regions,
+          target_colleges: target_colleges !== undefined ? target_colleges : current.rows[0].target_colleges,
         });
+        const losing = collegesLosingAccess(before, after);
+        if (losing.length > 0) {
+          return res.status(409).json({
+            success: false,
+            message:
+              `${applicantCount} student${applicantCount === 1 ? ' has' : 's have'} already applied, so this ` +
+              'job can be opened to more colleges but not taken away from any. This change would remove ' +
+              `${losing.join(', ')}.`,
+            colleges_losing_access: losing,
+            applicant_count: applicantCount,
+          });
+        }
       }
     }
 

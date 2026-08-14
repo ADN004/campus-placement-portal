@@ -85,6 +85,59 @@ const inboxMessage = (job, postingCollegeName) => {
 };
 
 /**
+ * Tells colleges that have just been added to a job that already existed.
+ *
+ * Widening a live posting has the same consequence as creating a joint one:
+ * students at a college that was not on it yesterday can apply today, and
+ * their officer has no way of knowing unless told. Without this the audience
+ * could be extended to twenty colleges and every one of them would find out
+ * from a student.
+ *
+ * Inbox only, deliberately. This runs on an edit rather than an approval,
+ * edits are easy to repeat, and there is no requester here to have chosen the
+ * email option — a Super Admin adjusting targeting twice in a minute should
+ * not send two rounds of mail to sixty mailboxes.
+ *
+ * `collegeIds` is the newly added colleges alone, not the whole audience: the
+ * ones that were already on the job were told when it was posted and do not
+ * need telling again.
+ */
+export const notifyCollegesAdded = async (job, collegeIds, { createdBy = null } = {}) => {
+  const ids = [...new Set((collegeIds || []).filter((id) => Number.isInteger(id)))];
+  if (ids.length === 0) return { notified: 0 };
+
+  const officers = await query(
+    `SELECT po.user_id, c.college_name
+       FROM colleges c
+       JOIN placement_officers po ON po.college_id = c.id AND po.is_active = TRUE
+      WHERE c.id = ANY($1)`,
+    [ids]
+  );
+  if (officers.rows.length === 0) return { notified: 0 };
+
+  const deadline = job.application_deadline
+    ? new Date(job.application_deadline).toLocaleString('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        day: '2-digit', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', hour12: true,
+      })
+    : null;
+
+  await deliverToOfficers({
+    userIds: officers.rows.map((row) => row.user_id),
+    title: `Your college has been added to a posting — ${job.company_name}`,
+    message:
+      `${job.job_title} at ${job.company_name} has been opened to your college, and is now live `
+      + 'for your eligible students.'
+      + (deadline ? ` Applications close ${deadline} IST.` : ''),
+    createdBy,
+    type: 'joint_job_posted',
+  });
+
+  return { notified: officers.rows.length };
+};
+
+/**
  * Sends the notice, and never lets it disturb the approval.
  *
  * By the time this runs the job is committed and live. A failure here must not

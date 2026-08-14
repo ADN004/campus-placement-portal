@@ -10,7 +10,7 @@ import { generateStudentPDF } from '../utils/pdfGenerator.js';
 import { deleteImage, deleteFolderOnly, extractFolderPath } from '../config/cloudinary.js';
 import { TOTAL_BACKLOGS_SQL, parseMaxBacklogs } from '../utils/backlogPolicy.js';
 import { ACTIVE_STUDENT_ACCOUNT_SQL } from '../utils/notificationAudience.js';
-import { notifyParticipatingOfficers } from '../utils/jointJobNotice.js';
+import { notifyParticipatingOfficers, notifyCollegesAdded } from '../utils/jointJobNotice.js';
 import { collegesReachedBy, collegesLosingAccess } from '../utils/jobAudience.js';
 
 // ========================================
@@ -1446,7 +1446,8 @@ export const updateJob = async (req, res) => {
      * the same students, and a column-by-column diff would call rewriting one
      * as the other a removal.
      */
-    if (changingTargeting && applicantCount > 0) {
+    let collegesAdded = [];
+    if (changingTargeting) {
       const current = await query(
         'SELECT target_type, target_regions, target_colleges FROM jobs WHERE id = $1',
         [jobId]
@@ -1460,18 +1461,29 @@ export const updateJob = async (req, res) => {
           target_regions: target_regions !== undefined ? target_regions : current.rows[0].target_regions,
           target_colleges: target_colleges !== undefined ? target_colleges : current.rows[0].target_colleges,
         });
-        const losing = collegesLosingAccess(before, after);
-        if (losing.length > 0) {
-          return res.status(409).json({
-            success: false,
-            message:
-              `${applicantCount} student${applicantCount === 1 ? ' has' : 's have'} already applied, so this ` +
-              'job can be opened to more colleges but not taken away from any. This change would remove ' +
-              `${losing.join(', ')}.`,
-            colleges_losing_access: losing,
-            applicant_count: applicantCount,
-          });
+
+        if (applicantCount > 0) {
+          const losing = collegesLosingAccess(before, after);
+          if (losing.length > 0) {
+            return res.status(409).json({
+              success: false,
+              message:
+                `${applicantCount} student${applicantCount === 1 ? ' has' : 's have'} already applied, so this ` +
+                'job can be opened to more colleges but not taken away from any. This change would remove ' +
+                `${losing.join(', ')}.`,
+              colleges_losing_access: losing,
+              applicant_count: applicantCount,
+            });
+          }
         }
+
+        /*
+         * Computed whether or not anyone has applied, because being added to a
+         * live posting matters to a college either way — the guard above is
+         * about protecting existing applicants, this is about telling the new
+         * colleges they are on it. Sent after the update actually succeeds.
+         */
+        collegesAdded = [...after.keys()].filter((id) => !before.has(id));
       }
     }
 
@@ -1611,10 +1623,32 @@ export const updateJob = async (req, res) => {
       req
     );
 
+    /*
+     * Colleges just added to the job are told they are on it.
+     *
+     * Only for a live job: adding a college to one that is unpublished would
+     * announce a posting its students cannot see. After the update and outside
+     * its success, for the same reason as the approval notice — the change is
+     * already saved, and a failure to notify must not report the edit as
+     * failed and invite a retry that edits it twice.
+     */
+    let collegesNotified = 0;
+    if (collegesAdded.length > 0 && result.rows[0].is_active !== false) {
+      try {
+        const notice = await notifyCollegesAdded(result.rows[0], collegesAdded, {
+          createdBy: req.user.id,
+        });
+        collegesNotified = notice.notified;
+      } catch (noticeError) {
+        console.error('Added-college notice failed (the job is updated regardless):', noticeError.message);
+      }
+    }
+
     res.status(200).json({
       success: true,
       message: 'Job updated successfully',
       data: updatedJob,
+      colleges_notified: collegesNotified,
     });
   } catch (error) {
     console.error('Update job error:', error);

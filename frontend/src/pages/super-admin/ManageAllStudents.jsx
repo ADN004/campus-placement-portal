@@ -36,6 +36,20 @@ export default function ManageAllStudents() {
   const [searchParams] = useSearchParams();
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
+  /*
+   * The full-page skeleton belongs to the first load and nothing else.
+   *
+   * Every fetch used to set `loading`, and the render returns a skeleton
+   * whenever that is true — which replaces the whole page, the search box
+   * included. Typing a ten-digit PRN at the pace you read one off a page fires
+   * a request per digit, and each one unmounted the input mid-word: focus was
+   * lost, the remaining digits went nowhere, and the officer had to click back
+   * in and finish. Measured at 10 requests and focus lost on every one.
+   *
+   * Refetches keep the page mounted now and only dim the table.
+   */
+  const [firstLoadDone, setFirstLoadDone] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const { showSkeleton } = useSkeleton(loading);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -173,11 +187,13 @@ export default function ManageAllStudents() {
     }
   };
 
-  // Debounce search input (400ms delay)
+  // Waits for a pause in typing before searching. 400ms was shorter
+  // than the gap between digits when someone transcribes a PRN, so every
+  // digit searched; 700ms bridges that without feeling slow.
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(searchQuery);
-    }, 400);
+    }, 700);
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
@@ -328,7 +344,7 @@ export default function ManageAllStudents() {
 
   const fetchStudents = async () => {
     try {
-      setLoading(true);
+      if (firstLoadDone) setRefreshing(true); else setLoading(true);
 
       const params = new URLSearchParams({
         page: currentPage.toString(),
@@ -385,6 +401,8 @@ export default function ManageAllStudents() {
       toast.error('Failed to load students');
     } finally {
       setLoading(false);
+      setRefreshing(false);
+      setFirstLoadDone(true);
     }
   };
 
@@ -1273,7 +1291,7 @@ export default function ManageAllStudents() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white/50 divide-y divide-gray-100">
+              <tbody className={`bg-white/50 divide-y divide-gray-100 transition-opacity ${refreshing ? 'opacity-50' : ''}`}>
               {students.length === 0 ? (
                 <tr>
                   <td colSpan="7" className="px-6 py-16 text-center">

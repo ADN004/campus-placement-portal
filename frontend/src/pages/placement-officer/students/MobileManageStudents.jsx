@@ -19,7 +19,7 @@ import AdvancedFilters from './AdvancedFilters';
  */
 export default function MobileManageStudents(props) {
   const {
-    students, activeTab, statusCounts, onChangeTab,
+    students, refreshing, activeTab, statusCounts, onChangeTab,
     searchQuery, onSearchChange,
     showAdvancedFilters, onToggleAdvancedFilters, hasActiveFilters,
     showExportDropdown, onToggleExportDropdown, onPickExport, totalStudents,
@@ -148,7 +148,7 @@ export default function MobileManageStudents(props) {
           <EmptyState filtered={Boolean(searchQuery) || hasActiveFilters} activeTab={activeTab} />
         ) : (
           <>
-            <ul>
+            <ul className={refreshing ? 'opacity-50 transition-opacity' : 'transition-opacity'}>
               {students.map((student) => {
                 const selected = selectedStudents.includes(student.id);
                 const canSelect =

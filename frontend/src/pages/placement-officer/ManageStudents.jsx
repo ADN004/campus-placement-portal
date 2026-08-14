@@ -73,6 +73,16 @@ export default function ManageStudents() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  /*
+   * The full-page skeleton is for the first load only.
+   *
+   * Every fetch set `loading`, and the render returns a skeleton whenever that
+   * is true — replacing the whole page including the search box. Typing a PRN
+   * at the pace you read one off a page unmounted the input mid-word, so focus
+   * was lost and the rest of the digits went nowhere.
+   */
+  const [firstLoadDone, setFirstLoadDone] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusCounts, setStatusCounts] = useState({
     all: 0,
@@ -217,11 +227,12 @@ export default function ManageStudents() {
     }
   };
 
-  // Debounce search input (400ms delay)
+  // Waits for a pause in typing before searching. 400ms was shorter than the
+  // gap between digits when transcribing a PRN, so every digit searched.
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(searchQuery);
-    }, 400);
+    }, 700);
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
@@ -348,7 +359,7 @@ export default function ManageStudents() {
 
   const fetchStudents = async () => {
     try {
-      setLoading(true);
+      if (firstLoadDone) setRefreshing(true); else setLoading(true);
       const params = {
         page: currentPage,
         limit: pageSize,
@@ -424,6 +435,8 @@ export default function ManageStudents() {
       console.error('Error fetching students:', error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
+      setFirstLoadDone(true);
     }
   };
 
@@ -1115,6 +1128,7 @@ export default function ManageStudents() {
   // Identical props for all three presenters — same values, same functions.
   const presenterProps = {
     students,
+    refreshing,
     activeTab,
     statusCounts,
     onChangeTab: changeTab,

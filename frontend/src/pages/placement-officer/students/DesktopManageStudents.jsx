@@ -18,7 +18,7 @@ import AdvancedFilters from './AdvancedFilters';
  */
 export default function DesktopManageStudents(props) {
   const {
-    students, activeTab, statusCounts, onChangeTab,
+    students, refreshing, activeTab, statusCounts, onChangeTab,
     searchQuery, onSearchChange,
     showAdvancedFilters, onToggleAdvancedFilters, hasActiveFilters,
     showExportDropdown, onToggleExportDropdown, onPickExport, totalStudents,
@@ -177,7 +177,7 @@ export default function DesktopManageStudents(props) {
                     </th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className={refreshing ? 'opacity-50 transition-opacity' : 'transition-opacity'}>
                   {students.map((student) => {
                     const selected = selectedStudents.includes(student.id);
                     const canSelect =

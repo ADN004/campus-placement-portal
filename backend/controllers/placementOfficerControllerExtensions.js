@@ -2414,9 +2414,15 @@ export const getPlacementPosterStats = async (req, res) => {
         AND (
           j.target_type = 'all'
           OR (j.target_type = 'college' AND j.target_colleges @> to_jsonb($1::int))
-          OR (j.target_type = 'specific' AND j.target_colleges @> to_jsonb($1::int))
           OR (j.target_type = 'region' AND j.target_regions @> (
             SELECT to_jsonb(c.region_id) FROM colleges c WHERE c.id = $1
+          ))
+          -- 'specific' means either list may match, so both are checked. Reading
+          -- only the colleges here undercounted every college reached through a
+          -- region on a job that named both.
+          OR (j.target_type = 'specific' AND (
+            j.target_colleges @> to_jsonb($1::int)
+            OR j.target_regions @> (SELECT to_jsonb(c.region_id) FROM colleges c WHERE c.id = $1)
           ))
         )
     `;

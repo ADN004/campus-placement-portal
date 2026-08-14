@@ -2826,10 +2826,34 @@ export const approveJobRequest = async (req, res) => {
     let targetRegions = jobRequest.target_regions;
     let targetColleges = jobRequest.target_colleges;
 
+    /*
+     * A request that names regions AND colleges keeps both.
+     *
+     * This used to pick one: any region at all made the job a 'region' job, and
+     * every eligibility query reads target_colleges only for 'college' and
+     * 'specific' jobs. The named colleges stayed in the row, looking perfectly
+     * correct to anyone reading the table, and were never consulted again — so
+     * a college the officer had explicitly ticked could not see the job, and
+     * neither could its students. The officer's own college is added to
+     * target_colleges automatically when the request is made, which means an
+     * officer whose college sat outside the regions they picked would post a
+     * job their own students could not see.
+     *
+     * 'specific' is the shape that means "either of these", and getJobs, the
+     * student eligibility check and the application gate all already read it
+     * that way. It is used only when both lists are actually populated; a
+     * request naming just regions or just colleges still collapses to the
+     * single-target form it has always used.
+     */
+    const hasRegions = Array.isArray(targetRegions) ? targetRegions.length > 0 : Boolean(targetRegions);
+    const hasColleges = Array.isArray(targetColleges) ? targetColleges.length > 0 : Boolean(targetColleges);
+
     if (jobRequest.target_type === 'specific') {
-      if (targetRegions && (Array.isArray(targetRegions) ? targetRegions.length > 0 : true)) {
+      if (hasRegions && hasColleges) {
+        targetType = 'specific';
+      } else if (hasRegions) {
         targetType = 'region';
-      } else if (targetColleges && (Array.isArray(targetColleges) ? targetColleges.length > 0 : true)) {
+      } else if (hasColleges) {
         targetType = 'college';
       }
     } else if (jobRequest.target_type === 'college' || jobRequest.target_type === 'region') {

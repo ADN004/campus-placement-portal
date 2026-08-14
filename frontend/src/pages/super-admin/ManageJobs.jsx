@@ -43,6 +43,15 @@ export default function ManageJobs() {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedJob, setSelectedJob] = useState(null);
   const [editMode, setEditMode] = useState(false);
+  /*
+   * How many students have applied to the job being edited, which decides
+   * whether the eligibility and targeting fields are still open.
+   *
+   * Read from the job row the list already carries (getJobs returns
+   * applications_count), so opening the dialog costs no extra request.
+   */
+  const [editApplicantCount, setEditApplicantCount] = useState(0);
+  const eligibilityLocked = editMode && editApplicantCount > 0;
   const [regions, setRegions] = useState([]);
   const [colleges, setColleges] = useState([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -171,6 +180,10 @@ export default function ManageJobs() {
     setEditMode(false);
     setSelectedJob(null);
     setSelectedTemplate('');
+    // A new job has no applicants, so nothing is locked. Reset explicitly:
+    // opening create straight after editing a job with applicants would
+    // otherwise carry the lock over to a blank form.
+    setEditApplicantCount(0);
     setFormData({
       title: '',
       company_name: '',
@@ -210,6 +223,7 @@ export default function ManageJobs() {
     setEditMode(true);
     setSelectedJob(job);
     setSelectedTemplate('');
+    setEditApplicantCount(Number(job.applications_count) || 0);
 
     // Helper function to safely parse JSON or return array
     const parseJsonField = (field) => {
@@ -379,6 +393,23 @@ export default function ManageJobs() {
         target_regions: JSON.stringify(formData.target_regions),
         target_colleges: JSON.stringify(formData.target_colleges),
       };
+
+      /*
+       * Dropped rather than sent unchanged once anyone has applied.
+       *
+       * The server refuses the whole request if any of these is present, and it
+       * cannot tell "same value resent by the form" from "deliberately
+       * changed" — so leaving them in would make correcting a job title come
+       * back "cannot be changed" for fields nobody touched. The inputs are
+       * disabled in the dialog too; this is what makes the save work.
+       */
+      if (eligibilityLocked) {
+        [
+          'min_cgpa', 'max_backlogs', 'backlog_max_semester', 'allowed_backlog_semesters',
+          'allowed_branches', 'dob_on_or_before', 'dob_on_or_after', 'gender_requirement',
+          'target_type', 'target_regions', 'target_colleges',
+        ].forEach((field) => delete submitData[field]);
+      }
 
       let jobId;
       if (editMode) {
@@ -1188,7 +1219,23 @@ export default function ManageJobs() {
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">
                   Eligibility Criteria
+                  {eligibilityLocked && <span className="ml-2 text-sm font-normal text-amber-600">— locked</span>}
                 </h3>
+                {eligibilityLocked && (
+                  <p className="text-sm text-gray-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    {editApplicantCount} student{editApplicantCount === 1 ? ' has' : 's have'} already
+                    applied, so who is eligible can no longer be changed — they applied under these
+                    rules. Everything else, including the company, package, location and deadline, can
+                    still be edited.
+                  </p>
+                )}
+                {/*
+                  A disabled fieldset disables every control inside it, which is
+                  the point: this section holds a dozen inputs and adding the
+                  flag to each one by hand is how one gets missed and quietly
+                  stays editable.
+                */}
+                <fieldset disabled={eligibilityLocked} className="border-0 p-0 m-0 space-y-4 min-w-0">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="label">Minimum CGPA</label>
@@ -1350,13 +1397,23 @@ export default function ManageJobs() {
                     </div>
                   </div>
                 </div>
+                </fieldset>
               </div>
 
               {/* Target Audience */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">
                   Target Audience
+                  {eligibilityLocked && <span className="ml-2 text-sm font-normal text-amber-600">— locked</span>}
                 </h3>
+                {eligibilityLocked && (
+                  <p className="text-sm text-gray-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    Who the job is for cannot be changed either. Moving it to another college would
+                    leave the students who have already applied on a job their college is no longer
+                    part of.
+                  </p>
+                )}
+                <fieldset disabled={eligibilityLocked} className="border-0 p-0 m-0 space-y-4 min-w-0">
                 <div>
                   <label className="label">Target Type</label>
                   <div className="flex space-x-4">
@@ -1450,6 +1507,7 @@ export default function ManageJobs() {
                     </div>
                   </div>
                 )}
+                </fieldset>
               </div>
 
               {/* Extended Profile Requirements */}

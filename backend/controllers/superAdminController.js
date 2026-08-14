@@ -1370,6 +1370,65 @@ export const updateJob = async (req, res) => {
       return res.status(400).json({ success: false, message: genderReq.error });
     }
 
+    /*
+     * Who may apply is frozen once anyone has, here as well as on the officer's
+     * edit screen.
+     *
+     * That guard existed only on the officer route, so the same edit that was
+     * refused with a 409 for an officer went through silently for the Super
+     * Admin. Verified against the running API before this was written: a job at
+     * min CGPA 6.0 open to all, with one applicant, was moved to CGPA 9.5, male
+     * only, with a date-of-birth cutoff added — and the applicant stayed in the
+     * list, now contradicting every criterion the job states.
+     *
+     * The reason has nothing to do with authority, which is why being the Super
+     * Admin does not lift it. The applicant list and the criteria are two
+     * records of the same decision, and editing one after the fact makes them
+     * disagree with no way to tell which was true when the student applied.
+     * Every eligibility view, every "eligible but not applied" export and every
+     * re-check would then call an accepted applicant ineligible.
+     *
+     * Targeting is included, and it is the worse of the two: moving a job to
+     * another college does not merely contradict an applicant, it orphans them
+     * — their college is no longer on a job they have already applied to. The
+     * officer route never accepts targeting fields at all, so this closes the
+     * only way it could happen.
+     *
+     * Everything describing the job — company, package, location, deadline,
+     * title, description, vacancies, the form link — stays editable, as on the
+     * officer's screen. Those contradict nothing, companies revise them
+     * routinely, and students reading something false is worse than students
+     * reading something that changed. Withdrawing the job and posting a
+     * corrected one remains the way to change the rules themselves.
+     */
+    const ELIGIBILITY = {
+      min_cgpa, max_backlogs, backlog_max_semester, allowed_backlog_semesters, allowed_branches,
+      dob_on_or_before, dob_on_or_after, gender_requirement,
+      target_type, target_regions, target_colleges,
+    };
+    const changingEligibility = Object.entries(ELIGIBILITY)
+      .filter(([, v]) => v !== undefined)
+      .map(([k]) => k);
+
+    if (changingEligibility.length > 0) {
+      const applied = await query(
+        'SELECT COUNT(*)::int AS n FROM job_applications WHERE job_id = $1',
+        [jobId]
+      );
+      const n = applied.rows[0].n;
+      if (n > 0) {
+        return res.status(409).json({
+          success: false,
+          message:
+            `${n} student${n === 1 ? ' has' : 's have'} already applied, so who is eligible cannot be ` +
+            'changed — they applied under the current rules. Everything else about the job, including ' +
+            'the company, package, location and deadline, can still be edited.',
+          locked_fields: changingEligibility,
+          applicant_count: n,
+        });
+      }
+    }
+
     // Build update query dynamically based on provided fields
     const updates = [];
     const values = [];

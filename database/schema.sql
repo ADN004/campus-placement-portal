@@ -702,6 +702,10 @@ CREATE TABLE job_requests (
     target_regions JSONB,
     target_colleges JSONB,
     status VARCHAR(50) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'auto_approved')),
+    -- Whether the other targeted colleges should also be emailed on approval.
+    -- Their inbox notification is sent either way; this is the loud channel and
+    -- stays the requesting officer's choice.
+    notify_by_email BOOLEAN DEFAULT FALSE,
     reviewed_by INTEGER REFERENCES users(id),
     review_comment TEXT,
     reviewed_date TIMESTAMP,
@@ -751,7 +755,9 @@ CREATE TABLE notifications (
     id SERIAL PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
     message TEXT NOT NULL,
-    notification_type VARCHAR(50) DEFAULT 'general' CHECK (notification_type IN ('general', 'job_posted', 'application_deadline', 'approval', 'rejection')),
+    -- The two 'joint_*' kinds are officer-facing: an officer's college was put
+    -- on someone else's posting, or a drive was set on a job it is part of.
+    notification_type VARCHAR(50) DEFAULT 'general' CHECK (notification_type IN ('general', 'job_posted', 'application_deadline', 'approval', 'rejection', 'joint_job_posted', 'joint_drive_scheduled')),
     priority VARCHAR(20) DEFAULT 'normal' CHECK (priority IN ('normal', 'high', 'urgent')),
     created_by INTEGER NOT NULL REFERENCES users(id),
     target_type VARCHAR(50) NOT NULL CHECK (target_type IN ('all', 'specific_regions', 'specific_colleges', 'specific_students')),
@@ -781,6 +787,9 @@ CREATE TABLE notification_recipients (
 CREATE INDEX idx_notif_recipients_notification ON notification_recipients(notification_id);
 CREATE INDEX idx_notif_recipients_user ON notification_recipients(user_id);
 CREATE INDEX idx_notif_recipients_read ON notification_recipients(is_read);
+-- Serves both halves of an inbox: the list, newest first, and the unread badge.
+CREATE INDEX idx_notification_recipients_user_unread
+  ON notification_recipients (user_id, is_read, created_at DESC);
 
 -- ============================================
 -- 23. NOTIFICATION TARGETS TABLE

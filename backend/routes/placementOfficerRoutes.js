@@ -1,6 +1,12 @@
 import express from 'express';
 import { requestStudentCorrection } from '../controllers/correctionController.js';
 import {
+  getInbox,
+  getInboxUnreadCount,
+  markInboxRead,
+  markInboxAllRead,
+} from '../controllers/officerInboxController.js';
+import {
   getDashboard,
   getProfile,
   updateProfile,
@@ -107,6 +113,19 @@ router.get('/branches', getBranchesForNotifications); // Get branches for notifi
 router.get('/districts', getAvailableDistricts);
 router.post('/send-notification', sendNotification);
 router.get('/sent-notifications', getSentNotifications);
+
+/*
+ * The officer's own inbox — what the system has told them, as opposed to the
+ * two routes above, which are what they have told students.
+ *
+ * 'read-all' is declared before ':id/read' so it is matched as a literal. The
+ * other order would let ':id' capture it and try to mark a notification called
+ * "read-all" as read.
+ */
+router.get('/inbox', getInbox);
+router.get('/inbox/unread-count', getInboxUnreadCount);
+router.put('/inbox/read-all', markInboxAllRead);
+router.put('/inbox/:id/read', markInboxRead);
 router.get('/jobs', getJobs);
 router.put('/jobs/:id', updateJob);
 router.delete('/jobs/:id', deleteJob);

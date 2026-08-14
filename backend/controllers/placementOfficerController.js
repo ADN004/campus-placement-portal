@@ -1909,6 +1909,9 @@ export const createJobRequest = async (req, res) => {
       target_type,
       target_regions,
       target_colleges,
+      // Multi-college requests only: also email the other colleges' officers on
+      // approval, as well as the inbox notice they get either way.
+      notify_by_email,
       // Extended requirements (for auto-approval)
       requires_academic_extended,
       requires_physical_details,
@@ -2186,8 +2189,8 @@ export const createJobRequest = async (req, res) => {
         no_of_vacancies, location, salary_range, application_deadline, application_form_url,
         min_cgpa, max_backlogs, backlog_max_semester, allowed_backlog_semesters, allowed_branches,
         dob_on_or_before, dob_on_or_after, gender_requirement, target_type, target_regions, target_colleges,
-        status
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb, $15, $16, $17, $18, $19, $20, $21, $22)
+        status, notify_by_email
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb, $15, $16, $17, $18, $19, $20, $21, $22, $23)
       RETURNING *`,
       [
         officer.id,
@@ -2212,6 +2215,9 @@ export const createJobRequest = async (req, res) => {
         target_regions && target_regions.length > 0 ? JSON.stringify(target_regions) : null,
         finalTargetColleges.length > 0 ? JSON.stringify(finalTargetColleges) : null,
         'pending',
+        // Coerced rather than passed through: the column is a boolean, and an
+        // absent field on an older client must mean "no" rather than NULL.
+        notify_by_email === true || notify_by_email === 'true',
       ]
     );
 

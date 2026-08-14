@@ -473,6 +473,25 @@ export default function JobRequestForm({
                 college(s) selected
               </p>
             )}
+
+            {/*
+              Only shown on a multi-college request, which is the only kind that
+              has other colleges to tell. The notice itself is not optional —
+              every included college is told in their portal when the Super
+              Admin approves this — so the choice is worded as the extra email
+              rather than as whether to notify at all, which is what it is.
+            */}
+            <div className="mt-4 pt-4 border-t border-spc-line">
+              <CheckRow
+                checked={Boolean(formData.notify_by_email)}
+                onChange={(e) => set('notify_by_email', e.target.checked)}
+              >
+                Also email the other colleges&rsquo; officers
+              </CheckRow>
+              <p className="text-xs text-spc-muted mt-1 ml-7">
+                They are notified in the portal either way once this is approved.
+              </p>
+            </div>
           </div>
         )}
       </FormSection>

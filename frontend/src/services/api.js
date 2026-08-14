@@ -133,6 +133,12 @@ export const placementOfficerAPI = {
   requestWhitelist: (studentId, reason) => API.post(`/placement-officer/students/${studentId}/whitelist-request`, { reason }),
   sendNotification: (data) => API.post('/placement-officer/send-notification', data),
   getSentNotifications: () => API.get('/placement-officer/sent-notifications'),
+  // The officer's own inbox — what the system has told them. Distinct from the
+  // two above, which are what they have sent to students.
+  getInbox: () => API.get('/placement-officer/inbox'),
+  getInboxUnreadCount: () => API.get('/placement-officer/inbox/unread-count'),
+  markInboxRead: (id) => API.put(`/placement-officer/inbox/${id}/read`),
+  markInboxAllRead: () => API.put('/placement-officer/inbox/read-all'),
   exportStudents: (queryString) => API.get(`/placement-officer/students/export${queryString}`, { responseType: 'blob' }),
   createJobRequest: (data) => API.post('/placement-officer/job-requests', data),
   getMyJobRequests: () => API.get('/placement-officer/job-requests'),

@@ -37,7 +37,13 @@ const GROUPS = [
       '/placement-officer/placement-poster',
     ],
   },
-  { label: 'Communication', paths: ['/placement-officer/send-notification'] },
+  {
+    label: 'Communication',
+    paths: [
+      '/placement-officer/inbox',
+      '/placement-officer/send-notification',
+    ],
+  },
   { label: 'Account', paths: ['/placement-officer/profile'] },
 ];
 
@@ -119,13 +125,37 @@ export default function OfficerSidebar({
                       ? 'bg-spc-surface-3 text-spc-ink font-bold'
                       : 'text-spc-body font-semibold hover:bg-spc-surface-2 hover:text-spc-ink'}`}
                 >
-                  <Icon size={19} className="flex-shrink-0" />
+                  <span className="relative flex-shrink-0">
+                    <Icon size={19} />
+                    {/*
+                      Collapsed, the label is gone and the count beside it would
+                      go with it, so the icon carries a dot instead. Something
+                      unread has to be visible in both states or an officer who
+                      keeps the sidebar collapsed never learns to open it.
+                    */}
+                    {item.badge > 0 && collapsed && (
+                      <span
+                        className="hidden lg:block absolute -top-0.5 -right-0.5 h-2 w-2
+                          rounded-full bg-spc-accent ring-2 ring-spc-surface"
+                        aria-hidden="true"
+                      />
+                    )}
+                  </span>
                   <span
                     className={`whitespace-nowrap transition-opacity duration-150
                       ${collapsed ? 'lg:opacity-0 lg:hidden' : ''}`}
                   >
                     {item.name}
                   </span>
+                  {item.badge > 0 && (
+                    <span
+                      className={`ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-spc-accent
+                        text-spc-on-accent text-[11px] font-bold leading-5 text-center tabular-nums
+                        ${collapsed ? 'lg:hidden' : ''}`}
+                    >
+                      {item.badge > 99 ? '99+' : item.badge}
+                    </span>
+                  )}
                 </Link>
               );
             })}

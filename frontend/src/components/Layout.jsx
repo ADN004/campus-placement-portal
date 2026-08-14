@@ -1,6 +1,7 @@
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import CorrectionGate from './CorrectionGate';
+import { placementOfficerAPI } from '../services/api';
 import StudentApprovalGate from './StudentApprovalGate';
 import {
   Home,
@@ -25,6 +26,7 @@ import {
   Building2,
   AlertTriangle,
   Lock,
+  Inbox,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import GradientOrb from './GradientOrb';
@@ -64,6 +66,29 @@ export default function Layout() {
   // falls through to the original code path for them.
   const isStudent = user?.role === 'student';
   const isOfficer = user?.role === 'placement_officer';
+
+  /*
+   * The officer's unread count, for the badge beside Inbox.
+   *
+   * Re-read on every navigation rather than polled on a timer: an officer moves
+   * between pages constantly, so the count is never far behind, and it costs
+   * one small query instead of one per officer per interval forever. Reading
+   * the inbox itself is the case that has to feel immediate, and landing there
+   * is a navigation.
+   *
+   * The endpoint answers 0 rather than an error when it cannot count, so a
+   * failure here shows no badge instead of breaking the shell.
+   */
+  const [inboxUnread, setInboxUnread] = useState(0);
+  useEffect(() => {
+    if (!isOfficer) return;
+    let cancelled = false;
+    placementOfficerAPI
+      .getInboxUnreadCount()
+      .then((res) => { if (!cancelled) setInboxUnread(res.data.count || 0); })
+      .catch(() => { if (!cancelled) setInboxUnread(0); });
+    return () => { cancelled = true; };
+  }, [isOfficer, location.pathname]);
 
   // A pending student can only reach the waiting page, so the navigation is
   // hidden entirely: every destination in it would bounce straight back, and a
@@ -204,6 +229,9 @@ export default function Layout() {
           { name: 'My Job Requests', path: '/placement-officer/my-job-requests', icon: FileText },
           { name: 'Job Eligible Students', path: '/placement-officer/job-eligible-students', icon: UserCheck },
           { name: 'Placement Poster', path: '/placement-officer/placement-poster', icon: FileImage },
+          // `badge` is read by OfficerSidebar; absent on every other item, which
+          // renders nothing rather than a zero.
+          { name: 'Inbox', path: '/placement-officer/inbox', icon: Inbox, badge: inboxUnread },
           { name: 'Send Notification', path: '/placement-officer/send-notification', icon: Bell },
           { name: 'Profile', path: '/placement-officer/profile', icon: User },
         ];

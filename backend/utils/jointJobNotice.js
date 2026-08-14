@@ -8,15 +8,18 @@
  * or they did not find out at all and their students sat out a drive they were
  * entitled to attend.
  *
- * This sends them one email when the job is approved. It is the only channel
- * available: officers have no inbox in the portal (they can send notifications,
- * not receive them), and `users.email` holds an officer's *login identifier*,
- * which is a phone number — mailing it would deliver nothing. The addresses
- * that actually reach a person are `officer_email`, then `college_email`.
+ * The notice goes to the officer's inbox in the portal, always. Email is the
+ * loud channel and is sent only when the officer who requested the job asked
+ * for it — a joint posting can reach sixty colleges, and approving a routine
+ * job should not put sixty messages in sixty mailboxes unless that was the
+ * intent. Where email is used it goes to `officer_email`, then `college_email`;
+ * `users.email` holds an officer's login identifier, which is a phone number,
+ * so it would deliver nothing.
  */
 
 import { query } from '../config/database.js';
 import { sendJointJobPostedEmail } from '../config/emailService.js';
+import { deliverToOfficers } from './officerInbox.js';
 
 /**
  * The officers of every college a job reaches, apart from the one that posted.
@@ -40,6 +43,7 @@ export const participatingOfficers = async (job, excludeCollegeId) => {
 
   const result = await query(
     `SELECT po.id,
+            po.user_id,
             po.officer_name,
             c.id   AS college_id,
             c.college_name,
@@ -63,22 +67,45 @@ export const participatingOfficers = async (job, excludeCollegeId) => {
   return result.rows;
 };
 
+/** What the notice says, in the inbox. Kept beside the email so they agree. */
+const inboxMessage = (job, postingCollegeName) => {
+  const deadline = job.application_deadline
+    ? new Date(job.application_deadline).toLocaleString('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        day: '2-digit', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', hour12: true,
+      })
+    : null;
+  return (
+    `${postingCollegeName} has posted ${job.job_title} at ${job.company_name}, `
+    + 'and your college is included — it is now live for your eligible students.'
+    + (deadline ? ` Applications close ${deadline} IST.` : '')
+    + ` The drive is arranged by ${postingCollegeName}.`
+  );
+};
+
 /**
- * Sends the notice, and never lets a mail failure disturb the approval.
+ * Sends the notice, and never lets it disturb the approval.
  *
- * By the time this runs the job is committed and live. An SMTP timeout, a
- * bounced address or a college with nobody appointed must not turn a successful
- * approval into a 500 — the Super Admin would retry, and the second attempt
- * would fail differently because the request is no longer pending. Each
- * recipient is therefore sent independently and each failure is only recorded.
+ * By the time this runs the job is committed and live. A failure here must not
+ * turn a successful approval into a 500 — the Super Admin would retry, and the
+ * second attempt would fail differently because the request is no longer
+ * pending. The inbox write is one statement for everybody; the emails, when
+ * asked for, are sent one at a time so a single bad address cannot take the
+ * rest down with it.
  *
  * Returns a summary so the caller can log what actually happened, including the
- * colleges that could not be reached at all: one of the sixty has neither an
- * officer address nor a college address on file, and silently dropping them
- * would look identical to a successful send.
+ * colleges that could be reached in the portal but not by email: one of the
+ * sixty has neither an officer address nor a college address on file, and
+ * silently dropping them would look identical to a successful send.
  */
-export const notifyParticipatingOfficers = async (job, postingCollegeId, postingCollegeName) => {
-  const summary = { sent: 0, unreachable: [], failed: [] };
+export const notifyParticipatingOfficers = async (
+  job,
+  postingCollegeId,
+  postingCollegeName,
+  { sendEmail = false, createdBy = null } = {}
+) => {
+  const summary = { notified: 0, emailed: 0, unreachableByEmail: [], failed: [] };
 
   let officers;
   try {
@@ -87,15 +114,31 @@ export const notifyParticipatingOfficers = async (job, postingCollegeId, posting
     console.error('Joint job notice — could not resolve participating colleges:', error.message);
     return { ...summary, resolveFailed: true };
   }
+  if (officers.length === 0) return summary;
+
+  try {
+    await deliverToOfficers({
+      userIds: officers.map((officer) => officer.user_id),
+      title: `Your college is on a joint posting — ${job.company_name}`,
+      message: inboxMessage(job, postingCollegeName),
+      createdBy,
+      type: 'joint_job_posted',
+    });
+    summary.notified = officers.length;
+  } catch (error) {
+    summary.failed.push(`inbox delivery (${error.message})`);
+  }
+
+  if (!sendEmail) return summary;
 
   for (const officer of officers) {
     if (!officer.email) {
-      summary.unreachable.push(officer.college_name);
+      summary.unreachableByEmail.push(officer.college_name);
       continue;
     }
     try {
       await sendJointJobPostedEmail(officer.email, officer.officer_name, postingCollegeName, job);
-      summary.sent += 1;
+      summary.emailed += 1;
     } catch (error) {
       summary.failed.push(`${officer.college_name} (${error.message})`);
     }

@@ -66,6 +66,10 @@ export default function CreateJobRequest() {
     target_type: 'college', // Defaults to own college (auto-approved)
     target_regions: [],
     target_colleges: [], // New: specific colleges within regions
+    // Multi-college requests only: email the other colleges' officers as well
+    // as the inbox notice they get regardless. Off by default — a posting can
+    // reach sixty colleges.
+    notify_by_email: false,
     application_form_url: '',
     // Extended requirements
     requires_academic_extended: false,
@@ -142,6 +146,7 @@ export default function CreateJobRequest() {
       target_type: 'college',
       target_regions: [],
       target_colleges: [],
+      notify_by_email: false,
       application_form_url: '',
       requires_academic_extended: false,
       requires_physical_details: false,
@@ -336,6 +341,11 @@ export default function CreateJobRequest() {
         target_colleges: (formData.target_type === 'region' || formData.target_type === 'specific_colleges')
           ? formData.target_colleges
           : null,
+        // Meaningless on an own-college request — there are no other colleges to
+        // email — so it is only sent with the shapes that have them.
+        notify_by_email: (formData.target_type === 'region' || formData.target_type === 'specific_colleges')
+          ? Boolean(formData.notify_by_email)
+          : false,
         // Include extended requirements for auto-approval
         requires_academic_extended: formData.requires_academic_extended,
         requires_physical_details: formData.requires_physical_details,

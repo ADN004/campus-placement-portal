@@ -2981,13 +2981,19 @@ export const approveJobRequest = async (req, res) => {
         noticeSummary = await notifyParticipatingOfficers(
           result,
           jobRequest.college_id,
-          postingCollege.rows[0]?.college_name || 'another college'
+          postingCollege.rows[0]?.college_name || 'another college',
+          {
+            // The requesting officer's choice, made when they raised the
+            // request — not the approver's. The inbox notice is sent either way.
+            sendEmail: jobRequest.notify_by_email === true,
+            createdBy: req.user.id,
+          }
         );
-        if (noticeSummary.unreachable?.length || noticeSummary.failed?.length) {
+        if (noticeSummary.unreachableByEmail?.length || noticeSummary.failed?.length) {
           console.warn(
-            `Joint job notice for job ${result.id}: sent ${noticeSummary.sent}`,
-            noticeSummary.unreachable?.length ? `| no address on file: ${noticeSummary.unreachable.join(', ')}` : '',
-            noticeSummary.failed?.length ? `| send failed: ${noticeSummary.failed.join(', ')}` : ''
+            `Joint job notice for job ${result.id}: ${noticeSummary.notified} notified, ${noticeSummary.emailed} emailed`,
+            noticeSummary.unreachableByEmail?.length ? `| no address on file: ${noticeSummary.unreachableByEmail.join(', ')}` : '',
+            noticeSummary.failed?.length ? `| failed: ${noticeSummary.failed.join(', ')}` : ''
           );
         }
       } catch (noticeError) {
@@ -2999,7 +3005,8 @@ export const approveJobRequest = async (req, res) => {
       success: true,
       message: 'Job request approved and job created successfully',
       data: result,
-      colleges_notified: noticeSummary ? noticeSummary.sent : 0,
+      colleges_notified: noticeSummary ? noticeSummary.notified : 0,
+      colleges_emailed: noticeSummary ? noticeSummary.emailed : 0,
     });
   } catch (error) {
     console.error('Approve job request error:', error);

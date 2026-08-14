@@ -37,6 +37,7 @@ const SendNotification = lazy(() => import('./pages/placement-officer/SendNotifi
 const CreateJobRequest = lazy(() => import('./pages/placement-officer/CreateJobRequest'));
 const MyJobRequests = lazy(() => import('./pages/placement-officer/MyJobRequests'));
 const PlacementOfficerProfile = lazy(() => import('./pages/placement-officer/Profile'));
+const PlacementOfficerInbox = lazy(() => import('./pages/placement-officer/Inbox'));
 const JobEligibleStudents = lazy(() => import('./pages/placement-officer/JobEligibleStudents'));
 const JobApplicants = lazy(() => import('./pages/placement-officer/JobApplicants'));
 const PlacementOfficerPRNRanges = lazy(() => import('./pages/placement-officer/ManagePRNRanges'));
@@ -112,6 +113,7 @@ function App() {
                 <Route path="/placement-officer/students" element={<ManageStudents />} />
                 <Route path="/placement-officer/prn-ranges" element={<PlacementOfficerPRNRanges />} />
                 <Route path="/placement-officer/send-notification" element={<SendNotification />} />
+                <Route path="/placement-officer/inbox" element={<PlacementOfficerInbox />} />
                 <Route path="/placement-officer/create-job-request" element={<CreateJobRequest />} />
                 <Route path="/placement-officer/my-job-requests" element={<MyJobRequests />} />
                 <Route path="/placement-officer/job-eligible-students" element={<JobEligibleStudents />} />

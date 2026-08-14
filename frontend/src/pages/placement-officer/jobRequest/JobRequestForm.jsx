@@ -123,9 +123,9 @@ export default function JobRequestForm({
                 min={nowAsLocalInput()}
                 value={formData.application_deadline}
                 onChange={(e) => set('application_deadline', e.target.value)} />
-              <p className="mt-1 text-xs text-spc-muted">
-                Indian time. Applications close at this moment, not at the end of the day.
-              </p>
+              {/* The clock note and the spelled-out deadline live in DeadlineEcho,
+                  which every deadline field shares. A separate hint here said the
+                  same thing a third time. */}
               <DeadlineEcho value={formData.application_deadline} variant="officer" />
             </div>
             <div className="min-w-0">

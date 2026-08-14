@@ -122,20 +122,38 @@ export const describeDeadlineInput = (value) => {
     timeZone: 'UTC', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   }).format(date);
 
+  const minute = String(mi).padStart(2, '0');
   const meridiem = h < 12 ? 'am' : 'pm';
   const hour12 = h % 12 === 0 ? 12 : h % 12;
-  const time = `${hour12}:${String(mi).padStart(2, '0')} ${meridiem}`;
+  const time = `${hour12}:${minute} ${meridiem}`;
+
+  /*
+   * Every morning hour is worth querying, not just the small ones.
+   *
+   * This first flagged only midnight to six, on the reasoning that nobody
+   * closes applications at 1:30am on purpose. But the mistake is not about
+   * unusual hours — it is about not knowing the box wants a 24-hour clock. On
+   * that misunderstanding 7:00 means the evening just as surely as 1:30 means
+   * the afternoon, and 7:00am is a perfectly ordinary-looking value that no
+   * amount of staring would reveal as wrong.
+   *
+   * So anything before noon offers the evening reading and the digits that
+   * would produce it. It is a suggestion, not a correction: a morning deadline
+   * is entirely legitimate and the officer is the one who knows which they
+   * meant. `isEarlyMorning` only changes the wording, since 2am reads
+   * differently from 9am to the person checking it.
+   */
+  const isMorning = h < 12;
 
   return {
     day,
     time,
     meridiem,
-    /*
-     * Between midnight and six in the morning almost always means the 24-hour
-     * clock was read as a 12-hour one — nobody closes applications at 1:30am on
-     * purpose. Flagged rather than blocked: it is a legitimate value, and the
-     * officer is the one who knows.
-     */
-    looksLikeAmPmSlip: h < 6,
+    isMorning,
+    isEarlyMorning: h < 6,
+    // What to type instead, and what that would read as. Both null past noon,
+    // where there is no other reading to offer.
+    eveningEntry: isMorning ? `${String(h + 12).padStart(2, '0')}:${minute}` : null,
+    eveningLabel: isMorning ? `${hour12}:${minute} pm` : null,
   };
 };

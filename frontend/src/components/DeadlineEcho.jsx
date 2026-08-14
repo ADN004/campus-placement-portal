@@ -1,18 +1,25 @@
 import { describeDeadlineInput } from '../utils/deadline';
 
 /**
- * Reads a typed application deadline back in plain language, under the field.
+ * Says which clock the deadline field uses, and reads the typed value back.
  *
  * The date-and-time input draws its clock in the browser's locale, which here
- * is usually the 24-hour one. Someone who means noon types 1:30, sees 01:30,
- * and has just set the deadline for half past one in the morning. Every step
- * agrees with them; the mistake only appears when applications close twelve
- * hours early and the officer has no idea why.
+ * is usually the 24-hour one, and nothing on screen says so. Someone who wants
+ * applications to close at half past six in the evening types 6:30, sees 06:30,
+ * and has set half past six in the morning. Every step agrees with them; the
+ * mistake only surfaces when applications close twelve hours early.
  *
- * Saying the value back in words — "Tuesday, 18 August 2026 at 1:30 am" — is
- * what catches it, because the reader does not have to convert anything to spot
- * that it is wrong. The meridiem is emphasised since that is the part being
- * checked.
+ * Two things prevent that, and they work at different moments. The format note
+ * is there before anything is typed, so the officer knows what the box wants.
+ * The echo appears once there is a value and says it in words, because reading
+ * "6:30 am" is what catches an error that "06:30" hides.
+ *
+ * Any time before noon also offers the evening reading and the exact digits
+ * that would produce it. Not only the small hours: the mistake is not about
+ * unusual times, it is about not knowing the clock is 24-hour, and on that
+ * misunderstanding 7:00 means the evening just as surely as 1:30 means the
+ * afternoon. It stays a suggestion — a morning deadline is legitimate, and the
+ * officer is the one who knows which they meant.
  *
  * `variant` picks the palette rather than the caller restyling this: the
  * officer screens are on the design-system tokens, the Super Admin's are still
@@ -20,29 +27,38 @@ import { describeDeadlineInput } from '../utils/deadline';
  * in one of the two.
  */
 export default function DeadlineEcho({ value, variant = 'officer' }) {
-  const parsed = describeDeadlineInput(value);
-  if (!parsed) return null;
-
   const officer = variant === 'officer';
+  const muted = officer ? 'text-spc-muted' : 'text-gray-500';
   const base = officer ? 'text-spc-body' : 'text-gray-600';
   const strong = officer ? 'text-spc-ink' : 'text-gray-900';
   const warn = officer ? 'text-spc-warn' : 'text-amber-600';
 
+  const parsed = describeDeadlineInput(value);
+
   return (
-    <p className={`mt-1.5 text-xs ${base}`}>
-      <span>Closes </span>
-      <span className={`font-bold ${strong}`}>
-        {parsed.day} at {parsed.time}
-      </span>
-      {parsed.looksLikeAmPmSlip && (
-        <>
-          <br />
-          <span className={`font-semibold ${warn}`}>
-            That is {parsed.time} — early morning. If you meant the afternoon,
-            add 12 to the hour.
+    <>
+      <p className={`mt-1 text-xs ${muted}`}>
+        24-hour clock — type <span className="font-bold tabular-nums">18:30</span> for 6:30 pm.
+      </p>
+
+      {parsed && (
+        <p className={`mt-1 text-xs ${base}`}>
+          <span>Closes </span>
+          <span className={`font-bold ${strong}`}>
+            {parsed.day} at {parsed.time}
           </span>
-        </>
+          {parsed.isMorning && (
+            <>
+              <br />
+              <span className={`font-semibold ${warn}`}>
+                {parsed.isEarlyMorning ? 'That is early morning.' : 'That is the morning.'}
+                {' '}For {parsed.eveningLabel}, type{' '}
+                <span className="tabular-nums">{parsed.eveningEntry}</span> instead.
+              </span>
+            </>
+          )}
+        </p>
       )}
-    </p>
+    </>
   );
 }

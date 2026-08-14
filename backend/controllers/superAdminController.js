@@ -10,6 +10,7 @@ import { generateStudentPDF } from '../utils/pdfGenerator.js';
 import { deleteImage, deleteFolderOnly, extractFolderPath } from '../config/cloudinary.js';
 import { TOTAL_BACKLOGS_SQL, parseMaxBacklogs } from '../utils/backlogPolicy.js';
 import { ACTIVE_STUDENT_ACCOUNT_SQL } from '../utils/notificationAudience.js';
+import { notifyParticipatingOfficers } from '../utils/jointJobNotice.js';
 
 // ========================================
 // HELPER FUNCTIONS
@@ -2933,10 +2934,48 @@ export const approveJobRequest = async (req, res) => {
       req
     );
 
+    /*
+     * The other colleges on the posting are told it exists.
+     *
+     * Approval is the only moment a joint job comes into being: a job an
+     * officer posts for their own college is auto-approved and never reaches
+     * here, so anything approved through this route was aimed at colleges
+     * beyond the one that asked for it.
+     *
+     * Deliberately after the commit and deliberately not awaited into the
+     * response's success. The job is already live; if the mail fails the
+     * approval still stands, because the alternative is answering 500 to a
+     * Super Admin whose approval actually worked and whose retry would then
+     * fail differently — the request is no longer pending the second time.
+     */
+    let noticeSummary = null;
+    if (jobRequest.college_id) {
+      try {
+        const postingCollege = await query('SELECT college_name FROM colleges WHERE id = $1', [
+          jobRequest.college_id,
+        ]);
+        noticeSummary = await notifyParticipatingOfficers(
+          result,
+          jobRequest.college_id,
+          postingCollege.rows[0]?.college_name || 'another college'
+        );
+        if (noticeSummary.unreachable?.length || noticeSummary.failed?.length) {
+          console.warn(
+            `Joint job notice for job ${result.id}: sent ${noticeSummary.sent}`,
+            noticeSummary.unreachable?.length ? `| no address on file: ${noticeSummary.unreachable.join(', ')}` : '',
+            noticeSummary.failed?.length ? `| send failed: ${noticeSummary.failed.join(', ')}` : ''
+          );
+        }
+      } catch (noticeError) {
+        console.error('Joint job notice failed (job is approved regardless):', noticeError.message);
+      }
+    }
+
     res.status(200).json({
       success: true,
       message: 'Job request approved and job created successfully',
       data: result,
+      colleges_notified: noticeSummary ? noticeSummary.sent : 0,
     });
   } catch (error) {
     console.error('Approve job request error:', error);

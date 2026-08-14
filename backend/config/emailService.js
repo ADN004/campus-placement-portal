@@ -419,6 +419,63 @@ export const sendNotificationEmail = async (email, subject, message) => {
   return dispatch('notification', { to: email, ...buildNotificationEmail(subject, message) });
 };
 
+/**
+ * Told to a placement officer whose college was included in someone else's job.
+ *
+ * A joint job is posted by one college and approved centrally, and until now
+ * the only two people who knew were the officer who requested it and the Super
+ * Admin who approved it. The other colleges on the posting found out when a
+ * student asked them about a job they had never heard of — or did not find out
+ * at all, and the students sat out a drive their college was entitled to.
+ *
+ * The tone is deliberately informational rather than actionable: the recipient
+ * is not being asked to approve anything, and the drive is not theirs to
+ * arrange. What they need is to know it exists, whose it is, and by when their
+ * students have to apply.
+ */
+export function buildJointJobPostedEmail(officerName, postingCollege, jobDetails) {
+  const accent = ACCENTS.violet;
+  const deadline = jobDetails.application_deadline
+    ? new Date(jobDetails.application_deadline).toLocaleString('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        day: '2-digit', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', hour12: true,
+      })
+    : '';
+  return {
+    subject: `Your college is included in a joint posting — ${jobDetails.company_name}`,
+    ...shell({
+      bannerName: 'notification-header',
+      accent,
+      preheader: `${postingCollege} has posted ${jobDetails.company_name}, open to your students too.`,
+      heading: `Dear ${officerName || 'Placement Officer'},`,
+      bodyHtml: `
+              ${p(`<strong>${postingCollege}</strong> has posted a job that includes your college, and it is now live for your eligible students.`)}
+              ${emailCallout(
+                `<div style="font-size:16px;font-weight:700;color:#6d28d9;margin-bottom:6px;">${jobDetails.company_name}</div>` +
+                  emailDetailList([
+                    ['Position', jobDetails.job_title],
+                    ['Posted by', postingCollege],
+                    ['Vacancies', jobDetails.no_of_vacancies],
+                    ['Location', jobDetails.job_location],
+                    ['Apply before', deadline ? `${deadline} IST` : ''],
+                  ]),
+                accent
+              )}
+              ${p('Your students will see it on their dashboard like any other job. You can view the posting, check who from your college is eligible, and follow the applications from your portal.')}
+              ${emailButton(`${BRAND.siteUrl}/placement-officer/job-eligible-students`, 'View the posting', accent)}
+              ${muted(`The drive for this job is arranged by ${postingCollege}, who will share the date and venue once it is fixed. You do not need to schedule anything.`)}`,
+    }),
+  };
+}
+
+export const sendJointJobPostedEmail = async (email, officerName, postingCollege, jobDetails) => {
+  return dispatch('joint job posted', {
+    to: email,
+    ...buildJointJobPostedEmail(officerName, postingCollege, jobDetails),
+  });
+};
+
 /** Registration rejected (a student's REGISTRATION, not a job application). */
 export function buildRegistrationRejectedEmail(registerUrl, studentName, reason) {
   const accent = ACCENTS.red;

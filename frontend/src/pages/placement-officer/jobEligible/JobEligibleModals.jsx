@@ -5,6 +5,7 @@ import {
 } from '../../../components/officer/OfficerUI';
 import { KERALA_POLYTECHNIC_BRANCHES } from '../../../constants/branches';
 import { OfficerDialogClose } from '../../../components/officer/OfficerDialog';
+import DeadlineEcho from '../../../components/DeadlineEcho';
 
 /**
  * The three dialogs that belong to JobEligibleStudents itself.
@@ -281,6 +282,7 @@ export function EditJobModal({ data, onChange, onSave, saving, applicantCount = 
             <FieldLabel htmlFor="edit-deadline">Application deadline *</FieldLabel>
             <input id="edit-deadline" type="datetime-local" className={FIELD_CLASS}
               value={data.application_deadline || ''} onChange={(e) => set('application_deadline', e.target.value)} />
+            <DeadlineEcho value={data.application_deadline} variant="officer" />
           </div>
           <div className={eligibilityLocked ? 'col-span-2' : 'contents'}>
             {eligibilityLocked && (

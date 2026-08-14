@@ -30,6 +30,7 @@ import { KERALA_POLYTECHNIC_BRANCHES } from '../../constants/branches';
 import useSkeleton from '../../hooks/useSkeleton';
 import AnimatedSection from '../../components/animation/AnimatedSection';
 import TablePageSkeleton from '../../components/skeletons/TablePageSkeleton';
+import DeadlineEcho from '../../components/DeadlineEcho';
 
 export default function ManageJobs() {
   const [activeTab, setActiveTab] = useState('all'); // 'all', 'pending', 'deleted'
@@ -1166,6 +1167,7 @@ export default function ManageJobs() {
                       }
                       required
                     />
+                    <DeadlineEcho value={formData.application_deadline} variant="admin" />
                   </div>
                   <div>
                     <label className="label">Google Form URL</label>

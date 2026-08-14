@@ -6,6 +6,7 @@ import { FormSection, FieldGrid, RequiredMark } from './jobRequestShared';
 import { KERALA_POLYTECHNIC_BRANCHES } from '../../../constants/branches';
 import { dateForAge, ageForDate } from '../../../utils/ageCutoff';
 import { nowAsLocalInput } from '../../../utils/deadline';
+import DeadlineEcho from '../../../components/DeadlineEcho';
 
 /* Bound for the cutoff picker. A cutoff in the future is always a typo — 2026
    typed where 2006 was meant — and the server refuses it either way. */
@@ -125,6 +126,7 @@ export default function JobRequestForm({
               <p className="mt-1 text-xs text-spc-muted">
                 Indian time. Applications close at this moment, not at the end of the day.
               </p>
+              <DeadlineEcho value={formData.application_deadline} variant="officer" />
             </div>
             <div className="min-w-0">
               <FieldLabel htmlFor="jr-form-url">Application form URL</FieldLabel>

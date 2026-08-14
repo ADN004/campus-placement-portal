@@ -89,3 +89,53 @@ export const formatDeadlineDate = (value) => {
 
 /** Now, as a datetime-local value, for bounding the picker. */
 export const nowAsLocalInput = () => utcToLocalInput(new Date().toISOString());
+
+/**
+ * The typed deadline read back in words, to be shown under the field.
+ *
+ * A datetime-local input renders its clock in the browser's locale, and on most
+ * setups here that is the 24-hour one. Someone who wants a noon deadline types
+ * 1:30, gets 01:30, and has set the deadline for half past one in the morning —
+ * the field agrees with them at every step, and the mistake only surfaces when
+ * applications close twelve hours early.
+ *
+ * So the value is echoed back in the form nobody can misread. This deliberately
+ * does no timezone conversion: the digits in the box are already the Indian
+ * time the officer means, and putting them through a Date would either shift
+ * them or convert them back to themselves. The parts are reformatted as they
+ * stand, and the weekday is derived through UTC so the date cannot slide by one
+ * on a machine set to another zone.
+ *
+ * Returns null for an empty or half-typed box, so the caller renders nothing
+ * rather than "Invalid Date".
+ */
+export const describeDeadlineInput = (value) => {
+  if (!value) return null;
+  const m = String(value).match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if (!m) return null;
+  const [y, mo, d, h, mi] = m.slice(1).map(Number);
+  if (mo < 1 || mo > 12 || d < 1 || d > 31 || h > 23 || mi > 59) return null;
+
+  const date = new Date(Date.UTC(y, mo - 1, d));
+  if (Number.isNaN(date.getTime())) return null;
+  const day = new Intl.DateTimeFormat('en-IN', {
+    timeZone: 'UTC', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  }).format(date);
+
+  const meridiem = h < 12 ? 'am' : 'pm';
+  const hour12 = h % 12 === 0 ? 12 : h % 12;
+  const time = `${hour12}:${String(mi).padStart(2, '0')} ${meridiem}`;
+
+  return {
+    day,
+    time,
+    meridiem,
+    /*
+     * Between midnight and six in the morning almost always means the 24-hour
+     * clock was read as a 12-hour one — nobody closes applications at 1:30am on
+     * purpose. Flagged rather than blocked: it is a legitimate value, and the
+     * officer is the one who knows.
+     */
+    looksLikeAmPmSlip: h < 6,
+  };
+};

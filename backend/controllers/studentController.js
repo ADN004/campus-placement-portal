@@ -142,9 +142,12 @@ export const getEligibleJobs = async (req, res) => {
      * which refused with "This job is no longer active" — at the point of
      * applying, long after the student had decided to.
      *
-     * Deleted is unconditional. A job cannot be deleted while anyone has
-     * applied to it (deleteJob refuses and reports the applicant count), so
-     * excluding them can never hide an application from the person who made it.
+     * Deleted is unconditional. An officer cannot delete a job anyone has
+     * applied to — their route refuses and reports the applicant count — but
+     * the Super Admin's delete has no such check, so the state does arise.
+     * Dropping it from this list is still right when it does: the job is gone.
+     * My Applications reads through the application rather than through this
+     * list, so the student keeps the record of having applied either way.
      *
      * Withdrawn is excluded unless this student applied. Unpublishing is
      * precisely what an officer does *instead* of deleting when applicants

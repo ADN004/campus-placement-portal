@@ -130,7 +130,32 @@ export const getEligibleJobs = async (req, res) => {
 
     const student = studentResult.rows[0];
 
-    // Get all jobs (including past ones) with application status and eligibility check
+    /*
+     * Jobs a student is actually meant to see, which this had never filtered.
+     *
+     * The query was `SELECT j.* FROM jobs j` with no WHERE clause at all, so
+     * every job ever created went to every student — including ones an officer
+     * had deleted and ones withdrawn from the board. Nothing downstream caught
+     * it either: the page filters on deadline and eligibility, never on these
+     * two flags, so a deleted job stayed on the student's screen and in their
+     * tab counts. The only thing standing in the way was the apply handler,
+     * which refused with "This job is no longer active" — at the point of
+     * applying, long after the student had decided to.
+     *
+     * Deleted is unconditional. A job cannot be deleted while anyone has
+     * applied to it (deleteJob refuses and reports the applicant count), so
+     * excluding them can never hide an application from the person who made it.
+     *
+     * Withdrawn is excluded unless this student applied. Unpublishing is
+     * precisely what an officer does *instead* of deleting when applicants
+     * exist, so those students keep seeing the job they are waiting on —
+     * matching how the page already treats a passed deadline, where an applied
+     * job stays visible. My Applications lists it regardless, so nobody loses
+     * sight of an application either way.
+     *
+     * Both comparisons are NULL-safe: the columns are nullable, and a row that
+     * never said otherwise should read as live rather than vanish.
+     */
     const jobsResult = await query(
       `SELECT j.*,
               CASE WHEN ja.id IS NOT NULL THEN TRUE ELSE FALSE END as has_applied,
@@ -139,6 +164,8 @@ export const getEligibleJobs = async (req, res) => {
        FROM jobs j
        LEFT JOIN job_applications ja ON j.id = ja.job_id AND ja.student_id = $1
        LEFT JOIN job_drives jd ON jd.job_id = j.id
+       WHERE j.is_deleted IS NOT TRUE
+         AND (j.is_active IS NOT FALSE OR ja.id IS NOT NULL)
        ORDER BY j.created_at DESC`,
       [student.id]
     );

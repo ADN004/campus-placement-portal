@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { dateForAge, ageForDate } from '../../utils/ageCutoff';
 import { utcToLocalInput, localInputToUtc } from '../../utils/deadline';
 import ModalScrollLock from '../../components/ModalScrollLock';
@@ -53,17 +53,61 @@ export default function ManageJobs() {
   const [editApplicantCount, setEditApplicantCount] = useState(0);
   const eligibilityLocked = editMode && editApplicantCount > 0;
   /*
-   * The regions and colleges the job already had when the dialog opened.
+   * The targeting the job had when the dialog opened.
    *
-   * Once anyone has applied these can be added to but not removed, so the
-   * boxes for them are ticked and disabled. Held separately from formData
-   * because formData is what the admin is editing — comparing against it would
-   * make every box they tick immediately un-tickable.
+   * Once anyone has applied this can be added to but not removed, so the boxes
+   * for it are ticked and disabled. Held separately from formData because
+   * formData is what the admin is editing — comparing against that would make
+   * every box they tick immediately un-tickable.
+   *
+   * The whole shape is kept, not just the two lists, because which colleges are
+   * already on the job depends on the target type. See lockedColleges.
    */
-  const [lockedTargets, setLockedTargets] = useState({ regions: [], colleges: [] });
+  const [lockedTargeting, setLockedTargeting] = useState(null);
   // Same idea for branches, which may be added to but not removed.
   const [lockedBranches, setLockedBranches] = useState([]);
-  const targetLocked = (kind, id) => eligibilityLocked && lockedTargets[kind].includes(id);
+  /*
+   * The colleges the job already reaches — resolved, not read off target_colleges.
+   *
+   * A job aimed at five regions has an empty target_colleges, so greying only
+   * the ids listed there left every college in the picker unticked and free to
+   * change. Switching the target type to Specific Colleges then showed a blank
+   * slate for a job that already covers all sixty, and saving it would have cut
+   * the audience to whatever was ticked. The server refused that, but the screen
+   * had said otherwise the whole way.
+   *
+   * This mirrors the rule the server uses: which colleges a job reaches, given
+   * its type and both lists. Recomputed rather than snapshotted so it is still
+   * right if the colleges list arrives after the dialog opens.
+   */
+  const lockedColleges = useMemo(() => {
+    if (!lockedTargeting) return new Set();
+    const { target_type: type } = lockedTargeting;
+    const regionIds = new Set((lockedTargeting.target_regions || []).map(String));
+    const collegeIds = new Set((lockedTargeting.target_colleges || []).map(String));
+    const inRegions = (c) => regionIds.has(String(c.region_id));
+    const named = (c) => collegeIds.has(String(c.id));
+    return new Set(
+      colleges
+        .filter((c) => {
+          if (type === 'all') return true;
+          if (type === 'region') return inRegions(c);
+          if (type === 'college') return named(c);
+          if (type === 'specific') return inRegions(c) || named(c);
+          return false;
+        })
+        .map((c) => c.id)
+    );
+  }, [lockedTargeting, colleges]);
+
+  const lockedRegions = useMemo(
+    () => new Set((lockedTargeting?.target_regions || []).map(String)),
+    [lockedTargeting]
+  );
+
+  const targetLocked = (kind, id) =>
+    eligibilityLocked
+    && (kind === 'colleges' ? lockedColleges.has(id) : lockedRegions.has(String(id)));
   const [regions, setRegions] = useState([]);
   const [colleges, setColleges] = useState([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -196,7 +240,7 @@ export default function ManageJobs() {
     // opening create straight after editing a job with applicants would
     // otherwise carry the lock over to a blank form.
     setEditApplicantCount(0);
-    setLockedTargets({ regions: [], colleges: [] });
+    setLockedTargeting(null);
     setLockedBranches([]);
     setFormData({
       title: '',
@@ -274,7 +318,7 @@ export default function ManageJobs() {
       target_regions: parseJsonField(job.target_regions),
       target_colleges: parseJsonField(job.target_colleges),
       application_form_url: job.application_form_url || '',
-      // Captured below from these same parsed values — see lockedTargets.
+      // Captured below from these same parsed values — see lockedTargeting.
       requires_academic_extended: false,
       requires_physical_details: false,
       requires_family_details: false,
@@ -286,9 +330,10 @@ export default function ManageJobs() {
     };
 
     setFormData(basicFormData);
-    setLockedTargets({
-      regions: basicFormData.target_regions,
-      colleges: basicFormData.target_colleges,
+    setLockedTargeting({
+      target_type: basicFormData.target_type,
+      target_regions: basicFormData.target_regions,
+      target_colleges: basicFormData.target_colleges,
     });
     setLockedBranches(basicFormData.allowed_branches);
     setShowJobModal(true);
@@ -1490,7 +1535,22 @@ export default function ManageJobs() {
                         value="college"
                         checked={formData.target_type === 'college'}
                         onChange={(e) =>
-                          setFormData({ ...formData, target_type: e.target.value })
+                          /*
+                           * Switching to Specific Colleges on a job people have
+                           * applied to carries across the colleges it already
+                           * reaches. A job aimed at regions has an empty
+                           * target_colleges, so without this the switch would
+                           * hand over an empty list and saving would cut the
+                           * audience to nothing — the ticks would be showing
+                           * one thing and the form holding another.
+                           */
+                          setFormData((prev) => ({
+                            ...prev,
+                            target_type: e.target.value,
+                            target_colleges: eligibilityLocked
+                              ? [...new Set([...prev.target_colleges, ...lockedColleges])]
+                              : prev.target_colleges,
+                          }))
                         }
                         className="text-primary-600 focus:ring-primary-500"
                       />
@@ -1555,7 +1615,10 @@ export default function ManageJobs() {
                             >
                               <input
                                 type="checkbox"
-                                checked={formData.target_colleges.includes(college.id)}
+                                checked={
+                                  formData.target_colleges.includes(college.id)
+                                  || targetLocked('colleges', college.id)
+                                }
                                 onChange={() => handleTargetChange(college.id, 'college')}
                                 disabled={targetLocked('colleges', college.id)}
                                 className="rounded text-primary-600 focus:ring-primary-500

@@ -7,6 +7,7 @@ import {
 } from '../utils/cgpaCalculation.js';
 import { dobAndGenderFailure } from '../utils/jobEligibility.js';
 import { driveForStudent, applicationSeesDrive, driveVisibleSql } from '../utils/driveSchedule.js';
+import { normalizeBranch } from '../utils/branchName.js';
 
 // @desc    Get student dashboard data
 // @route   GET /api/students/dashboard
@@ -842,9 +843,6 @@ export const updateProfile = async (req, res) => {
     });
   }
 };
-
-// Normalize branch name for comparison: lowercase, & → and, collapse spaces
-const normalizeBranch = (b) => b?.toLowerCase().replace(/&/g, 'and').replace(/\s+/g, ' ').trim() || '';
 
 // Helper function to check job eligibility
 const checkJobEligibility = async (jobId, student) => {

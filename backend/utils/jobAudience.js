@@ -18,6 +18,7 @@
  */
 
 import { query } from '../config/database.js';
+import { normalizeBranch } from './branchName.js';
 
 /** jsonb columns arrive parsed from the driver but stringified from the form. */
 const asArray = (value) => {
@@ -71,3 +72,46 @@ export const collegesLosingAccess = (before, after) =>
   [...before.entries()]
     .filter(([id]) => !after.has(id))
     .map(([, name]) => name);
+
+/**
+ * Branches an edit would shut out, empty when the list only opens up.
+ *
+ * The same reasoning as colleges: adding a branch lets more students apply and
+ * leaves everyone who already has exactly where they were, while removing one
+ * strands whoever applied from it. So the list may be added to and not cut.
+ *
+ * An empty list means no branch restriction at all, which is the widest the
+ * job can be — so clearing it always passes, and going from empty to a named
+ * list is the largest possible narrowing rather than a first-time setting.
+ * Read the other way round this reads backwards, which is why it is stated
+ * here rather than left to a subset check on two arrays.
+ *
+ * Compared through normalizeBranch because the same branch is written several
+ * ways; without it, re-saving "Electronics & Communication" as "Electronics
+ * and Communication" would look like dropping one branch and adding another.
+ */
+export const branchesLosingAccess = (before, after) => {
+  const asList = (value) => {
+    if (Array.isArray(value)) return value;
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  };
+
+  const beforeList = asList(before);
+  const afterList = asList(after);
+
+  // Was open to every branch; still is only if it stays open.
+  if (beforeList.length === 0) return afterList.length === 0 ? [] : ['every other branch'];
+  // Becoming open to every branch cannot exclude anyone.
+  if (afterList.length === 0) return [];
+
+  const afterSet = new Set(afterList.map(normalizeBranch));
+  return beforeList.filter((branch) => !afterSet.has(normalizeBranch(branch)));
+};

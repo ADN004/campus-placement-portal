@@ -14,6 +14,7 @@ import { isCollegeLocked } from '../utils/collegeLocks.js';
 import { DAY_AWARE_COUNT_SQL } from '../utils/verificationEmailPolicy.js';
 import { TOTAL_BACKLOGS_SQL, parseMaxBacklogs } from '../utils/backlogPolicy.js';
 import { ACTIVE_STUDENT_ACCOUNT_SQL } from '../utils/notificationAudience.js';
+import { branchesLosingAccess } from '../utils/jobAudience.js';
 
 // How many notification emails a bulk action sends at once. A bulk batch can
 // be 50+ students; sending strictly one at a time can outrun the proxy read
@@ -2444,8 +2445,8 @@ export const updateJob = async (req, res) => {
      * the case those fields are actually needed for.
      */
     const ELIGIBILITY = {
-      min_cgpa, max_backlogs, allowed_backlog_semesters, allowed_branches,
-      // These decide who may apply exactly as the four above do, so they freeze
+      min_cgpa, max_backlogs, allowed_backlog_semesters,
+      // These decide who may apply exactly as the three above do, so they freeze
       // with them. Left out, an officer could narrow a live drive to one gender
       // after fifty students had already applied, and the applicant list would
       // then contradict the criteria with nothing on screen to explain it.
@@ -2455,12 +2456,44 @@ export const updateJob = async (req, res) => {
       .filter(([, v]) => v !== undefined)
       .map(([k]) => k);
 
-    if (changingEligibility.length > 0) {
+    let applicantCount = 0;
+    if (changingEligibility.length > 0 || allowed_branches !== undefined) {
       const applied = await query(
         'SELECT COUNT(*)::int AS n FROM job_applications WHERE job_id = $1',
         [jobId]
       );
-      const n = applied.rows[0].n;
+      applicantCount = applied.rows[0].n;
+    }
+
+    /*
+     * The branch list is the one part of eligibility that opens up.
+     *
+     * Adding a branch lets more students apply and moves nobody who already
+     * has; removing one strands whoever applied from it. A company agreeing
+     * mid-drive to consider one more branch is ordinary, and freezing the whole
+     * field made that impossible, so it is checked for what it takes away
+     * instead. Clearing the list entirely means "no branch restriction", which
+     * is the widest the job can be and always allowed.
+     */
+    if (allowed_branches !== undefined && applicantCount > 0) {
+      const current = await query('SELECT allowed_branches FROM jobs WHERE id = $1', [jobId]);
+      if (current.rows.length > 0) {
+        const lost = branchesLosingAccess(current.rows[0].allowed_branches, allowed_branches);
+        if (lost.length > 0) {
+          return res.status(409).json({
+            success: false,
+            message:
+              `${applicantCount} student${applicantCount === 1 ? ' has' : 's have'} already applied, so branches ` +
+              `can be added but not removed. This change would shut out ${lost.join(', ')}.`,
+            branches_losing_access: lost,
+            applicant_count: applicantCount,
+          });
+        }
+      }
+    }
+
+    if (changingEligibility.length > 0) {
+      const n = applicantCount;
       if (n > 0) {
         return res.status(409).json({
           success: false,

@@ -61,6 +61,8 @@ export default function ManageJobs() {
    * make every box they tick immediately un-tickable.
    */
   const [lockedTargets, setLockedTargets] = useState({ regions: [], colleges: [] });
+  // Same idea for branches, which may be added to but not removed.
+  const [lockedBranches, setLockedBranches] = useState([]);
   const targetLocked = (kind, id) => eligibilityLocked && lockedTargets[kind].includes(id);
   const [regions, setRegions] = useState([]);
   const [colleges, setColleges] = useState([]);
@@ -195,6 +197,7 @@ export default function ManageJobs() {
     // otherwise carry the lock over to a blank form.
     setEditApplicantCount(0);
     setLockedTargets({ regions: [], colleges: [] });
+    setLockedBranches([]);
     setFormData({
       title: '',
       company_name: '',
@@ -287,6 +290,7 @@ export default function ManageJobs() {
       regions: basicFormData.target_regions,
       colleges: basicFormData.target_colleges,
     });
+    setLockedBranches(basicFormData.allowed_branches);
     setShowJobModal(true);
 
     // Load existing job requirements
@@ -426,8 +430,10 @@ export default function ManageJobs() {
        */
       if (eligibilityLocked) {
         [
+          // allowed_branches stays in: it may be added to, and the server
+          // checks what the new list takes away rather than refusing the field.
           'min_cgpa', 'max_backlogs', 'backlog_max_semester', 'allowed_backlog_semesters',
-          'allowed_branches', 'dob_on_or_before', 'dob_on_or_after', 'gender_requirement',
+          'dob_on_or_before', 'dob_on_or_after', 'gender_requirement',
         ].forEach((field) => delete submitData[field]);
       }
 
@@ -1397,10 +1403,28 @@ export default function ManageJobs() {
                   </div>
                 )}
 
+                </fieldset>
+
+                {/*
+                  Outside the disabled fieldset on purpose. Branches are the one
+                  part of eligibility that still opens up after people apply:
+                  adding one lets more students in and moves nobody who already
+                  applied, while removing one strands whoever applied from it.
+                  So the ones already on the job are fixed and the rest stay
+                  tickable, instead of the whole list going grey.
+                */}
                 <div>
                   <label className="label">
                     Allowed Branches <span className="text-red-500">*</span>
+                    {eligibilityLocked && (
+                      <span className="ml-2 text-sm font-normal text-amber-600">— can only be added to</span>
+                    )}
                   </label>
+                  {eligibilityLocked && (
+                    <p className="text-sm text-gray-600 mb-2">
+                      Branches already on the job are fixed — tick any others you want to add.
+                    </p>
+                  )}
                   <div className="border border-gray-300 rounded-lg p-4 max-h-48 overflow-y-auto">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                       {KERALA_POLYTECHNIC_BRANCHES.map((branch) => (
@@ -1409,15 +1433,21 @@ export default function ManageJobs() {
                             type="checkbox"
                             checked={formData.allowed_branches.includes(branch)}
                             onChange={() => handleBranchToggle(branch)}
-                            className="rounded text-primary-600 focus:ring-primary-500"
+                            disabled={eligibilityLocked && lockedBranches.includes(branch)}
+                            className="rounded text-primary-600 focus:ring-primary-500
+                              disabled:opacity-60 disabled:cursor-not-allowed"
                           />
-                          <span className="text-sm">{branch}</span>
+                          <span className="text-sm">
+                            {branch}
+                            {eligibilityLocked && lockedBranches.includes(branch) && (
+                              <span className="ml-1 text-xs text-gray-500">(already on the job)</span>
+                            )}
+                          </span>
                         </label>
                       ))}
                     </div>
                   </div>
                 </div>
-                </fieldset>
               </div>
 
               {/* Target Audience */}

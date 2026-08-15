@@ -235,7 +235,9 @@ export function CollegePickerModal({
  */
 const FIELD_LOCKED = 'opacity-60 cursor-not-allowed bg-spc-surface-2';
 
-export function EditJobModal({ data, onChange, onSave, saving, applicantCount = 0, onClose }) {
+export function EditJobModal({
+  data, onChange, onSave, saving, applicantCount = 0, lockedBranches = [], onClose,
+}) {
   const set = (key, value) => onChange({ ...data, [key]: value });
   /*
    * Who may apply cannot change once someone has. Shown rather than enforced
@@ -385,8 +387,19 @@ export function EditJobModal({ data, onChange, onSave, saving, applicantCount = 
 
         <fieldset>
           <legend className="text-spc-xs font-bold uppercase tracking-[0.11em] text-spc-muted mb-2">
-            Allowed branches{eligibilityLocked ? " — locked" : " *"}
+            Allowed branches{eligibilityLocked ? " — can only be added to" : " *"}
           </legend>
+          {/*
+            The one part of eligibility that still opens up after people apply.
+            Adding a branch lets more students in and moves nobody who already
+            applied; removing one strands whoever applied from it, so the ones
+            already on the job stay ticked and fixed.
+          */}
+          {eligibilityLocked && (
+            <p className="text-xs text-spc-body mb-2">
+              Branches already on the job are fixed — tick any others you want to add.
+            </p>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 max-h-52 overflow-y-auto
             spc-scroll-contain border border-spc-line rounded-spc-control px-3">
             {KERALA_POLYTECHNIC_BRANCHES.map((branch) => (
@@ -402,8 +415,8 @@ export function EditJobModal({ data, onChange, onSave, saving, applicantCount = 
                         : [...branches, branch]
                     )
                   }
-                  disabled={eligibilityLocked}
-                  className={`${CHECKBOX_CLASS}${lockedField}`}
+                  disabled={eligibilityLocked && lockedBranches.includes(branch)}
+                  className={CHECKBOX_CLASS}
                 />
                 <span className="text-xs text-spc-body truncate">{branch}</span>
               </label>

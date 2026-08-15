@@ -81,6 +81,7 @@ export default function JobApplicants() {
   const [removingApplicantBusy, setRemovingApplicantBusy] = useState(false);
   const [editJobData, setEditJobData] = useState({});
   const [editJobLoading, setEditJobLoading] = useState(false);
+  const [lockedBranches, setLockedBranches] = useState([]);
 
   // College selection for host-job export
   const [allColleges, setAllColleges] = useState([]);
@@ -492,7 +493,9 @@ export default function JobApplicants() {
       delete payload.min_cgpa;
       delete payload.max_backlogs;
       delete payload.allowed_backlog_semesters;
-      delete payload.allowed_branches;
+      // allowed_branches is deliberately still sent: branches may be added to a
+      // job people have applied to, and the server checks what the new list
+      // takes away rather than refusing the field outright.
       // Frozen with the rest of eligibility, so they have to be dropped with
       // it. Left in, saving a corrected job title on a job with one applicant
       // would come back "cannot be changed" for a field nobody touched.
@@ -800,6 +803,16 @@ export default function JobApplicants() {
   };
 
   const handleOpenEditJob = () => {
+    /*
+     * The branches the job had when the dialog opened. Once anyone has applied
+     * these can be added to but not removed, so their boxes stay ticked and
+     * disabled. Snapshotted rather than read from editJobData, which is the
+     * thing being edited — comparing against that would make every branch the
+     * officer ticks immediately un-tickable.
+     */
+    setLockedBranches(
+      Array.isArray(selectedJob.allowed_branches) ? selectedJob.allowed_branches : []
+    );
     setEditJobData({
       title: selectedJob.job_title,
       company_name: selectedJob.company_name,
@@ -1040,6 +1053,7 @@ export default function JobApplicants() {
           onSave={handleEditJobSave}
           saving={editJobLoading}
           applicantCount={students.length}
+          lockedBranches={lockedBranches}
           onClose={() => setShowEditJobModal(false)}
         />
       )}

@@ -11,7 +11,7 @@ import { deleteImage, deleteFolderOnly, extractFolderPath } from '../config/clou
 import { TOTAL_BACKLOGS_SQL, parseMaxBacklogs } from '../utils/backlogPolicy.js';
 import { ACTIVE_STUDENT_ACCOUNT_SQL } from '../utils/notificationAudience.js';
 import { notifyParticipatingOfficers, notifyCollegesAdded } from '../utils/jointJobNotice.js';
-import { collegesReachedBy, collegesLosingAccess } from '../utils/jobAudience.js';
+import { collegesReachedBy, collegesLosingAccess, branchesLosingAccess } from '../utils/jobAudience.js';
 
 // ========================================
 // HELPER FUNCTIONS
@@ -1400,7 +1400,7 @@ export const updateJob = async (req, res) => {
      * and these do not.
      */
     const ELIGIBILITY = {
-      min_cgpa, max_backlogs, backlog_max_semester, allowed_backlog_semesters, allowed_branches,
+      min_cgpa, max_backlogs, backlog_max_semester, allowed_backlog_semesters,
       dob_on_or_before, dob_on_or_after, gender_requirement,
     };
     const changingEligibility = Object.entries(ELIGIBILITY)
@@ -1410,7 +1410,11 @@ export const updateJob = async (req, res) => {
       target_type !== undefined || target_regions !== undefined || target_colleges !== undefined;
 
     let applicantCount = 0;
-    if (changingEligibility.length > 0 || changingTargeting) {
+    // allowed_branches is in this condition but not in ELIGIBILITY: it has its
+    // own widen-only check below, which still needs to know whether anyone has
+    // applied. Left out, a request carrying only branches skipped the count and
+    // every removal was waved through.
+    if (changingEligibility.length > 0 || changingTargeting || allowed_branches !== undefined) {
       const applied = await query(
         'SELECT COUNT(*)::int AS n FROM job_applications WHERE job_id = $1',
         [jobId]
@@ -1446,6 +1450,32 @@ export const updateJob = async (req, res) => {
      * the same students, and a column-by-column diff would call rewriting one
      * as the other a removal.
      */
+    /*
+     * The branch list opens up the same way targeting does.
+     *
+     * Adding a branch lets more students apply and moves nobody who already
+     * applied; removing one strands whoever applied from it, exactly as
+     * dropping a college would. So it is checked for what it takes away rather
+     * than frozen — the case that matters in practice is a company agreeing
+     * mid-drive to consider one more branch.
+     */
+    if (allowed_branches !== undefined && applicantCount > 0) {
+      const current = await query('SELECT allowed_branches FROM jobs WHERE id = $1', [jobId]);
+      if (current.rows.length > 0) {
+        const lost = branchesLosingAccess(current.rows[0].allowed_branches, allowed_branches);
+        if (lost.length > 0) {
+          return res.status(409).json({
+            success: false,
+            message:
+              `${applicantCount} student${applicantCount === 1 ? ' has' : 's have'} already applied, so branches ` +
+              `can be added but not removed. This change would shut out ${lost.join(', ')}.`,
+            branches_losing_access: lost,
+            applicant_count: applicantCount,
+          });
+        }
+      }
+    }
+
     let collegesAdded = [];
     if (changingTargeting) {
       const current = await query(

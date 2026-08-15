@@ -11,8 +11,7 @@
 import { query, transaction } from '../config/database.js';
 import { dobCutoffFailure, genderFailure } from '../utils/jobEligibility.js';
 
-// Normalize branch name for comparison: lowercase, & → and, collapse spaces
-const normalizeBranch = (b) => b?.toLowerCase().replace(/&/g, 'and').replace(/\s+/g, ' ').trim() || '';
+import { normalizeBranch } from '../utils/branchName.js';
 
 /**
  * Helper function to determine section for a specific field

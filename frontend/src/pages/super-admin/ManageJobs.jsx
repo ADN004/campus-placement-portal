@@ -32,6 +32,35 @@ import AnimatedSection from '../../components/animation/AnimatedSection';
 import TablePageSkeleton from '../../components/skeletons/TablePageSkeleton';
 import DeadlineEcho from '../../components/DeadlineEcho';
 
+/**
+ * The colleges a stored targeting shape actually reaches.
+ *
+ * Mirrors collegesReachedBy on the server, which is what really decides who
+ * sees the job. Used for two things that must agree: greying the colleges a job
+ * already covers, and converting an older job into the picker's terms when it
+ * is opened for editing.
+ *
+ * Kept outside the component so both callers share one definition rather than
+ * one reading it and the other re-deriving it slightly differently.
+ */
+function reachedCollegeIds(targeting, colleges) {
+  if (!targeting) return [];
+  const { target_type: type } = targeting;
+  const regionIds = new Set((targeting.target_regions || []).map(String));
+  const collegeIds = new Set((targeting.target_colleges || []).map(String));
+  const inRegions = (c) => regionIds.has(String(c.region_id));
+  const named = (c) => collegeIds.has(String(c.id));
+  return colleges
+    .filter((c) => {
+      if (type === 'all') return true;
+      if (type === 'region') return inRegions(c);
+      if (type === 'college') return named(c);
+      if (type === 'specific') return inRegions(c) || named(c);
+      return false;
+    })
+    .map((c) => c.id);
+}
+
 export default function ManageJobs() {
   const [activeTab, setActiveTab] = useState('all'); // 'all', 'pending', 'deleted'
   const [jobs, setJobs] = useState([]);
@@ -80,25 +109,10 @@ export default function ManageJobs() {
    * its type and both lists. Recomputed rather than snapshotted so it is still
    * right if the colleges list arrives after the dialog opens.
    */
-  const lockedColleges = useMemo(() => {
-    if (!lockedTargeting) return new Set();
-    const { target_type: type } = lockedTargeting;
-    const regionIds = new Set((lockedTargeting.target_regions || []).map(String));
-    const collegeIds = new Set((lockedTargeting.target_colleges || []).map(String));
-    const inRegions = (c) => regionIds.has(String(c.region_id));
-    const named = (c) => collegeIds.has(String(c.id));
-    return new Set(
-      colleges
-        .filter((c) => {
-          if (type === 'all') return true;
-          if (type === 'region') return inRegions(c);
-          if (type === 'college') return named(c);
-          if (type === 'specific') return inRegions(c) || named(c);
-          return false;
-        })
-        .map((c) => c.id)
-    );
-  }, [lockedTargeting, colleges]);
+  const lockedColleges = useMemo(
+    () => new Set(reachedCollegeIds(lockedTargeting, colleges)),
+    [lockedTargeting, colleges]
+  );
 
   const lockedRegions = useMemo(
     () => new Set((lockedTargeting?.target_regions || []).map(String)),
@@ -108,6 +122,47 @@ export default function ManageJobs() {
   const targetLocked = (kind, id) =>
     eligibilityLocked
     && (kind === 'colleges' ? lockedColleges.has(id) : lockedRegions.has(String(id)));
+
+  /*
+   * A job already open to every college cannot be narrowed to a list, so the
+   * "All colleges" box is held on once anyone has applied.
+   */
+  const lockedAllColleges = eligibilityLocked && lockedTargeting?.target_type === 'all';
+
+  /** Colleges grouped under their region, for the picker. */
+  const collegesByRegion = useMemo(() => {
+    const grouped = {};
+    colleges.forEach((c) => {
+      const key = c.region_id;
+      if (key === null || key === undefined) return;
+      (grouped[key] = grouped[key] || []).push(c);
+    });
+    Object.values(grouped).forEach((list) =>
+      list.sort((a, b) => String(a.college_name || a.name).localeCompare(String(b.college_name || b.name)))
+    );
+    return grouped;
+  }, [colleges]);
+
+  const [expandedRegions, setExpandedRegions] = useState({});
+
+  /*
+   * Tick or untick every college in a region at once.
+   *
+   * Deselecting leaves the locked ones behind rather than clearing the region
+   * outright: they are on the job already and cannot be taken off it, so
+   * removing them here would only produce a save the server refuses.
+   */
+  const handleSelectAllInRegion = (regionId, selectAll) => {
+    const ids = (collegesByRegion[regionId] || []).map((c) => c.id);
+    setFormData((prev) => ({
+      ...prev,
+      target_colleges: selectAll
+        ? [...new Set([...prev.target_colleges, ...ids])]
+        : prev.target_colleges.filter(
+          (id) => !ids.includes(id) || targetLocked('colleges', id)
+        ),
+    }));
+  };
   const [regions, setRegions] = useState([]);
   const [colleges, setColleges] = useState([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -141,7 +196,9 @@ export default function ManageJobs() {
     dob_on_or_before: '',
     dob_on_or_after: '',
     gender_requirement: 'all',
-    target_type: 'region', // 'region' or 'college'
+    // 'college' means the picker below; 'all' means every college,
+    // including any added to the portal later.
+    target_type: 'college',
     target_regions: [],
     target_colleges: [],
     application_form_url: '',
@@ -223,12 +280,18 @@ export default function ManageJobs() {
     }
   };
 
+  // Returns the list as well as storing it: opening a job for editing has to
+  // resolve which colleges it reaches before the next render, and state set
+  // here is not readable until then.
   const fetchColleges = async () => {
     try {
       const response = await commonAPI.getColleges();
-      setColleges(response.data.data || []);
+      const list = response.data.data || [];
+      setColleges(list);
+      return list;
     } catch (error) {
       console.error('Failed to load colleges:', error);
+      return [];
     }
   };
 
@@ -258,7 +321,7 @@ export default function ManageJobs() {
       dob_on_or_before: '',
       dob_on_or_after: '',
       gender_requirement: 'all',
-      target_type: 'region',
+      target_type: 'college',
       target_regions: [],
       target_colleges: [],
       application_form_url: '',
@@ -329,12 +392,40 @@ export default function ManageJobs() {
       custom_fields: [],
     };
 
-    setFormData(basicFormData);
-    setLockedTargeting({
+    const storedTargeting = {
       target_type: basicFormData.target_type,
       target_regions: basicFormData.target_regions,
       target_colleges: basicFormData.target_colleges,
-    });
+    };
+
+    /*
+     * Older jobs are shown in the picker's terms.
+     *
+     * A job stored as `region` — or as `specific`, which the officers' requests
+     * produce — has an empty or partial target_colleges, and the picker reads
+     * target_colleges alone. Left as stored, opening such a job would show its
+     * colleges unticked, which is the same lie the greying used to tell. So it
+     * is expanded to the colleges it actually reaches on the way in.
+     *
+     * This does mean saving afterwards writes the audience out as an explicit
+     * list rather than "that region". They cover the same students today; the
+     * difference is only that a college added to that region later would have
+     * been picked up by the region form and is not by the list. `all` is left
+     * exactly as it is, which is why it stayed a separate choice.
+     */
+    // Resolved against a list we know is loaded — on the first edit of a
+    // session the state copy is still empty, and an empty list would expand a
+    // whole region to no colleges at all.
+    const collegeList = colleges.length > 0 ? colleges : await fetchColleges();
+
+    if (storedTargeting.target_type !== 'all') {
+      basicFormData.target_type = 'college';
+      basicFormData.target_colleges = reachedCollegeIds(storedTargeting, collegeList);
+      basicFormData.target_regions = [];
+    }
+
+    setFormData(basicFormData);
+    setLockedTargeting(storedTargeting);
     setLockedBranches(basicFormData.allowed_branches);
     setShowJobModal(true);
 
@@ -439,13 +530,8 @@ export default function ManageJobs() {
       return;
     }
 
-    if (formData.target_type === 'region' && formData.target_regions.length === 0) {
-      toast.error('Please select at least one region');
-      return;
-    }
-
-    if (formData.target_type === 'college' && formData.target_colleges.length === 0) {
-      toast.error('Please select at least one college');
+    if (formData.target_type !== 'all' && formData.target_colleges.length === 0) {
+      toast.error('Please select at least one college, or tick "All colleges"');
       return;
     }
 
@@ -1500,144 +1586,181 @@ export default function ManageJobs() {
                 <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">
                   Target Audience
                   {eligibilityLocked && (
-                    <span className="ml-2 text-sm font-normal text-amber-600">— can only be widened</span>
+                    <span className="ml-2 text-sm font-normal text-amber-600">&mdash; can only be widened</span>
                   )}
                 </h3>
                 {eligibilityLocked && (
                   <p className="text-sm text-gray-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                     You can open this job to more colleges, but not take it away from any that are
-                    already on it — students there have applied, and removing their college would
-                    leave them attached to a job it is no longer part of. The ones already selected
-                    are fixed; tick any others you want to add.
+                    already on it &mdash; students there have applied, and removing their college
+                    would leave them attached to a job it is no longer part of. The ones already
+                    selected are fixed; tick any others you want to add.
                   </p>
                 )}
-                <fieldset className="border-0 p-0 m-0 space-y-4 min-w-0">
-                <div>
-                  <label className="label">Target Type</label>
-                  <div className="flex space-x-4">
-                    <label className="flex items-center space-x-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="target_type"
-                        value="region"
-                        checked={formData.target_type === 'region'}
-                        onChange={(e) =>
-                          setFormData({ ...formData, target_type: e.target.value })
-                        }
-                        className="text-primary-600 focus:ring-primary-500"
-                      />
-                      <span>Region</span>
-                    </label>
-                    <label className="flex items-center space-x-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="target_type"
-                        value="college"
-                        checked={formData.target_type === 'college'}
-                        onChange={(e) =>
-                          /*
-                           * Switching to Specific Colleges on a job people have
-                           * applied to carries across the colleges it already
-                           * reaches. A job aimed at regions has an empty
-                           * target_colleges, so without this the switch would
-                           * hand over an empty list and saving would cut the
-                           * audience to nothing — the ticks would be showing
-                           * one thing and the form holding another.
-                           */
-                          setFormData((prev) => ({
-                            ...prev,
-                            target_type: e.target.value,
-                            target_colleges: eligibilityLocked
-                              ? [...new Set([...prev.target_colleges, ...lockedColleges])]
-                              : prev.target_colleges,
-                          }))
-                        }
-                        className="text-primary-600 focus:ring-primary-500"
-                      />
-                      <span>Specific Colleges</span>
-                    </label>
-                  </div>
-                </div>
 
-                {formData.target_type === 'region' ? (
+                {/*
+                  One picker rather than a Region / Specific Colleges choice.
+                  Regions are how the list is grouped, not a separate kind of
+                  target: ticking a region ticks its colleges. That is the shape
+                  the officer's request form already uses, and it is the only one
+                  that can express a whole region plus one more college beside
+                  it, which the two exclusive modes could not.
+
+                  "All colleges" stays its own choice because it means something
+                  an enumerated list cannot: a college added to the portal next
+                  year is covered by it and would not be by a list written today.
+                */}
+                <label
+                  className={`flex items-start gap-2 rounded-lg border p-3 cursor-pointer ${
+                    formData.target_type === 'all'
+                      ? 'border-primary-400 bg-primary-50'
+                      : 'border-gray-300'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={formData.target_type === 'all'}
+                    disabled={lockedAllColleges}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        target_type: e.target.checked ? 'all' : 'college',
+                        target_regions: [],
+                        // Coming back off "all", the colleges already on the job
+                        // stay on it: they are exactly the ones that may not go.
+                        target_colleges: e.target.checked
+                          ? []
+                          : [...new Set([...prev.target_colleges, ...lockedColleges])],
+                      }))
+                    }
+                    className="mt-0.5 rounded text-primary-600 focus:ring-primary-500
+                      disabled:opacity-60 disabled:cursor-not-allowed"
+                  />
+                  <span className="text-sm">
+                    <span className="font-medium text-gray-900">All colleges</span>
+                    <span className="block text-xs text-gray-500">
+                      Including any college added to the portal later.
+                      {lockedAllColleges && ' Cannot be turned off \u2014 students have already applied.'}
+                    </span>
+                  </span>
+                </label>
+
+                {formData.target_type !== 'all' && (
                   <div>
                     <label className="label">
-                      Select Regions <span className="text-red-500">*</span>
+                      Regions and Colleges <span className="text-red-500">*</span>
                     </label>
-                    <div className="border border-gray-300 rounded-lg p-4 max-h-48 overflow-y-auto">
+                    <div className="border border-gray-300 rounded-lg divide-y divide-gray-200">
                       {regions.length === 0 ? (
-                        <div className="text-center text-gray-500 py-4">
-                          <p>Loading regions...</p>
-                        </div>
+                        <p className="px-4 py-6 text-sm text-gray-500 text-center">
+                          No regions available.
+                        </p>
                       ) : (
-                        <div className="space-y-2">
-                          {regions.map((region) => (
-                            <label
-                              key={region.id}
-                              className="flex items-center space-x-2 cursor-pointer"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={formData.target_regions.includes(region.id)}
-                                onChange={() => handleTargetChange(region.id, 'region')}
-                                disabled={targetLocked('regions', region.id)}
-                                className="rounded text-primary-600 focus:ring-primary-500
-                                  disabled:opacity-60 disabled:cursor-not-allowed"
-                              />
-                              <span className="text-sm">
-                                {region.region_name || region.name}
-                                {targetLocked('regions', region.id) && (
-                                  <span className="ml-1 text-xs text-gray-500">(already on the job)</span>
-                                )}
-                              </span>
-                            </label>
-                          ))}
-                        </div>
+                        regions.map((region) => {
+                          const regionColleges = collegesByRegion[region.id] || [];
+                          const selectedHere = regionColleges.filter(
+                            (c) =>
+                              formData.target_colleges.includes(c.id) ||
+                              targetLocked('colleges', c.id)
+                          );
+                          const allSelected =
+                            regionColleges.length > 0 &&
+                            selectedHere.length === regionColleges.length;
+                          // Locked colleges cannot be unticked, so "Deselect all"
+                          // is only offered where it would actually do something.
+                          const canDeselectAll = regionColleges.some(
+                            (c) => !targetLocked('colleges', c.id)
+                          );
+                          const expanded = expandedRegions[region.id];
+                          return (
+                            <div key={region.id}>
+                              <div className="flex items-center justify-between gap-2 pr-3">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setExpandedRegions((prev) => ({
+                                      ...prev,
+                                      [region.id]: !prev[region.id],
+                                    }))
+                                  }
+                                  aria-expanded={Boolean(expanded)}
+                                  className="flex items-center gap-2 flex-1 min-w-0 px-4 py-3 text-left
+                                    hover:bg-gray-50 transition-colors"
+                                >
+                                  {expanded ? (
+                                    <ChevronDown size={16} className="text-gray-400 flex-shrink-0" />
+                                  ) : (
+                                    <ChevronRight size={16} className="text-gray-400 flex-shrink-0" />
+                                  )}
+                                  <span className="text-sm font-medium text-gray-900 truncate">
+                                    {region.region_name || region.name}
+                                  </span>
+                                  <span className="text-xs text-gray-500 tabular-nums flex-shrink-0">
+                                    {selectedHere.length > 0
+                                      ? `${selectedHere.length} of ${regionColleges.length} selected`
+                                      : `${regionColleges.length} colleges`}
+                                  </span>
+                                </button>
+                                {expanded &&
+                                  regionColleges.length > 0 &&
+                                  (allSelected ? canDeselectAll : true) && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSelectAllInRegion(region.id, !allSelected)}
+                                      className="text-xs font-medium text-primary-600 hover:underline flex-shrink-0"
+                                    >
+                                      {allSelected ? 'Deselect all' : 'Select all'}
+                                    </button>
+                                  )}
+                              </div>
+                              {expanded && (
+                                <div className="px-4 py-2 bg-gray-50 border-t border-gray-200">
+                                  {regionColleges.length === 0 ? (
+                                    <p className="py-2 text-xs text-gray-500">
+                                      No colleges in this region.
+                                    </p>
+                                  ) : (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-1">
+                                      {regionColleges.map((college) => (
+                                        <label
+                                          key={college.id}
+                                          className="flex items-center space-x-2 py-1 cursor-pointer"
+                                        >
+                                          <input
+                                            type="checkbox"
+                                            checked={
+                                              formData.target_colleges.includes(college.id) ||
+                                              targetLocked('colleges', college.id)
+                                            }
+                                            onChange={() => handleTargetChange(college.id, 'college')}
+                                            disabled={targetLocked('colleges', college.id)}
+                                            className="rounded text-primary-600 focus:ring-primary-500
+                                              disabled:opacity-60 disabled:cursor-not-allowed"
+                                          />
+                                          <span className="text-sm">
+                                            {college.college_name || college.name}
+                                            {targetLocked('colleges', college.id) && (
+                                              <span className="ml-1 text-xs text-gray-500">
+                                                (already on the job)
+                                              </span>
+                                            )}
+                                          </span>
+                                        </label>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })
                       )}
                     </div>
-                  </div>
-                ) : (
-                  <div>
-                    <label className="label">
-                      Select Colleges <span className="text-red-500">*</span>
-                    </label>
-                    <div className="border border-gray-300 rounded-lg p-4 max-h-48 overflow-y-auto">
-                      {colleges.length === 0 ? (
-                        <div className="text-center text-gray-500 py-4">
-                          <p>Loading colleges...</p>
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          {colleges.map((college) => (
-                            <label
-                              key={college.id}
-                              className="flex items-center space-x-2 cursor-pointer"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={
-                                  formData.target_colleges.includes(college.id)
-                                  || targetLocked('colleges', college.id)
-                                }
-                                onChange={() => handleTargetChange(college.id, 'college')}
-                                disabled={targetLocked('colleges', college.id)}
-                                className="rounded text-primary-600 focus:ring-primary-500
-                                  disabled:opacity-60 disabled:cursor-not-allowed"
-                              />
-                              <span className="text-sm">
-                                {college.college_name || college.name}
-                                {targetLocked('colleges', college.id) && (
-                                  <span className="ml-1 text-xs text-gray-500">(already on the job)</span>
-                                )}
-                              </span>
-                            </label>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                    <p className="mt-1 text-xs text-gray-500 tabular-nums">
+                      {formData.target_colleges.length} college(s) selected
+                    </p>
                   </div>
                 )}
-                </fieldset>
               </div>
 
               {/* Extended Profile Requirements */}

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { GraduationCap, Eye, EyeOff, ArrowLeft, Shield, BookOpen, Briefcase, AlertCircle } from 'lucide-react';
+import SupportContact from '../../components/SupportContact';
 
 export default function StudentLoginPage() {
   const [prn, setPrn] = useState('');
@@ -317,6 +318,19 @@ export default function StudentLoginPage() {
                     </p>
                   </div>
                 </div>
+              </div>
+
+              {/*
+                Below the sign-in form rather than beside "Forgot password?",
+                because it is the answer when that link has already been tried
+                and the mail did not arrive — which, with no staff-side reset
+                for students, is otherwise a dead end.
+              */}
+              <div className="mt-5 pt-4 border-t border-gray-200 text-center">
+                <SupportContact
+                  message="Can't get in, or the reset email never arrived?"
+                  cta="Message me on LinkedIn"
+                />
               </div>
             </div>
           </div>

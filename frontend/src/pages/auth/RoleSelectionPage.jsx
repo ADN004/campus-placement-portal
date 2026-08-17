@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import SupportContact from '../../components/SupportContact';
 import {
   GraduationCap, Building2, ShieldCheck, ArrowRight, Sparkles,
   Search, FileText, UserPlus, ChevronRight, Globe, TrendingUp, Award,
@@ -483,6 +484,16 @@ export default function RoleSelectionPage() {
                   <span className="w-8 h-px bg-slate-700/60" />
                   Powered by GPTC Palakkad
                   <span className="w-8 h-px bg-slate-700/60" />
+                </div>
+
+                {/* Reachable from the front page, so a student who cannot get
+                    as far as signing in still has somewhere to go. */}
+                <div className="mt-4">
+                  <SupportContact
+                    message="Locked out, or not receiving our emails?"
+                    cta="Message me on LinkedIn"
+                    className="!text-slate-500"
+                  />
                 </div>
               </motion.div>
 

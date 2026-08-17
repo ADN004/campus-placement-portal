@@ -1,5 +1,6 @@
 import { CheckCircle, XCircle, Clock, ChevronRight, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import SupportContact from '../../../components/SupportContact';
 
 /**
  * Pieces shared by the three StudentDashboard presenters.
@@ -136,6 +137,25 @@ export function VerificationNotice({
             <span>Wrong address? Update it above and we&apos;ll send a fresh link.</span>
           </li>
         </ul>
+
+        {/*
+          Last, and deliberately so: every line above is something the student
+          can fix themselves, and this is the one that costs someone else's
+          time. But it has to be here — when mail genuinely is not arriving,
+          the three suggestions above all fail silently and the student is left
+          with a dead account and nothing to try.
+        */}
+        <div className="mt-3 pt-3 border-t border-spc-warn/20">
+          <SupportContact
+            variant="student"
+            as="button"
+            cta="Still stuck? Message me on LinkedIn"
+            className="w-full sm:w-auto"
+          />
+          <p className="text-xs text-spc-muted mt-1.5">
+            If none of the above works, tell me your PRN and I&apos;ll verify your account manually.
+          </p>
+        </div>
       </div>
     </div>
   );

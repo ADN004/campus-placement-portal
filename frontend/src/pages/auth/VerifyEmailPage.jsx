@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { authAPI } from '../../services/api';
 import { CheckCircle, XCircle, Mail, ArrowRight } from 'lucide-react';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import SupportContact from '../../components/SupportContact';
 import toast from 'react-hot-toast';
 
 export default function VerifyEmailPage() {
@@ -130,6 +131,15 @@ export default function VerifyEmailPage() {
                   <p className="text-xs text-gray-500 mt-2">
                     A new verification link will be sent to {email}
                   </p>
+                  {/* The student is already on the failure path here, so the
+                      human route belongs next to the retry rather than buried
+                      further down the page. */}
+                  <div className="mt-3 pt-3 border-t border-gray-200">
+                    <SupportContact
+                      message="Link still not working, or the email never arrives?"
+                      cta="Message me on LinkedIn"
+                    />
+                  </div>
                 </div>
               )}
 

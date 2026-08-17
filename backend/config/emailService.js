@@ -62,6 +62,22 @@ const isRealDeliveryEnabled = APP_ENV === 'production' && EMAIL_MODE === 'smtp';
  *
  * For a host, port 465 = implicit SSL; any other port (typically 587) = STARTTLS.
  */
+/*
+ * Connections are pooled and paced, which is what stops Google refusing them.
+ *
+ * Every message used to open its own connection: TCP, TLS and EHLO per email.
+ * At around nine hundred a day, arriving in bursts whenever a batch of students
+ * is approved or a drive is announced, Google began answering the greeting
+ * itself with "421-4.7.0 Try again later, closing connection. (EHLO)" — a
+ * refusal of the connection, before any credential was offered, so nothing in
+ * the account or the quota looked wrong. Roughly a thousand students registered
+ * and never received their verification link.
+ *
+ * Pooling keeps a small number of connections open and sends many messages down
+ * each, and the rate limit paces them, which is the pattern Google's limits are
+ * written for. The numbers are deliberately conservative and can be tuned from
+ * the environment without a rebuild if the relay's headroom allows more.
+ */
 function resolveSmtpConfig() {
   const auth = {
     user: process.env.EMAIL_USER,
@@ -70,11 +86,21 @@ function resolveSmtpConfig() {
   const service = process.env.EMAIL_SERVICE || 'gmail';
   const host = process.env.EMAIL_HOST || (service.includes('.') ? service : null);
 
+  const pooling = {
+    pool: true,
+    maxConnections: Number(process.env.EMAIL_MAX_CONNECTIONS) || 2,
+    // Recycled well before Google's own per-connection ceiling, so a long batch
+    // does not end with the tail of it being dropped.
+    maxMessages: Number(process.env.EMAIL_MAX_MESSAGES) || 50,
+    rateDelta: 1000,
+    rateLimit: Number(process.env.EMAIL_RATE_LIMIT) || 3, // messages per second
+  };
+
   if (host) {
     const port = Number(process.env.EMAIL_PORT) || 587;
-    return { host, port, secure: port === 465, requireTLS: port !== 465, auth };
+    return { host, port, secure: port === 465, requireTLS: port !== 465, auth, ...pooling };
   }
-  return { service, auth };
+  return { service, auth, ...pooling };
 }
 
 const smtpTransporter = nodemailer.createTransport(
@@ -309,18 +335,60 @@ function shell({ bannerName, accent, preheader, heading, bodyHtml }) {
   };
 }
 
-/** Shared send helper: composes, sends, logs, and normalises the result. */
+/**
+ * A 4xx from SMTP means "not now"; a 5xx means "never".
+ *
+ * "421 Try again later" is the first kind and is worth another attempt, while a
+ * rejected recipient is the second and retrying only wastes the quota. The
+ * response code is read where nodemailer provides it and otherwise picked out
+ * of the message, since not every failure arrives structured.
+ */
+const isTransient = (error) => {
+  const code = error?.responseCode;
+  if (typeof code === 'number') return code >= 400 && code < 500;
+  return /\b4\d\d[ -]/.test(String(error?.message || ''));
+};
+
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Shared send helper: composes, sends, logs, and normalises the result.
+ *
+ * A throttled message used to be lost outright — the error propagated, the
+ * caller reported failure, and nothing ever tried again, which is how a
+ * thousand verification links went missing while the logs filled with 421s.
+ * Transient failures now get two more attempts.
+ *
+ * The backoff is kept short on purpose. Registration waits on this send, so the
+ * student is waiting too; a few seconds of retrying is worth it to save the
+ * mail, a minute of it is not. Pooling is what actually prevents the throttling
+ * — this is the net underneath it.
+ */
 async function dispatch(kind, { to, subject, html, attachments }) {
   const mailOptions = { from: process.env.EMAIL_FROM, to, subject, html };
   if (attachments && attachments.length) mailOptions.attachments = attachments;
-  try {
-    const info = await transporter.sendMail(mailOptions);
-    console.log(`✅ ${kind} email sent:`, info.messageId);
-    return { success: true, messageId: info.messageId };
-  } catch (error) {
-    console.error(`❌ Email send error (${kind}):`, error);
-    throw new Error(`Failed to send ${kind} email: ${error.message}`);
+
+  const backoffs = [1000, 3000];
+  let lastError;
+
+  for (let attempt = 0; attempt <= backoffs.length; attempt += 1) {
+    try {
+      const info = await transporter.sendMail(mailOptions);
+      if (attempt > 0) console.log(`✅ ${kind} email sent on retry ${attempt}:`, info.messageId);
+      else console.log(`✅ ${kind} email sent:`, info.messageId);
+      return { success: true, messageId: info.messageId };
+    } catch (error) {
+      lastError = error;
+      if (attempt === backoffs.length || !isTransient(error)) break;
+      console.warn(
+        `⏳ ${kind} email deferred (${error.message}) — retrying in ${backoffs[attempt]}ms`
+      );
+      await wait(backoffs[attempt]);
+    }
   }
+
+  console.error(`❌ Email send error (${kind}):`, lastError);
+  throw new Error(`Failed to send ${kind} email: ${lastError.message}`);
 }
 
 const p = (html) => `<p style="margin:0 0 14px;font-family:${FONT};font-size:15px;line-height:1.65;color:#334155;">${html}</p>`;

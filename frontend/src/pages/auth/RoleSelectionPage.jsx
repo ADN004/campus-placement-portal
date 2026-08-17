@@ -488,11 +488,13 @@ export default function RoleSelectionPage() {
 
                 {/* Reachable from the front page, so a student who cannot get
                     as far as signing in still has somewhere to go. */}
-                <div className="mt-4">
+                <div className="mt-5 flex flex-col items-center">
                   <SupportContact
+                    as="button"
+                    variant="dark"
                     message="Locked out, or not receiving our emails?"
                     cta="Message me on LinkedIn"
-                    className="!text-slate-500"
+                    className="text-center"
                   />
                 </div>
               </motion.div>

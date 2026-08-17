@@ -146,11 +146,14 @@ export function VerificationNotice({
           with a dead account and nothing to try.
         */}
         <div className="mt-3 pt-3 border-t border-spc-warn/20">
+          {/* No message above it: the heading and the three suggestions have
+              already said what the problem is, and repeating it here would
+              read as a fourth one. */}
           <SupportContact
             variant="student"
             as="button"
+            message={null}
             cta="Still stuck? Message me on LinkedIn"
-            className="w-full sm:w-auto"
           />
           <p className="text-xs text-spc-muted mt-1.5">
             If none of the above works, tell me your PRN and I&apos;ll verify your account manually.

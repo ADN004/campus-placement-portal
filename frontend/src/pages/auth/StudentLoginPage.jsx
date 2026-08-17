@@ -326,10 +326,13 @@ export default function StudentLoginPage() {
                 and the mail did not arrive — which, with no staff-side reset
                 for students, is otherwise a dead end.
               */}
-              <div className="mt-5 pt-4 border-t border-gray-200 text-center">
+              <div className="mt-5 pt-4 border-t border-gray-200 flex flex-col items-center">
                 <SupportContact
+                  as="button"
+                  variant="auth"
                   message="Can't get in, or the reset email never arrived?"
                   cta="Message me on LinkedIn"
+                  className="text-center"
                 />
               </div>
             </div>

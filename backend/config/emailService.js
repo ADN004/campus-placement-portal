@@ -86,6 +86,28 @@ function resolveSmtpConfig() {
   const service = process.env.EMAIL_SERVICE || 'gmail';
   const host = process.env.EMAIL_HOST || (service.includes('.') ? service : null);
 
+  /*
+   * The name we greet the relay with, which must be a real domain.
+   *
+   * Nodemailer defaults this to os.hostname(). On a normal server that is a
+   * fully-qualified name; inside a container it is the container id — a bare
+   * hex string like a1b2c3d4e5f6, which changes on every deploy and resolves
+   * to nothing. Google's relay answered that greeting with
+   * "421-4.7.0 Try again later, closing connection. (EHLO)".
+   *
+   * The give-away was that the identical connection, from the same host in the
+   * same minute, was accepted with "250 at your service" when the greeting
+   * carried the real domain instead. Not the IP, not the credentials, not the
+   * quota — only the name we introduced ourselves with.
+   *
+   * Defaults to the domain of the sending address, which is by definition a
+   * real one, and can be pointed at the exact host name from the environment.
+   */
+  const ehloName =
+    process.env.EMAIL_EHLO_NAME
+    || (process.env.EMAIL_USER || '').split('@')[1]
+    || undefined;
+
   const pooling = {
     pool: true,
     maxConnections: Number(process.env.EMAIL_MAX_CONNECTIONS) || 2,
@@ -94,6 +116,7 @@ function resolveSmtpConfig() {
     maxMessages: Number(process.env.EMAIL_MAX_MESSAGES) || 50,
     rateDelta: 1000,
     rateLimit: Number(process.env.EMAIL_RATE_LIMIT) || 3, // messages per second
+    ...(ehloName ? { name: ehloName } : {}),
   };
 
   if (host) {

@@ -290,15 +290,21 @@ export default function CreateJobRequest() {
       return;
     }
 
-    // A deadline in the past creates a job no student can ever see: the student
-    // job list only returns rows with application_deadline >= CURRENT_DATE. The
-    // officer would get a success message for a job that is invisible to
-    // everyone, with nothing on screen to explain why.
-    const deadline = new Date(`${formData.application_deadline}T23:59:59`);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    if (Number.isNaN(deadline.getTime()) || deadline < today) {
-      toast.error('The application deadline must be today or later — students cannot see a job whose deadline has passed');
+    /*
+     * A deadline in the past creates a job no student can ever see, so it is
+     * refused here as well as on the server.
+     *
+     * The value is read through localInputToUtc rather than parsed directly.
+     * This used to append 'T23:59:59' to it, which was right when the field
+     * held a date alone — and became '2026-08-24T18:00T23:59:59' once it
+     * carried a time as well. That is not a date at all, so every deadline
+     * parsed as NaN and every job request was refused, including ones hours in
+     * the future. The message said the deadline had passed, which sent the
+     * officer looking at the one thing that was not wrong.
+     */
+    const deadlineUtc = localInputToUtc(formData.application_deadline);
+    if (!deadlineUtc || new Date(deadlineUtc).getTime() <= Date.now()) {
+      toast.error('The application deadline must be in the future — students cannot see a job whose deadline has passed');
       return;
     }
 

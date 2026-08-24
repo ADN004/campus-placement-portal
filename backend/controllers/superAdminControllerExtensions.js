@@ -1,4 +1,4 @@
-import { query, getClient } from '../config/database.js';
+import { query, getClient, transaction } from '../config/database.js';
 import { uploadImage, deleteImage, deleteMultipleImages, deleteFolderOnly, extractFolderPath } from '../config/cloudinary.js';
 import logActivity from '../middleware/activityLogger.js';
 import ExcelJS from 'exceljs';

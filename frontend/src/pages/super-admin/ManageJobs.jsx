@@ -109,6 +109,19 @@ export default function ManageJobs() {
    * its type and both lists. Recomputed rather than snapshotted so it is still
    * right if the colleges list arrives after the dialog opens.
    */
+  /*
+   * Declared above everything derived from them, not with the rest of the
+   * state further down.
+   *
+   * The memos below read `colleges` in their dependency arrays, and those are
+   * evaluated as the component body runs. With the declaration 55 lines lower
+   * that read happened before it existed — "Cannot access before
+   * initialization" — and the whole page rendered blank on load. It compiled
+   * and every API test passed; only opening the page showed it.
+   */
+  const [regions, setRegions] = useState([]);
+  const [colleges, setColleges] = useState([]);
+
   const lockedColleges = useMemo(
     () => new Set(reachedCollegeIds(lockedTargeting, colleges)),
     [lockedTargeting, colleges]
@@ -163,8 +176,6 @@ export default function ManageJobs() {
         ),
     }));
   };
-  const [regions, setRegions] = useState([]);
-  const [colleges, setColleges] = useState([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [jobToDelete, setJobToDelete] = useState(null);
   const [templates, setTemplates] = useState([]);

@@ -299,14 +299,14 @@ export function EditJobModal({
           <div>
             <FieldLabel htmlFor="edit-cgpa">Min CGPA</FieldLabel>
             <input id="edit-cgpa" type="number" step="0.01" min="0" max="10"
-              className={`${FIELD_CLASS}${lockedField}`} disabled={eligibilityLocked}
+              className={FIELD_CLASS}
               placeholder="e.g. 6.5"
               value={data.min_cgpa || ''} onChange={(e) => set('min_cgpa', e.target.value)} />
           </div>
           <div>
             <FieldLabel htmlFor="edit-backlogs">Max backlogs allowed</FieldLabel>
             <input id="edit-backlogs" type="number" min="0"
-              className={`${FIELD_CLASS}${lockedField}`} disabled={eligibilityLocked}
+              className={FIELD_CLASS}
               value={data.max_backlogs || ''} onChange={(e) => set('max_backlogs', e.target.value)} />
           </div>
           {/* Locked with the rest of eligibility once anyone has applied:
@@ -315,21 +315,21 @@ export function EditJobModal({
           <div>
             <FieldLabel htmlFor="edit-dob">Born on or before</FieldLabel>
             <input id="edit-dob" type="date" max={new Date().toISOString().slice(0, 10)}
-              className={`${FIELD_CLASS}${lockedField}`} disabled={eligibilityLocked}
+              className={FIELD_CLASS}
               value={(data.dob_on_or_before || '').slice(0, 10)}
               onChange={(e) => set('dob_on_or_before', e.target.value)} />
           </div>
           <div>
             <FieldLabel htmlFor="edit-dob-after">Born on or after</FieldLabel>
             <input id="edit-dob-after" type="date" max={new Date().toISOString().slice(0, 10)}
-              className={`${FIELD_CLASS}${lockedField}`} disabled={eligibilityLocked}
+              className={FIELD_CLASS}
               value={(data.dob_on_or_after || '').slice(0, 10)}
               onChange={(e) => set('dob_on_or_after', e.target.value)} />
           </div>
           <div>
             <FieldLabel htmlFor="edit-gender">Open to</FieldLabel>
             <select id="edit-gender"
-              className={`${FIELD_CLASS}${lockedField}`} disabled={eligibilityLocked}
+              className={FIELD_CLASS}
               value={data.gender_requirement || 'all'}
               onChange={(e) => set('gender_requirement', e.target.value)}>
               <option value="all">All candidates</option>
@@ -353,7 +353,7 @@ export function EditJobModal({
 
         <fieldset>
           <legend className="text-spc-xs font-bold uppercase tracking-[0.11em] text-spc-muted mb-2">
-            Allowed backlog semesters{eligibilityLocked ? " — locked" : ""}
+            Allowed backlog semesters{eligibilityLocked ? " — can only be added to" : ""}
             <span className="ml-2 font-semibold normal-case tracking-normal text-spc-muted">
               (leave unchecked for any)
             </span>
@@ -376,7 +376,6 @@ export function EditJobModal({
                         : [...semesters, sem].sort((a, b) => a - b)
                     )
                   }
-                  disabled={eligibilityLocked}
                   className={`${CHECKBOX_CLASS}${lockedField}`}
                 />
                 <span className="text-spc-xs font-bold text-spc-ink">Sem {sem}</span>

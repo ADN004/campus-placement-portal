@@ -14,7 +14,7 @@ import { isCollegeLocked } from '../utils/collegeLocks.js';
 import { DAY_AWARE_COUNT_SQL } from '../utils/verificationEmailPolicy.js';
 import { TOTAL_BACKLOGS_SQL, parseMaxBacklogs } from '../utils/backlogPolicy.js';
 import { ACTIVE_STUDENT_ACCOUNT_SQL } from '../utils/notificationAudience.js';
-import { branchesLosingAccess } from '../utils/jobAudience.js';
+import { branchesLosingAccess, eligibilityTightened } from '../utils/jobAudience.js';
 
 // How many notification emails a bulk action sends at once. A bulk batch can
 // be 50+ students; sending strictly one at a time can outrun the proxy read
@@ -2444,20 +2444,16 @@ export const updateJob = async (req, res) => {
      * contradict, so every field including eligibility stays editable, which is
      * the case those fields are actually needed for.
      */
-    const ELIGIBILITY = {
+    const ELIGIBILITY_FIELDS = {
       min_cgpa, max_backlogs, allowed_backlog_semesters,
-      // These decide who may apply exactly as the three above do, so they freeze
-      // with them. Left out, an officer could narrow a live drive to one gender
-      // after fifty students had already applied, and the applicant list would
-      // then contradict the criteria with nothing on screen to explain it.
       dob_on_or_before, dob_on_or_after, gender_requirement,
     };
-    const changingEligibility = Object.entries(ELIGIBILITY)
-      .filter(([, v]) => v !== undefined)
-      .map(([k]) => k);
+    const submittedEligibility = Object.fromEntries(
+      Object.entries(ELIGIBILITY_FIELDS).filter(([, v]) => v !== undefined)
+    );
 
     let applicantCount = 0;
-    if (changingEligibility.length > 0 || allowed_branches !== undefined) {
+    if (Object.keys(submittedEligibility).length > 0 || allowed_branches !== undefined) {
       const applied = await query(
         'SELECT COUNT(*)::int AS n FROM job_applications WHERE job_id = $1',
         [jobId]
@@ -2466,14 +2462,11 @@ export const updateJob = async (req, res) => {
     }
 
     /*
-     * The branch list is the one part of eligibility that opens up.
+     * The branch list may be added to but not cut.
      *
-     * Adding a branch lets more students apply and moves nobody who already
-     * has; removing one strands whoever applied from it. A company agreeing
-     * mid-drive to consider one more branch is ordinary, and freezing the whole
-     * field made that impossible, so it is checked for what it takes away
-     * instead. Clearing the list entirely means "no branch restriction", which
-     * is the widest the job can be and always allowed.
+     * Kept as its own check rather than folded into the comparison above,
+     * because a branch list is a set and the rest are single values — what
+     * matters here is which branches disappear, and the refusal names them.
      */
     if (allowed_branches !== undefined && applicantCount > 0) {
       const current = await query('SELECT allowed_branches FROM jobs WHERE id = $1', [jobId]);
@@ -2483,8 +2476,8 @@ export const updateJob = async (req, res) => {
           return res.status(409).json({
             success: false,
             message:
-              `${applicantCount} student${applicantCount === 1 ? ' has' : 's have'} already applied, so branches ` +
-              `can be added but not removed. This change would shut out ${lost.join(', ')}.`,
+              `${applicantCount} student${applicantCount === 1 ? ' has' : 's have'} already applied, so branches `
+              + `can be added but not removed. This change would shut out ${lost.join(', ')}.`,
             branches_losing_access: lost,
             applicant_count: applicantCount,
           });
@@ -2492,18 +2485,38 @@ export const updateJob = async (req, res) => {
       }
     }
 
-    if (changingEligibility.length > 0) {
-      const n = applicantCount;
-      if (n > 0) {
-        return res.status(409).json({
-          success: false,
-          message:
-            `${n} student${n === 1 ? ' has' : 's have'} already applied, so who is eligible cannot be ` +
-            'changed — they applied under the current rules. Everything else about the job, including ' +
-            'the company, package, location and deadline, can still be edited.',
-          locked_fields: changingEligibility,
-          applicant_count: n,
-        });
+    /*
+     * Eligibility may be loosened once people have applied, only not tightened.
+     *
+     * Refusing these fields outright blocked a company agreeing mid-drive to
+     * accept one more backlog or a lower CGPA — changes that let more students
+     * in and move nobody who already applied. It also objected to a field
+     * merely being present, so whether a save worked depended on the browser
+     * removing values before sending them.
+     *
+     * Compared against what is stored instead, so an unchanged value is never
+     * a complaint and only a real tightening is refused.
+     */
+    if (Object.keys(submittedEligibility).length > 0 && applicantCount > 0) {
+      const current = await query(
+        `SELECT min_cgpa, max_backlogs, backlog_max_semester, allowed_backlog_semesters,
+                dob_on_or_before, dob_on_or_after, gender_requirement
+           FROM jobs WHERE id = $1`,
+        [jobId]
+      );
+      if (current.rows.length > 0) {
+        const tightened = eligibilityTightened(current.rows[0], submittedEligibility);
+        if (tightened.length > 0) {
+          return res.status(409).json({
+            success: false,
+            message:
+              `${applicantCount} student${applicantCount === 1 ? ' has' : 's have'} already applied, so the `
+              + 'rules can be relaxed but not tightened — they applied under the current ones. '
+              + `This change means ${tightened.join(', and ')}.`,
+            tightened,
+            applicant_count: applicantCount,
+          });
+        }
       }
     }
 

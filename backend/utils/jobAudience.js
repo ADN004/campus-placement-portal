@@ -115,3 +115,133 @@ export const branchesLosingAccess = (before, after) => {
   const afterSet = new Set(afterList.map(normalizeBranch));
   return beforeList.filter((branch) => !afterSet.has(normalizeBranch(branch)));
 };
+
+/* --------------------------------------------------------- eligibility rules */
+
+const asNum = (v) => (v === null || v === undefined || v === '' ? null : Number(v));
+/*
+ * A DATE column arrives from the driver as a Date object, and String(date) is
+ * "Mon Jan 01 2004 ..." — slicing ten characters off that yields "Mon Jan 01",
+ * which compares as nonsense against an ISO day and made every age-window edit
+ * look like a tightening.
+ *
+ * Its local parts are read rather than converted through UTC: the driver builds
+ * these at local midnight, so toISOString would slide the day backwards for
+ * anyone east of Greenwich, which is everyone here.
+ */
+const asDay = (v) => {
+  if (!v) return null;
+  if (v instanceof Date) {
+    const p = (n) => String(n).padStart(2, '0');
+    return `${v.getFullYear()}-${p(v.getMonth() + 1)}-${p(v.getDate())}`;
+  }
+  return String(v).slice(0, 10);
+};
+const asNums = (v) => {
+  if (Array.isArray(v)) return v.map(Number).filter((n) => !Number.isNaN(n));
+  if (typeof v === 'string') {
+    try {
+      const p = JSON.parse(v);
+      return Array.isArray(p) ? p.map(Number).filter((n) => !Number.isNaN(n)) : [];
+    } catch { return []; }
+  }
+  return [];
+};
+
+/**
+ * Which eligibility rules an edit would make stricter, in plain words.
+ *
+ * Every one of these has a safe direction. Lowering a CGPA bar, allowing more
+ * backlogs, widening an age window, opening a job to both genders — each lets
+ * more students apply and moves nobody who already has. Only tightening strands
+ * an applicant, leaving them sitting in a list that the criteria now say they
+ * never qualified for.
+ *
+ * So the rule is "eligibility may be loosened, never tightened" rather than
+ * "eligibility is frozen". The blunt version refused a company that agreed
+ * mid-drive to consider one more branch or one more backlog, which is an
+ * ordinary thing to happen and was impossible to record.
+ *
+ * A field that is submitted **unchanged** is never a complaint. That matters as
+ * much as the direction: the old check objected to the mere presence of a
+ * field, so correctness depended on the browser stripping values before
+ * sending, and any form that posted its whole state — as the Super Admin's
+ * does — was refused for fields nobody had touched. The message then blamed
+ * eligibility for a save that had only altered a job title.
+ *
+ * Empty means "no restriction" throughout, which is the widest a rule can be:
+ * clearing one is always allowed, and setting one where there was none is
+ * always a tightening.
+ */
+export const eligibilityTightened = (before, after) => {
+  const out = [];
+  const sent = (k) => Object.prototype.hasOwnProperty.call(after, k) && after[k] !== undefined;
+
+  if (sent('min_cgpa')) {
+    const b = asNum(before.min_cgpa);
+    const a = asNum(after.min_cgpa);
+    if (a !== null && (b === null || a > b)) {
+      out.push(`the minimum CGPA would rise from ${b === null ? 'none' : b} to ${a}`);
+    }
+  }
+
+  if (sent('max_backlogs')) {
+    const b = asNum(before.max_backlogs);
+    const a = asNum(after.max_backlogs);
+    if (a !== null && (b === null || a < b)) {
+      out.push(`backlogs allowed would fall from ${b === null ? 'no limit' : b} to ${a}`);
+    }
+  }
+
+  // Backlogs are permitted up to this semester, so a lower number is stricter.
+  if (sent('backlog_max_semester')) {
+    const b = asNum(before.backlog_max_semester);
+    const a = asNum(after.backlog_max_semester);
+    if (a !== null && (b === null || a < b)) {
+      out.push(`backlogs would be confined to semester ${a} and earlier`);
+    }
+  }
+
+  // The semesters a backlog may sit in. Empty is no restriction at all, so
+  // naming any is a tightening; otherwise none of the named may be withdrawn.
+  if (sent('allowed_backlog_semesters')) {
+    const b = asNums(before.allowed_backlog_semesters);
+    const a = asNums(after.allowed_backlog_semesters);
+    if (b.length === 0 && a.length > 0) {
+      out.push(`backlogs would be restricted to semester ${a.join(', ')}`);
+    } else if (b.length > 0 && a.length > 0) {
+      const lost = b.filter((s) => !a.includes(s));
+      if (lost.length > 0) out.push(`semester ${lost.join(', ')} would no longer permit backlogs`);
+    }
+  }
+
+  // "Born on or before" is a minimum age: an earlier date demands they be older.
+  if (sent('dob_on_or_before')) {
+    const b = asDay(before.dob_on_or_before);
+    const a = asDay(after.dob_on_or_before);
+    if (a !== null && (b === null || a < b)) {
+      out.push(`the earliest-birth cutoff would move back to ${a}`);
+    }
+  }
+
+  // "Born on or after" is a maximum age: a later date shuts out older students.
+  if (sent('dob_on_or_after')) {
+    const b = asDay(before.dob_on_or_after);
+    const a = asDay(after.dob_on_or_after);
+    if (a !== null && (b === null || a > b)) {
+      out.push(`the latest-birth cutoff would move forward to ${a}`);
+    }
+  }
+
+  // 'all' is the widest. Anything else, unless it is what it already was,
+  // shuts somebody out — male to female excludes as surely as all to female.
+  if (sent('gender_requirement')) {
+    const b = before.gender_requirement || 'all';
+    const a = after.gender_requirement || 'all';
+    if (a !== 'all' && a !== b) {
+      out.push(`the job would be limited to ${a} candidates`);
+    }
+  }
+
+  return out;
+};

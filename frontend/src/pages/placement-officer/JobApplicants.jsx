@@ -489,20 +489,14 @@ export default function JobApplicants() {
     // Converted on the way out, so the deadline means the same moment
     // whatever zone the server reading it happens to be in.
     payload.application_deadline = localInputToUtc(editJobData.application_deadline);
-    if (students.length > 0) {
-      delete payload.min_cgpa;
-      delete payload.max_backlogs;
-      delete payload.allowed_backlog_semesters;
-      // allowed_branches is deliberately still sent: branches may be added to a
-      // job people have applied to, and the server checks what the new list
-      // takes away rather than refusing the field outright.
-      // Frozen with the rest of eligibility, so they have to be dropped with
-      // it. Left in, saving a corrected job title on a job with one applicant
-      // would come back "cannot be changed" for a field nobody touched.
-      delete payload.dob_on_or_before;
-      delete payload.dob_on_or_after;
-      delete payload.gender_requirement;
-    }
+    /*
+     * The whole form is sent, including eligibility.
+     *
+     * The server compares each value against what is stored and refuses only a
+     * real tightening, so an unchanged field is no longer a problem and a rule
+     * the company has agreed to relax can actually be relaxed. Deleting fields
+     * here used to be what made either of those work.
+     */
 
     try {
       setEditJobLoading(true);

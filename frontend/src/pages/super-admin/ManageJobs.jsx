@@ -557,27 +557,14 @@ export default function ManageJobs() {
       };
 
       /*
-       * Dropped rather than sent unchanged once anyone has applied.
+       * Nothing is stripped any more.
        *
-       * The server refuses the whole request if any of these is present, and it
-       * cannot tell "same value resent by the form" from "deliberately
-       * changed" — so leaving them in would make correcting a job title come
-       * back "cannot be changed" for fields nobody touched. The inputs are
-       * disabled in the dialog too; this is what makes the save work.
-       *
-       * Targeting is deliberately not in this list. It is still sent, because
-       * it may still change — the audience is allowed to grow — and the server
-       * compares the colleges reached before and after rather than refusing the
-       * field outright.
+       * The server compares each eligibility value against what is stored and
+       * objects only to a real tightening, so sending the form's whole state is
+       * safe. Removing fields here was what made a save depend on the browser
+       * guessing correctly, and it is also what stopped a rule being relaxed at
+       * all once anyone had applied.
        */
-      if (eligibilityLocked) {
-        [
-          // allowed_branches stays in: it may be added to, and the server
-          // checks what the new list takes away rather than refusing the field.
-          'min_cgpa', 'max_backlogs', 'backlog_max_semester', 'allowed_backlog_semesters',
-          'dob_on_or_before', 'dob_on_or_after', 'gender_requirement',
-        ].forEach((field) => delete submitData[field]);
-      }
 
       let jobId;
       if (editMode) {
@@ -1387,14 +1374,14 @@ export default function ManageJobs() {
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">
                   Eligibility Criteria
-                  {eligibilityLocked && <span className="ml-2 text-sm font-normal text-amber-600">— locked</span>}
+                  {eligibilityLocked && <span className="ml-2 text-sm font-normal text-amber-600">— can be relaxed, not tightened</span>}
                 </h3>
                 {eligibilityLocked && (
                   <p className="text-sm text-gray-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                     {editApplicantCount} student{editApplicantCount === 1 ? ' has' : 's have'} already
-                    applied, so who is eligible can no longer be changed — they applied under these
-                    rules. Everything else, including the company, package, location and deadline, can
-                    still be edited.
+                    applied. You can still relax these — a lower CGPA, more backlogs, a wider age range,
+                    opening it to all genders — but not tighten them, because those students applied
+                    under the current rules.
                   </p>
                 )}
                 {/*
@@ -1403,7 +1390,7 @@ export default function ManageJobs() {
                   flag to each one by hand is how one gets missed and quietly
                   stays editable.
                 */}
-                <fieldset disabled={eligibilityLocked} className="border-0 p-0 m-0 space-y-4 min-w-0">
+                <fieldset className="border-0 p-0 m-0 space-y-4 min-w-0">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="label">Minimum CGPA</label>

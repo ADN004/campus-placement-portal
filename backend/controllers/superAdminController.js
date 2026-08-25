@@ -11,7 +11,7 @@ import { deleteImage, deleteFolderOnly, extractFolderPath } from '../config/clou
 import { TOTAL_BACKLOGS_SQL, parseMaxBacklogs } from '../utils/backlogPolicy.js';
 import { ACTIVE_STUDENT_ACCOUNT_SQL } from '../utils/notificationAudience.js';
 import { notifyParticipatingOfficers, notifyCollegesAdded } from '../utils/jointJobNotice.js';
-import { collegesReachedBy, collegesLosingAccess, branchesLosingAccess } from '../utils/jobAudience.js';
+import { collegesReachedBy, collegesLosingAccess, branchesLosingAccess, eligibilityTightened } from '../utils/jobAudience.js';
 
 // ========================================
 // HELPER FUNCTIONS
@@ -1399,22 +1399,23 @@ export const updateJob = async (req, res) => {
      * Targeting is handled separately below, because it has a safe direction
      * and these do not.
      */
-    const ELIGIBILITY = {
+    const ELIGIBILITY_FIELDS = {
       min_cgpa, max_backlogs, backlog_max_semester, allowed_backlog_semesters,
       dob_on_or_before, dob_on_or_after, gender_requirement,
     };
-    const changingEligibility = Object.entries(ELIGIBILITY)
-      .filter(([, v]) => v !== undefined)
-      .map(([k]) => k);
+    const submittedEligibility = Object.fromEntries(
+      Object.entries(ELIGIBILITY_FIELDS).filter(([, v]) => v !== undefined)
+    );
     const changingTargeting =
       target_type !== undefined || target_regions !== undefined || target_colleges !== undefined;
 
     let applicantCount = 0;
-    // allowed_branches is in this condition but not in ELIGIBILITY: it has its
-    // own widen-only check below, which still needs to know whether anyone has
-    // applied. Left out, a request carrying only branches skipped the count and
-    // every removal was waved through.
-    if (changingEligibility.length > 0 || changingTargeting || allowed_branches !== undefined) {
+    const touchesWhoCanApply =
+      Object.keys(submittedEligibility).length > 0
+      || changingTargeting
+      || allowed_branches !== undefined;
+
+    if (touchesWhoCanApply) {
       const applied = await query(
         'SELECT COUNT(*)::int AS n FROM job_applications WHERE job_id = $1',
         [jobId]
@@ -1422,16 +1423,41 @@ export const updateJob = async (req, res) => {
       applicantCount = applied.rows[0].n;
     }
 
-    if (changingEligibility.length > 0 && applicantCount > 0) {
-      return res.status(409).json({
-        success: false,
-        message:
-          `${applicantCount} student${applicantCount === 1 ? ' has' : 's have'} already applied, so who is ` +
-          'eligible cannot be changed — they applied under the current rules. Everything else about the ' +
-          'job, including the company, package, location and deadline, can still be edited.',
-        locked_fields: changingEligibility,
-        applicant_count: applicantCount,
-      });
+    /*
+     * Eligibility may be loosened once people have applied, only not tightened.
+     *
+     * This used to refuse any eligibility field outright. That blocked a
+     * company agreeing mid-drive to accept one more backlog or a lower CGPA —
+     * ordinary things that let more students in and move nobody who already
+     * applied — and, worse, it objected to a field merely being *present*. The
+     * form posts its whole state, so a save that only changed a job title came
+     * back refused for fields nobody had touched, blaming eligibility.
+     *
+     * The comparison is against what is stored, so an unchanged value is never
+     * a complaint and the answer no longer depends on the browser stripping
+     * fields before it sends them.
+     */
+    if (Object.keys(submittedEligibility).length > 0 && applicantCount > 0) {
+      const current = await query(
+        `SELECT min_cgpa, max_backlogs, backlog_max_semester, allowed_backlog_semesters,
+                dob_on_or_before, dob_on_or_after, gender_requirement
+           FROM jobs WHERE id = $1`,
+        [jobId]
+      );
+      if (current.rows.length > 0) {
+        const tightened = eligibilityTightened(current.rows[0], submittedEligibility);
+        if (tightened.length > 0) {
+          return res.status(409).json({
+            success: false,
+            message:
+              `${applicantCount} student${applicantCount === 1 ? ' has' : 's have'} already applied, so the `
+              + 'rules can be relaxed but not tightened — they applied under the current ones. '
+              + `This change means ${tightened.join(', and ')}.`,
+            tightened,
+            applicant_count: applicantCount,
+          });
+        }
+      }
     }
 
     /*

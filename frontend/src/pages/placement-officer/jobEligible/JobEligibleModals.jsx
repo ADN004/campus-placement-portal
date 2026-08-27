@@ -355,7 +355,7 @@ export function EditJobModal({
           <legend className="text-spc-xs font-bold uppercase tracking-[0.11em] text-spc-muted mb-2">
             Allowed backlog semesters{eligibilityLocked ? " — can only be added to" : ""}
             <span className="ml-2 font-semibold normal-case tracking-normal text-spc-muted">
-              (leave unchecked for any)
+              (ticking one narrows the job — leave all unchecked to accept a backlog in any semester)
             </span>
           </legend>
           <div className="flex flex-wrap gap-2">

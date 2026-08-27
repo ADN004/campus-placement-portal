@@ -1510,7 +1510,14 @@ export default function ManageJobs() {
                       </select>
                     </div>
                     <div>
-                      <label className="label">Allowed Backlog Semesters <span className="text-xs font-normal text-gray-500">(leave all unchecked = any semester allowed)</span></label>
+                      <label className="label">
+                        Restrict backlogs to certain semesters
+                        <span className="block text-xs font-normal text-gray-500 mt-0.5">
+                          Ticking a semester <strong>narrows</strong> the job: a student with a backlog in
+                          any semester you do not tick becomes ineligible. Leave all unchecked to accept a
+                          backlog in any semester.
+                        </span>
+                      </label>
                       <div className="flex flex-wrap gap-3 mt-1">
                         {[1, 2, 3, 4, 5, 6].map(sem => (
                           <label key={sem} className="flex items-center gap-2 cursor-pointer px-3 py-2 border border-gray-300 rounded-lg hover:bg-blue-50">

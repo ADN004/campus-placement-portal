@@ -644,7 +644,7 @@ export default function JobApplicants() {
     }
   };
 
-  const handleExportEligibleNotApplied = async () => {
+  const handleExportEligibleNotApplied = async (format = 'pdf') => {
     if (!selectedJob) {
       toast.error('Please select a job first');
       return;
@@ -652,13 +652,20 @@ export default function JobApplicants() {
     try {
       setExporting(true);
       setShowExportModal(false);
-      const loadingToast = toast.loading('Preparing PDF export of not-applied students...');
-      const response = await placementOfficerAPI.exportEligibleNotApplied(selectedJob.id);
-      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const isExcel = format === 'excel';
+      const loadingToast = toast.loading(
+        `Preparing ${isExcel ? 'Excel' : 'PDF'} export of not-applied students...`
+      );
+      const response = await placementOfficerAPI.exportEligibleNotApplied(selectedJob.id, format);
+      const blob = new Blob([response.data], {
+        type: isExcel
+          ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+          : 'application/pdf',
+      });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `eligible_not_applied_${selectedJob.job_title.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
+      link.setAttribute('download', `eligible_not_applied_${selectedJob.job_title.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.${isExcel ? 'xlsx' : 'pdf'}`);
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -992,7 +999,7 @@ export default function JobApplicants() {
           onExportExcel={() => handleExport('excel')}
           onExportPdf={() => handleExport('pdf')}
           onEnhancedExport={handleEnhancedExport}
-          onExportNotApplied={() => handleExportEligibleNotApplied()}
+          onExportNotApplied={(format) => handleExportEligibleNotApplied(format)}
           placedCount={filteredStudents.filter((s) => s.is_already_placed).length}
           barredCount={filteredStudents.filter((s) => barredReason(s)).length}
           includePlaced={includePlacedInExport}

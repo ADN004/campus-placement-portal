@@ -140,11 +140,19 @@ export function ExportOptionsModal({
         />
 
         <GroupLabel>Not-applied students</GroupLabel>
+        {/* Same list, same scope, two formats — the spreadsheet is for chasing
+            students up, the PDF for sending on. */}
+        <ExportChoice
+          icon={FileSpreadsheet}
+          title="Not-applied — Excel"
+          hint={`Eligible students who haven't applied yet${isHost ? ', all colleges' : ''}`}
+          onClick={() => onExportNotApplied('excel')}
+        />
         <ExportChoice
           icon={FileText}
           title="Not-applied — PDF"
-          hint={`Eligible students who haven't applied yet${isHost ? ', all colleges' : ''}`}
-          onClick={onExportNotApplied}
+          hint={`The same list as a printable report${isHost ? ', all colleges' : ''}`}
+          onClick={() => onExportNotApplied('pdf')}
         />
 
         {placedCount > 0 && (

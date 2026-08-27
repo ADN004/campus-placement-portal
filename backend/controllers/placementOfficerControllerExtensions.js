@@ -1055,19 +1055,99 @@ export const exportEligibleNotApplied = async (req, res) => {
     const jobTitle = job.job_title;
     const companyName = job.company_name;
 
-    const { generateEligibleNotAppliedPDF } = await import('../utils/pdfGenerator.js');
+    /*
+     * The same list, as a spreadsheet when asked for one.
+     *
+     * PDF stays the default, so every existing caller keeps working unchanged.
+     * The rows, the ordering and the columns are exactly the PDF's — this is
+     * the same export in a form an officer can sort and filter, not a second
+     * report that could drift away from the first.
+     */
+    const wantsExcel = String(req.query.format || 'pdf').toLowerCase() === 'excel';
 
     await logActivity(
       req.user.id,
       'EXPORT_ELIGIBLE_NOT_APPLIED',
-      `Exported ${students.length} eligible-not-applied students as PDF for job: ${jobTitle} (${companyName})`,
+      `Exported ${students.length} eligible-not-applied students as ${wantsExcel ? 'Excel' : 'PDF'} `
+        + `for job: ${jobTitle} (${companyName})`,
       'job',
       jobId,
-      { count: students.length, company: companyName },
+      { count: students.length, format: wantsExcel ? 'excel' : 'pdf', company: companyName },
       req
     );
 
-    return await generateEligibleNotAppliedPDF(students, { jobTitle, companyName }, res);
+    if (!wantsExcel) {
+      const { generateEligibleNotAppliedPDF } = await import('../utils/pdfGenerator.js');
+      return await generateEligibleNotAppliedPDF(students, { jobTitle, companyName }, res);
+    }
+
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('Eligible — Not Applied');
+
+    sheet.columns = [
+      { header: 'PRN', key: 'prn', width: 16 },
+      { header: 'Name', key: 'student_name', width: 28 },
+      { header: 'College', key: 'college_name', width: 34 },
+      { header: 'Region', key: 'region_name', width: 20 },
+      { header: 'Branch', key: 'branch', width: 30 },
+      { header: 'CGPA', key: 'programme_cgpa', width: 10 },
+    ];
+
+    students.forEach((student) => {
+      sheet.addRow({
+        prn: student.prn,
+        student_name: student.student_name,
+        college_name: student.college_name || '',
+        region_name: student.region_name || '',
+        branch: student.branch || '',
+        // Written as a number so the column sorts and averages as one; the PDF
+        // shows the same value as text because a page cannot be sorted.
+        programme_cgpa: student.programme_cgpa === null || student.programme_cgpa === undefined
+          ? '' : Number(student.programme_cgpa),
+      });
+    });
+
+    sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
+    sheet.views = [{ state: 'frozen', ySplit: 1 }];
+    sheet.autoFilter = { from: 'A1', to: 'F1' };
+
+    /*
+     * A per-college tally, but only when there is more than one college in the
+     * file. On a host officer's joint job the list runs to several colleges and
+     * the first question is always how many from each; on a single-college
+     * export the sheet would just restate the row count.
+     */
+    const byCollege = new Map();
+    students.forEach((student) => {
+      const name = student.college_name || 'Unknown';
+      byCollege.set(name, (byCollege.get(name) || 0) + 1);
+    });
+    if (byCollege.size > 1) {
+      const summary = workbook.addWorksheet('Summary');
+      summary.columns = [
+        { header: 'College', key: 'college', width: 40 },
+        { header: 'Eligible, not applied', key: 'count', width: 22 },
+      ];
+      [...byCollege.entries()]
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .forEach(([college, count]) => summary.addRow({ college, count }));
+      summary.addRow({ college: 'Total', count: students.length });
+      summary.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      summary.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
+      summary.getRow(summary.rowCount).font = { bold: true };
+    }
+
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename=eligible_not_applied_${jobTitle.replace(/[^a-zA-Z0-9]+/g, '_')}_${Date.now()}.xlsx`
+    );
+    await workbook.xlsx.write(res);
+    return res.end();
   } catch (error) {
     console.error('Export eligible-not-applied error:', error);
     if (!res.headersSent) {

@@ -165,7 +165,10 @@ export const placementOfficerAPI = {
   createOrUpdateJobDrive: (jobId, data) => API.post(`/placement-officer/jobs/${jobId}/drive`, data),
   getJobDrive: (jobId) => API.get(`/placement-officer/jobs/${jobId}/drive`),
   enhancedExportJobApplicants: (jobId, data) => API.post(`/placement-officer/jobs/${jobId}/applicants/enhanced-export`, data, { responseType: 'blob' }),
-  exportEligibleNotApplied: (jobId) => API.get(`/placement-officer/jobs/${jobId}/eligible-not-applied/export`, { responseType: 'blob' }),
+  // format: 'pdf' (default) or 'excel'. The server keeps PDF as the default so
+  // an older caller that passes nothing behaves exactly as before.
+  exportEligibleNotApplied: (jobId, format = 'pdf') =>
+    API.get(`/placement-officer/jobs/${jobId}/eligible-not-applied/export?format=${format}`, { responseType: 'blob' }),
 
   // PRN Range Management
   getPRNRanges: () => API.get('/placement-officer/prn-ranges'),

@@ -451,10 +451,20 @@ export default function JobEligibleStudents() {
       setShowExportDropdown(false);
       setShowExportFilters(false);
       const loadingToast = toast.loading('Preparing Excel export...');
+      /*
+       * The college filter applies here exactly as it does to the PDF.
+       *
+       * Both formats are the same list; only the container differs. An empty
+       * selection is left out rather than sent as [], because the endpoint
+       * reads an empty array as "no college filter" — which is the same thing,
+       * but saying nothing is clearer than saying nothing-shaped.
+       */
+      const selectedColleges = exportFilters.selectedColleges;
       const response = await superAdminAPI.exportJobApplicants(selectedJob.id, {
         format: 'excel',
         use_short_names: true,
         exclude_already_placed: !includePlacedInExport,
+        college_ids: selectedColleges.length > 0 ? selectedColleges : undefined,
       });
       const blob = new Blob([response.data], {
         type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -471,7 +481,11 @@ export default function JobEligibleStudents() {
       link.remove();
       window.URL.revokeObjectURL(url);
       toast.dismiss(loadingToast);
-      toast.success(`Exported ${filteredStudents.length} applicants as Excel`);
+      toast.success(
+        selectedColleges.length > 0
+          ? `Exported applicants as Excel from ${selectedColleges.length} college(s)`
+          : 'Exported applicants as Excel from every college'
+      );
     } catch (error) {
       console.error('Excel export error:', error);
       toast.error('Failed to export as Excel');
@@ -724,7 +738,11 @@ export default function JobEligibleStudents() {
                               <FileSpreadsheet size={18} className="text-green-600" />
                               <div>
                                 <div className="font-medium text-gray-900">Export as Excel</div>
-                                <div className="text-xs text-gray-500">Full applicant list, every college</div>
+                                <div className="text-xs text-gray-500">
+                                  {exportFilters.selectedColleges.length > 0
+                                    ? `Full applicant list, ${exportFilters.selectedColleges.length} selected college(s)`
+                                    : 'Full applicant list, every college'}
+                                </div>
                               </div>
                             </button>
                             <button

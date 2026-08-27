@@ -432,6 +432,54 @@ export default function JobEligibleStudents() {
     setShowExportFilters(false);
   };
 
+  /*
+   * The same applicant list as a spreadsheet.
+   *
+   * Goes through the plain export rather than the enhanced one: the enhanced
+   * route exists to let a PDF be built from chosen fields, which a spreadsheet
+   * does not need — every column is there and the reader hides what they do not
+   * want. The endpoint has accepted a format all along and defaults to excel;
+   * nothing on this page had ever called it.
+   */
+  const handleExcelExport = async () => {
+    if (filteredStudents.length === 0) {
+      toast.error('No applicants to export');
+      return;
+    }
+    try {
+      setExporting(true);
+      setShowExportDropdown(false);
+      setShowExportFilters(false);
+      const loadingToast = toast.loading('Preparing Excel export...');
+      const response = await superAdminAPI.exportJobApplicants(selectedJob.id, {
+        format: 'excel',
+        use_short_names: true,
+        exclude_already_placed: !includePlacedInExport,
+      });
+      const blob = new Blob([response.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute(
+        'download',
+        `applicants_${String(selectedJob.job_title).replace(/\s+/g, '_')}_${Date.now()}.xlsx`
+      );
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.dismiss(loadingToast);
+      toast.success(`Exported ${filteredStudents.length} applicants as Excel`);
+    } catch (error) {
+      console.error('Excel export error:', error);
+      toast.error('Failed to export as Excel');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const handlePDFExportWithFields = async ({ fields: selectedFields, includeSignature, headerLine1, headerLine2 }) => {
     try {
       setExporting(true);
@@ -670,8 +718,18 @@ export default function JobEligibleStudents() {
                           ></div>
                           <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-[110]">
                             <button
+                              onClick={handleExcelExport}
+                              className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center space-x-3 transition-colors rounded-t-lg border-b border-gray-100"
+                            >
+                              <FileSpreadsheet size={18} className="text-green-600" />
+                              <div>
+                                <div className="font-medium text-gray-900">Export as Excel</div>
+                                <div className="text-xs text-gray-500">Full applicant list, every college</div>
+                              </div>
+                            </button>
+                            <button
                               onClick={handleExport}
-                              className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center space-x-3 transition-colors rounded-lg"
+                              className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center space-x-3 transition-colors"
                             >
                               <FileText size={18} className="text-red-600" />
                               <div>

@@ -15,6 +15,7 @@ import { collegesReachedBy, collegesLosingAccess, branchesLosingAccess, eligibil
 
 // ========================================
 // HELPER FUNCTIONS
+import { normalizeBranch, NORMALIZED_BRANCH_SQL } from '../utils/branchName.js';
 // ========================================
 
 /**
@@ -2434,8 +2435,11 @@ export const getAllStudents = async (req, res) => {
     const { branch } = req.query;
     if (branch) {
       paramCount++;
-      queryText += ` AND s.branch = $${paramCount}`;
-      params.push(branch);
+      // Compared on letters and digits alone: the dropdown offers the canonical
+      // spelling while students are stored with '&' or a hyphen, so an exact
+      // match hid 1,556 of them — two branches returned nobody at all.
+      queryText += ` AND ${NORMALIZED_BRANCH_SQL('s.branch')} = $${paramCount}`;
+      params.push(normalizeBranch(branch));
     }
 
     // DOB filters
@@ -3731,8 +3735,12 @@ export const sendNotification = async (req, res) => {
           paramCount++;
           params.push(parseInt(collegeId));
           paramCount++;
-          params.push(branches);
-          branchConditions.push(`(s.college_id = $${paramCount - 1} AND s.branch = ANY($${paramCount}))`);
+          // Same normalisation as everywhere else — a notification aimed at
+          // a branch must reach the students stored under its other spelling.
+          params.push(branches.map(normalizeBranch).filter(Boolean));
+          branchConditions.push(
+            `(s.college_id = $${paramCount - 1} AND ${NORMALIZED_BRANCH_SQL('s.branch')} = ANY($${paramCount}))`
+          );
         }
       });
 
@@ -4000,8 +4008,11 @@ export const customExportStudents = async (req, res) => {
 
     // Filter by departments if specified
     if (departments && departments.length > 0) {
-      queryText += ` AND s.branch = ANY($${paramCount})`;
-      params.push(departments);
+      // Compared on letters and digits alone: the dropdown offers the canonical
+      // spelling while students are stored with '&' or a hyphen, so an exact
+      // match hid 1,556 of them — two branches returned nobody at all.
+      queryText += ` AND ${NORMALIZED_BRANCH_SQL('s.branch')} = ANY($${paramCount})`;
+      params.push(departments.map(normalizeBranch).filter(Boolean));
       paramCount++;
     }
 

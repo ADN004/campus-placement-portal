@@ -15,6 +15,7 @@ import { DAY_AWARE_COUNT_SQL } from '../utils/verificationEmailPolicy.js';
 import { TOTAL_BACKLOGS_SQL, parseMaxBacklogs } from '../utils/backlogPolicy.js';
 import { ACTIVE_STUDENT_ACCOUNT_SQL } from '../utils/notificationAudience.js';
 import { branchesLosingAccess, eligibilityTightened } from '../utils/jobAudience.js';
+import { normalizeBranch, NORMALIZED_BRANCH_SQL } from '../utils/branchName.js';
 
 // How many notification emails a bulk action sends at once. A bulk batch can
 // be 50+ students; sending strictly one at a time can outrun the proxy read
@@ -532,8 +533,11 @@ export const getStudents = async (req, res) => {
     const { branch } = req.query;
     if (branch) {
       paramCount++;
-      queryText += ` AND s.branch = $${paramCount}`;
-      params.push(branch);
+      // Compared on letters and digits alone: the dropdown offers the canonical
+      // spelling while students are stored with '&' or a hyphen, so an exact
+      // match hid 1,556 of them — two branches returned nobody at all.
+      queryText += ` AND ${NORMALIZED_BRANCH_SQL('s.branch')} = $${paramCount}`;
+      params.push(normalizeBranch(branch));
     }
 
     // DOB filters
@@ -1295,8 +1299,11 @@ export const sendNotification = async (req, res) => {
 
     // Add branch filtering if specific branches are selected
     if (target_branches && target_branches.length > 0) {
-      params.push(target_branches);
-      studentQuery += ` AND s.branch = ANY($2)`;
+      // Compared on letters and digits alone: the dropdown offers the canonical
+      // spelling while students are stored with '&' or a hyphen, so an exact
+      // match hid 1,556 of them — two branches returned nobody at all.
+      params.push(target_branches.map(normalizeBranch).filter(Boolean));
+      studentQuery += ` AND ${NORMALIZED_BRANCH_SQL('s.branch')} = ANY($2)`;
     }
 
     // Get all eligible students
@@ -1537,8 +1544,11 @@ export const exportStudents = async (req, res) => {
     // Apply branch filter
     if (branch) {
       paramCount++;
-      queryText += ` AND s.branch = $${paramCount}`;
-      params.push(branch);
+      // Compared on letters and digits alone: the dropdown offers the canonical
+      // spelling while students are stored with '&' or a hyphen, so an exact
+      // match hid 1,556 of them — two branches returned nobody at all.
+      queryText += ` AND ${NORMALIZED_BRANCH_SQL('s.branch')} = $${paramCount}`;
+      params.push(normalizeBranch(branch));
     }
 
     // Apply CGPA filter

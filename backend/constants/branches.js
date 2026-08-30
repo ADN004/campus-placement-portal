@@ -30,7 +30,7 @@ export const KERALA_POLYTECHNIC_BRANCHES = [
 
 // Standardized Short Names for Branches (for exports and posters)
 // Format: 2-4 letters (excluding brackets for Hearing Impaired variants)
-export const BRANCH_SHORT_NAMES = {
+const RAW_BRANCH_SHORT_NAMES = {
   'Architecture': 'AR',
   'Automobile Engineering': 'AE',
   'Biomedical Engineering': 'BME',
@@ -62,6 +62,38 @@ export const BRANCH_SHORT_NAMES = {
   'Tool & Die Engineering': 'TDE',  // Alternative format used in database
   'Wood and Paper Technology': 'WPT',
 };
+
+/*
+ * Looking a branch up by whatever spelling it was stored under.
+ *
+ * Every call site reads this object directly — BRANCH_SHORT_NAMES[student.branch]
+ * — and the keys are exact strings, so a student registered as "Bio-Medical
+ * Engineering" fell through to the full name while everyone around them showed
+ * a code. The map had already started collecting hand-added variants ("Tool &
+ * Die Engineering", marked "alternative format used in database"), which is the
+ * same problem being solved one spelling at a time.
+ *
+ * The object below answers exact keys exactly as it always did; only a key it
+ * does not hold is retried on letters and digits alone. Nothing that worked
+ * before changes, and no call site needs to know.
+ */
+const BRANCH_KEY = (b) =>
+  String(b ?? '').toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '');
+
+const SHORT_BY_KEY = new Map(
+  Object.entries(RAW_BRANCH_SHORT_NAMES).map(([full, short]) => [BRANCH_KEY(full), short])
+);
+
+export const BRANCH_SHORT_NAMES = new Proxy(RAW_BRANCH_SHORT_NAMES, {
+  get(target, prop, receiver) {
+    if (typeof prop === 'string' && !Object.prototype.hasOwnProperty.call(target, prop)) {
+      const viaKey = SHORT_BY_KEY.get(BRANCH_KEY(prop));
+      if (viaKey !== undefined) return viaKey;
+    }
+    return Reflect.get(target, prop, receiver);
+  },
+});
+
 
 // Helper function to get short name for a branch
 export const getBranchShortName = (branchName) => {

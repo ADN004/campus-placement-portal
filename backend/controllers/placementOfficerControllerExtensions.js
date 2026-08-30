@@ -4,6 +4,7 @@ import logActivity from '../middleware/activityLogger.js';
 import ExcelJS from 'exceljs';
 import { generateStudentPDF, generatePlacementPosterPDF, MAX_PDF_EXPORT_FIELDS } from '../utils/pdfGenerator.js';
 import { BRANCH_SHORT_NAMES } from '../constants/branches.js';
+import { normalizeBranch, NORMALIZED_BRANCH_SQL } from '../utils/branchName.js';
 import {
   sendDriveScheduleEmail,
   sendSelectionEmail,
@@ -923,17 +924,19 @@ export const exportEligibleNotApplied = async (req, res) => {
       whereClauses.push(`s.programme_cgpa >= $${params.length}`);
     }
 
-    // Branch check — normalize '&' vs 'and' since jobs store canonical form
-    // ("Electrical and Electronics Engineering") but students.branch may use '&'
+    /*
+     * Branch check, on letters and digits alone.
+     *
+     * This used to list the '&' and 'and' spellings of each branch and match
+     * the raw column against them, which caught that one difference and no
+     * other. "Bio-Medical Engineering" against "Biomedical Engineering" slipped
+     * straight through it. Both sides now go through the same normalisation the
+     * eligibility check uses, so this export and the student's own screen agree
+     * about who qualifies.
+     */
     if (job.allowed_branches && Array.isArray(job.allowed_branches) && job.allowed_branches.length > 0) {
-      const normalizedBranches = [];
-      for (const b of job.allowed_branches) {
-        normalizedBranches.push(b);
-        if (/ and /i.test(b)) normalizedBranches.push(b.replace(/ and /gi, ' & '));
-        else if (/ & /.test(b)) normalizedBranches.push(b.replace(/ & /g, ' and '));
-      }
-      params.push(normalizedBranches);
-      whereClauses.push(`s.branch = ANY($${params.length})`);
+      params.push(job.allowed_branches.map(normalizeBranch).filter(Boolean));
+      whereClauses.push(`${NORMALIZED_BRANCH_SQL('s.branch')} = ANY($${params.length})`);
     }
 
     // Height check

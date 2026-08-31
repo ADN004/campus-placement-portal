@@ -170,8 +170,42 @@ export const getEligibleJobs = async (req, res) => {
        LEFT JOIN job_drives jd ON jd.job_id = j.id
        WHERE j.is_deleted IS NOT TRUE
          AND (j.is_active IS NOT FALSE OR ja.id IS NOT NULL)
+         /*
+          * Aimed at this student's college, or not shown at all.
+          *
+          * Every job in the system used to be sent to every student, with
+          * eligibility worked out afterwards in JavaScript. A job an officer
+          * posted for their own college was therefore delivered to all sixty
+          * colleges' students, and while the screen marked it ineligible, the
+          * "Missed" tab filters on the deadline alone — so once it expired it
+          * appeared to everyone as an opportunity they had missed, for a job
+          * their college was never part of.
+          *
+          * Targeting decides delivery; the criteria do not. A student still
+          * receives jobs their college was included in but they do not qualify
+          * for, which is what the "Check eligibility" tab is for — being told
+          * you need half a grade more is useful. Being shown another college's
+          * drive is not.
+          *
+          * The rule is getJobs', which is what the officer's own list uses.
+          * Anything already applied to is kept regardless, so a job whose
+          * targeting changed afterwards does not take the student's own
+          * application off their screen.
+          */
+         AND (
+           ja.id IS NOT NULL
+           OR j.target_type = 'all'
+           OR (j.target_type = 'region' AND j.target_regions IS NOT NULL
+               AND j.target_regions::jsonb @> $2::jsonb)
+           OR (j.target_type = 'college' AND j.target_colleges IS NOT NULL
+               AND j.target_colleges::jsonb @> $3::jsonb)
+           OR (j.target_type = 'specific' AND (
+                 (j.target_regions IS NOT NULL AND j.target_regions::jsonb @> $2::jsonb)
+              OR (j.target_colleges IS NOT NULL AND j.target_colleges::jsonb @> $3::jsonb)
+           ))
+         )
        ORDER BY j.created_at DESC`,
-      [student.id]
+      [student.id, JSON.stringify([student.region_id]), JSON.stringify([student.college_id])]
     );
 
     // Add eligibility status to each job (for display purposes only)

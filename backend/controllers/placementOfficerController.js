@@ -1,3 +1,4 @@
+import bcrypt from 'bcrypt';
 import { query, transaction } from '../config/database.js';
 import logActivity from '../middleware/activityLogger.js';
 import { deleteImage, deleteFolderOnly, extractFolderPath } from '../config/cloudinary.js';
@@ -1892,6 +1893,95 @@ export const getJobs = async (req, res) => {
       message: 'Error fetching jobs',
       error: error.message,
     });
+  }
+};
+
+// @desc    Reset a student's password to the default, for their own college
+// @route   PUT /api/placement-officer/students/:id/reset-password
+// @access  Private (Placement Officer)
+/**
+ * The way back in when email is not working.
+ *
+ * A student who has changed their password and cannot receive the reset mail
+ * had no route at all: forgot-password was the only mechanism, an officer
+ * could not help, and neither could the Super Admin. Six days of refused SMTP
+ * in August left students in exactly that position with nothing anyone could
+ * do. This is the human override for it.
+ *
+ * Scoped to the officer's own college, checked against the database rather
+ * than trusted from the request, so an officer cannot reset a student
+ * elsewhere by changing the id in the URL.
+ *
+ * Three things change together, and they belong together:
+ *   - the password becomes the default again
+ *   - using_default_password goes back to true, so the student is prompted to
+ *     change it and the sign-in page's hint is true again for them
+ *   - tokens_valid_from moves to now, which ends any session already open on
+ *     that account — a credential reset that leaves an existing session alive
+ *     is not a reset
+ *
+ * Logged with the officer's own id: handing out a known password is a real
+ * act, and until the student changes it anyone who knows their PRN can sign
+ * in, so there has to be a record of who did it and when.
+ */
+export const resetStudentPassword = async (req, res) => {
+  try {
+    const studentId = req.params.id;
+
+    const officerResult = await query(
+      'SELECT id, college_id FROM placement_officers WHERE user_id = $1',
+      [req.user.id]
+    );
+    if (officerResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Placement officer profile not found' });
+    }
+    const officer = officerResult.rows[0];
+
+    const studentResult = await query(
+      `SELECT s.id, s.user_id, s.prn, s.student_name, s.college_id, s.registration_status
+         FROM students s WHERE s.id = $1`,
+      [studentId]
+    );
+    if (studentResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Student not found' });
+    }
+    const student = studentResult.rows[0];
+
+    if (student.college_id !== officer.college_id) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only reset the password of a student from your own college',
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash('123', await bcrypt.genSalt(10));
+    await query(
+      `UPDATE users
+          SET password_hash = $1,
+              using_default_password = TRUE,
+              tokens_valid_from = date_trunc('second', NOW())
+        WHERE id = $2`,
+      [hashedPassword, student.user_id]
+    );
+
+    await logActivity(
+      req.user.id,
+      'RESET_STUDENT_PASSWORD',
+      `Reset password to default for student ${student.student_name} (PRN ${student.prn})`,
+      'student',
+      studentId,
+      { prn: student.prn, college_id: student.college_id },
+      req
+    );
+
+    res.status(200).json({
+      success: true,
+      message: `Password reset to 123 for ${student.student_name}. Ask them to sign in with their PRN and change it straight away.`,
+      data: { prn: student.prn, student_name: student.student_name },
+    });
+  } catch (error) {
+    console.error('Reset student password error:', error);
+    res.status(500).json({ success: false, message: 'Error resetting the student password' });
   }
 };
 

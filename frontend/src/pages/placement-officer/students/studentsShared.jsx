@@ -1,6 +1,6 @@
 import {
   Lock, Unlock, Search, Filter, ChevronDown, ChevronUp, Download, Settings,
-  Eye, Check, X, Ban, Shield, MailWarning, FileEdit,
+  Eye, Check, X, Ban, Shield, MailWarning, FileEdit, KeyRound,
 } from 'lucide-react';
 import {
   formatDate, Panel, PanelHeading, PageHeading,
@@ -376,6 +376,7 @@ export function StudentActions({
   onEmailFix,
   onCorrection,
   onBlacklist,
+  onResetPassword,
   onWhitelist,
 }) {
   const isPending = student.registration_status === 'pending' && !student.is_blacklisted;
@@ -445,6 +446,14 @@ export function StudentActions({
       tone: 'danger',
       hidden: !isApproved,
       onSelect: () => onBlacklist(student),
+    },
+    {
+      key: 'reset-password',
+      label: 'Reset password',
+      description: `Set ${name} back to the default password`,
+      icon: KeyRound,
+      hidden: !isApproved,
+      onSelect: () => onResetPassword(student),
     },
     {
       key: 'whitelist',

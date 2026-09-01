@@ -18,6 +18,7 @@ import {
   bulkRejectStudents,
   blacklistStudent,
   requestWhitelist,
+  resetStudentPassword,
   sendNotification,
   exportStudents,
   getJobs,
@@ -109,6 +110,9 @@ router.put('/students/:id/blacklist', blacklistStudent);
 router.post('/students/:id/request-correction', requestStudentCorrection);
 router.put('/students/:id/email', updateStudentEmailByStaff);
 router.post('/students/:id/whitelist-request', requestWhitelist);
+// The way back in for a student who cannot receive the reset email. Scoped to
+// the officer's own college inside the handler, not by the route.
+router.put('/students/:id/reset-password', resetStudentPassword);
 router.get('/branches', getBranchesForNotifications); // Get branches for notifications
 router.get('/districts', getAvailableDistricts);
 router.post('/send-notification', sendNotification);

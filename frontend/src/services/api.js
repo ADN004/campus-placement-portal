@@ -131,6 +131,9 @@ export const placementOfficerAPI = {
   requestStudentCorrection: (studentId, note, requirePhoto) => API.post(`/placement-officer/students/${studentId}/request-correction`, { note, require_photo: requirePhoto }),
   updateStudentEmail: (studentId, email) => API.put(`/placement-officer/students/${studentId}/email`, { email }),
   requestWhitelist: (studentId, reason) => API.post(`/placement-officer/students/${studentId}/whitelist-request`, { reason }),
+  // Sets the student back to the default password. Officer's own college only,
+  // enforced on the server.
+  resetStudentPassword: (studentId) => API.put(`/placement-officer/students/${studentId}/reset-password`),
   sendNotification: (data) => API.post('/placement-officer/send-notification', data),
   getSentNotifications: () => API.get('/placement-officer/sent-notifications'),
   // The officer's own inbox — what the system has told them. Distinct from the

@@ -44,6 +44,25 @@ const CONFIRM_COPY = {
     reason: REJECT_REASON,
     body: <p>They will not be able to apply for jobs. They can register again once the problem is fixed.</p>,
   }),
+  resetPassword: ({ studentName }) => ({
+    title: `Reset the password for ${studentName || 'this student'}?`,
+    tone: 'danger',
+    confirmLabel: 'Reset to 123',
+    busyLabel: 'Resetting…',
+    body: (
+      <>
+        <p>
+          Their password becomes <strong>123</strong> and any session they have open
+          is signed out. They sign in with their PRN and are prompted to change it.
+        </p>
+        <p className="mt-2">
+          Until they do, anyone who knows their PRN can sign in as them — so tell
+          them straight away, and only do this when they cannot receive the reset
+          email themselves.
+        </p>
+      </>
+    ),
+  }),
   bulkApprove: ({ count }) => ({
     title: `Approve ${count} student${count === 1 ? '' : 's'}?`,
     tone: 'positive',
@@ -642,6 +661,14 @@ export default function ManageStudents() {
         await doBulkApprove();
       } else if (kind === 'bulkReject') {
         await doBulkReject(reason);
+      } else if (kind === 'resetPassword') {
+        try {
+          const response = await placementOfficerAPI.resetStudentPassword(studentId);
+          toast.success(response.data.message, { duration: 9000 });
+          fetchStudents();
+        } catch (error) {
+          toast.error(error.response?.data?.message || 'Could not reset that password');
+        }
       }
       setConfirmAction(null);
     } finally {
@@ -1107,6 +1134,8 @@ export default function ManageStudents() {
     onEmailFix: setEmailFixStudent,
     onCorrection: openCorrectionModal,
     onBlacklist: handleBlacklist,
+    onResetPassword: (student) =>
+      setConfirmAction({ kind: 'resetPassword', studentId: student.id, studentName: student.student_name }),
     onWhitelist: handleRequestWhitelist,
   };
 

@@ -12,6 +12,7 @@ import {
 } from '../config/emailService.js';
 import { prnMatchesRange } from '../utils/prnExceptions.js';
 import { driveMessage, driveForStudent } from '../utils/driveSchedule.js';
+import { normalizeBranch, NORMALIZED_BRANCH_SQL } from '../utils/branchName.js';
 
 // ========================================
 // BULK PHOTO DELETION
@@ -584,8 +585,10 @@ export const enhancedCustomExport = async (req, res) => {
 
     if (branches && branches.length > 0) {
       paramCount++;
-      queryText += ` AND s.branch = ANY($${paramCount})`;
-      params.push(branches);
+      // Normalised like every other branch comparison: the caller sends the
+      // canonical spelling and students are stored under whichever they used.
+      queryText += ` AND ${NORMALIZED_BRANCH_SQL('s.branch')} = ANY($${paramCount})`;
+      params.push(branches.map(normalizeBranch).filter(Boolean));
     }
 
     // Filter by minimum CGPA
@@ -1176,8 +1179,10 @@ export const exportJobApplicants = async (req, res) => {
     // Add branch filter if specified
     if (branches && branches.length > 0) {
       paramCount++;
-      queryText += ` AND s.branch = ANY($${paramCount})`;
-      params.push(branches);
+      // Normalised like every other branch comparison: the caller sends the
+      // canonical spelling and students are stored under whichever they used.
+      queryText += ` AND ${NORMALIZED_BRANCH_SQL('s.branch')} = ANY($${paramCount})`;
+      params.push(branches.map(normalizeBranch).filter(Boolean));
     }
 
     // Exclude already-placed students if requested
@@ -2014,8 +2019,10 @@ export const enhancedExportJobApplicants = async (req, res) => {
     }
 
     if (branches && branches.length > 0) {
-      whereConditions.push(`s.branch = ANY($${paramIndex})`);
-      params.push(branches);
+      // Normalised like every other branch comparison: the caller sends the
+      // canonical spelling and students are stored under whichever they used.
+      whereConditions.push(`${NORMALIZED_BRANCH_SQL('s.branch')} = ANY($${paramIndex})`);
+      params.push(branches.map(normalizeBranch).filter(Boolean));
       paramIndex++;
     }
 

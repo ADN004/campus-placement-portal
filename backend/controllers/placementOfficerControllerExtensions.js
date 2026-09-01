@@ -409,8 +409,10 @@ export const customExportStudents = async (req, res) => {
     // Filter by branches (from custom export modal)
     if (branches && branches.length > 0) {
       paramCount++;
-      queryText += ` AND s.branch = ANY($${paramCount})`;
-      params.push(branches);
+      // Normalised like every other branch comparison: the caller sends the
+      // canonical spelling and students are stored under whichever they used.
+      queryText += ` AND ${NORMALIZED_BRANCH_SQL('s.branch')} = ANY($${paramCount})`;
+      params.push(branches.map(normalizeBranch).filter(Boolean));
     }
 
     // Filter by single branch (from page-level filter)
@@ -2150,8 +2152,10 @@ export const enhancedExportJobApplicants = async (req, res) => {
     // isHost with no college_ids = all target colleges, no college restriction needed
 
     if (branches && branches.length > 0) {
-      whereConditions.push(`s.branch = ANY($${paramIndex})`);
-      params.push(branches);
+      // Normalised like every other branch comparison: the caller sends the
+      // canonical spelling and students are stored under whichever they used.
+      whereConditions.push(`${NORMALIZED_BRANCH_SQL('s.branch')} = ANY($${paramIndex})`);
+      params.push(branches.map(normalizeBranch).filter(Boolean));
       paramIndex++;
     }
 

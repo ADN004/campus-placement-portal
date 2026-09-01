@@ -24,7 +24,7 @@ import {
  * The two `alert()` calls become inline messages beside the thing that is
  * wrong, rather than a browser dialog that says it somewhere else.
  */
-const PDFFieldSelector = ({ onExport, onClose, applicantCount, exportType = 'enhanced', variant }) => {
+const PDFFieldSelector = ({ onExport, onClose, applicantCount, exportType = 'enhanced', variant, customFields = [] }) => {
   const [headerLine1, setHeaderLine1] = useState('');
   const [headerLine2, setHeaderLine2] = useState('');
   const [selectedFields, setSelectedFields] = useState([
@@ -35,6 +35,18 @@ const PDFFieldSelector = ({ onExport, onClose, applicantCount, exportType = 'enh
     'application_status'
   ]);
   const [includeSignature, setIncludeSignature] = useState(true);
+
+  /*
+   * The job's own questions, offered beside the fixed fields.
+   *
+   * These differ from one job to the next — that is what they are for — so they
+   * come from the job rather than being listed here. The keys are prefixed to
+   * match what the export writes onto each applicant row: a custom field named
+   * "branch" would otherwise collide with the real branch column.
+   */
+  const customOptions = (customFields || [])
+    .filter((f) => f && f.field_name)
+    .map((f) => ({ key: `custom_${f.field_name}`, label: f.field_label || f.field_name }));
 
   const availableFields = [
     { key: 'prn', label: 'PRN' },
@@ -58,7 +70,7 @@ const PDFFieldSelector = ({ onExport, onClose, applicantCount, exportType = 'enh
     { key: 'has_pan_card', label: 'PAN Card' },
     { key: 'height_cm', label: 'Height (cm)' },
     { key: 'weight_kg', label: 'Weight (kg)' }
-  ];
+  ].concat(customOptions);
 
   const toggleField = (fieldKey) => {
     if (selectedFields.includes(fieldKey)) {

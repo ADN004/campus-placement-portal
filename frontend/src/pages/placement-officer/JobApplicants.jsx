@@ -41,6 +41,8 @@ export default function JobApplicants() {
   const [loading, setLoading] = useState(true);
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [isHost, setIsHost] = useState(false);
+  // The selected job's own custom questions, which arrive with its applicants.
+  const [jobCustomFields, setJobCustomFields] = useState([]);
   const [showExportModal, setShowExportModal] = useState(false);
   const [exporting, setExporting] = useState(false);
 
@@ -154,6 +156,7 @@ export default function JobApplicants() {
       const response = await placementOfficerAPI.getJobApplicants(selectedJob.id);
       setStudents(response.data.data || []);
       setIsHost(response.data.is_host || false);
+      setJobCustomFields(response.data.custom_fields || []);
     } catch (error) {
       toast.error('Failed to load job applicants');
       console.error('Failed to load applicants:', error);
@@ -193,6 +196,7 @@ export default function JobApplicants() {
       ]);
       setStudents(applicantsRes.data.data || []);
       setIsHost(applicantsRes.data.is_host || false);
+      setJobCustomFields(applicantsRes.data.custom_fields || []);
       setPlacementStats(statsRes.data.data);
     } catch (e) {
       // Silently fail on auto-refresh
@@ -961,6 +965,7 @@ export default function JobApplicants() {
 
       {showPDFFieldSelector && (
         <PDFFieldSelector
+          customFields={jobCustomFields}
           onExport={handlePDFExportWithFields}
           onClose={() => setShowPDFFieldSelector(false)}
           applicantCount={

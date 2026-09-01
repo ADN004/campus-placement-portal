@@ -2853,6 +2853,33 @@ export const deleteStudent = async (req, res) => {
   }
 };
 
+/**
+ * The custom questions this job asks, if any.
+ *
+ * Every job can define its own — "10th Maths %", "Aadhaar Number" — and the
+ * answers are collected per application. The export field picker has to offer
+ * whichever ones *this* job defines, so they travel with the applicant list
+ * rather than needing a request of their own.
+ *
+ * Returns an empty array when the job has no template or no custom questions,
+ * which is the common case; the picker then shows only its fixed fields.
+ */
+const jobCustomFields = async (jobId) => {
+  try {
+    const result = await query(
+      'SELECT custom_fields FROM job_requirement_templates WHERE job_id = $1',
+      [jobId]
+    );
+    const raw = result.rows[0]?.custom_fields;
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    return Array.isArray(parsed) ? parsed.filter((f) => f && f.field_name) : [];
+  } catch (error) {
+    // A missing template is not a reason to fail the applicant list.
+    console.error('Could not read custom fields for job', jobId, error.message);
+    return [];
+  }
+};
+
 // @desc    Get students who have applied to a specific job (across all colleges)
 // @route   GET /api/super-admin/jobs/:jobId/applicants
 // @access  Private (Super Admin)
@@ -2913,6 +2940,7 @@ export const getJobApplicants = async (req, res) => {
       success: true,
       count: applicants.length,
       data: applicants,
+      custom_fields: await jobCustomFields(jobId),
     });
   } catch (error) {
     console.error('Get job applicants error:', error);

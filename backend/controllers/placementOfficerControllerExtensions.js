@@ -16,6 +16,62 @@ import { driveMessage, hasDrive, driveForStudent } from '../utils/driveSchedule.
 import { TOTAL_BACKLOGS_SQL, parseMaxBacklogs } from '../utils/backlogPolicy.js';
 import { validateImageFormat } from '../utils/photoValidation.js';
 
+/*
+ * A job's own extra questions — "10th Maths %", "Aadhaar Number", whatever that
+ * company asked for. They are set per job, so every export has to look them up
+ * for the job in hand rather than work from a fixed list.
+ *
+ * The prefix keeps them from colliding with a real column of the same name.
+ */
+const CUSTOM_KEY = (fieldName) => `custom_${fieldName}`;
+
+const readCustomFields = async (jobId) => {
+  try {
+    const r = await query('SELECT custom_fields FROM job_requirement_templates WHERE job_id = $1', [jobId]);
+    const raw = r.rows[0]?.custom_fields;
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    return Array.isArray(parsed) ? parsed.filter((f) => f && f.field_name) : [];
+  } catch (error) {
+    // An export is worth more than the extra columns: fall back to none.
+    console.error('Could not read custom fields for job', jobId, error.message);
+    return [];
+  }
+};
+
+/** Puts each applicant's answers onto their row under the prefixed keys. */
+const attachCustomAnswers = (applicants, customFields) => {
+  if (customFields.length === 0) return applicants;
+  return applicants.map((a) => {
+    let answers = {};
+    try {
+      const raw = a.custom_field_responses;
+      answers = (typeof raw === 'string' ? JSON.parse(raw || '{}') : raw) || {};
+    } catch {
+      answers = {};
+    }
+    const flat = {};
+    customFields.forEach((f) => {
+      const v = answers[f.field_name];
+      flat[CUSTOM_KEY(f.field_name)] = v === undefined || v === null ? '' : v;
+    });
+    return { ...a, ...flat };
+  });
+};
+
+/** The custom cells for one row, for sheets that list their keys explicitly. */
+const customCells = (applicant, customFields) =>
+  Object.fromEntries(
+    customFields.map((f) => [CUSTOM_KEY(f.field_name), applicant[CUSTOM_KEY(f.field_name)] ?? ''])
+  );
+
+/** Column definitions for this job's questions, in the order they were set. */
+const customColumnsFor = (customFields) =>
+  customFields.map((f) => ({
+    header: f.field_label || f.field_name,
+    key: CUSTOM_KEY(f.field_name),
+    width: 22,
+  }));
+
 // ========================================
 // CONSTANTS
 // ========================================
@@ -718,12 +774,14 @@ export const exportJobApplicants = async (req, res) => {
               c.college_name,
               ja.applied_date,
               j.job_title, j.company_name,
-              ep.height_cm, ep.weight_kg, ep.sslc_marks, ep.twelfth_marks
+              ep.height_cm, ep.weight_kg, ep.sslc_marks, ep.twelfth_marks,
+              jae.custom_field_responses
        FROM students s
        JOIN job_applications ja ON s.id = ja.student_id
        JOIN jobs j ON ja.job_id = j.id
        LEFT JOIN colleges c ON s.college_id = c.id
        LEFT JOIN student_extended_profiles ep ON s.id = ep.student_id
+       LEFT JOIN job_applications_extended jae ON jae.application_id = ja.id
        WHERE ja.job_id = $1
          AND s.college_id = $2
          AND s.registration_status = 'approved'
@@ -733,7 +791,7 @@ export const exportJobApplicants = async (req, res) => {
       [jobId, collegeId]
     );
 
-    const applicants = applicantsResult.rows;
+    let applicants = applicantsResult.rows;
 
     if (applicants.length === 0) {
       return res.status(404).json({
@@ -744,6 +802,15 @@ export const exportJobApplicants = async (req, res) => {
 
     const jobTitle = applicants[0].job_title;
     const companyName = applicants[0].company_name;
+
+    /*
+     * This job's own questions, and the answers, ready for the sheet.
+     *
+     * Loaded per export because they differ from one job to the next — that is
+     * the point of them — so nothing here can be a fixed list.
+     */
+    const customFields = await readCustomFields(jobId);
+    applicants = attachCustomAnswers(applicants, customFields);
 
     // Generate PDF if requested
     if (format === 'pdf') {
@@ -779,6 +846,8 @@ export const exportJobApplicants = async (req, res) => {
       { header: 'Applied Date', key: 'applied_date', width: 15 },
       { header: 'Job Title', key: 'job_title', width: 25 },
       { header: 'Company Name', key: 'company_name', width: 25 },
+      // This job's own questions, last so the fixed columns keep their order.
+      ...customColumnsFor(customFields),
     ];
 
     // Add rows
@@ -795,6 +864,7 @@ export const exportJobApplicants = async (req, res) => {
         applied_date: new Date(applicant.applied_date).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' }),
         job_title: jobTitle,
         company_name: companyName,
+        ...customCells(applicant, customFields),
       });
     });
 
@@ -2244,6 +2314,7 @@ export const enhancedExportJobApplicants = async (req, res) => {
         s.programme_cgpa, s.backlog_count, s.gender,
         ja.applied_date, ja.application_status,
         j.job_title, j.company_name,
+        jae.custom_field_responses,
         sep.sslc_marks, sep.sslc_year, sep.sslc_board,
         sep.twelfth_marks, sep.twelfth_year, sep.twelfth_board,
         sep.district, sep.father_name, sep.mother_name,
@@ -2260,12 +2331,13 @@ export const enhancedExportJobApplicants = async (req, res) => {
       JOIN colleges c ON s.college_id = c.id
       JOIN regions r ON c.region_id = r.id
       LEFT JOIN student_extended_profiles sep ON s.id = sep.student_id
+       LEFT JOIN job_applications_extended jae ON jae.application_id = ja.id
       WHERE ${whereClause}
       ORDER BY s.branch ASC, s.prn ASC`,
       params
     );
 
-    const applicants = applicantsResult.rows;
+    let applicants = applicantsResult.rows;
 
     if (applicants.length === 0) {
       return res.status(404).json({
@@ -2280,6 +2352,15 @@ export const enhancedExportJobApplicants = async (req, res) => {
       [jobId]
     );
     const { job_title: jobTitle, company_name: companyName } = jobResult.rows[0];
+
+    /*
+     * This job's own questions, and the answers, ready for both formats.
+     *
+     * Loaded per export because they differ from one job to the next — that is
+     * the point of them — so nothing here can be a fixed list.
+     */
+    const customFields = await readCustomFields(jobId);
+    applicants = attachCustomAnswers(applicants, customFields);
 
     // Handle PDF export with custom fields
     if (format === 'pdf') {
@@ -2306,6 +2387,11 @@ export const enhancedExportJobApplicants = async (req, res) => {
 
       return generateStudentPDF(normalizedApplicants, {
         selectedFields,
+        // Custom keys are not in the generator's own map — it would otherwise
+        // print a column headed CUSTOM_10TH_MATHS.
+        fieldLabels: Object.fromEntries(
+          customFields.map((f) => [CUSTOM_KEY(f.field_name), f.field_label || f.field_name])
+        ),
         headerLine1: header_line1 || jobTitle,
         headerLine2: header_line2 || null,
         includeSignature: include_signature === true,
@@ -2347,6 +2433,8 @@ export const enhancedExportJobApplicants = async (req, res) => {
       { header: 'Package (LPA)', key: 'placement_package', width: 12 },
       { header: 'Joining Date', key: 'joining_date', width: 12 },
       { header: 'Location', key: 'placement_location', width: 20 },
+      // This job's own questions, last so the fixed columns keep their order.
+      ...customColumnsFor(customFields),
     ];
 
     // Style header row

@@ -72,6 +72,8 @@ export default function JobEligibleStudents() {
   const [pdfExportType, setPdfExportType] = useState('basic'); // 'basic' or 'enhanced'
   const [showManualAddModal, setShowManualAddModal] = useState(false);
   const [includePlacedInExport, setIncludePlacedInExport] = useState(false);
+  // The selected job's own custom questions, which arrive with its applicants.
+  const [jobCustomFields, setJobCustomFields] = useState([]);
 
   useEffect(() => {
     fetchJobs();
@@ -141,6 +143,7 @@ export default function JobEligibleStudents() {
       const response = await superAdminAPI.getJobApplicants(selectedJob.id);
       // These are students who have APPLIED to this job across all colleges
       setStudents(response.data.data || []);
+      setJobCustomFields(response.data.custom_fields || []);
     } catch (error) {
       toast.error('Failed to load job applicants');
       console.error('Failed to load applicants:', error);
@@ -1577,6 +1580,7 @@ export default function JobEligibleStudents() {
 
       {showPDFFieldSelector && (
         <PDFFieldSelector
+          customFields={jobCustomFields}
           onExport={handlePDFExportWithFields}
           onClose={() => setShowPDFFieldSelector(false)}
           applicantCount={

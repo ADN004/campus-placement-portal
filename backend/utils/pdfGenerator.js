@@ -214,7 +214,7 @@ const DEFAULT_FIELDS = [
  * @param {Array} students - Array of student data for content-based sizing
  * @returns {Object} Column widths mapping
  */
-const calculateColumnWidths = (fields, pageWidth, hasSignature, hasSlNo, useShortNames = false, students = []) => {
+const calculateColumnWidths = (fields, pageWidth, hasSignature, hasSlNo, useShortNames = false, students = [], fieldLabels = {}) => {
   // Adjust signature and SL NO width based on available space
   const numFields = fields.length + (hasSignature ? 1 : 0) + (hasSlNo ? 1 : 0);
 
@@ -300,7 +300,7 @@ const calculateColumnWidths = (fields, pageWidth, hasSignature, hasSlNo, useShor
       // "CGPA"), so a column only needs its longest single header WORD —
       // sizing by the full header title is what starved the name columns
       const headerWordWidth = Math.max(
-        ...(fieldDisplayNames[field] || field).split(/\s+/).map(w => w.length)
+        ...(fieldLabels[field] || fieldDisplayNames[field] || field).split(/\s+/).map(w => w.length)
       ) * charWidth * 1.1;
 
       const contentWidth = maxLength * charWidth;
@@ -494,7 +494,7 @@ const drawCollegeRow = (doc, collegeName, tableWidth, startX, startY) => {
  * @param {Number} startY - Starting Y position
  * @returns {Number} Y position after drawing headers
  */
-const drawTableHeaders = (doc, fields, columnWidths, hasSignature, hasSlNo, startY) => {
+const drawTableHeaders = (doc, fields, columnWidths, hasSignature, hasSlNo, startY, fieldLabels = {}) => {
   const margin = doc.page.margins.left || 40;
   let currentX = margin;
   const headerHeight = 30;
@@ -544,7 +544,7 @@ const drawTableHeaders = (doc, fields, columnWidths, hasSignature, hasSlNo, star
 
   // Field header text
   fields.forEach(field => {
-    const displayName = fieldDisplayNames[field] || field.toUpperCase();
+    const displayName = fieldLabels[field] || fieldDisplayNames[field] || field.toUpperCase();
     doc.text(displayName, currentX + 2, startY + 10, {
       width: columnWidths[field] - 4,
       align: 'center',
@@ -798,6 +798,13 @@ export const generateStudentPDF = async (students, options, res) => {
   try {
     const {
       selectedFields,
+      /*
+       * Labels for keys the map below does not know: a job's own custom
+       * questions, whose names differ from one job to the next and so cannot
+       * be listed here. Without this a column headed "10th Maths %" would
+       * print as CUSTOM_10TH_MATHS, which is the fallback for an unknown key.
+       */
+      fieldLabels = {},
       collegeName,
       companyName,
       driveDate,
@@ -865,7 +872,7 @@ export const generateStudentPDF = async (students, options, res) => {
 
     // Calculate column widths based on actual content
     const hasSlNo = true;
-    const columnWidths = calculateColumnWidths(fields, pageWidth, includeSignature, hasSlNo, useShortNames, students);
+    const columnWidths = calculateColumnWidths(fields, pageWidth, includeSignature, hasSlNo, useShortNames, students, fieldLabels);
 
     // Validate column widths don't exceed page width
     const totalWidth = Object.values(columnWidths).reduce((sum, w) => sum + w, 0);
@@ -924,7 +931,7 @@ export const generateStudentPDF = async (students, options, res) => {
     // Draw table headers only if not separating colleges
     // (If separating colleges, headers will be drawn for each college section)
     if (!separateColleges) {
-      currentY = drawTableHeaders(doc, fields, columnWidths, includeSignature, hasSlNo, currentY);
+      currentY = drawTableHeaders(doc, fields, columnWidths, includeSignature, hasSlNo, currentY, fieldLabels);
     }
 
     // Track page and row number
@@ -958,7 +965,7 @@ export const generateStudentPDF = async (students, options, res) => {
         currentY = drawCollegeRow(doc, currentCollege, tableWidth, margin, currentY);
 
         // Draw table headers for this college section
-        currentY = drawTableHeaders(doc, fields, columnWidths, includeSignature, hasSlNo, currentY);
+        currentY = drawTableHeaders(doc, fields, columnWidths, includeSignature, hasSlNo, currentY, fieldLabels);
       }
 
       // Check if we need a new page due to space
@@ -968,7 +975,7 @@ export const generateStudentPDF = async (students, options, res) => {
 
         // Only draw table headers on new pages (no college header)
         currentY = 50; // Start from top margin
-        currentY = drawTableHeaders(doc, fields, columnWidths, includeSignature, hasSlNo, currentY);
+        currentY = drawTableHeaders(doc, fields, columnWidths, includeSignature, hasSlNo, currentY, fieldLabels);
       }
 
       // Draw row

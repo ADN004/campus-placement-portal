@@ -1,6 +1,6 @@
 import { Search, Download, ChevronRight } from 'lucide-react';
-import useLongList from '../../../hooks/useLongList';
-import { ShowMore } from '../../../components/officer/LongList';
+import usePagedList from '../../../hooks/usePagedList';
+import Pagination from '../../../components/officer/Pagination';
 import {
   PageHeading, Panel, EmptyState, FIELD_CLASS, formatDate,
 } from '../../../components/officer/OfficerUI';
@@ -23,10 +23,17 @@ export default function JobListPage({
   const columns = layout === 'desktop' ? 2 : 1;
   const grid = columns === 2 ? 'sm:grid-cols-2' : '';
 
-  // Every job ever published to this college stays visible here, so the grid
-  // grows with the college's history. The search above narrows it; this bounds
-  // what is left. 24 divides evenly into both column counts.
-  const jobWindow = useLongList(jobs, { step: 24 });
+  /*
+   * Every job ever published to this college stays visible here, so the grid
+   * grows with the college's history and never stops. The search above narrows
+   * it; the pager bounds what is left.
+   *
+   * 24 rather than 25 because it divides evenly into both column counts, so a
+   * page never ends with a single orphan card beside a gap. Typing in the
+   * search box starts again at the first page — a result you have not seen
+   * should open at its top, not wherever the last one happened to be.
+   */
+  const jobPage = usePagedList(jobs, { pageSize: 24, resetKey: (searchQuery || '').trim().toLowerCase() });
 
   return (
     <div className={layout === 'mobile' ? 'pb-2' : undefined}>
@@ -64,10 +71,10 @@ export default function JobListPage({
         </Panel>
       ) : (
         <div
-          className={`grid grid-cols-1 ${grid} gap-px bg-spc-line
-            border border-spc-line-strong rounded-spc-panel overflow-hidden`}
+          className={`grid grid-cols-1 ${grid} gap-px bg-spc-line border border-spc-line-strong
+            overflow-hidden ${jobPage.totalPages > 1 ? 'rounded-t-spc-panel border-b-0' : 'rounded-spc-panel'}`}
         >
-          {jobWindow.visible.map((job) => (
+          {jobPage.visible.map((job) => (
             <div key={job.id} className="relative bg-spc-surface hover:bg-spc-surface-2 transition-colors">
               {/* The whole tile opens the job. The PDF button sits above it and
                   stops the click, as it did on the old picker. */}
@@ -123,9 +130,20 @@ export default function JobListPage({
         </div>
       )}
 
-      {jobWindow.hasMore && (
-        <div className="mt-4">
-          <ShowMore onClick={jobWindow.showMore} remaining={jobWindow.remaining} noun="job" />
+      {/* The foot of the same panel. Rendered only when it has something to
+          say, so a college with one page of drives sees no empty strip. */}
+      {jobPage.totalPages > 1 && (
+        <div className="border border-spc-line-strong border-t-0 rounded-b-spc-panel overflow-hidden">
+          <Pagination
+            currentPage={jobPage.page}
+            totalPages={jobPage.totalPages}
+            pageSize={jobPage.pageSize}
+            total={jobPage.total}
+            onPageChange={jobPage.setPage}
+            onPageSizeChange={(e) => jobPage.setPageSize(Number(e.target.value))}
+            label="Jobs"
+            sizes={[24, 48, 96, 192]}
+          />
         </div>
       )}
     </div>

@@ -25,6 +25,11 @@ export default function Pagination({
   onPageChange,
   onPageSizeChange,
   label = 'rows',
+  /*
+   * Tables take the default. A card grid passes its own, so every page fills
+   * whole rows instead of leaving an orphan card in the last one.
+   */
+  sizes = [25, 50, 100, 200],
 }) {
   if (totalPages <= 1) return null;
   const first = (currentPage - 1) * pageSize + 1;
@@ -39,7 +44,7 @@ export default function Pagination({
       </p>
 
       <div className="flex items-center gap-2 flex-wrap">
-        {/* 25/50/100/200 and the first/last jumps are exactly what the old
+        {/* The default sizes and the first/last jumps are exactly what the old
             pagination offered — same options, same destinations. */}
         <select
           value={pageSize}
@@ -47,7 +52,7 @@ export default function Pagination({
           aria-label={`${label} per page`}
           className={`${FIELD_CLASS} w-auto`}
         >
-          {[25, 50, 100, 200].map((size) => (
+          {sizes.map((size) => (
             <option key={size} value={size}>{size} per page</option>
           ))}
         </select>

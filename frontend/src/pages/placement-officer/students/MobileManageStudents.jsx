@@ -218,7 +218,7 @@ export default function MobileManageStudents(props) {
               currentPage={currentPage}
               totalPages={totalPages}
               pageSize={pageSize}
-              totalStudents={totalStudents}
+              total={totalStudents}
               onPageChange={onPageChange}
               onPageSizeChange={onPageSizeChange}
             />

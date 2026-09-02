@@ -1,7 +1,7 @@
 import { UserPlus } from 'lucide-react';
 import EnhancedFilterPanel from '../../../components/EnhancedFilterPanel';
-import useLongList from '../../../hooks/useLongList';
-import { ListCount, ShowMore } from '../../../components/officer/LongList';
+import usePagedList from '../../../hooks/usePagedList';
+import Pagination from '../../../components/officer/Pagination';
 import {
   Panel, PanelHeading, SectionLabel, SecondaryButton,
 } from '../../../components/officer/OfficerUI';
@@ -54,13 +54,25 @@ export default function JobEligibleBody({ layout, ...p }) {
    *     cohort.
    *   - the header count and every export keep reading the full filtered set.
    */
-  const applicantWindow = useLongList(currentApplicants, { step: 50 });
-  const placedWindow = useLongList(placedApplicants, { step: 25 });
+  /*
+   * Back to page one when the officer moves to another job or changes what they
+   * are filtering by — and only then. A background refresh leaves all of these
+   * alone, so it no longer throws someone back to the top of a list they were
+   * halfway through reading.
+   */
+  const pageReset = [
+    p.selectedJob?.id,
+    JSON.stringify(p.advancedFilters || {}),
+    JSON.stringify(p.enhancedFilters || {}),
+  ].join('|');
+
+  const applicantPage = usePagedList(currentApplicants, { pageSize: 50, resetKey: pageReset });
+  const placedPage = usePagedList(placedApplicants, { pageSize: 25, resetKey: pageReset });
   // The selected summary was left whole when the other two were windowed. It is
   // the smallest of the three on a normal job and the largest on a good one —
   // a statewide drive that selects several hundred renders every row twice,
   // once here and once in the applicants table above.
-  const selectedWindow = useLongList(p.selectedSummary, { step: 25 });
+  const selectedPage = usePagedList(p.selectedSummary, { pageSize: 25, resetKey: pageReset });
 
   return (
     <>
@@ -168,7 +180,7 @@ export default function JobEligibleBody({ layout, ...p }) {
                 </p>
               )}
               <ApplicantView
-                students={applicantWindow.visible}
+                students={applicantPage.visible}
                 isHost={p.isHost}
                 caption={`Applicants for ${p.selectedJob.job_title} at ${p.selectedJob.company_name}.`}
                 selectable
@@ -190,24 +202,15 @@ export default function JobEligibleBody({ layout, ...p }) {
                   onRemove={p.onRemoveApplicant}
                 loading={p.loadingStudents}
               />
-              {applicantWindow.hasMore && (
-                <ShowMore
-                  onClick={applicantWindow.showMore}
-                  remaining={applicantWindow.remaining}
-                  noun="applicant"
-                />
-              )}
-              {currentApplicants.length > applicantWindow.shown && (
-                <p className="px-4 py-2 border-t border-spc-line">
-                  <ListCount
-                    shown={applicantWindow.shown}
-                    matched={applicantWindow.matched}
-                    total={applicantWindow.total}
-                    filtering={false}
-                    noun="applicant"
-                  />
-                </p>
-              )}
+              <Pagination
+                currentPage={applicantPage.page}
+                totalPages={applicantPage.totalPages}
+                pageSize={applicantPage.pageSize}
+                total={applicantPage.total}
+                onPageChange={applicantPage.setPage}
+                onPageSizeChange={(e) => applicantPage.setPageSize(Number(e.target.value))}
+                label="Applicants"
+              />
             </Panel>
           </section>
 
@@ -218,7 +221,7 @@ export default function JobEligibleBody({ layout, ...p }) {
                   Already placed elsewhere ({placedApplicants.length})
                 </PanelHeading>
                 <ApplicantView
-                  students={placedWindow.visible}
+                  students={placedPage.visible}
                   isHost={p.isHost}
                   caption="Applicants who are already placed at another company."
                   showPlacedAt
@@ -226,13 +229,15 @@ export default function JobEligibleBody({ layout, ...p }) {
                   onPlacement={p.onEditPlacement}
                   onRemove={p.onRemoveApplicant}
                 />
-                {placedWindow.hasMore && (
-                  <ShowMore
-                    onClick={placedWindow.showMore}
-                    remaining={placedWindow.remaining}
-                    noun="applicant"
-                  />
-                )}
+                <Pagination
+                  currentPage={placedPage.page}
+                  totalPages={placedPage.totalPages}
+                  pageSize={placedPage.pageSize}
+                  total={placedPage.total}
+                  onPageChange={placedPage.setPage}
+                  onPageSizeChange={(e) => placedPage.setPageSize(Number(e.target.value))}
+                  label="Applicants"
+                />
               </Panel>
             </section>
           )}
@@ -244,20 +249,22 @@ export default function JobEligibleBody({ layout, ...p }) {
                   Marked selected ({p.selectedSummary.length})
                 </PanelHeading>
                 <ApplicantView
-                  students={selectedWindow.visible}
+                  students={selectedPage.visible}
                   isHost={p.isHost}
                   caption="Students marked as selected for this job."
                     onView={p.onViewStudent}
                   onPlacement={p.onEditPlacement}
                   onRemove={p.onRemoveApplicant}
                 />
-                {selectedWindow.hasMore && (
-                  <ShowMore
-                    onClick={selectedWindow.showMore}
-                    remaining={selectedWindow.remaining}
-                    noun="student"
-                  />
-                )}
+                <Pagination
+                  currentPage={selectedPage.page}
+                  totalPages={selectedPage.totalPages}
+                  pageSize={selectedPage.pageSize}
+                  total={selectedPage.total}
+                  onPageChange={selectedPage.setPage}
+                  onPageSizeChange={(e) => selectedPage.setPageSize(Number(e.target.value))}
+                  label="Students"
+                />
               </Panel>
             </section>
           )}

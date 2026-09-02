@@ -539,14 +539,14 @@ input[type='password']::-ms-clear {
   font-display: swap;
 }
 
-/* Khand Medium — officer role only, and only for uppercase table column
-   headers and form section legends. It is condensed, so it survives a narrow
+/* Khand Medium — the officer and super-admin roles, and only for uppercase
+   table column headers and form section legends. It is condensed, so it survives a narrow
    column header where Satoshi caps would wrap. Nothing else uses it: this is
    not a second body face.
    Latin subset from Google Fonts (14.5 KB). SIL Open Font License 1.1,
    © 2014 Indian Type Foundry — see Khand-OFL.txt alongside the file.
-   Nothing references `font-khand` yet, so the browser does not download this
-   until the first officer table ships. */
+   Referenced through the `font-khand` utility, so the browser downloads it only
+   on pages that actually use a column header or a section legend. */
 @font-face {
   font-family: 'Khand';
   src: url('./assets/fonts/Khand-Medium.woff2') format('woff2');

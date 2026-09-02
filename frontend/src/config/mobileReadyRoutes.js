@@ -38,6 +38,7 @@ export const MOBILE_READY_ROUTES = [
   '/placement-officer/send-notification',
   '/placement-officer/placement-poster',
   '/placement-officer/profile',
+  '/super-admin/dashboard',
 ];
 
 export function isMobileReadyRoute(pathname) {

@@ -773,10 +773,10 @@ input[type='password']::-ms-clear {
    them is opaque, so nothing readable is ever sitting on a gradient. */
 .spc-admin-bg {
   background:
-    radial-gradient(1200px 700px at 82% -10%, rgb(37 99 235 / 0.13), transparent 60%),
-    radial-gradient(1000px 640px at -8% 8%, rgb(99 102 241 / 0.11), transparent 58%),
-    radial-gradient(900px 900px at 45% 115%, rgb(14 165 233 / 0.10), transparent 62%),
-    rgb(238 242 249);
+    radial-gradient(1200px 700px at 82% -10%, rgb(37 99 235 / 0.26), transparent 62%),
+    radial-gradient(1000px 640px at -8% 6%, rgb(99 102 241 / 0.22), transparent 60%),
+    radial-gradient(900px 900px at 45% 115%, rgb(14 165 233 / 0.20), transparent 64%),
+    rgb(228 235 247);
   background-attachment: fixed;
 }
 

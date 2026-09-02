@@ -12,10 +12,14 @@ import useDeviceType from '../../hooks/useDeviceType';
  * is the shortcut to the screens opened constantly. Nothing here is a new
  * destination, and every path exists in the sidebar too.
  *
- * Glass and welded to the bottom edge: it floats over the page, content passes
- * beneath it, and that is the one thing this material is for. The officer
- * equivalent is deliberately solid, because that direction has no floating
- * layer at all.
+ * A floating pane rather than a bar welded to the edge: it sits on a gutter with
+ * the page visible around and behind it, which is the whole point of the
+ * material and matches the panes on the desktop layout. The officer equivalent
+ * is deliberately solid and flush, because that direction has no floating layer
+ * at all.
+ *
+ * The gutter is added to the safe-area inset rather than replacing it, so on a
+ * phone with a home indicator the pane clears both.
  *
  * Labels are ink, not muted. On glass, muted text fails its contrast against a
  * dark backdrop, so the inactive state is carried by weight and by ink at
@@ -56,10 +60,11 @@ export default function AdminBottomNav() {
   return (
     <nav
       aria-label="Super admin sections"
-      className="lg:hidden fixed bottom-0 inset-x-0 z-30 spc-admin-glass border-t border-spc-line-strong"
-      style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      className="lg:hidden fixed bottom-0 inset-x-0 z-30 px-3 pb-3"
+      style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.75rem)' }}
     >
-      <ul className="flex items-stretch">
+      <ul className="flex items-stretch spc-admin-glass rounded-spc-admin-lg
+        border border-spc-line-strong overflow-hidden">
         {TABS.map((tab) => {
           const isActive = location.pathname === tab.path
             || location.pathname.startsWith(`${tab.path}/`);

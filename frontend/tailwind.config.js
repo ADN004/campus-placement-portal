@@ -44,6 +44,12 @@ export default {
         'spc-badge': '2px',
         'spc-control': '3px',  // buttons, inputs, chips
         'spc-panel': '4px',    // panels, cards, modals
+        // Super admin ("Console") geometry. The officer radii above are near
+        // square because a register is drawn with rules; a floating pane of
+        // glass is not, and borrowing them made the two roles look identical.
+        'spc-admin-sm': '12px',  // controls inside the chrome
+        'spc-admin': '18px',     // panels
+        'spc-admin-lg': '26px',  // the floating panes themselves
       },
       colors: {
         spc: {

@@ -25,13 +25,17 @@ import { Menu, X, LogOut } from 'lucide-react';
  */
 export default function AdminTopBar({ user, sidebarOpen, onToggleSidebar, onLogout }) {
   return (
-    <nav className="fixed w-full top-0 z-30 spc-admin-glass border-b border-spc-line-strong">
-      <div className="px-4 sm:px-6 lg:px-8">
+    <nav
+      className="fixed z-30 spc-admin-glass
+        top-0 inset-x-0 border-b border-spc-line-strong
+        lg:top-3 lg:inset-x-3 lg:rounded-spc-admin-lg lg:border-b-0"
+    >
+      <div className="px-4 sm:px-6 lg:px-6">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center gap-3 min-w-0">
             <button
               onClick={onToggleSidebar}
-              className="p-2 -ml-2 rounded-spc-control text-spc-ink
+              className="p-2 -ml-2 rounded-spc-admin-sm text-spc-ink
                 hover:bg-spc-surface-2 lg:hidden transition-colors"
               aria-label="Toggle menu"
             >
@@ -64,7 +68,7 @@ export default function AdminTopBar({ user, sidebarOpen, onToggleSidebar, onLogo
                 is not a failure state — the same call the officer bar made. */}
             <button
               onClick={onLogout}
-              className="flex items-center gap-2 min-h-[44px] px-3 sm:px-4 rounded-spc-control
+              className="flex items-center gap-2 min-h-[44px] px-3 sm:px-4 rounded-spc-admin-sm
                 text-spc-xs font-bold text-spc-ink bg-spc-surface border border-spc-control
                 hover:bg-spc-surface-2 transition-colors"
               aria-label="Logout"

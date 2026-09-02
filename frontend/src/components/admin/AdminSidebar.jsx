@@ -114,8 +114,8 @@ export default function AdminSidebar({
         lg:translate-x-0 fixed z-20 flex flex-col
         w-[280px] ${collapsed ? 'lg:w-[72px]' : 'lg:w-[248px]'}
         spc-vh-panel top-16 left-0
-        lg:top-[72px] lg:left-3 lg:h-[calc(100vh-84px)]
-        lg:rounded-spc-panel
+        lg:top-[88px] lg:left-3 lg:h-[calc(100vh-100px)]
+        lg:rounded-spc-admin-lg
         spc-admin-glass border-r border-spc-line-strong lg:border-r-0
         transition-all duration-300 ease-in-out`}
     >
@@ -149,7 +149,7 @@ export default function AdminSidebar({
                   onClick={onNavigate}
                   aria-current={isActive ? 'page' : undefined}
                   title={collapsed ? item.name : undefined}
-                  className={`group relative flex items-center gap-3 rounded-spc-control mb-0.5
+                  className={`group relative flex items-center gap-3 rounded-spc-admin-sm mb-0.5
                     min-h-[44px] px-3 ${collapsed ? 'lg:justify-center lg:px-0' : ''}
                     text-spc-sm transition-colors
                     ${isActive
@@ -175,7 +175,7 @@ export default function AdminSidebar({
       <div className="flex-shrink-0 border-t border-spc-line-strong p-3">
         {/* Identity block — hidden on the rail, where there is no room for it. */}
         <div className={`flex items-center gap-2.5 mb-2 ${collapsed ? 'lg:hidden' : ''}`}>
-          <div className="w-8 h-8 rounded-spc-control bg-spc-surface-3 flex items-center justify-center flex-shrink-0">
+          <div className="w-8 h-8 rounded-spc-admin-sm bg-spc-surface-3 flex items-center justify-center flex-shrink-0">
             <Shield size={16} className="text-spc-ink" />
           </div>
           <div className="min-w-0">
@@ -191,7 +191,7 @@ export default function AdminSidebar({
           type="button"
           onClick={onToggleCollapse}
           aria-expanded={!collapsed}
-          className={`hidden lg:flex items-center gap-3 w-full min-h-[44px] rounded-spc-control
+          className={`hidden lg:flex items-center gap-3 w-full min-h-[44px] rounded-spc-admin-sm
             px-3 ${collapsed ? 'lg:justify-center lg:px-0' : ''}
             text-spc-xs font-bold text-spc-ink/75
             hover:bg-spc-surface-2 hover:text-spc-ink transition-colors`}

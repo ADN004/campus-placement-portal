@@ -418,7 +418,9 @@ export default function Layout() {
       </nav>
       )}
 
-      <div className="flex pt-16">
+      {/* Super admins clear a bar that floats 12px below the top edge;
+          every other role has one welded to it. */}
+      <div className={`flex pt-16 ${isAdmin ? 'lg:pt-[88px]' : ''}`}>
         {/* Students get the grouped, collapsible sidebar. */}
         {isStudent && !isPendingStudent && (
           <StudentSidebar

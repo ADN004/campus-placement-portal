@@ -668,7 +668,22 @@ export const submitEnhancedApplication = async (req, res) => {
   try {
     const { jobId } = req.params;
     const userId = req.user.id;
-    const { custom_field_responses, additional_data, tier2_data, sections_filled } = req.body;
+    const { additional_data, tier2_data, sections_filled } = req.body;
+
+    /*
+     * The app sends this job's own answers as `tier3_custom_responses`; this
+     * handler only ever read `custom_field_responses`, which nothing sends. The
+     * name did not match, so the answers arrived as undefined, the `|| {}`
+     * below turned that into an empty object, and every application ever
+     * submitted stored `{}` — 2341 of 2341 rows on production. Nothing read the
+     * column back until the exports did, so it stayed invisible.
+     *
+     * Both names are accepted so this does not depend on which of the two
+     * deploys lands first, and any client still sending the old name keeps
+     * working.
+     */
+    const customFieldResponses =
+      req.body.tier3_custom_responses ?? req.body.custom_field_responses ?? {};
 
     await transaction(async (client) => {
       // Get student with extended profile
@@ -1014,7 +1029,7 @@ export const submitEnhancedApplication = async (req, res) => {
         [
           application.id,
           JSON.stringify(tier2Snapshot),
-          JSON.stringify(custom_field_responses || {}),
+          JSON.stringify(customFieldResponses),
           meetsRequirements,
           JSON.stringify(validationErrors)
         ]

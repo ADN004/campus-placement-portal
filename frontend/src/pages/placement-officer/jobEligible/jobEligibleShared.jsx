@@ -172,7 +172,11 @@ export function DrivePanel({ driveData, onSchedule, onNotifyAll, canManageDrive 
               </div>
               <div className="flex gap-2">
                 <dt className="font-bold text-spc-ink w-20 flex-shrink-0">Venue</dt>
-                <dd className="break-words">{driveData.venue}</dd>
+                {/* The column is drive_location. There is no `venue` anywhere in
+                    the schema, the API or the form — reading one printed an
+                    empty cell under a heading, which reads as "no venue set"
+                    rather than as a fault. */}
+                <dd className="break-words">{driveData.drive_location}</dd>
               </div>
               {driveData.additional_instructions && (
                 <div className="flex gap-2">

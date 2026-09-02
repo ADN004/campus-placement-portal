@@ -1935,7 +1935,15 @@ export const notifyApplicationStatus = async (req, res) => {
               ja.joining_date, ja.placement_location,
               s.id as student_id, s.student_name, s.email, s.college_id,
               j.id as job_id, j.job_title, j.company_name, j.placement_officer_id,
-              jd.drive_date, jd.drive_time, jd.drive_location
+              /*
+               * The instructions belong here too. driveMessage() appends them
+               * to the sentence when they exist, but this query never selected
+               * the column, so what an officer typed under "what to bring or
+               * know" reached the student's job screen and never their
+               * notification — silently, since an absent column just reads as
+               * an empty optional field.
+               */
+              jd.drive_date, jd.drive_time, jd.drive_location, jd.additional_instructions
        FROM job_applications ja
        JOIN students s ON ja.student_id = s.id
        JOIN jobs j ON ja.job_id = j.id

@@ -5,6 +5,7 @@ import ExcelJS from 'exceljs';
 import { generateStudentPDF, generatePlacementPosterPDF, MAX_PDF_EXPORT_FIELDS } from '../utils/pdfGenerator.js';
 import { BRANCH_SHORT_NAMES } from '../constants/branches.js';
 import { normalizeBranch, NORMALIZED_BRANCH_SQL } from '../utils/branchName.js';
+import { studentOrderSql } from '../utils/studentOrder.js';
 import {
   sendDriveScheduleEmail,
   sendSelectionEmail,
@@ -577,7 +578,7 @@ export const customExportStudents = async (req, res) => {
     }
 
     // Sort by branch first, then by PRN for organized export
-    queryText += ' ORDER BY s.branch, s.prn';
+    queryText += ` ORDER BY ${studentOrderSql()}`;
 
     const studentsResult = await query(queryText, params);
     const students = studentsResult.rows;
@@ -787,7 +788,7 @@ export const exportJobApplicants = async (req, res) => {
          AND s.registration_status = 'approved'
          AND s.is_blacklisted = FALSE
          ${alreadyPlacedClause}
-       ORDER BY ja.applied_date DESC`,
+       ORDER BY ${studentOrderSql()}`,
       [jobId, collegeId]
     );
 
@@ -1114,7 +1115,7 @@ export const exportEligibleNotApplied = async (req, res) => {
        LEFT JOIN regions r ON c.region_id = r.id
        LEFT JOIN job_applications ja ON ja.job_id = $1 AND ja.student_id = s.id
        WHERE ${whereSQL}
-       ORDER BY r.region_name ASC, c.college_name ASC, s.branch ASC, s.prn ASC`,
+       ORDER BY ${studentOrderSql({ college: 'c', region: 'r' })}`,
       params
     );
 
@@ -2341,7 +2342,7 @@ export const enhancedExportJobApplicants = async (req, res) => {
       LEFT JOIN student_extended_profiles sep ON s.id = sep.student_id
        LEFT JOIN job_applications_extended jae ON jae.application_id = ja.id
       WHERE ${whereClause}
-      ORDER BY s.branch ASC, s.prn ASC`,
+      ORDER BY ${studentOrderSql()}`,
       params
     );
 

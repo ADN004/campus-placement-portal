@@ -15,6 +15,7 @@ import { isCollegeLocked } from '../utils/collegeLocks.js';
 import { DAY_AWARE_COUNT_SQL } from '../utils/verificationEmailPolicy.js';
 import { TOTAL_BACKLOGS_SQL, parseMaxBacklogs } from '../utils/backlogPolicy.js';
 import { ACTIVE_STUDENT_ACCOUNT_SQL } from '../utils/notificationAudience.js';
+import { studentOrderSql } from '../utils/studentOrder.js';
 import { branchesLosingAccess, eligibilityTightened } from '../utils/jobAudience.js';
 import { normalizeBranch, NORMALIZED_BRANCH_SQL } from '../utils/branchName.js';
 
@@ -628,7 +629,8 @@ export const getStudents = async (req, res) => {
     const totalPages = Math.ceil(totalCount / limitNum);
 
     // Add pagination
-    queryText += ' ORDER BY s.created_at DESC';
+    // The register's own order, not the order people happened to register in.
+    queryText += ` ORDER BY ${studentOrderSql()}`;
     paramCount++;
     queryText += ` LIMIT $${paramCount}`;
     params.push(limitNum);
@@ -1644,7 +1646,7 @@ export const exportStudents = async (req, res) => {
       }
     }
 
-    queryText += ' ORDER BY s.branch, s.prn';
+    queryText += ` ORDER BY ${studentOrderSql()}`;
 
     const studentsResult = await query(queryText, params);
     const students = studentsResult.rows;
@@ -2803,7 +2805,7 @@ export const getJobApplicants = async (req, res) => {
       LEFT JOIN student_extended_profiles sep ON s.id = sep.student_id
       WHERE ja.job_id = $1
         ${collegeFilter}
-      ORDER BY c.college_name ASC, s.branch ASC, s.prn ASC`,
+      ORDER BY ${studentOrderSql({ college: 'c' })}`,
       queryParams
     );
 
@@ -3500,7 +3502,7 @@ export const getStudentsByPRNRange = async (req, res) => {
        JOIN colleges c ON s.college_id = c.id
        JOIN regions r ON s.region_id = r.id
        WHERE s.college_id = $1
-       ORDER BY s.prn`,
+       ORDER BY ${studentOrderSql()}`,
       [officer.college_id]
     );
     const students = studentsResult.rows.filter((s) => prnMatchesRange(s.prn, range));
@@ -3586,7 +3588,7 @@ export const exportStudentsByPRNRange = async (req, res) => {
        JOIN colleges c ON s.college_id = c.id
        JOIN regions r ON s.region_id = r.id
        WHERE s.college_id = $1
-       ORDER BY s.prn`,
+       ORDER BY ${studentOrderSql()}`,
       [officer.college_id]
     );
     const students = studentsResult.rows.filter((s) => prnMatchesRange(s.prn, range));

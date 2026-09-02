@@ -13,6 +13,7 @@ import {
 import { prnMatchesRange } from '../utils/prnExceptions.js';
 import { driveMessage, driveForStudent } from '../utils/driveSchedule.js';
 import { normalizeBranch, NORMALIZED_BRANCH_SQL } from '../utils/branchName.js';
+import { studentOrderSql } from '../utils/studentOrder.js';
 
 /*
  * A job's own extra questions — "10th Maths %", "Aadhaar Number", whatever that
@@ -753,7 +754,7 @@ export const enhancedCustomExport = async (req, res) => {
     }
 
     // Sort by college first, then branch, then PRN for organized export
-    queryText += ' ORDER BY c.college_name, s.branch, s.prn';
+    queryText += ` ORDER BY ${studentOrderSql({ college: 'c' })}`;
 
     const studentsResult = await query(queryText, params);
     const students = studentsResult.rows;
@@ -950,7 +951,7 @@ export const getStudentsByPRNRange = async (req, res) => {
          JOIN colleges c ON s.college_id = c.id
          JOIN regions r ON s.region_id = r.id
          WHERE s.prn = $1
-         ORDER BY s.prn`,
+         ORDER BY ${studentOrderSql()}`,
         [range.single_prn]
       );
     } else {
@@ -976,7 +977,7 @@ export const getStudentsByPRNRange = async (req, res) => {
              AND s.prn::bigint BETWEEN $1::bigint AND $2::bigint)
            OR (s.prn >= $1 AND s.prn <= $2)
          )
-         ORDER BY s.prn`,
+         ORDER BY ${studentOrderSql()}`,
         [range.range_start, range.range_end]
       );
     }
@@ -1039,7 +1040,7 @@ export const exportStudentsByPRNRange = async (req, res) => {
          JOIN colleges c ON s.college_id = c.id
          JOIN regions r ON s.region_id = r.id
          WHERE s.prn = $1
-         ORDER BY s.prn`,
+         ORDER BY ${studentOrderSql()}`,
         [range.single_prn]
       );
     } else {
@@ -1068,7 +1069,7 @@ export const exportStudentsByPRNRange = async (req, res) => {
              AND s.prn::bigint BETWEEN $1::bigint AND $2::bigint)
            OR (s.prn >= $1 AND s.prn <= $2)
          )
-         ORDER BY s.prn`,
+         ORDER BY ${studentOrderSql()}`,
         [range.range_start, range.range_end]
       );
     }
@@ -1254,7 +1255,7 @@ export const exportJobApplicants = async (req, res) => {
       )`;
     }
 
-    queryText += ` ORDER BY ja.applied_date DESC`;
+    queryText += ` ORDER BY ${studentOrderSql({ college: 'c' })}`;
 
     const applicantsResult = await query(queryText, params);
     let applicants = applicantsResult.rows;
@@ -2200,7 +2201,7 @@ export const enhancedExportJobApplicants = async (req, res) => {
        LEFT JOIN student_extended_profiles sep ON s.id = sep.student_id
        LEFT JOIN job_applications_extended jae ON jae.application_id = ja.id
        WHERE ${whereClause}
-       ORDER BY s.branch ASC, s.prn ASC`,
+       ORDER BY ${studentOrderSql({ college: 'c' })}`,
       params
     );
 

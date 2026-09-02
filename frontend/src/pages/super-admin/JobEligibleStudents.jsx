@@ -14,6 +14,7 @@ import AutoRefreshIndicator from '../../components/AutoRefreshIndicator';
 import useSkeleton from '../../hooks/useSkeleton';
 import AnimatedSection from '../../components/animation/AnimatedSection';
 import TablePageSkeleton from '../../components/skeletons/TablePageSkeleton';
+import { compareStudents } from '../../utils/studentOrder';
 
 export default function JobEligibleStudents() {
   const [jobs, setJobs] = useState([]);
@@ -199,19 +200,13 @@ export default function JobEligibleStudents() {
       filtered = filtered.filter((s) => s.college_id === parseInt(advancedFilters.collegeId));
     }
 
-    // Sort: college → branch → PRN (grouped by college first, then branch within college, then PRN order)
-    filtered.sort((a, b) => {
-      // First sort by college name
-      const collegeCompare = (a.college_name || '').localeCompare(b.college_name || '');
-      if (collegeCompare !== 0) return collegeCompare;
-
-      // Then by branch within same college
-      const branchCompare = (a.branch || '').localeCompare(b.branch || '');
-      if (branchCompare !== 0) return branchCompare;
-
-      // Then by PRN within same branch (ascending order)
-      return (a.prn || '').localeCompare(b.prn || '');
-    });
+    /*
+     * The same order the server returns, so filtering does not re-order the
+     * list under the reader. Shared rather than repeated: this comparison also
+     * folds the two spellings of a branch together, which a plain compare on
+     * the branch text does not.
+     */
+    filtered.sort((a, b) => compareStudents(a, b, { byCollege: true }));
 
     setFilteredStudents(filtered);
   };
@@ -274,19 +269,13 @@ export default function JobEligibleStudents() {
       );
     }
 
-    // Sort: college → branch → PRN (grouped by college first, then branch within college, then PRN order)
-    filtered.sort((a, b) => {
-      // First sort by college name
-      const collegeCompare = (a.college_name || '').localeCompare(b.college_name || '');
-      if (collegeCompare !== 0) return collegeCompare;
-
-      // Then by branch within same college
-      const branchCompare = (a.branch || '').localeCompare(b.branch || '');
-      if (branchCompare !== 0) return branchCompare;
-
-      // Then by PRN within same branch (ascending order)
-      return (a.prn || '').localeCompare(b.prn || '');
-    });
+    /*
+     * The same order the server returns, so filtering does not re-order the
+     * list under the reader. Shared rather than repeated: this comparison also
+     * folds the two spellings of a branch together, which a plain compare on
+     * the branch text does not.
+     */
+    filtered.sort((a, b) => compareStudents(a, b, { byCollege: true }));
 
     setFilteredStudents(filtered);
   };

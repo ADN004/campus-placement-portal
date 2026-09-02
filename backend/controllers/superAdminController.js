@@ -10,6 +10,7 @@ import { generateStudentPDF } from '../utils/pdfGenerator.js';
 import { deleteImage, deleteFolderOnly, extractFolderPath } from '../config/cloudinary.js';
 import { TOTAL_BACKLOGS_SQL, parseMaxBacklogs } from '../utils/backlogPolicy.js';
 import { ACTIVE_STUDENT_ACCOUNT_SQL } from '../utils/notificationAudience.js';
+import { studentOrderSql } from '../utils/studentOrder.js';
 import { notifyParticipatingOfficers, notifyCollegesAdded } from '../utils/jointJobNotice.js';
 import { collegesReachedBy, collegesLosingAccess, branchesLosingAccess, eligibilityTightened } from '../utils/jobAudience.js';
 
@@ -2528,7 +2529,8 @@ export const getAllStudents = async (req, res) => {
     const total = parseInt(countResult.rows[0].total, 10);
 
     // Add pagination
-    queryText += ' ORDER BY s.created_at DESC';
+    // The register's own order, not the order people happened to register in.
+    queryText += ` ORDER BY ${studentOrderSql({ college: 'c' })}`;
     paramCount++;
     queryText += ` LIMIT $${paramCount}`;
     params.push(limitNum);
@@ -2922,7 +2924,7 @@ export const getJobApplicants = async (req, res) => {
       WHERE ja.job_id = $1
         AND s.registration_status = 'approved'
         AND s.is_blacklisted = FALSE
-      ORDER BY c.college_name ASC, s.branch ASC, s.prn ASC`,
+      ORDER BY ${studentOrderSql({ college: 'c' })}`,
       [jobId]
     );
 
@@ -4087,7 +4089,7 @@ export const customExportStudents = async (req, res) => {
     }
 
     // Sort by college first, then branch, then PRN for organized export
-    queryText += ' ORDER BY c.college_name, s.branch, s.prn';
+    queryText += ` ORDER BY ${studentOrderSql({ college: 'c' })}`;
 
     const studentsResult = await query(queryText, params);
     const students = studentsResult.rows;

@@ -81,3 +81,7 @@ _*.cjs
 # here so they can put it back, and a run interrupted before teardown leaves it
 # on disk.
 _*.json
+
+# Handler snapshots taken before a page rewrite — scaffolding for one piece
+# of work, not a fixture. See scripts/check-page.mjs.
+.page-checks/

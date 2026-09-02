@@ -97,6 +97,9 @@ export const studentAPI = {
   checkApplicationReadiness: (jobId) => API.post(`/students/jobs/${jobId}/check-readiness`),
   getMissingFields: (jobId) => API.get(`/students/jobs/${jobId}/missing-fields`),
   applyEnhanced: (jobId, data) => API.post(`/students/jobs/${jobId}/apply-enhanced`, data),
+  // Answers a student still owes on an application already submitted.
+  getPendingCustomAnswers: () => API.get('/students/jobs/pending-custom-answers'),
+  saveCustomAnswers: (jobId, answers) => API.put(`/students/jobs/${jobId}/custom-answers`, { answers }),
 
   // Resume APIs
   getResume: () => API.get('/students/resume'),

@@ -9,7 +9,9 @@ import { protect, authorize, checkStudentApproval } from '../middleware/auth.js'
 import {
   checkApplicationReadiness,
   submitEnhancedApplication,
-  getMissingFields
+  getMissingFields,
+  getPendingCustomAnswers,
+  saveCustomAnswers
 } from '../controllers/enhancedApplicationController.js';
 
 const router = express.Router();
@@ -26,6 +28,14 @@ router.use(checkStudentApproval);
  * @desc    Check if student is ready to apply for a job
  * @access  Private (Student)
  */
+/*
+ * Declared before the ':jobId' routes so it is matched as a literal. It is a
+ * single segment and those are two, so nothing would capture it today — but the
+ * next one-segment route added here would be a silent 'jobId' of
+ * "pending-custom-answers".
+ */
+router.get('/pending-custom-answers', getPendingCustomAnswers);
+
 router.post('/:jobId/check-readiness', checkApplicationReadiness);
 
 /**
@@ -41,5 +51,12 @@ router.get('/:jobId/missing-fields', getMissingFields);
  * @access  Private (Student)
  */
 router.post('/:jobId/apply-enhanced', submitEnhancedApplication);
+
+/**
+ * @route   PUT /api/students/jobs/:jobId/custom-answers
+ * @desc    Record answers owed on an application already submitted
+ * @access  Private (Student)
+ */
+router.put('/:jobId/custom-answers', saveCustomAnswers);
 
 export default router;

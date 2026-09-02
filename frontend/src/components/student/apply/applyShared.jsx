@@ -165,7 +165,12 @@ export function BlockedBody({ readinessData }) {
 
 /* --------------------------------------------------------------- collect */
 
-function CustomFieldInput({ field, value, onChange }) {
+/*
+ * Exported because the "answers still owed" prompt asks the very same
+ * questions. One definition means a new field type is handled in both places
+ * at once, rather than in whichever the author remembered.
+ */
+export function CustomFieldInput({ field, value, onChange }) {
   const inputClass =
     'w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm ' +
     'border border-spc-control outline-none transition-colors ' +

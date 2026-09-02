@@ -1215,8 +1215,194 @@ export const getMissingFields = async (req, res) => {
   }
 };
 
+/*
+ * ---------------------------------------------------------------------------
+ * Answers still owed on an application already submitted
+ * ---------------------------------------------------------------------------
+ *
+ * A job can ask its own questions, and for a long while the answers students
+ * typed were dropped on submission: the app sent `tier3_custom_responses` and
+ * this handler read `custom_field_responses`. The applications themselves are
+ * valid; only the answers are missing, and they cannot be recovered because
+ * they were never stored. So they have to be asked for a second time.
+ *
+ * These two endpoints are that second ask: one to find what a student still
+ * owes, one to record it. Both are deliberately narrow — a student may only
+ * fill answers that are *empty*, and only on their own application. Nothing
+ * here can overwrite an answer already given.
+ */
+
+/** A job's own questions. Empty for the great majority of jobs. */
+const questionsForJob = async (client, jobId) => {
+  const result = await client.query(
+    'SELECT custom_fields FROM job_requirement_templates WHERE job_id = $1',
+    [jobId]
+  );
+  const raw = result.rows[0]?.custom_fields;
+  const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  return Array.isArray(parsed) ? parsed.filter((f) => f && f.field_name) : [];
+};
+
+/** True when nothing was ever recorded — no row at all, or a row holding `{}`. */
+const hasNoAnswers = (responses) => {
+  if (responses === null || responses === undefined) return true;
+  try {
+    const parsed = typeof responses === 'string' ? JSON.parse(responses || '{}') : responses;
+    return !parsed || Object.keys(parsed).length === 0;
+  } catch {
+    return true;
+  }
+};
+
+/**
+ * @route   GET /api/students/jobs/pending-custom-answers
+ * @desc    Applications where this student still owes a job's own questions
+ * @access  Private (Student)
+ */
+export const getPendingCustomAnswers = async (req, res) => {
+  try {
+    const studentResult = await query('SELECT id FROM students WHERE user_id = $1', [req.user.id]);
+    if (studentResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Student profile not found' });
+    }
+    const studentId = studentResult.rows[0].id;
+
+    /*
+     * The join to the template does the filtering on its own: the overwhelming
+     * majority of jobs have no row there, so this stays a small result even for
+     * a student with many applications.
+     */
+    const result = await query(
+      `SELECT ja.id AS application_id, j.id AS job_id, j.job_title, j.company_name,
+              jrt.custom_fields, jae.custom_field_responses
+       FROM job_applications ja
+       JOIN jobs j ON j.id = ja.job_id
+       JOIN job_requirement_templates jrt ON jrt.job_id = j.id
+       LEFT JOIN job_applications_extended jae ON jae.application_id = ja.id
+       WHERE ja.student_id = $1
+       ORDER BY ja.applied_date DESC`,
+      [studentId]
+    );
+
+    const pending = result.rows
+      .map((row) => {
+        let fields = [];
+        try {
+          const parsed = typeof row.custom_fields === 'string'
+            ? JSON.parse(row.custom_fields)
+            : row.custom_fields;
+          fields = Array.isArray(parsed) ? parsed.filter((f) => f && f.field_name) : [];
+        } catch {
+          fields = [];
+        }
+        return { row, fields };
+      })
+      .filter(({ row, fields }) => fields.length > 0 && hasNoAnswers(row.custom_field_responses))
+      .map(({ row, fields }) => ({
+        application_id: row.application_id,
+        job_id: row.job_id,
+        job_title: row.job_title,
+        company_name: row.company_name,
+        custom_fields: fields,
+      }));
+
+    res.json({ success: true, count: pending.length, data: pending });
+  } catch (error) {
+    console.error('Error getting pending custom answers:', error);
+    res.status(500).json({ success: false, message: 'Failed to load pending questions' });
+  }
+};
+
+/**
+ * @route   PUT /api/students/jobs/:jobId/custom-answers
+ * @desc    Record answers owed on an application already submitted
+ * @access  Private (Student)
+ */
+export const saveCustomAnswers = async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const { answers } = req.body;
+
+    if (!answers || typeof answers !== 'object' || Array.isArray(answers)) {
+      return res.status(400).json({ success: false, message: 'Please provide your answers' });
+    }
+
+    await transaction(async (client) => {
+      const studentResult = await client.query('SELECT id FROM students WHERE user_id = $1', [req.user.id]);
+      if (studentResult.rows.length === 0) {
+        throw Object.assign(new Error('Student profile not found'), { status: 404 });
+      }
+      const studentId = studentResult.rows[0].id;
+
+      // Their own application, and only theirs.
+      const appResult = await client.query(
+        `SELECT ja.id, jae.custom_field_responses
+         FROM job_applications ja
+         LEFT JOIN job_applications_extended jae ON jae.application_id = ja.id
+         WHERE ja.job_id = $1 AND ja.student_id = $2`,
+        [jobId, studentId]
+      );
+      if (appResult.rows.length === 0) {
+        throw Object.assign(new Error('You have not applied to this job'), { status: 404 });
+      }
+      const application = appResult.rows[0];
+
+      const fields = await questionsForJob(client, jobId);
+      if (fields.length === 0) {
+        throw Object.assign(new Error('This job does not ask any extra questions'), { status: 400 });
+      }
+
+      /*
+       * Refuse once answers exist. This endpoint fills a gap; it is not a back
+       * door for editing an application that was already answered properly.
+       */
+      if (!hasNoAnswers(application.custom_field_responses)) {
+        throw Object.assign(new Error('Your answers are already recorded'), { status: 409 });
+      }
+
+      // Keep only what this job asked, so nothing else can be written in.
+      const clean = {};
+      const missing = [];
+      fields.forEach((field) => {
+        const value = answers[field.field_name];
+        const given = value !== undefined && value !== null && String(value).trim() !== '';
+        if (given) clean[field.field_name] = String(value).trim();
+        else if (field.required) missing.push(field.field_label || field.field_name);
+      });
+
+      if (missing.length > 0) {
+        throw Object.assign(new Error(`Please answer: ${missing.join(', ')}`), { status: 400 });
+      }
+
+      /*
+       * The row normally exists — apply-enhanced writes one for every
+       * application — but ON CONFLICT keeps this correct for any application
+       * that predates it, without a separate existence check.
+       */
+      await client.query(
+        `INSERT INTO job_applications_extended (application_id, custom_field_responses)
+         VALUES ($1, $2::jsonb)
+         ON CONFLICT (application_id)
+         DO UPDATE SET custom_field_responses = EXCLUDED.custom_field_responses`,
+        [application.id, JSON.stringify(clean)]
+      );
+    });
+
+    res.json({ success: true, message: 'Thank you — your answers have been recorded' });
+  } catch (error) {
+    const status = error.status || 500;
+    if (status === 500) console.error('Error saving custom answers:', error);
+    res.status(status).json({
+      success: false,
+      message: status === 500 ? 'Failed to save your answers' : error.message,
+    });
+  }
+};
+
 export default {
   checkApplicationReadiness,
   submitEnhancedApplication,
-  getMissingFields
+  getMissingFields,
+  getPendingCustomAnswers,
+  saveCustomAnswers
 };

@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import { Briefcase, FileText, Bell, GraduationCap, User } from 'lucide-react';
 import ExtendedProfilePromptModal from '../../components/ExtendedProfilePromptModal';
 import ResumePromptModal from '../../components/ResumePromptModal';
+import CustomAnswersPrompt from '../../components/student/CustomAnswersPrompt';
 import CgpaUnlockPopup from '../../components/CgpaUnlockPopup';
 import PriorityNotificationPopup from '../../components/student/PriorityNotificationPopup';
 import UpdateStudentEmailModal from '../../components/UpdateStudentEmailModal';
@@ -37,6 +38,7 @@ export default function StudentDashboard() {
   const [showExtendedProfilePrompt, setShowExtendedProfilePrompt] = useState(false);
   const [extendedProfileCompletion, setExtendedProfileCompletion] = useState(100);
   const [showResumePrompt, setShowResumePrompt] = useState(false);
+  const [owedAnswers, setOwedAnswers] = useState([]);
   // Only so the priority-notification popup can wait its turn rather than
   // opening on top of the CGPA one. CgpaUnlockPopup decides its own visibility.
   const [showCgpaPopup, setShowCgpaPopup] = useState(false);
@@ -47,6 +49,7 @@ export default function StudentDashboard() {
     fetchVerificationStatus();
     checkExtendedProfileCompletion();
     checkResumeCompletion();
+    fetchOwedAnswers();
   }, []);
 
   // Skeleton loading gate
@@ -106,6 +109,20 @@ export default function StudentDashboard() {
     }
   };
 
+  /*
+   * Questions a company asked that never reached us when the student applied.
+   * Silent on failure: this is a nudge, and a dashboard that fails to load over
+   * it would be a worse bug than the one it is cleaning up after.
+   */
+  const fetchOwedAnswers = async () => {
+    try {
+      const response = await studentAPI.getPendingCustomAnswers();
+      setOwedAnswers(response.data.data || []);
+    } catch (error) {
+      console.error('Failed to check for unanswered questions:', error);
+    }
+  };
+
   const fetchVerificationStatus = async () => {
     try {
       const response = await studentAPI.getVerificationStatus();
@@ -138,6 +155,12 @@ export default function StudentDashboard() {
   const handleOpenEmailModal = () => setShowEmailModal(true);
 
   const handleCloseEmailModal = () => setShowEmailModal(false);
+
+  // Deferred for this visit only — no localStorage key, by design.
+  const handleDismissOwedAnswers = () => setOwedAnswers([]);
+
+  // Answered, so drop it and show the next one if there is another.
+  const handleOwedAnswersDone = () => setOwedAnswers((prev) => prev.slice(1));
 
   const handleDismissExtendedProfilePrompt = () => {
     localStorage.setItem('spc_profile_prompt_dismissed', new Date().toISOString().split('T')[0]);
@@ -252,8 +275,21 @@ export default function StudentDashboard() {
 
   return (
     <>
+      {/* Questions a company asked that were lost when the student applied.
+          First in the queue: this one is about a live application to an
+          employer, where the others are about the student's own account.
+          One job at a time, so a student who owes two is not shown both. */}
+      {owedAnswers.length > 0 && (
+        <CustomAnswersPrompt
+          key={owedAnswers[0].job_id}
+          job={owedAnswers[0]}
+          onDone={handleOwedAnswersDone}
+          onDismiss={handleDismissOwedAnswers}
+        />
+      )}
+
       {/* Extended Profile Prompt Modal */}
-      {showExtendedProfilePrompt && (
+      {owedAnswers.length === 0 && showExtendedProfilePrompt && (
         <ExtendedProfilePromptModal
           onClose={handleDismissExtendedProfilePrompt}
           profileCompletion={extendedProfileCompletion}
@@ -261,7 +297,7 @@ export default function StudentDashboard() {
       )}
 
       {/* Resume Prompt Modal (only shows if extended profile prompt is not showing) */}
-      {showResumePrompt && !showExtendedProfilePrompt && (
+      {showResumePrompt && !showExtendedProfilePrompt && owedAnswers.length === 0 && (
         <ResumePromptModal onClose={handleDismissResumePrompt} />
       )}
 
@@ -274,6 +310,7 @@ export default function StudentDashboard() {
       <PriorityNotificationPopup
         suppressed={
           showExtendedProfilePrompt || showResumePrompt || showEmailModal || showCgpaPopup
+          || owedAnswers.length > 0
         }
       />
 

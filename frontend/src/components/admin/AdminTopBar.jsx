@@ -13,10 +13,11 @@ import { Menu, X, LogOut } from 'lucide-react';
  * officer direction has no floating layer at all, so a blur there would have
  * been decoration; here it is the one honest place for it.
  *
- * `spc-glass` is the product's single glass definition, already used by the
- * student top bar: 86% surface, a blur with a saturation lift so colour shows
- * through rather than fog, a 1px inset highlight along the top edge, and a
- * solid fallback where `backdrop-filter` is unsupported.
+ * `spc-admin-glass` rather than the student's `spc-glass`: a wider blur, a much
+ * stronger saturation lift so the washes on the ground come through as colour
+ * instead of grey, a brighter specular edge, and a soft shadow. Console allows a
+ * shadow on floating chrome and nowhere else — without one a pane has no reason
+ * to look like it is above anything.
  *
  * Text on it is ink only. At this alpha, muted text measures 4.31 against a
  * dark backdrop and fails; ink measures 13.45. Anything here that wants to be
@@ -24,7 +25,7 @@ import { Menu, X, LogOut } from 'lucide-react';
  */
 export default function AdminTopBar({ user, sidebarOpen, onToggleSidebar, onLogout }) {
   return (
-    <nav className="fixed w-full top-0 z-30 spc-glass border-b border-spc-line-strong">
+    <nav className="fixed w-full top-0 z-30 spc-admin-glass border-b border-spc-line-strong">
       <div className="px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center gap-3 min-w-0">

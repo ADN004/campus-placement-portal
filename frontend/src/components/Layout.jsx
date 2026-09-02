@@ -577,10 +577,11 @@ export default function Layout() {
                 }`
               : isAdmin
               ? `spc-vh-main min-w-0 pb-24 sm:pb-24 lg:pb-8 ${
-                  /* The admin sidebar sits flush at left:0 like the officer's,
-                     so the margin is exactly its width — the panel it replaces
-                     floated with a 12px gutter, hence the old 296px. */
-                  adminSidebarCollapsed ? 'lg:ml-[72px]' : 'lg:ml-[248px]'
+                  /* The admin pane floats with a 12px gutter on each side, so
+                     the margin is its width plus both gutters — unlike the
+                     officer's, which is welded to left:0 and needs only its
+                     own width. */
+                  adminSidebarCollapsed ? 'lg:ml-[96px]' : 'lg:ml-[272px]'
                 }`
               : 'min-h-[calc(100vh-4rem)] overflow-y-auto lg:ml-[296px]'
           }`}

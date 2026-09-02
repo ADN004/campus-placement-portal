@@ -56,7 +56,7 @@ export default function AdminBottomNav() {
   return (
     <nav
       aria-label="Super admin sections"
-      className="lg:hidden fixed bottom-0 inset-x-0 z-30 spc-glass border-t border-spc-line-strong"
+      className="lg:hidden fixed bottom-0 inset-x-0 z-30 spc-admin-glass border-t border-spc-line-strong"
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >
       <ul className="flex items-stretch">

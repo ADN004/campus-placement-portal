@@ -750,11 +750,66 @@ input[type='password']::-ms-clear {
   /* status values are inherited unchanged from :root */
 }
 
-/* Flat canvas, for the same reason the officer's is flat: a gradient is
-   decorative colour, and this role has none to spare. The depth in Console
-   comes from the glass layer above the page, not from the page itself. */
+/* The ground the glass has to show through.
+
+   First attempt made this a flat colour, on the reasoning that a gradient is
+   decorative. That was wrong, and measurably so: glass at 86% over a flat
+   #F1F4F9 computes to #FDFDFE — twelve levels apart per channel. The pane and
+   the page were within touching distance, so the chrome read as plain white and
+   the whole material was invisible. Glass with nothing behind it is just paint.
+
+   So the canvas carries three static washes. Static is the point: the animated
+   orbs this replaced moved under the content and made text contrast a lottery.
+   These do not move, they sit *behind* the chrome rather than under the text,
+   and they are bounded — the deepest overlap is #D3DCF6.
+
+   That bound is where the rule below comes from. On this ground, ink (13.26)
+   and body (8.03) are safe; muted (4.44) and accent (3.77) are not. So on the
+   admin ground, ink and body only — anything quieter belongs on a surface,
+   which is exactly what Console says already: what you read sits on something
+   solid. The canvas is not a reading surface.
+
+   `fixed` so the washes stay put while the page scrolls. Content passing over
+   them is opaque, so nothing readable is ever sitting on a gradient. */
 .spc-admin-bg {
-  background: rgb(var(--spc-ground));
+  background:
+    radial-gradient(1200px 700px at 82% -10%, rgb(37 99 235 / 0.13), transparent 60%),
+    radial-gradient(1000px 640px at -8% 8%, rgb(99 102 241 / 0.11), transparent 58%),
+    radial-gradient(900px 900px at 45% 115%, rgb(14 165 233 / 0.10), transparent 62%),
+    rgb(238 242 249);
+  background-attachment: fixed;
+}
+
+/* Console's glass, distinct from the student one.
+
+   `.spc-glass` stays as it is — the student top bar and bottom nav use it, and
+   this needs a different material: a stronger saturation lift so the washes
+   below come through as colour rather than grey, a wider blur, a brighter
+   specular edge, and a soft shadow. The shadow is the one place this role is
+   allowed one: Console permits it on floating chrome and nowhere else, and
+   without it a pane has no reason to look like it is above anything.
+
+   86% opaque, not less. Counter-intuitively, thinning it makes the pane *less*
+   visible, not more — the pane is white and the ground is light, so the two
+   converge as alpha drops. At 86% they differ by 29 levels; at 62%, by 21. The
+   pane is visible because the ground has colour, not because the glass is thin,
+   which means the safe alpha and the legible one are the same number.
+
+   Ink at 65% is the quietest text allowed on it: 5.01 against a dark rule
+   scrolling underneath, where 60% gives 4.26 and fails. */
+.spc-admin-glass {
+  background-color: rgb(var(--spc-surface) / 0.86);
+  backdrop-filter: blur(24px) saturate(190%);
+  -webkit-backdrop-filter: blur(24px) saturate(190%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.95),
+    0 8px 32px -12px rgb(15 22 33 / 0.18);
+}
+
+@supports not (backdrop-filter: blur(1px)) {
+  .spc-admin-glass {
+    background-color: rgb(var(--spc-surface) / 0.98);
+  }
 }
 
 /* Glass, only where something genuinely floats above scrolling content.

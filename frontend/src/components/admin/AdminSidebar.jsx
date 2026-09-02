@@ -14,10 +14,11 @@ import { ChevronLeft, Shield } from 'lucide-react';
  * being done, and the group a page belongs to is keyed by path — an item added
  * later without a group still renders, under "More", rather than vanishing.
  *
- * Glass, because it floats: below `lg` it is a drawer over the page, and the
- * page is visible and blurred behind it. At `lg` and up the content column is
- * pushed clear of it, so there the material reads as a frosted panel rather
- * than a window — which is honest, and still separates it from the flat ground.
+ * Glass, because it floats. Below `lg` it is a drawer over the page, with the
+ * page visible and blurred behind it. At `lg` and up the content column is
+ * pushed clear, so what shows through is the ground and its washes — which is
+ * why the ground carries washes at all. Over a flat colour the pane computed to
+ * within twelve levels of the page behind it and the material was invisible.
  *
  * Navigation recedes once you have arrived: labels sit at body weight, and the
  * active item is a step up the surface ladder rather than a saturated fill. On
@@ -101,11 +102,21 @@ export default function AdminSidebar({
 
   return (
     <aside
+      /*
+       * Floating, not welded. A pane inset from the edges with the ground and
+       * its washes visible around it reads as something resting above the page;
+       * the same panel flush to the corner reads as part of the frame, which is
+       * how the first attempt ended up looking identical to the officer's solid
+       * rail. Below `lg` it is a drawer, so it goes full height and square
+       * against the edge — a floating card is not what a drawer is.
+       */
       className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         lg:translate-x-0 fixed z-20 flex flex-col
         w-[280px] ${collapsed ? 'lg:w-[72px]' : 'lg:w-[248px]'}
         spc-vh-panel top-16 left-0
-        spc-glass border-r border-spc-line-strong
+        lg:top-[72px] lg:left-3 lg:h-[calc(100vh-84px)]
+        lg:rounded-spc-panel
+        spc-admin-glass border-r border-spc-line-strong lg:border-r-0
         transition-all duration-300 ease-in-out`}
     >
       {/* overflow-x-hidden is load-bearing: `overflow-y-auto` forces the

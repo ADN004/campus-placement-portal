@@ -186,8 +186,12 @@ const collectPropsRead = (ast) => {
       const [first] = fn.params;
       if (first?.type !== 'ObjectPattern') return;
       first.properties.forEach((prop) => {
-        if (prop.type === 'ObjectProperty' && prop.key.type === 'Identifier') read.add(prop.key.name);
-        if (prop.type === 'RestElement') read.add('...rest');
+        if (prop.type === 'RestElement') { read.add('...rest'); return; }
+        if (prop.type !== 'ObjectProperty' || prop.key.type !== 'Identifier') return;
+        // `{ dismissible = true }` is optional by construction. A caller that
+        // omits it is using the default, not forgetting a prop.
+        if (prop.value?.type === 'AssignmentPattern') return;
+        read.add(prop.key.name);
       });
     },
   });

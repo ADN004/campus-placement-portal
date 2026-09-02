@@ -66,6 +66,7 @@ export default function Layout() {
   // falls through to the original code path for them.
   const isStudent = user?.role === 'student';
   const isOfficer = user?.role === 'placement_officer';
+  const isAdmin = user?.role === 'super_admin';
 
   /*
    * The officer's unread count, for the badge beside Inbox.
@@ -272,6 +273,8 @@ export default function Layout() {
           ? 'spc-vh-screen spc-student spc-student-bg spc-clip-x'
           : isOfficer
           ? 'spc-vh-screen spc-officer spc-officer-bg spc-clip-x'
+          : isAdmin
+          ? 'spc-vh-screen spc-admin spc-admin-bg spc-clip-x'
           : 'min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50'
       }`}
     >
@@ -290,16 +293,23 @@ export default function Layout() {
           status={user?.profile?.registration_status ?? user?.registration_status}
         />
       )}
-      {/* Animated Background Orbs — every role except students.
-          The orbs render with mix-blend-multiply, which darkens whatever sits
-          beneath them: measured, the page ground goes #eff6ff → #cadefd under
-          one orb and → #bcc0fb where two overlap. Combined with translucent
-          cards that pushed muted body text to 3.92:1, below the 4.5 minimum.
-          They also cost a continuous large-blur composite on every phone.
-          Students get the calm static ground from .spc-student-bg instead, and
-          officers the flat one from .spc-officer-bg; super admins keep this
-          exactly as it was until their own redesign. */}
-      {!isStudent && !isOfficer && (
+      {/* The animated background orbs are gone from every role.
+
+          They rendered with mix-blend-multiply, darkening whatever sat beneath
+          them: measured, the ground went #eff6ff → #cadefd under one orb and
+          → #bcc0fb where two overlapped. Over that, grey label text on the
+          translucent panels scored 3.79 and 3.14 against a 4.5 minimum, and
+          the effect cost a continuous large-blur composite on every phone.
+
+          Students get the calm static ground from .spc-student-bg, officers the
+          flat one from .spc-officer-bg, and super admins now the flat one from
+          .spc-admin-bg. The depth in Console comes from the glass chrome above
+          the page rather than from colour behind it.
+
+          This branch is unreachable today — every role is one of the three —
+          and it goes with the desktop-view switcher once the redesign is
+          finished. */}
+      {!isStudent && !isOfficer && !isAdmin && (
         <div className="fixed inset-0 pointer-events-none">
           <GradientOrb color="blue" size="xl" position={{ top: '10%', right: '10%' }} animationDuration="8s" />
           <GradientOrb color="purple" size="lg" position={{ bottom: '15%', left: '5%' }} animationDuration="10s" delay="2s" />

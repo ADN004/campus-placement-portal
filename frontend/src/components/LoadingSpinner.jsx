@@ -24,17 +24,19 @@ import { useAuth } from '../context/AuthContext';
  * keeps its own blue, set as the accent triple the cells already read.
  */
 
+/*
+ * Super admin used to be the exception here: it carried no scope class, so its
+ * two tokens were hand-supplied inline to stop the spinner showing a teal grid
+ * on warm cream in front of a blue-grey shell. It has `.spc-admin` now, and the
+ * accent in it is the same blue that was written here — so the exception goes,
+ * and the spinner picks up the role's real ground instead of an approximation
+ * of it.
+ */
 const ROLE_SCOPE = {
   student: 'spc-student',
   placement_officer: 'spc-officer',
+  super_admin: 'spc-admin',
 };
-
-// Super admin reads none of the design tokens, so both values are supplied as
-// RGB triples: primary-600, the blue its pages already use, and slate-50, the
-// lightest stop of the slate-to-purple wash behind them. Without these it would
-// inherit the student defaults and show a teal grid on warm cream in front of a
-// blue-grey shell.
-const SUPER_ADMIN_TOKENS = { '--spc-accent': '37 99 235', '--spc-ground': '248 250 252' };
 
 const SIZE = 4;
 const CELLS = Array.from({ length: SIZE * SIZE }, (_, i) => ({
@@ -57,7 +59,6 @@ export default function LoadingSpinner({ label = 'Loading', inline = false }) {
     <div
       className={`${ROLE_SCOPE[role] || ''} flex flex-col items-center justify-center
         ${inline ? 'py-2' : 'min-h-screen gap-5 bg-spc-ground'}`}
-      style={role === 'super_admin' ? SUPER_ADMIN_TOKENS : undefined}
     >
       {/*
         One live region for the whole thing. The cells are decoration and are

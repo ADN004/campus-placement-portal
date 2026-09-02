@@ -689,6 +689,74 @@ input[type='password']::-ms-clear {
   background: rgb(var(--spc-ground));
 }
 
+/* ===========================================================================
+   SUPER ADMIN — "Console"
+   ---------------------------------------------------------------------------
+   Register's structure with a floating chrome layer, not a second design
+   system. Glass is for what floats above scrolling content — the sidebar, the
+   top bar, a sticky action bar, a modal scrim. Everything you read sits on a
+   solid surface, so its contrast is a number rather than whatever happens to
+   be drifting behind it.
+
+   That distinction is not taste. Measured on this role as it stands, grey label
+   text on its translucent panels scores 4.52 over the plain ground, 3.79 with
+   one animated orb behind it and 3.14 where two overlap — against a 4.5
+   minimum. The orbs go, and content stops being translucent.
+
+   Like the officer block, this only *overrides* custom properties. No student
+   or officer value changes.
+   =========================================================================== */
+.spc-admin {
+  font-family: 'Satoshi', ui-sans-serif, system-ui, -apple-system, 'Segoe UI',
+    Roboto, sans-serif;
+  font-weight: 450;
+  /* Sixty colleges' worth of counts, CGPAs and PRNs in columns. */
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color: rgb(var(--spc-body));
+
+  /* four-surface ladder — cooler than the officer's neutral grey, so the two
+     roles are told apart at a glance without a second structural system */
+  --spc-ground:      241 244 249;  /* #F1F4F9  canvas */
+  --spc-surface:     255 255 255;  /* #FFFFFF  rows, panels, inputs, dialogs */
+  --spc-surface-2:   231 235 241;  /* #E7EBF1  table header, row hover */
+  --spc-surface-3:   220 225 234;  /* #DCE1EA  pressed, active nav */
+
+  /* four rule weights */
+  --spc-line:        226 231 239;  /* #E2E7EF  between table rows */
+  --spc-line-strong: 195 202 214;  /* #C3CAD6  panel and card edges */
+  --spc-control:     124 133 149;  /* #7C8595  3.72 on surface, 3.11 on surface-2 */
+  --spc-rule-structural: 15 22 33; /* #0F1621  section rules, table header underline */
+
+  /* text — measured against all four surfaces above */
+  --spc-ink:   15 22 33;    /* #0F1621  18.15 on surface, 13.83 on surface-3 */
+  --spc-body:  51 61 75;    /* #333D4B  11.00 on surface,  8.38 on surface-3 */
+  --spc-muted: 89 99 114;   /* #596372   6.08 on surface,  4.63 on surface-3 —
+                               passes on all four, which the officer palette
+                               does not; deliberate headroom, because this role
+                               puts more secondary text on tinted rows */
+
+  /* accent — the blue the loading screen already used for this role.
+     NOTE the same trap as the officer's brass: it fails as text on surface-2
+     (4.32) and surface-3 (3.94). Accent text only on ground or surface; on the
+     tinted surfaces use ink. As a fill it is fine anywhere. */
+  --spc-accent:      37 99 235;    /* #2563EB  5.17 on surface, 4.69 on ground */
+  --spc-accent-soft: 231 238 254;  /* #E7EEFE */
+  --spc-on-accent:   255 255 255;  /* 5.17 on accent */
+  --spc-on-accent-dim: 209 224 253;/* #D1E0FD  4.53 on accent */
+  --spc-selected:    231 238 254;  /* selected row wash */
+
+  /* status values are inherited unchanged from :root */
+}
+
+/* Flat canvas, for the same reason the officer's is flat: a gradient is
+   decorative colour, and this role has none to spare. The depth in Console
+   comes from the glass layer above the page, not from the page itself. */
+.spc-admin-bg {
+  background: rgb(var(--spc-ground));
+}
+
 /* Glass, only where something genuinely floats above scrolling content.
    82–88% opaque (not 60%) so text stays legible, plus a 1px top highlight —
    the detail that reads as light catching an edge rather than a grey box. */

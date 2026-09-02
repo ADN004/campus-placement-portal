@@ -34,6 +34,9 @@ import StudentBottomNav from './StudentBottomNav';
 import StudentTopBar from './student/StudentTopBar';
 import StudentSidebar from './student/StudentSidebar';
 import OfficerBottomNav from './officer/OfficerBottomNav';
+import AdminTopBar from './admin/AdminTopBar';
+import AdminSidebar from './admin/AdminSidebar';
+import AdminBottomNav from './admin/AdminBottomNav';
 import OfficerTopBar from './officer/OfficerTopBar';
 import OfficerSidebar from './officer/OfficerSidebar';
 import useDeviceType from '../hooks/useDeviceType';
@@ -42,6 +45,7 @@ import useBodyScrollLock from '../hooks/useBodyScrollLock';
 const DEFAULT_PW_DISMISS_KEY = 'default-password-warning-dismissed';
 const STUDENT_SIDEBAR_COLLAPSED_KEY = 'spc-student-sidebar-collapsed';
 const OFFICER_SIDEBAR_COLLAPSED_KEY = 'spc-officer-sidebar-collapsed';
+const ADMIN_SIDEBAR_COLLAPSED_KEY = 'spc-admin-sidebar-collapsed';
 
 export default function Layout() {
   const { user, logout } = useAuth();
@@ -128,15 +132,24 @@ export default function Layout() {
     }
   });
 
+  // And the super-admin equivalent, on the same reasoning: a third person on a
+  // third machine, whose panel should stay how they left it.
+  const [adminSidebarCollapsed, setAdminSidebarCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem(ADMIN_SIDEBAR_COLLAPSED_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  });
+
   // While the student drawer is open it covers the page, so the page behind it
   // must not scroll — otherwise a swipe over the backdrop scrolls the content
   // underneath. Only below `lg`, where the drawer actually overlays; at `lg`
   // and up the sidebar is permanently on screen and nothing is covered.
-  // Now covers officers too — their drawer had the identical bug, and this is
-  // the commit that gives them a redesigned shell. Super admins are still
-  // excluded until theirs is redesigned.
+  // Covers all three roles now. Each drawer had the identical bug, and each
+  // has been given a redesigned shell in turn.
   const deviceType = useDeviceType();
-  const drawerOpen = (isStudent || isOfficer) && sidebarOpen && deviceType !== 'desktop';
+  const drawerOpen = (isStudent || isOfficer || isAdmin) && sidebarOpen && deviceType !== 'desktop';
   useBodyScrollLock(drawerOpen);
 
   // Make the hardware/browser Back button close the drawer instead of leaving
@@ -168,6 +181,18 @@ export default function Layout() {
       const next = !prev;
       try {
         localStorage.setItem(STUDENT_SIDEBAR_COLLAPSED_KEY, String(next));
+      } catch {
+        // Ignore — private browsing / storage disabled
+      }
+      return next;
+    });
+  };
+
+  const toggleAdminSidebar = () => {
+    setAdminSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(ADMIN_SIDEBAR_COLLAPSED_KEY, String(next));
       } catch {
         // Ignore — private browsing / storage disabled
       }
@@ -340,8 +365,18 @@ export default function Layout() {
         />
       )}
 
-      {/* Top Navbar - Glassmorphic */}
-      {!isStudent && !isOfficer && (
+      {isAdmin && (
+        <AdminTopBar
+          user={user}
+          sidebarOpen={sidebarOpen}
+          onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+          onLogout={handleLogout}
+        />
+      )}
+
+      {/* The original shell, now unreachable: every role has its own. It goes
+          with the desktop-view switcher at the end of the super-admin pass. */}
+      {!isStudent && !isOfficer && !isAdmin && (
       <nav className="fixed w-full top-0 z-30 bg-white/70 backdrop-blur-xl border-b border-gray-200 shadow-sm">
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
@@ -408,8 +443,21 @@ export default function Layout() {
           />
         )}
 
-        {/* Floating Glassmorphic Sidebar */}
-        {!isStudent && !isOfficer && (
+        {/* Super admins get the grouped, collapsible panel. Twenty flat
+            destinations was the problem it solves. */}
+        {isAdmin && (
+          <AdminSidebar
+            navigationItems={navigationItems}
+            sidebarOpen={sidebarOpen}
+            onNavigate={() => setSidebarOpen(false)}
+            collapsed={adminSidebarCollapsed}
+            onToggleCollapse={toggleAdminSidebar}
+            user={user}
+          />
+        )}
+
+        {/* The original panel, now unreachable — see the note on the navbar. */}
+        {!isStudent && !isOfficer && !isAdmin && (
         <aside
           className={`${
             sidebarOpen ? 'translate-x-0' : '-translate-x-full'
@@ -527,6 +575,13 @@ export default function Layout() {
                      with a 12px gutter on each side. */
                   officerSidebarCollapsed ? 'lg:ml-[72px]' : 'lg:ml-[248px]'
                 }`
+              : isAdmin
+              ? `spc-vh-main min-w-0 pb-24 sm:pb-24 lg:pb-8 ${
+                  /* The admin sidebar sits flush at left:0 like the officer's,
+                     so the margin is exactly its width — the panel it replaces
+                     floated with a 12px gutter, hence the old 296px. */
+                  adminSidebarCollapsed ? 'lg:ml-[72px]' : 'lg:ml-[248px]'
+                }`
               : 'min-h-[calc(100vh-4rem)] overflow-y-auto lg:ml-[296px]'
           }`}
         >
@@ -614,14 +669,23 @@ export default function Layout() {
           since the drawer already lists every destination. */}
       {isOfficer && !sidebarOpen && <OfficerBottomNav />}
 
+      {/* And the super-admin one. Same rule again. */}
+      {isAdmin && !sidebarOpen && <AdminBottomNav />}
+
       {/* Mobile sidebar overlay. Officers get a plain scrim — the blur is a
-          decorative effect this direction does without, and it costs a
-          full-screen composite on the phones officers actually use. */}
+          decorative effect that direction does without, and it costs a
+          full-screen composite on the phones officers actually use.
+
+          Super admins keep the blur: a scrim is on Console's short list of
+          things allowed to be glass, since the page really is behind it. It is
+          drawn in ink rather than gray-900 so it belongs to the palette. */}
       {sidebarOpen && (
         <div
           className={
             isOfficer
               ? 'fixed inset-0 bg-spc-ink/30 z-10 lg:hidden animate-fadeIn'
+              : isAdmin
+              ? 'fixed inset-0 bg-spc-ink/35 backdrop-blur-sm z-10 lg:hidden animate-fadeIn'
               : 'fixed inset-0 bg-gray-900/20 backdrop-blur-sm z-10 lg:hidden animate-fadeIn'
           }
           onClick={() => setSidebarOpen(false)}

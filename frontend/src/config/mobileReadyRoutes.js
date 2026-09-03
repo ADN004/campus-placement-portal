@@ -52,6 +52,7 @@ export const MOBILE_READY_ROUTES = [
   '/super-admin/colleges',
   '/super-admin/placement-officers',
   '/super-admin/college-locks',
+  '/super-admin/admins',
 ];
 
 export function isMobileReadyRoute(pathname) {

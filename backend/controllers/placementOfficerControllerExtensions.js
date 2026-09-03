@@ -16,6 +16,7 @@ import { eligibilitySqlClauses } from '../utils/jobEligibility.js';
 import { driveMessage, hasDrive, driveForStudent } from '../utils/driveSchedule.js';
 import { TOTAL_BACKLOGS_SQL, parseMaxBacklogs } from '../utils/backlogPolicy.js';
 import { validateImageFormat } from '../utils/photoValidation.js';
+import { placementSessionSpan } from '../utils/placementSession.js';
 
 /*
  * A job's own extra questions — "10th Maths %", "Aadhaar Number", whatever that
@@ -2553,8 +2554,8 @@ export const getPlacementPosterStats = async (req, res) => {
         COUNT(DISTINCT j.company_name) as total_companies,
         COALESCE(MAX(CAST(substring(j.salary_package from '(\\d+\\.?\\d*)') AS DECIMAL)), 0) as highest_package,
         COALESCE(AVG(CAST(substring(j.salary_package from '(\\d+\\.?\\d*)') AS DECIMAL)), 0) as average_package,
-        EXTRACT(YEAR FROM MIN(COALESCE(ja.joining_date, CURRENT_DATE))) as start_year,
-        EXTRACT(YEAR FROM MAX(COALESCE(ja.joining_date, CURRENT_DATE))) as end_year
+        MIN(COALESCE(ja.joining_date, CURRENT_DATE)) as first_joining,
+        MAX(COALESCE(ja.joining_date, CURRENT_DATE)) as last_joining
       FROM job_applications ja
       JOIN jobs j ON ja.job_id = j.id
       JOIN students s ON ja.student_id = s.id
@@ -2636,8 +2637,8 @@ export const getPlacementPosterStats = async (req, res) => {
         recruiting_companies: recruitingCompanies,
         highest_package: parseFloat(stats.highest_package) || 0,
         average_package: Math.round((parseFloat(stats.average_package) || 0) * 100) / 100, // Round to 2 decimals
-        placement_year_start: parseInt(stats.start_year) || new Date().getFullYear(),
-        placement_year_end: parseInt(stats.end_year) || new Date().getFullYear(),
+        placement_year_start: placementSessionSpan(stats.first_joining, stats.last_joining).start,
+        placement_year_end: placementSessionSpan(stats.first_joining, stats.last_joining).end,
         company_breakdown: companiesResult.rows.map(company => ({
           company_name: company.company_name,
           lpa: parseFloat(company.lpa),
@@ -2734,8 +2735,8 @@ export const generatePlacementPoster = async (req, res) => {
     // Calculate year range from joining dates
     const yearQuery = `
       SELECT
-        EXTRACT(YEAR FROM MIN(ja.joining_date)) as start_year,
-        EXTRACT(YEAR FROM MAX(ja.joining_date)) as end_year
+        MIN(ja.joining_date) as first_joining,
+        MAX(ja.joining_date) as last_joining
       FROM job_applications ja
       JOIN students s ON ja.student_id = s.id
       WHERE ja.application_status = 'selected'
@@ -2744,14 +2745,15 @@ export const generatePlacementPoster = async (req, res) => {
     `;
 
     const yearResult = await query(yearQuery, [collegeId]);
-    const { start_year: startYear, end_year: endYear } = yearResult.rows[0];
+    const { first_joining: firstJoining, last_joining: lastJoining } = yearResult.rows[0];
+    const { start: startYear, end: endYear } = placementSessionSpan(firstJoining, lastJoining);
 
     // Prepare options for PDF generation
     const options = {
       collegeName,
       collegeLogo: logoUrl || null,
-      startYear: startYear || new Date().getFullYear(),
-      endYear: endYear || new Date().getFullYear()
+      startYear,
+      endYear
     };
 
     console.log(`📄 [PLACEMENT POSTER] Generating PDF for ${startYear}-${endYear}`);

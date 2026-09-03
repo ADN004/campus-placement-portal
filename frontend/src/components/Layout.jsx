@@ -365,6 +365,30 @@ export default function Layout() {
         />
       )}
 
+      {/* The strip above the floating top bar.
+
+          On `lg` the admin bar sits at top:12px, and nothing painted the 12px
+          band above it — so a page scrolled up passed under the bar and then
+          re-appeared as a sliver above it before leaving the viewport. A bar
+          that is meant to float over the page instead had content squeezing out
+          of its top edge.
+
+          `.spc-admin-bg` is the same class the root carries, and its
+          `background-attachment: fixed` is what makes reusing it work: the
+          gradient is positioned against the viewport, not the element, so a
+          12px window onto it lines up exactly with the page behind. Painting a
+          flat colour here would show as a band against the wash.
+
+          Only at `lg` — below that the bar is welded to top:0 full-bleed and
+          there is no gap to leak through. */}
+      {isAdmin && (
+        <div
+          aria-hidden="true"
+          className="hidden lg:block fixed inset-x-0 top-0 h-3 z-20
+            pointer-events-none spc-admin-bg"
+        />
+      )}
+
       {isAdmin && (
         <AdminTopBar
           user={user}
@@ -558,8 +582,11 @@ export default function Layout() {
             its widest child — a nowrap filter chip, or an officer table — then
             pushes the whole content column past the viewport, and the clip on
             the root hides the overflow instead of letting you reach it. Super
-            admin gets this for free because its `overflow-y-auto` makes <main>
-            a scroll container, which is allowed to shrink. */}
+            admin carries `min-w-0` for the same reason: an earlier note here
+            claimed it got the shrink for free from an `overflow-y-auto` on
+            <main>, but that class was dropped for all three roles — the
+            document is what scrolls, which is exactly why content passes under
+            the fixed top bar. */}
         <main className={`flex-1 p-4 sm:p-6 lg:p-8
           transition-all duration-300 ${
             isStudent

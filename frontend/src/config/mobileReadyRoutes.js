@@ -39,6 +39,7 @@ export const MOBILE_READY_ROUTES = [
   '/placement-officer/placement-poster',
   '/placement-officer/profile',
   '/super-admin/dashboard',
+  '/super-admin/profile',
 ];
 
 export function isMobileReadyRoute(pathname) {

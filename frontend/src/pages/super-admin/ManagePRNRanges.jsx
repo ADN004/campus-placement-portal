@@ -1,16 +1,42 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { superAdminAPI } from '../../services/api';
 import toast from 'react-hot-toast';
-import { Plus, Trash2, ToggleLeft, ToggleRight, AlertCircle, X, Eye, Download, ExternalLink, Edit2, Filter, Search, ChevronDown, ChevronRight, Building2, Globe } from 'lucide-react';
+import { superAdminAPI } from '../../services/api';
 import useSkeleton from '../../hooks/useSkeleton';
-import AnimatedSection from '../../components/animation/AnimatedSection';
-import TablePageSkeleton from '../../components/skeletons/TablePageSkeleton';
-import ExceptedPrnList from '../../components/ExceptedPrnList';
-import ModalScrollLock from '../../components/ModalScrollLock';
-import { getPassoutYearOptions } from '../../utils/passoutYears';
+import useDeviceType from '../../hooks/useDeviceType';
+import RangesBody from './prnRanges/RangesBody';
+import RangesSkeleton from './prnRanges/RangesSkeleton';
+import { RangeDialog, SinglePrnDialog, DisableDialog } from './prnRanges/RangeModals';
 
+const EMPTY_FORM = {
+  range_start: '',
+  range_end: '',
+  single_prn: '',
+  description: '',
+  year: '',
+  exceptions: '',
+};
+
+/**
+ * PRN Ranges — container.
+ *
+ * All state, effects and handlers; the body and the dialogs draw them. Every
+ * request, payload, toast and validation rule is carried over unchanged.
+ *
+ * Two things were removed, both unreachable rather than unused:
+ *
+ *   - a "view students in range" modal, with its own fetch, its own export and
+ *     about 130 lines of markup. The button beside each range has been a `Link`
+ *     to `/super-admin/prn-ranges/:id/students` for some time, so nothing could
+ *     open the modal. The feature still works; it lives on that page.
+ *   - three blurred colour circles drifting behind the content. Console has no
+ *     decorative colour on a page.
+ *
+ * `handleViewStudents` and `handleExportRangeStudents` went with the modal, so
+ * the handler snapshot for this page is two names shorter than it was. That is
+ * the intended change, not a rewrite dropping something.
+ */
 export default function ManagePRNRanges() {
+  const deviceType = useDeviceType();
   const [ranges, setRanges] = useState([]);
   const [loading, setLoading] = useState(true);
   const { showSkeleton } = useSkeleton(loading);
@@ -19,24 +45,12 @@ export default function ManagePRNRanges() {
   const [showDisableModal, setShowDisableModal] = useState(false);
   const [selectedRange, setSelectedRange] = useState(null);
   const [disableReason, setDisableReason] = useState('');
-  const [showViewStudentsModal, setShowViewStudentsModal] = useState(false);
-  const [rangeStudents, setRangeStudents] = useState([]);
-  const [loadingStudents, setLoadingStudents] = useState(false);
-  const [exportingStudents, setExportingStudents] = useState(false);
   const [editingRange, setEditingRange] = useState(null);
   const [yearFilter, setYearFilter] = useState('active');
-  // Grouped view: search jumps to a college or PRN; expandedGroups tracks
-  // which college sections are open (a live search auto-expands matches)
   const [search, setSearch] = useState('');
   const [expandedGroups, setExpandedGroups] = useState(new Set());
-  const [formData, setFormData] = useState({
-    range_start: '',
-    range_end: '',
-    single_prn: '',
-    description: '',
-    year: '',
-    exceptions: '',
-  });
+  const [submitting, setSubmitting] = useState(false);
+  const [formData, setFormData] = useState(EMPTY_FORM);
 
   useEffect(() => {
     fetchRanges();
@@ -45,7 +59,7 @@ export default function ManagePRNRanges() {
   const fetchRanges = async () => {
     try {
       const response = await superAdminAPI.getPRNRanges();
-      setRanges(response.data.data);
+      setRanges(response.data.data || []);
     } catch (error) {
       toast.error('Failed to load PRN ranges');
     } finally {
@@ -53,76 +67,74 @@ export default function ManagePRNRanges() {
     }
   };
 
+  const closeForms = () => {
+    setShowAddRange(false);
+    setShowAddSingle(false);
+    setEditingRange(null);
+    setFormData(EMPTY_FORM);
+  };
+
   const handleAddRange = async (e) => {
     e.preventDefault();
+    setSubmitting(true);
     try {
+      const payload = {
+        range_start: formData.range_start,
+        range_end: formData.range_end,
+        description: formData.description,
+        year: formData.year,
+        exceptions: formData.exceptions,
+      };
       if (editingRange) {
-        // Update existing range
-        await superAdminAPI.updatePRNRange(editingRange.id, {
-          range_start: formData.range_start,
-          range_end: formData.range_end,
-          description: formData.description,
-          year: formData.year,
-          exceptions: formData.exceptions,
-        });
+        await superAdminAPI.updatePRNRange(editingRange.id, payload);
         toast.success('PRN range updated successfully');
       } else {
-        // Add new range
-        await superAdminAPI.addPRNRange({
-          range_start: formData.range_start,
-          range_end: formData.range_end,
-          description: formData.description,
-          year: formData.year,
-          exceptions: formData.exceptions,
-        });
+        await superAdminAPI.addPRNRange(payload);
         toast.success('PRN range added successfully');
       }
-      setShowAddRange(false);
-      setEditingRange(null);
-      setFormData({ range_start: '', range_end: '', single_prn: '', description: '', year: '', exceptions: '' });
+      closeForms();
       fetchRanges();
     } catch (error) {
-      toast.error(error.response?.data?.message || `Failed to ${editingRange ? 'update' : 'add'} PRN range`);
+      toast.error(error.response?.data?.message
+        || `Failed to ${editingRange ? 'update' : 'add'} PRN range`);
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleAddSingle = async (e) => {
     e.preventDefault();
+    setSubmitting(true);
     try {
+      const payload = {
+        single_prn: formData.single_prn,
+        description: formData.description,
+        year: formData.year,
+      };
       if (editingRange) {
-        // Update existing single PRN
-        await superAdminAPI.updatePRNRange(editingRange.id, {
-          single_prn: formData.single_prn,
-          description: formData.description,
-          year: formData.year,
-        });
+        await superAdminAPI.updatePRNRange(editingRange.id, payload);
         toast.success('Single PRN updated successfully');
       } else {
-        // Add new single PRN
-        await superAdminAPI.addPRNRange({
-          single_prn: formData.single_prn,
-          description: formData.description,
-          year: formData.year,
-        });
+        await superAdminAPI.addPRNRange(payload);
         toast.success('Single PRN added successfully');
       }
-      setShowAddSingle(false);
-      setEditingRange(null);
-      setFormData({ range_start: '', range_end: '', single_prn: '', description: '', year: '', exceptions: '' });
+      closeForms();
       fetchRanges();
     } catch (error) {
-      toast.error(error.response?.data?.message || `Failed to ${editingRange ? 'update' : 'add'} single PRN`);
+      toast.error(error.response?.data?.message
+        || `Failed to ${editingRange ? 'update' : 'add'} single PRN`);
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleToggleEnable = async (range) => {
     if (range.is_enabled) {
-      // If currently enabled, show modal to ask for disable reason
+      // Disabling needs a reason, so it goes through its own dialog.
       setSelectedRange(range);
       setDisableReason('');
       setShowDisableModal(true);
     } else {
-      // If currently disabled, enable it directly
       await handleEnableRange(range.id);
     }
   };
@@ -142,7 +154,7 @@ export default function ManagePRNRanges() {
       toast.error('Please provide a reason for disabling this PRN range');
       return;
     }
-
+    setSubmitting(true);
     try {
       await superAdminAPI.updatePRNRange(selectedRange.id, {
         is_enabled: false,
@@ -155,6 +167,8 @@ export default function ManagePRNRanges() {
       fetchRanges();
     } catch (error) {
       toast.error('Failed to disable PRN range');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -187,63 +201,25 @@ export default function ManagePRNRanges() {
     }
   };
 
-  const handleViewStudents = async (range) => {
-    setSelectedRange(range);
-    setShowViewStudentsModal(true);
-    setLoadingStudents(true);
-    setRangeStudents([]);
-
-    try {
-      const response = await superAdminAPI.getStudentsByPRNRange(range.id);
-      setRangeStudents(response.data.data || []);
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to load students');
-      setRangeStudents([]);
-    } finally {
-      setLoadingStudents(false);
-    }
+  const toggleGroup = (key) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   };
 
-  const handleExportRangeStudents = async () => {
-    if (!selectedRange) return;
+  if (showSkeleton) return <RangesSkeleton layout={deviceType} />;
 
-    setExportingStudents(true);
-    try {
-      const response = await superAdminAPI.exportStudentsByPRNRange(selectedRange.id);
-
-      const blob = new Blob([response.data], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-      });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      const rangeLabel = selectedRange.single_prn
-        ? selectedRange.single_prn
-        : `${selectedRange.range_start}_${selectedRange.range_end}`;
-      a.download = `students_prn_range_${rangeLabel}_${new Date().toISOString().split('T')[0]}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-
-      toast.success('Students exported successfully');
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to export students');
-    } finally {
-      setExportingStudents(false);
-    }
-  };
-
-  if (showSkeleton) return <TablePageSkeleton tableColumns={5} hasSearch={false} hasFilters={false} />;
-
-  // Extract unique years from ranges for dropdown
-  const availableYears = [...new Set(ranges.map(r => r.year).filter(Boolean))].sort((a, b) => b - a);
+  const availableYears = [...new Set(ranges.map((r) => r.year).filter(Boolean))]
+    .sort((a, b) => b - a);
 
   const searchQuery = search.trim().toLowerCase();
 
   // Year/active filter first, then search: a query matches a range by its
   // college name, PRN digits, year or description
-  const filteredRanges = ranges.filter(range => {
+  const filteredRanges = ranges.filter((range) => {
     if (yearFilter === 'active' && !range.is_enabled) return false;
     if (yearFilter !== 'active' && yearFilter !== 'all' && String(range.year) !== yearFilter) return false;
     if (!searchQuery) return true;
@@ -266,696 +242,83 @@ export default function ManagePRNRanges() {
   const groups = [...groupMap.entries()]
     .map(([key, groupRanges]) => ({
       key,
+      label: key === SYSTEM_KEY ? 'System-wide (all colleges)' : key,
       isSystemWide: key === SYSTEM_KEY,
-      label: key === SYSTEM_KEY ? 'System-wide (Super Admin)' : key,
       ranges: groupRanges,
-      rangeCount: groupRanges.filter(r => !r.single_prn).length,
-      singleCount: groupRanges.filter(r => r.single_prn).length,
-      disabledCount: groupRanges.filter(r => !r.is_enabled).length,
+      rangeCount: groupRanges.filter((r) => !r.single_prn).length,
+      singleCount: groupRanges.filter((r) => r.single_prn).length,
+      disabledCount: groupRanges.filter((r) => !r.is_enabled).length,
     }))
-    .sort((a, b) => (a.isSystemWide ? -1 : b.isSystemWide ? 1 : a.label.localeCompare(b.label)));
-
-  // A live search auto-expands every matching section
-  const isGroupExpanded = (key) => (searchQuery ? true : expandedGroups.has(key));
-  const toggleGroup = (key) => {
-    setExpandedGroups(prev => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key); else next.add(key);
-      return next;
+    .sort((a, b) => {
+      if (a.isSystemWide) return -1;
+      if (b.isSystemWide) return 1;
+      return a.label.localeCompare(b.label);
     });
-  };
-  const expandAll = () => setExpandedGroups(new Set(groups.map(g => g.key)));
-  const collapseAll = () => setExpandedGroups(new Set());
+
+  // A search opens every group it matched: hiding results behind a collapsed
+  // heading would make the search look broken.
+  const isGroupExpanded = (key) => (searchQuery ? true : expandedGroups.has(key));
+
+  const totalGroups = new Set(ranges.map((r) => r.college_name || SYSTEM_KEY)).size;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-teal-50 via-cyan-50 to-blue-50 pb-8">
-      {/* Animated Background Elements */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-10 right-10 w-72 h-72 bg-teal-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"></div>
-        <div className="absolute bottom-10 left-10 w-72 h-72 bg-cyan-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse" style={{ animationDelay: '2s' }}></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-72 h-72 bg-blue-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse" style={{ animationDelay: '4s' }}></div>
-      </div>
+    <>
+      <RangesBody
+        layout={deviceType}
+        groups={groups}
+        totalGroups={totalGroups}
+        years={availableYears}
+        search={search}
+        onSearch={(e) => setSearch(e.target.value)}
+        yearFilter={yearFilter}
+        onYear={(e) => setYearFilter(e.target.value)}
+        isGroupExpanded={isGroupExpanded}
+        onToggleGroup={toggleGroup}
+        onExpandAll={() => setExpandedGroups(new Set(groups.map((g) => g.key)))}
+        onCollapseAll={() => setExpandedGroups(new Set())}
+        onAddRange={() => { setEditingRange(null); setFormData(EMPTY_FORM); setShowAddRange(true); }}
+        onAddSingle={() => { setEditingRange(null); setFormData(EMPTY_FORM); setShowAddSingle(true); }}
+        onEdit={handleEdit}
+        onToggleEnable={handleToggleEnable}
+        onDelete={handleDelete}
+      />
 
-      <div className="relative z-10">
-        {/* Header Section with Gradient */}
-        <AnimatedSection delay={0}>
-        <div className="relative overflow-hidden bg-gradient-to-br from-teal-600 via-cyan-600 to-blue-600 rounded-3xl shadow-2xl mb-8 p-10">
-          <div className="absolute inset-0 bg-black opacity-10"></div>
-          <div className="absolute inset-0">
-            <div className="absolute inset-0 bg-gradient-to-r from-white/5 via-transparent to-white/5 animate-pulse"></div>
-          </div>
-
-          <div className="relative z-10 flex justify-between items-start">
-            <div className="flex items-center space-x-5">
-              <div className="relative">
-                <div className="absolute inset-0 bg-white/30 rounded-3xl blur-xl animate-pulse"></div>
-                <div className="relative p-5 bg-white/20 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/30">
-                  <AlertCircle className="text-white" size={40} />
-                </div>
-              </div>
-              <div>
-                <h1 className="text-5xl font-bold text-white mb-3 tracking-tight drop-shadow-lg">
-                  Manage PRN Ranges
-                </h1>
-                <p className="text-teal-100 text-lg font-medium">
-                  Control which PRNs are valid for student registration
-                </p>
-              </div>
-            </div>
-            <div className="flex space-x-3">
-              <button
-                onClick={() => setShowAddRange(true)}
-                className="px-7 py-4 bg-white/95 backdrop-blur-sm text-teal-700 hover:bg-white hover:shadow-2xl rounded-2xl font-bold shadow-xl transform hover:scale-105 transition-all duration-200 flex items-center space-x-3 border border-white/50"
-              >
-                <Plus size={22} />
-                <span className="text-lg">Add Range</span>
-              </button>
-              <button
-                onClick={() => setShowAddSingle(true)}
-                className="px-7 py-4 bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 text-white rounded-2xl font-bold shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all duration-200 flex items-center space-x-3"
-              >
-                <Plus size={22} />
-                <span className="text-lg">Add Single PRN</span>
-              </button>
-            </div>
-          </div>
-        </div>
-        </AnimatedSection>
-
-        {/* Info Alert */}
-        <AnimatedSection delay={0.08}>
-        <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl p-8 mb-8 border-l-8 border-blue-500">
-          <div className="flex items-start">
-            <div className="p-4 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-2xl mr-5 shadow-lg">
-              <AlertCircle className="text-white" size={28} />
-            </div>
-            <div>
-              <h4 className="font-black text-blue-900 text-2xl mb-3">About PRN Ranges</h4>
-              <p className="text-blue-800 text-lg leading-relaxed">
-                Only students with PRNs within active ranges can register. You can add ranges (e.g., 2301150100-2301150999)
-                or individual PRNs. Deactivated ranges will not allow new registrations.
-              </p>
-            </div>
-          </div>
-        </div>
-        </AnimatedSection>
-
-        {/* Filters: year/active view + search + expand controls */}
-        <AnimatedSection delay={0.12}>
-          <div className="flex flex-wrap items-center gap-3 mb-6">
-            <div className="flex items-center space-x-3">
-              <Filter size={18} className="text-gray-500" />
-              <span className="text-sm font-semibold text-gray-600">View:</span>
-              <select
-                value={yearFilter}
-                onChange={(e) => setYearFilter(e.target.value)}
-                className="px-4 py-2 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-xl text-sm font-medium text-gray-700 focus:border-teal-500 focus:ring-2 focus:ring-teal-200 outline-none transition-all shadow-sm"
-              >
-                <option value="active">Active Ranges</option>
-                <option value="all">All Years</option>
-                {availableYears.map(year => (
-                  <option key={year} value={year}>{year}</option>
-                ))}
-              </select>
-            </div>
-            <div className="relative flex-1 min-w-[240px] max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Jump to a college or PRN…"
-                className="w-full pl-9 pr-3 py-2 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-xl text-sm font-medium text-gray-700 focus:border-teal-500 focus:ring-2 focus:ring-teal-200 outline-none transition-all shadow-sm"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={expandAll}
-                className="px-3 py-2 text-xs font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-xl transition-colors"
-              >
-                Expand all
-              </button>
-              <button
-                onClick={collapseAll}
-                className="px-3 py-2 text-xs font-bold text-gray-600 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl transition-colors"
-              >
-                Collapse all
-              </button>
-            </div>
-            <p className="text-sm text-gray-500 ml-auto">
-              <span className="font-bold text-gray-700">{filteredRanges.length}</span> of {ranges.length} range(s) in{' '}
-              <span className="font-bold text-gray-700">{groups.length}</span> group(s)
-            </p>
-          </div>
-        </AnimatedSection>
-
-      {/* Add Range Modal */}
       {showAddRange && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <ModalScrollLock />
-          <div className="bg-white rounded-lg w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden">
-            <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-gray-200">
-              <h2 className="text-xl font-bold">{editingRange ? 'Update PRN Range' : 'Add PRN Range'}</h2>
-              <button
-                type="button"
-                onClick={() => { setShowAddRange(false); setEditingRange(null); setFormData({ range_start: '', range_end: '', single_prn: '', description: '', year: '', exceptions: '' }); }}
-                className="text-gray-400 hover:text-gray-600"
-                aria-label="Close"
-              >
-                <X size={24} />
-              </button>
-            </div>
-            <form onSubmit={handleAddRange} className="flex-1 overflow-y-auto overscroll-contain p-6 space-y-4">
-              <div>
-                <label className="label">Range Start</label>
-                <input
-                  type="text"
-                  className="input"
-                  value={formData.range_start}
-                  onChange={(e) => setFormData({ ...formData, range_start: e.target.value })}
-                  placeholder="e.g., 2301150100"
-                  required
-                />
-              </div>
-              <div>
-                <label className="label">Range End</label>
-                <input
-                  type="text"
-                  className="input"
-                  value={formData.range_end}
-                  onChange={(e) => setFormData({ ...formData, range_end: e.target.value })}
-                  placeholder="e.g., 2301150999"
-                  required
-                />
-              </div>
-              <div>
-                <label className="label">Passout Year (Optional)</label>
-                <select
-                  className="input"
-                  value={formData.year}
-                  onChange={(e) => setFormData({ ...formData, year: e.target.value })}
-                >
-                  <option value="">Select Passout Year</option>
-                  {getPassoutYearOptions(formData.year).map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="label">Excepted PRNs (Optional)</label>
-                <textarea
-                  className="input"
-                  rows={2}
-                  value={formData.exceptions}
-                  onChange={(e) => setFormData({ ...formData, exceptions: e.target.value })}
-                  placeholder="PRNs inside this range that must NOT register — comma separated, e.g., 2301150105, 2301150110"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  These PRNs are fully blocked from registering — no other range or single-PRN entry
-                  can override this. To re-allow one, remove it from this list.
-                </p>
-              </div>
-              <div>
-                <label className="label">Description (Optional)</label>
-                <input
-                  type="text"
-                  className="input"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="e.g., 2023 Batch Computer Engineering"
-                />
-              </div>
-              <div className="flex space-x-3">
-                <button type="submit" className="btn btn-primary flex-1">
-                  {editingRange ? 'Update Range' : 'Add Range'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowAddRange(false);
-                    setEditingRange(null);
-                    setFormData({ range_start: '', range_end: '', single_prn: '', description: '', year: '', exceptions: '' });
-                  }}
-                  className="btn btn-secondary flex-1"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <RangeDialog
+          editing={editingRange}
+          formData={formData}
+          onChange={(patch) => setFormData((prev) => ({ ...prev, ...patch }))}
+          onSubmit={handleAddRange}
+          onClose={closeForms}
+          submitting={submitting}
+        />
       )}
 
-      {/* Add Single PRN Modal */}
       {showAddSingle && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <ModalScrollLock />
-          <div className="bg-white rounded-lg w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden">
-            <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-gray-200">
-              <h2 className="text-xl font-bold">{editingRange ? 'Update Single PRN' : 'Add Single PRN'}</h2>
-              <button
-                type="button"
-                onClick={() => { setShowAddSingle(false); setEditingRange(null); setFormData({ range_start: '', range_end: '', single_prn: '', description: '', year: '', exceptions: '' }); }}
-                className="text-gray-400 hover:text-gray-600"
-                aria-label="Close"
-              >
-                <X size={24} />
-              </button>
-            </div>
-            <form onSubmit={handleAddSingle} className="flex-1 overflow-y-auto overscroll-contain p-6 space-y-4">
-              <div>
-                <label className="label">PRN</label>
-                <input
-                  type="text"
-                  className="input"
-                  value={formData.single_prn}
-                  onChange={(e) => setFormData({ ...formData, single_prn: e.target.value })}
-                  placeholder="e.g., 2301150323"
-                  required
-                />
-              </div>
-              <div>
-                <label className="label">Passout Year (Optional)</label>
-                <select
-                  className="input"
-                  value={formData.year}
-                  onChange={(e) => setFormData({ ...formData, year: e.target.value })}
-                >
-                  <option value="">Select Passout Year</option>
-                  {getPassoutYearOptions(formData.year).map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="label">Description (Optional)</label>
-                <input
-                  type="text"
-                  className="input"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="e.g., Special admission"
-                />
-              </div>
-              <div className="flex space-x-3">
-                <button type="submit" className="btn btn-primary flex-1">
-                  {editingRange ? 'Update PRN' : 'Add PRN'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowAddSingle(false);
-                    setEditingRange(null);
-                    setFormData({ range_start: '', range_end: '', single_prn: '', description: '', year: '', exceptions: '' });
-                  }}
-                  className="btn btn-secondary flex-1"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <SinglePrnDialog
+          editing={editingRange}
+          formData={formData}
+          onChange={(patch) => setFormData((prev) => ({ ...prev, ...patch }))}
+          onSubmit={handleAddSingle}
+          onClose={closeForms}
+          submitting={submitting}
+        />
       )}
 
-        {/* Collapsible per-college groups */}
-        <AnimatedSection delay={0.16}>
-        {groups.length === 0 ? (
-          <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/50 text-center py-16">
-            <AlertCircle className="mx-auto mb-4 text-gray-300" size={64} />
-            <p className="text-gray-500 text-lg font-semibold">
-              {searchQuery
-                ? 'Nothing matches your search.'
-                : yearFilter === 'active'
-                ? 'No active PRN ranges. Add new ranges to start the academic year.'
-                : 'No PRN ranges found for this filter.'}
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {groups.map((group) => (
-              <div key={group.key} className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl overflow-hidden border border-white/50">
-                {/* Group header */}
-                <button
-                  onClick={() => toggleGroup(group.key)}
-                  className={`w-full flex items-center gap-4 px-6 py-4 text-left transition-colors ${
-                    group.isSystemWide
-                      ? 'bg-gradient-to-r from-blue-50 to-cyan-50 hover:from-blue-100 hover:to-cyan-100'
-                      : 'hover:bg-teal-50/60'
-                  }`}
-                >
-                  {isGroupExpanded(group.key) ? (
-                    <ChevronDown size={20} className="text-gray-500 shrink-0" />
-                  ) : (
-                    <ChevronRight size={20} className="text-gray-500 shrink-0" />
-                  )}
-                  <span className={`p-2 rounded-xl shrink-0 ${group.isSystemWide ? 'bg-blue-100' : 'bg-teal-100'}`}>
-                    {group.isSystemWide ? (
-                      <Globe size={18} className="text-blue-700" />
-                    ) : (
-                      <Building2 size={18} className="text-teal-700" />
-                    )}
-                  </span>
-                  <span className="font-bold text-gray-900 text-lg">{group.label}</span>
-                  <span className="flex flex-wrap items-center gap-2 ml-auto">
-                    {group.rangeCount > 0 && (
-                      <span className="px-2.5 py-1 bg-teal-100 text-teal-800 rounded-full text-xs font-bold">
-                        {group.rangeCount} range{group.rangeCount !== 1 ? 's' : ''}
-                      </span>
-                    )}
-                    {group.singleCount > 0 && (
-                      <span className="px-2.5 py-1 bg-indigo-100 text-indigo-800 rounded-full text-xs font-bold">
-                        {group.singleCount} single{group.singleCount !== 1 ? 's' : ''}
-                      </span>
-                    )}
-                    {group.disabledCount > 0 && (
-                      <span className="px-2.5 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-bold">
-                        {group.disabledCount} disabled
-                      </span>
-                    )}
-                  </span>
-                </button>
-
-                {/* Group body */}
-                {isGroupExpanded(group.key) && (
-                  <div className="overflow-x-auto border-t border-gray-100">
-                    <table className="min-w-full divide-y divide-gray-100">
-                      <thead className="bg-gradient-to-r from-teal-600 via-cyan-600 to-blue-600">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-black text-white uppercase tracking-wider">Type</th>
-                          <th className="px-6 py-3 text-left text-xs font-black text-white uppercase tracking-wider">Range / PRN</th>
-                          <th className="px-6 py-3 text-left text-xs font-black text-white uppercase tracking-wider">Year</th>
-                          <th className="px-6 py-3 text-left text-xs font-black text-white uppercase tracking-wider">Description</th>
-                          <th className="px-6 py-3 text-left text-xs font-black text-white uppercase tracking-wider">Status</th>
-                          <th className="px-6 py-3 text-left text-xs font-black text-white uppercase tracking-wider">Added</th>
-                          <th className="px-6 py-3 text-left text-xs font-black text-white uppercase tracking-wider">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white/50 divide-y divide-gray-100">
-                        {group.ranges.map((range) => (
-                          <tr key={range.id} className="hover:bg-gradient-to-r hover:from-teal-50/50 hover:to-cyan-50/50 transition-all duration-200 group">
-                            <td className="px-6 py-5">
-                              <span className="px-3 py-1.5 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-full text-xs font-bold shadow-md">
-                                {range.single_prn ? 'Single' : 'Range'}
-                              </span>
-                            </td>
-                            <td className="px-6 py-5 font-mono font-bold text-gray-900 group-hover:text-teal-700 transition-colors">
-                              {range.single_prn
-                                ? range.single_prn
-                                : `${range.range_start} - ${range.range_end}`}
-                              <ExceptedPrnList prns={range.excepted_prns} />
-                            </td>
-                            <td className="px-6 py-5 text-sm text-gray-700 font-medium">
-                              {range.year || '-'}
-                            </td>
-                            <td className="px-6 py-5 text-sm text-gray-600">
-                              {range.description || '-'}
-                            </td>
-                            <td className="px-6 py-5">
-                              <div className="flex flex-col space-y-1">
-                                {range.is_enabled !== undefined ? (
-                                  range.is_enabled ? (
-                                    <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-xs font-semibold bg-green-100 text-green-800 w-fit">Enabled</span>
-                                  ) : (
-                                    <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-xs font-semibold bg-yellow-100 text-yellow-800 w-fit">Disabled</span>
-                                  )
-                                ) : (
-                                  range.is_active ? (
-                                    <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-xs font-semibold bg-green-100 text-green-800 w-fit">Active</span>
-                                  ) : (
-                                    <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-xs font-semibold bg-red-100 text-red-800 w-fit">Inactive</span>
-                                  )
-                                )}
-                                {range.disabled_reason && (
-                                  <span className="text-xs text-gray-500" title={range.disabled_reason}>
-                                    (Reason provided)
-                                  </span>
-                                )}
-                              </div>
-                            </td>
-                            <td className="px-6 py-5 text-sm text-gray-600">
-                              {new Date(range.created_at).toLocaleDateString('en-IN')}
-                            </td>
-                            <td className="px-6 py-5">
-                              <div className="flex space-x-2">
-                                <Link
-                                  to={`/super-admin/prn-ranges/${range.id}/students`}
-                                  className="p-2 text-blue-600 hover:text-white hover:bg-gradient-to-r hover:from-blue-500 hover:to-cyan-500 rounded-xl transition-all duration-200 hover:shadow-lg transform hover:scale-110 flex items-center space-x-1"
-                                  title="View Students in Range"
-                                >
-                                  <Eye size={18} />
-                                  <ExternalLink size={12} />
-                                </Link>
-                                <button
-                                  onClick={() => handleEdit(range)}
-                                  className="p-2 text-amber-600 hover:text-white hover:bg-gradient-to-r hover:from-amber-500 hover:to-orange-500 rounded-xl transition-all duration-200 hover:shadow-lg transform hover:scale-110"
-                                  title="Edit"
-                                >
-                                  <Edit2 size={18} />
-                                </button>
-                                <button
-                                  onClick={() => handleToggleEnable(range)}
-                                  className={`p-2 rounded-xl transition-all duration-200 hover:shadow-lg transform hover:scale-110 ${
-                                    range.is_enabled
-                                      ? 'text-green-600 hover:text-white hover:bg-gradient-to-r hover:from-green-500 hover:to-emerald-500'
-                                      : 'text-gray-400 hover:text-white hover:bg-gradient-to-r hover:from-gray-400 hover:to-gray-600'
-                                  }`}
-                                  title={range.is_enabled ? 'Disable Range' : 'Enable Range'}
-                                >
-                                  {range.is_enabled ? (
-                                    <ToggleRight size={20} />
-                                  ) : (
-                                    <ToggleLeft size={20} />
-                                  )}
-                                </button>
-                                <button
-                                  onClick={() => handleDelete(range.id)}
-                                  className="p-2 text-red-600 hover:text-white hover:bg-gradient-to-r hover:from-red-500 hover:to-rose-500 rounded-xl transition-all duration-200 hover:shadow-lg transform hover:scale-110"
-                                  title="Delete"
-                                >
-                                  <Trash2 size={18} />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-        </AnimatedSection>
-
-      {/* Disable PRN Range Modal */}
       {showDisableModal && selectedRange && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <ModalScrollLock />
-          <div className="bg-white rounded-lg w-full max-w-md max-h-[90vh] overflow-y-auto overscroll-contain">
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-              <h2 className="text-xl font-bold text-gray-900">Disable PRN Range</h2>
-              <button
-                type="button"
-                onClick={() => { setShowDisableModal(false); setSelectedRange(null); setDisableReason(''); }}
-                className="text-gray-400 hover:text-gray-600"
-                aria-label="Close"
-              >
-                <X size={24} />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-4">
-              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <p className="text-sm text-gray-600 mb-1">PRN Range</p>
-                <p className="font-mono font-semibold text-gray-900">
-                  {selectedRange.single_prn
-                    ? selectedRange.single_prn
-                    : `${selectedRange.range_start} - ${selectedRange.range_end}`}
-                </p>
-              </div>
-
-              <div>
-                <label className="label">
-                  Reason for Disabling *
-                </label>
-                <textarea
-                  className="input"
-                  rows="4"
-                  value={disableReason}
-                  onChange={(e) => setDisableReason(e.target.value)}
-                  placeholder="Provide a detailed reason for disabling this PRN range..."
-                  required
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  This reason will be stored for future reference and audit purposes.
-                </p>
-              </div>
-
-              <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-sm font-medium text-red-900">
-                  Warning: Students with PRNs in this range will not be able to register while it's disabled.
-                </p>
-              </div>
-            </div>
-
-            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex space-x-3">
-              <button
-                onClick={() => {
-                  setShowDisableModal(false);
-                  setSelectedRange(null);
-                  setDisableReason('');
-                }}
-                className="btn btn-secondary flex-1"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleConfirmDisable}
-                disabled={!disableReason.trim()}
-                className="btn bg-yellow-600 hover:bg-yellow-700 text-white flex-1 disabled:opacity-50"
-              >
-                Disable Range
-              </button>
-            </div>
-          </div>
-        </div>
+        <DisableDialog
+          range={selectedRange}
+          reason={disableReason}
+          onReasonChange={setDisableReason}
+          onConfirm={handleConfirmDisable}
+          onClose={() => {
+            setShowDisableModal(false);
+            setSelectedRange(null);
+            setDisableReason('');
+          }}
+          submitting={submitting}
+        />
       )}
-
-      {/* View Students in Range Modal */}
-      {showViewStudentsModal && selectedRange && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <ModalScrollLock />
-          <div className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-              <div>
-                <h2 className="text-xl font-bold text-gray-900">Students in PRN Range</h2>
-                <p className="text-sm text-gray-600 mt-1 font-mono">
-                  {selectedRange.single_prn
-                    ? selectedRange.single_prn
-                    : `${selectedRange.range_start} - ${selectedRange.range_end}`}
-                  {selectedRange.is_enabled ? (
-                    <span className="ml-3 badge badge-success">Enabled</span>
-                  ) : (
-                    <span className="ml-3 badge badge-warning">Disabled</span>
-                  )}
-                </p>
-              </div>
-              <button
-                onClick={() => {
-                  setShowViewStudentsModal(false);
-                  setSelectedRange(null);
-                  setRangeStudents([]);
-                }}
-                className="text-gray-400 hover:text-gray-600"
-                aria-label="Close"
-              >
-                <X size={24} />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto overscroll-contain p-6">
-              {loadingStudents ? (
-                <div className="flex items-center justify-center h-64">
-                  <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-3"></div>
-                    <p className="text-gray-600">Loading students...</p>
-                  </div>
-                </div>
-              ) : rangeStudents.length === 0 ? (
-                <div className="flex items-center justify-center h-64">
-                  <div className="text-center">
-                    <Eye size={48} className="mx-auto text-gray-400 mb-3" />
-                    <p className="text-gray-600 font-medium">No students found in this PRN range</p>
-                    <p className="text-sm text-gray-500 mt-1">Students who register within this range will appear here</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PRN</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">College</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Branch</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {rangeStudents.map((student) => (
-                        <tr key={student.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 whitespace-nowrap text-sm font-mono font-medium text-gray-900">
-                            {student.prn}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                            {student.name || student.student_name}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                            {student.email}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                            {student.college_name}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                            {student.branch}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm">
-                            {student.is_blacklisted ? (
-                              <span className="badge badge-danger">Blacklisted</span>
-                            ) : student.registration_status === 'approved' ? (
-                              <span className="badge badge-success">Approved</span>
-                            ) : student.registration_status === 'pending' ? (
-                              <span className="badge badge-warning">Pending</span>
-                            ) : (
-                              <span className="badge badge-danger">Rejected</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-
-            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-between items-center">
-              <p className="text-sm text-gray-600">
-                Total: <span className="font-semibold">{rangeStudents.length}</span> student(s)
-              </p>
-              <div className="flex space-x-3">
-                <button
-                  onClick={() => {
-                    setShowViewStudentsModal(false);
-                    setSelectedRange(null);
-                    setRangeStudents([]);
-                  }}
-                  className="btn btn-secondary"
-                >
-                  Close
-                </button>
-                {rangeStudents.length > 0 && (
-                  <button
-                    onClick={handleExportRangeStudents}
-                    disabled={exportingStudents}
-                    className="btn btn-primary flex items-center space-x-2"
-                  >
-                    <Download size={18} />
-                    <span>{exportingStudents ? 'Exporting...' : 'Export to Excel'}</span>
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      </div>
-    </div>
+    </>
   );
 }

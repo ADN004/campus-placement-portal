@@ -41,6 +41,7 @@ export const MOBILE_READY_ROUTES = [
   '/super-admin/dashboard',
   '/super-admin/profile',
   '/super-admin/college-branches',
+  '/super-admin/prn-ranges',
 ];
 
 export function isMobileReadyRoute(pathname) {

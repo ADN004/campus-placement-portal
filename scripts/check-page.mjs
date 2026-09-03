@@ -216,6 +216,46 @@ const collectPropsSupplied = (ast) => {
   return { supplied, spreadsSomething };
 };
 
+/* ---------------------------------------------------- undeclared identifiers */
+
+/**
+ * Names a file may use without declaring them.
+ *
+ * Anything outside this list that is referenced but never declared, imported or
+ * bound as a parameter is a `ReferenceError` the moment that line runs — and the
+ * build will not say a word about it.
+ */
+const GLOBALS = new Set([
+  'window', 'document', 'console', 'localStorage', 'sessionStorage', 'navigator',
+  'fetch', 'Blob', 'URL', 'Date', 'Math', 'JSON', 'Object', 'Array', 'String',
+  'Number', 'Boolean', 'Promise', 'Set', 'Map', 'Error', 'parseInt', 'parseFloat',
+  'isNaN', 'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'React',
+  'undefined', 'NaN', 'Infinity', 'FormData', 'File', 'Intl', 'RegExp', 'alert',
+  'confirm', 'requestAnimationFrame', 'cancelAnimationFrame', 'matchMedia', 'crypto',
+  'AbortController', 'IntersectionObserver', 'ResizeObserver', 'structuredClone',
+  'process', 'globalThis', 'Symbol', 'WeakMap', 'WeakSet', 'BigInt', 'queueMicrotask',
+  // Added after the first run reported these as undefined on pages that are
+  // perfectly correct. A checker that cries wolf is one nobody reads.
+  'URLSearchParams', 'FileReader', 'Image', 'Audio', 'Notification', 'CustomEvent',
+  'Event', 'DOMParser', 'TextEncoder', 'TextDecoder', 'atob', 'btoa', 'history',
+  'location', 'encodeURIComponent', 'decodeURIComponent', 'encodeURI', 'decodeURI',
+  'HTMLElement', 'Node', 'AbortSignal', 'Headers', 'Request', 'Response', 'WebSocket',
+]);
+
+/** Everything referenced here that nothing in scope provides. */
+const collectUndeclared = (ast) => {
+  const missing = new Map();
+  traverse(ast, {
+    ReferencedIdentifier(node) {
+      const name = node.node.name;
+      if (GLOBALS.has(name)) return;
+      if (node.scope.hasBinding(name, true)) return;
+      if (!missing.has(name)) missing.set(name, node.node.loc?.start.line ?? 0);
+    },
+  });
+  return missing;
+};
+
 /* ------------------------------------------------------------- imports */
 
 const collectImports = (ast) => {
@@ -514,6 +554,26 @@ for (const file of [container, ...moduleFiles]) {
 }
 if (unused.length) fail(`${unused.length} unused import(s) — the build does not catch these`, unused);
 else pass('no unused imports');
+
+/*
+ * The dangerous half. An unused import is harmless; a *missing* one is a white
+ * screen the moment the line runs, and the build is equally silent about both.
+ * This check exists because a page assembled from moved code lost three imports
+ * — useCallback, useAutoRefresh and compareStudents — and shipped. The build
+ * passed, every other check passed, and the page threw "useCallback is not
+ * defined" on open.
+ */
+const undeclared = [];
+for (const file of [container, ...moduleFiles]) {
+  collectUndeclared(parse(read(file))).forEach((line, name) => {
+    undeclared.push(`${path.basename(file)}:${line}  ${name}`);
+  });
+}
+if (undeclared.length) {
+  fail(`${undeclared.length} identifier(s) used but never declared or imported`, undeclared);
+} else {
+  pass('nothing used without being declared or imported');
+}
 
 /* 5. class names Tailwind cannot see */
 const runtime = [];

@@ -19,19 +19,20 @@ import DashboardSkeleton from './dashboard/DashboardSkeleton';
  * than three presenters, because the devices here differ only in column counts.
  *
  * Behaviour is unchanged from the page this replaces, deliberately and
- * including its faults. Three of those are worth naming, because they look like
+ * including its faults. Two of those are worth naming, because they look like
  * mistakes in this file and are in fact the old behaviour preserved on purpose
  * until the user decides otherwise:
  *
- *   1. The tile labelled "Active Jobs" reads `total_jobs`, not `active_jobs`.
- *      The endpoint returns both. As written it counts every job ever posted.
- *   2. `|| 60` and `|| 59` are fallbacks that fire on a real zero as well as on
+ *   1. `|| 60` and `|| 59` are fallbacks that fire on a real zero as well as on
  *      a missing value, so an empty system would report 60 colleges and 59
  *      officers rather than none.
- *   3. The region list and its college counts are hardcoded here rather than
+ *   2. The region list and its college counts are hardcoded here rather than
  *      fetched. They happen to match the database today (14/16/12/9/9); they
  *      will not the moment a college is added or moved, and there is already a
  *      `GET /super-admin/regions` endpoint that could supply them.
+ *
+ * A third — a tile titled "Active Jobs" that read `total_jobs` — was settled by
+ * renaming the tile, since the total is the figure the page has always shown.
  */
 export default function SuperAdminDashboard() {
   const deviceType = useDeviceType();
@@ -130,7 +131,7 @@ export default function SuperAdminDashboard() {
   if (showSkeleton) return <DashboardSkeleton layout={deviceType} />;
 
   // Same eight tiles, same figures, same destinations. See the note at the top
-  // of this file about the fallbacks and about "Active Jobs".
+  // of this file about the two fallbacks.
   const statCards = [
     {
       title: 'Total Colleges',
@@ -161,7 +162,10 @@ export default function SuperAdminDashboard() {
       description: 'Students blacklisted',
     },
     {
-      title: 'Active Jobs',
+      // Named for what it counts. It read `total_jobs` under the title "Active
+      // Jobs", so it has always shown every job ever posted; the endpoint
+      // returns `active_jobs` separately if that figure is ever wanted.
+      title: 'Total Jobs',
       value: stats?.total_jobs || 0,
       icon: Briefcase,
       link: '/super-admin/jobs',

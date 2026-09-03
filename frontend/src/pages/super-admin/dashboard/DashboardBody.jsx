@@ -157,16 +157,6 @@ function NotificationRow({ notification, onMarkRead, timeAgo }) {
 
 /* -------------------------------------------------------------------- body */
 
-/** Unchanged from the page this replaces, wording included. */
-const RESPONSIBILITIES = [
-  'Manage PRN ranges for student registration validation',
-  'Post job openings with eligibility criteria',
-  'Manage placement officers and handle officer changes',
-  'Approve or reject whitelist requests from placement officers',
-  'Monitor system-wide activities through activity logs',
-  'Oversee all 60 polytechnic colleges across 5 regions in Kerala',
-];
-
 export default function DashboardBody(p) {
   const { layout } = p;
   const statColumns = layout === 'desktop' ? 'lg:grid-cols-4' : layout === 'tablet' ? 'sm:grid-cols-2' : '';
@@ -243,31 +233,13 @@ export default function DashboardBody(p) {
         </div>
       </section>
 
-      <section className="mb-6">
+      <section>
         <SectionLabel>Colleges by region</SectionLabel>
         <div className={`grid grid-cols-1 ${regionColumns} gap-3`}>
           {p.regions.map((region) => (
             <RegionTile key={region.name} {...region} />
           ))}
         </div>
-      </section>
-
-      {/* Kept because removing it would be a content decision, not a design one.
-          It is six lines of static help text that never changes and that a
-          super admin has read once; worth raising with the user rather than
-          quietly deleting. */}
-      <section>
-        <SectionLabel>What this account can do</SectionLabel>
-        <Panel className="p-4">
-          <ul className="text-spc-sm text-spc-body space-y-1.5">
-            {RESPONSIBILITIES.map((line) => (
-              <li key={line} className="flex gap-2.5">
-                <span aria-hidden="true" className="text-spc-body">·</span>
-                <span>{line}</span>
-              </li>
-            ))}
-          </ul>
-        </Panel>
       </section>
     </div>
   );

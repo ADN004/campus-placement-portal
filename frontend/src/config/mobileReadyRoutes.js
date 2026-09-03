@@ -43,6 +43,7 @@ export const MOBILE_READY_ROUTES = [
   '/super-admin/college-branches',
   '/super-admin/prn-ranges',
   '/super-admin/send-notification',
+  '/super-admin/placement-poster',
 ];
 
 export function isMobileReadyRoute(pathname) {

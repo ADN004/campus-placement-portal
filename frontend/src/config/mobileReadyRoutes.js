@@ -51,6 +51,7 @@ export const MOBILE_READY_ROUTES = [
   '/super-admin/requirement-templates',
   '/super-admin/colleges',
   '/super-admin/placement-officers',
+  '/super-admin/college-locks',
 ];
 
 export function isMobileReadyRoute(pathname) {

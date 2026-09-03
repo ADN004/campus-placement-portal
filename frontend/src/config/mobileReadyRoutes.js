@@ -50,6 +50,7 @@ export const MOBILE_READY_ROUTES = [
   '/super-admin/whitelist-requests',
   '/super-admin/requirement-templates',
   '/super-admin/colleges',
+  '/super-admin/placement-officers',
 ];
 
 export function isMobileReadyRoute(pathname) {

@@ -18,21 +18,18 @@ import DashboardSkeleton from './dashboard/DashboardSkeleton';
  * draws them and owns no logic of its own. One body with a `layout` prop rather
  * than three presenters, because the devices here differ only in column counts.
  *
- * Behaviour is unchanged from the page this replaces, deliberately and
- * including its faults. Two of those are worth naming, because they look like
- * mistakes in this file and are in fact the old behaviour preserved on purpose
- * until the user decides otherwise:
+ * Three faults were carried over from the page this replaces and have since
+ * been settled with the user:
  *
- *   1. `|| 60` and `|| 59` are fallbacks that fire on a real zero as well as on
- *      a missing value, so an empty system would report 60 colleges and 59
- *      officers rather than none.
- *   2. The region list and its college counts are hardcoded here rather than
- *      fetched. They happen to match the database today (14/16/12/9/9); they
- *      will not the moment a college is added or moved, and there is already a
- *      `GET /super-admin/regions` endpoint that could supply them.
- *
- * A third — a tile titled "Active Jobs" that read `total_jobs` — was settled by
- * renaming the tile, since the total is the figure the page has always shown.
+ *   1. A tile titled "Active Jobs" read `total_jobs`. The tile was renamed,
+ *      because the total is the figure the page has always shown.
+ *   2. The region list and its college counts were typed into this file. They
+ *      matched the database at the time and would have stopped matching the
+ *      moment a college moved. They come from `GET /super-admin/regions` now,
+ *      which already returned a `college_count` per region.
+ *   3. `|| 60` and `|| 59` fired on a real zero as well as on a missing value,
+ *      so an empty system reported 60 colleges and 59 officers. They are `??`
+ *      now, which falls back only when there is genuinely nothing to show.
  */
 export default function SuperAdminDashboard() {
   const deviceType = useDeviceType();
@@ -41,10 +38,12 @@ export default function SuperAdminDashboard() {
   const { showSkeleton } = useSkeleton(loading);
   const [adminNotifications, setAdminNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [regionRows, setRegionRows] = useState([]);
 
   useEffect(() => {
     fetchDashboardData();
     fetchAdminNotifications();
+    fetchRegions();
   }, []);
 
   const fetchDashboardData = async () => {
@@ -56,6 +55,20 @@ export default function SuperAdminDashboard() {
       console.error(error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  /*
+   * The regions and how many colleges each holds. Silent on failure: the
+   * section simply does not render, which is better than a dashboard that
+   * refuses to load because one of its four panels could not be filled.
+   */
+  const fetchRegions = async () => {
+    try {
+      const response = await superAdminAPI.getAllRegions();
+      setRegionRows(response.data.data || []);
+    } catch (error) {
+      console.error('Failed to fetch regions:', error);
     }
   };
 
@@ -75,14 +88,16 @@ export default function SuperAdminDashboard() {
   // Silent refresh for auto-refresh
   const silentRefresh = useCallback(async () => {
     try {
-      const [dashRes, notifRes, countRes] = await Promise.all([
+      const [dashRes, notifRes, countRes, regionsRes] = await Promise.all([
         superAdminAPI.getDashboard(),
         superAdminAPI.getAdminNotifications({ limit: 5, unread_only: false }),
         superAdminAPI.getAdminNotificationUnreadCount(),
+        superAdminAPI.getAllRegions(),
       ]);
       setStats(dashRes.data.data);
       setAdminNotifications(notifRes.data.data || []);
       setUnreadCount(countRes.data.unread_count || 0);
+      setRegionRows(regionsRes.data.data || []);
     } catch (e) {
       // Silently fail
     }
@@ -130,19 +145,19 @@ export default function SuperAdminDashboard() {
 
   if (showSkeleton) return <DashboardSkeleton layout={deviceType} />;
 
-  // Same eight tiles, same figures, same destinations. See the note at the top
-  // of this file about the two fallbacks.
+  // Same eight tiles, same destinations. `??` rather than `||` so a genuine
+  // zero shows as zero — see note 3 at the top of this file.
   const statCards = [
     {
       title: 'Total Colleges',
-      value: stats?.total_colleges || 60,
+      value: stats?.total_colleges ?? 0,
       icon: Building2,
       link: '/super-admin/placement-officers',
       description: 'Polytechnic colleges in Kerala',
     },
     {
       title: 'Placement Officers',
-      value: stats?.total_officers || 59,
+      value: stats?.total_officers ?? 0,
       icon: UserCheck,
       link: '/super-admin/placement-officers',
       description: 'Active placement officers',
@@ -187,7 +202,7 @@ export default function SuperAdminDashboard() {
     },
     {
       title: 'Regions',
-      value: 5,
+      value: regionRows.length,
       icon: MapPin,
       description: 'Geographic regions',
     },
@@ -226,14 +241,15 @@ export default function SuperAdminDashboard() {
     },
   ];
 
-  // Hardcoded, as they were. See note 3 at the top of this file.
-  const regions = [
-    { name: 'South Region', colleges: 14 },
-    { name: 'South-Central Region', colleges: 16 },
-    { name: 'Central Region', colleges: 12 },
-    { name: 'North-Central Region', colleges: 9 },
-    { name: 'North Region', colleges: 9 },
-  ];
+  /*
+   * Real counts, from the endpoint that already computes them. `college_count`
+   * arrives as a string from Postgres, so it is coerced — otherwise "14" and 14
+   * look the same on screen and sort differently everywhere else.
+   */
+  const regions = regionRows.map((region) => ({
+    name: region.region_name,
+    colleges: Number(region.college_count) || 0,
+  }));
 
   return (
     <DashboardBody

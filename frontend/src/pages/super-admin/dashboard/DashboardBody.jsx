@@ -233,14 +233,19 @@ export default function DashboardBody(p) {
         </div>
       </section>
 
-      <section>
-        <SectionLabel>Colleges by region</SectionLabel>
-        <div className={`grid grid-cols-1 ${regionColumns} gap-3`}>
-          {p.regions.map((region) => (
-            <RegionTile key={region.name} {...region} />
-          ))}
-        </div>
-      </section>
+      {/* Hidden until the regions arrive, rather than showing a heading over an
+          empty grid. The request is allowed to fail quietly — one panel not
+          filling is better than a dashboard that will not load. */}
+      {p.regions.length > 0 && (
+        <section>
+          <SectionLabel>Colleges by region</SectionLabel>
+          <div className={`grid grid-cols-1 ${regionColumns} gap-3`}>
+            {p.regions.map((region) => (
+              <RegionTile key={region.name} {...region} />
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

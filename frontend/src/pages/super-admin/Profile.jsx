@@ -16,10 +16,7 @@ import ProfileSkeleton from './profile/ProfileSkeleton';
  * editable fields, the same read-only email, the same validation message, the
  * same modal.
  *
- * `ChangePassword` is still opened without a variant, so it keeps its legacy
- * look for now. The shared modals get their admin treatment in one dedicated
- * commit once the pages are done — the same order the officer pass used, and
- * for the same reason: doing it per page means doing it eight times badly.
+ * `ChangePassword` is shared by all three roles and takes `variant="admin"`.
  */
 export default function SuperAdminProfile() {
   const { user } = useAuth();
@@ -110,7 +107,7 @@ export default function SuperAdminProfile() {
       />
 
       {showChangePassword && (
-        <ChangePassword onClose={() => setShowChangePassword(false)} />
+        <ChangePassword onClose={() => setShowChangePassword(false)} variant="admin" />
       )}
     </>
   );

@@ -71,6 +71,32 @@ export function AdminDialogBody({ children, className = '' }) {
   );
 }
 
+/**
+ * A checkbox with a label and an optional line of explanation.
+ *
+ * The Console twin of `OfficerToggleRow`, so a dialog shared by both roles can
+ * pick its primitives by variant and write the markup once. Same API, Console's
+ * checkbox and radius — the officer's is 3px, and inheriting it is what once
+ * made the two roles look identical.
+ */
+export function AdminToggleRow({ checked, onChange, label, hint }) {
+  return (
+    <label className="flex items-start gap-3 min-h-[44px] py-2 cursor-pointer">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={onChange}
+        className="h-5 w-5 rounded-[4px] border-spc-control text-spc-accent
+          focus:ring-spc-accent/40 flex-shrink-0 mt-0.5"
+      />
+      <span className="min-w-0">
+        <span className="block text-spc-sm font-semibold text-spc-ink">{label}</span>
+        {hint && <span className="block text-spc-xs text-spc-body mt-0.5 leading-snug">{hint}</span>}
+      </span>
+    </label>
+  );
+}
+
 export function AdminDialogFooter({ children }) {
   return (
     <div className="flex items-center justify-end gap-2 px-5 py-4

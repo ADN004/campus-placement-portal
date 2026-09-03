@@ -8,6 +8,12 @@ import {
 import {
   PrimaryButton, SecondaryButton, PositiveButton, FieldLabel, FIELD_CLASS,
 } from './officer/OfficerUI';
+import {
+  ADMIN_OVERLAY, AdminDialogFooter, AdminDialogHeader, adminPanel,
+} from './admin/AdminDialog';
+import {
+  FIELD_CLASS as Admin_FIELD_CLASS, FieldLabel as Admin_FieldLabel, PrimaryButton as Admin_PrimaryButton, SecondaryButton as Admin_SecondaryButton,
+} from './admin/AdminUI';
 
 /**
  * A job's advertised package as a number, or null when the text names no single
@@ -17,6 +23,40 @@ import {
  * Accepts "4.5", "4.5 LPA", "6 lakhs"; returns null for "1.8 to 3.66",
  * "Negotiable", "As per norms".
  */
+
+/*
+ * The officer and Console dialog primitives, chosen by variant.
+ *
+ * Both roles run on the same spc tokens, so the markup is identical — but
+ * the radii are fixed values in tailwind.config.js rather than
+ * scope-overridden custom properties, so the officer's 3px corners do not
+ * become Console's 12px on their own. Picking the set here is what keeps one
+ * copy of the markup honest for both.
+ */
+const OFFICER_UI = {
+  overlay: OFFICER_OVERLAY,
+  panel: officerPanel,
+  Header: OfficerDialogHeader,
+  Footer: OfficerDialogFooter,
+  Primary: PrimaryButton,
+  Secondary: SecondaryButton,
+  Positive: PositiveButton,
+  Label: FieldLabel,
+  field: FIELD_CLASS,
+};
+
+const ADMIN_UI = {
+  overlay: ADMIN_OVERLAY,
+  panel: adminPanel,
+  Header: AdminDialogHeader,
+  Footer: AdminDialogFooter,
+  Primary: Admin_PrimaryButton,
+  Secondary: Admin_SecondaryButton,
+  Positive: Admin_PrimaryButton,
+  Label: Admin_FieldLabel,
+  field: Admin_FIELD_CLASS,
+};
+
 function singleFigurePackage(text) {
   if (text === null || text === undefined) return null;
   const value = String(text).trim();
@@ -197,7 +237,8 @@ const ManualStudentAdditionModal = ({
 
   if (!isOpen) return null;
 
-  if (variant === 'officer') {
+  if (variant === 'officer' || variant === 'admin') {
+    const ui = variant === 'admin' ? ADMIN_UI : OFFICER_UI;
     const warnings = validationResult?.warnings || [];
     const blocked =
       validationResult && !validationResult.can_add && validationResult.type !== 'disambiguation';
@@ -207,10 +248,10 @@ const ManualStudentAdditionModal = ({
       <Modal
         onClose={onClose}
         labelledBy="manual-add-title"
-        overlayClassName={OFFICER_OVERLAY}
-        panelClassName={officerPanel('lg', { scroll: true })}
+        overlayClassName={ui.overlay}
+        panelClassName={ui.panel('lg', { scroll: true })}
       >
-        <OfficerDialogHeader
+        <ui.Header
           onClose={onClose}
           id="manual-add-title"
           title="Add a student by hand"
@@ -226,7 +267,7 @@ const ManualStudentAdditionModal = ({
               </p>
 
               <div>
-                <FieldLabel htmlFor="manual-add-prn">Student PRN</FieldLabel>
+                <ui.Label htmlFor="manual-add-prn">Student PRN</ui.Label>
                 <input
                   id="manual-add-prn"
                   type="text"
@@ -239,7 +280,7 @@ const ManualStudentAdditionModal = ({
                     }
                   }}
                   placeholder="e.g. 2301080428"
-                  className={FIELD_CLASS}
+                  className={ui.field}
                   disabled={validating}
                 />
               </div>
@@ -356,7 +397,7 @@ const ManualStudentAdditionModal = ({
                 </h3>
                 <div className="space-y-4">
                   <div>
-                    <FieldLabel htmlFor="manual-add-package">Package (LPA)</FieldLabel>
+                    <ui.Label htmlFor="manual-add-package">Package (LPA)</ui.Label>
                     <input
                       id="manual-add-package"
                       type="number"
@@ -364,7 +405,7 @@ const ManualStudentAdditionModal = ({
                       value={formData.placement_package}
                       onChange={set('placement_package')}
                       placeholder="e.g. 5.5"
-                      className={FIELD_CLASS}
+                      className={ui.field}
                     />
                     {/*
                       The old hint promised the job's package would be used and
@@ -380,35 +421,35 @@ const ManualStudentAdditionModal = ({
                     </p>
                   </div>
                   <div>
-                    <FieldLabel htmlFor="manual-add-joining">Joining date</FieldLabel>
+                    <ui.Label htmlFor="manual-add-joining">Joining date</ui.Label>
                     <input
                       id="manual-add-joining"
                       type="date"
                       value={formData.joining_date}
                       onChange={set('joining_date')}
-                      className={FIELD_CLASS}
+                      className={ui.field}
                     />
                   </div>
                   <div>
-                    <FieldLabel htmlFor="manual-add-location">Location</FieldLabel>
+                    <ui.Label htmlFor="manual-add-location">Location</ui.Label>
                     <input
                       id="manual-add-location"
                       type="text"
                       value={formData.placement_location}
                       onChange={set('placement_location')}
                       placeholder="e.g. Bangalore"
-                      className={FIELD_CLASS}
+                      className={ui.field}
                     />
                   </div>
                   <div>
-                    <FieldLabel htmlFor="manual-add-notes">Why they are being added by hand</FieldLabel>
+                    <ui.Label htmlFor="manual-add-notes">Why they are being added by hand</ui.Label>
                     <textarea
                       id="manual-add-notes"
                       value={formData.notes}
                       onChange={set('notes')}
                       rows={3}
                       placeholder="e.g. Company allowed one backlog during the on-campus drive"
-                      className={`${FIELD_CLASS} py-2 h-auto`}
+                      className={`${ui.field} py-2 h-auto`}
                     />
                     <p className="text-xs text-spc-muted mt-1">
                       Optional, but it is the only record of why this was done outside the normal
@@ -421,21 +462,21 @@ const ManualStudentAdditionModal = ({
           )}
         </div>
 
-        <OfficerDialogFooter split>
+        <ui.Footer split>
           {step === 1 ? (
             <>
-              <SecondaryButton type="button" onClick={onClose}>Cancel</SecondaryButton>
-              <PrimaryButton
+              <ui.Secondary type="button" onClick={onClose}>Cancel</ui.Secondary>
+              <ui.Primary
                 type="button"
                 onClick={() => handleValidate()}
                 disabled={validating || !prn.trim()}
               >
                 {validating ? 'Checking…' : 'Check this PRN'}
-              </PrimaryButton>
+              </ui.Primary>
             </>
           ) : (
             <>
-              <SecondaryButton
+              <ui.Secondary
                 type="button"
                 onClick={() => {
                   setStep(1);
@@ -443,13 +484,13 @@ const ManualStudentAdditionModal = ({
                 }}
               >
                 Back
-              </SecondaryButton>
-              <PositiveButton type="button" onClick={handleSubmit} disabled={submitting}>
+              </ui.Secondary>
+              <ui.Positive type="button" onClick={handleSubmit} disabled={submitting}>
                 {submitting ? 'Adding…' : 'Add student'}
-              </PositiveButton>
+              </ui.Positive>
             </>
           )}
-        </OfficerDialogFooter>
+        </ui.Footer>
       </Modal>
     );
   }

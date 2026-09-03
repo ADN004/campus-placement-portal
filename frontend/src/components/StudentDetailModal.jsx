@@ -4,6 +4,7 @@ import Modal from './Modal';
 import { superAdminAPI, placementOfficerAPI } from '../services/api';
 import ResumeDownloadButton from './ResumeDownloadButton';
 import { OFFICER_OVERLAY, officerPanel } from './officer/OfficerDialog';
+import { ADMIN_OVERLAY, adminPanel } from './admin/AdminDialog';
 
 /**
  * Everything a staff member is allowed to see about one student.
@@ -18,7 +19,16 @@ import { OFFICER_OVERLAY, officerPanel } from './officer/OfficerDialog';
  * the default output is byte-identical.
  */
 const VariantContext = createContext('default');
-const useOfficerSkin = () => useContext(VariantContext) === 'officer';
+/*
+ * Officer and super admin both render the token treatment; only the shell and
+ * the radii differ, and those are chosen where the dialog is built. Sub-
+ * components only need to know "am I on the token system or the legacy one",
+ * which is what this answers.
+ */
+const useOfficerSkin = () => {
+  const v = useContext(VariantContext);
+  return v === 'officer' || v === 'admin';
+};
 
 const StudentDetailModal = ({ isOpen, onClose, studentId, applicationId, userRole = 'super-admin', variant }) => {
   const [student, setStudent] = useState(null);
@@ -54,16 +64,20 @@ const StudentDetailModal = ({ isOpen, onClose, studentId, applicationId, userRol
     { id: 'documents', label: 'Documents', icon: FileText },
   ];
 
-  const officer = variant === 'officer';
+  const officerVariant = variant === 'officer';
+  const admin = variant === 'admin';
+  const officer = officerVariant || admin;
 
   return (
-    <VariantContext.Provider value={officer ? 'officer' : 'default'}>
+    <VariantContext.Provider value={admin ? 'admin' : officerVariant ? 'officer' : 'default'}>
     <Modal
       onClose={onClose}
       labelledBy="student-detail-title"
-      overlayClassName={officer ? OFFICER_OVERLAY : undefined}
+      overlayClassName={admin ? ADMIN_OVERLAY : officerVariant ? OFFICER_OVERLAY : undefined}
       panelClassName={
-        officer
+        admin
+          ? adminPanel('xl', { scroll: true })
+          : officerVariant
           ? officerPanel('xl', { scroll: true })
           : 'bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col'
       }

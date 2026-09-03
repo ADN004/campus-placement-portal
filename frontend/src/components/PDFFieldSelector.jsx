@@ -7,6 +7,12 @@ import {
 import {
   PrimaryButton, SecondaryButton, FieldLabel, FIELD_CLASS, CHECKBOX_CLASS,
 } from './officer/OfficerUI';
+import {
+  ADMIN_OVERLAY, AdminDialogFooter, AdminDialogHeader, AdminToggleRow, adminPanel,
+} from './admin/AdminDialog';
+import {
+  CHECKBOX_CLASS as Admin_CHECKBOX_CLASS, FIELD_CLASS as Admin_FIELD_CLASS, FieldLabel as Admin_FieldLabel, PrimaryButton as Admin_PrimaryButton, SecondaryButton as Admin_SecondaryButton,
+} from './admin/AdminUI';
 
 /**
  * Choose what goes into the exported PDF.
@@ -24,6 +30,42 @@ import {
  * The two `alert()` calls become inline messages beside the thing that is
  * wrong, rather than a browser dialog that says it somewhere else.
  */
+
+/*
+ * The officer and Console dialog primitives, chosen by variant.
+ *
+ * Both roles run on the same spc tokens, so the markup is identical — but
+ * the radii are fixed values in tailwind.config.js rather than
+ * scope-overridden custom properties, so the officer's 3px corners do not
+ * become Console's 12px on their own. Picking the set here is what keeps one
+ * copy of the markup honest for both.
+ */
+const OFFICER_UI = {
+  overlay: OFFICER_OVERLAY,
+  panel: officerPanel,
+  Header: OfficerDialogHeader,
+  Footer: OfficerDialogFooter,
+  Toggle: OfficerToggleRow,
+  Primary: PrimaryButton,
+  Secondary: SecondaryButton,
+  Label: FieldLabel,
+  field: FIELD_CLASS,
+  checkbox: CHECKBOX_CLASS,
+};
+
+const ADMIN_UI = {
+  overlay: ADMIN_OVERLAY,
+  panel: adminPanel,
+  Header: AdminDialogHeader,
+  Footer: AdminDialogFooter,
+  Toggle: AdminToggleRow,
+  Primary: Admin_PrimaryButton,
+  Secondary: Admin_SecondaryButton,
+  Label: Admin_FieldLabel,
+  field: Admin_FIELD_CLASS,
+  checkbox: Admin_CHECKBOX_CLASS,
+};
+
 const PDFFieldSelector = ({ onExport, onClose, applicantCount, exportType = 'enhanced', variant, customFields = [] }) => {
   const [headerLine1, setHeaderLine1] = useState('');
   const [headerLine2, setHeaderLine2] = useState('');
@@ -109,17 +151,18 @@ const PDFFieldSelector = ({ onExport, onClose, applicantCount, exportType = 'enh
     ? 'bg-gradient-to-r from-green-600 to-emerald-600'
     : 'bg-gradient-to-r from-purple-600 to-indigo-600';
 
-  if (variant === 'officer') {
+  if (variant === 'officer' || variant === 'admin') {
+    const ui = variant === 'admin' ? ADMIN_UI : OFFICER_UI;
     const titleMissing = !headerLine1.trim();
     const noFields = selectedFields.length === 0;
     return (
       <Modal
         onClose={onClose}
         labelledBy="pdf-export-title"
-        overlayClassName={OFFICER_OVERLAY}
-        panelClassName={officerPanel('lg', { scroll: true })}
+        overlayClassName={ui.overlay}
+        panelClassName={ui.panel('lg', { scroll: true })}
       >
-        <OfficerDialogHeader
+        <ui.Header
           onClose={onClose}
           id="pdf-export-title"
           title={exportType === 'selected_only' ? 'Export selected students' : 'Export as PDF'}
@@ -140,14 +183,14 @@ const PDFFieldSelector = ({ onExport, onClose, applicantCount, exportType = 'enh
             </p>
             <div className="space-y-3">
               <div>
-                <FieldLabel htmlFor="pdf-header-1">Title</FieldLabel>
+                <ui.Label htmlFor="pdf-header-1">Title</ui.Label>
                 <input
                   id="pdf-header-1"
                   type="text"
                   value={headerLine1}
                   onChange={(e) => setHeaderLine1(e.target.value)}
                   placeholder="e.g. Cadence Design Systems, Bangalore 2026"
-                  className={FIELD_CLASS}
+                  className={ui.field}
                   aria-invalid={titleMissing ? 'true' : undefined}
                 />
                 {titleMissing && (
@@ -157,14 +200,14 @@ const PDFFieldSelector = ({ onExport, onClose, applicantCount, exportType = 'enh
                 )}
               </div>
               <div>
-                <FieldLabel htmlFor="pdf-header-2">Subtitle</FieldLabel>
+                <ui.Label htmlFor="pdf-header-2">Subtitle</ui.Label>
                 <input
                   id="pdf-header-2"
                   type="text"
                   value={headerLine2}
                   onChange={(e) => setHeaderLine2(e.target.value)}
                   placeholder="e.g. Placement Drive at GPC Palakkad on 06-02-2026"
-                  className={FIELD_CLASS}
+                  className={ui.field}
                 />
                 <p className="text-xs text-spc-muted mt-1">Optional.</p>
               </div>
@@ -205,7 +248,7 @@ const PDFFieldSelector = ({ onExport, onClose, applicantCount, exportType = 'enh
                       type="checkbox"
                       checked={selectedFields.includes(field.key)}
                       onChange={() => toggleField(field.key)}
-                      className={CHECKBOX_CLASS}
+                      className={ui.checkbox}
                     />
                     <span className="text-spc-xs text-spc-ink min-w-0 break-words">
                       {field.label}
@@ -226,7 +269,7 @@ const PDFFieldSelector = ({ onExport, onClose, applicantCount, exportType = 'enh
             <h3 className="font-khand font-medium uppercase tracking-[0.06em] text-spc-sm text-spc-ink mb-1">
               Signature column
             </h3>
-            <OfficerToggleRow
+            <ui.Toggle
               checked={includeSignature}
               onChange={() => setIncludeSignature(!includeSignature)}
               label="Leave a blank column for signatures"
@@ -235,13 +278,13 @@ const PDFFieldSelector = ({ onExport, onClose, applicantCount, exportType = 'enh
           </section>
         </div>
 
-        <OfficerDialogFooter>
-          <SecondaryButton type="button" onClick={onClose}>Cancel</SecondaryButton>
-          <PrimaryButton type="button" onClick={handleExport} disabled={noFields || titleMissing}>
+        <ui.Footer>
+          <ui.Secondary type="button" onClick={onClose}>Cancel</ui.Secondary>
+          <ui.Primary type="button" onClick={handleExport} disabled={noFields || titleMissing}>
             <FileText size={15} aria-hidden="true" />
             <span>Export PDF</span>
-          </PrimaryButton>
-        </OfficerDialogFooter>
+          </ui.Primary>
+        </ui.Footer>
       </Modal>
     );
   }

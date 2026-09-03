@@ -6,21 +6,38 @@ import { Lock, Eye, EyeOff, Check, X, AlertCircle, Shield } from 'lucide-react';
 import Modal from './Modal';
 import { OFFICER_OVERLAY, officerPanel, OfficerDialogHeader } from './officer/OfficerDialog';
 import { FIELD_CLASS } from './officer/OfficerUI';
+import { ADMIN_OVERLAY, adminPanel, AdminDialogHeader } from './admin/AdminDialog';
+import { FIELD_CLASS as ADMIN_FIELD_CLASS } from './admin/AdminUI';
 
 /**
- * `variant="spc"` opts into the student design system. It defaults to the
- * original styling because this modal is also used by the placement-officer and
- * super-admin profiles, whose look is frozen until those roles are redesigned.
+ * All three roles open this modal, so it takes a `variant`: 'spc' for the
+ * student design system, 'officer', 'admin' for Console, and 'legacy' — the
+ * original, now the default only because nothing passes it any more.
+ *
+ * Officer and super admin share every *colour* branch below: the spc tokens
+ * resolve through whichever scope class is on the page, so one set of classes
+ * is correct in both. That is what `themed` asks.
+ *
+ * They do not share *geometry*. The radii are fixed values in
+ * `tailwind.config.js`, not scope-overridden custom properties, so reusing the
+ * officer's `rounded-spc-control` (3px) under Console would hand this dialog
+ * the officer's near-square corners — the exact mistake that once made the two
+ * roles indistinguishable. Radius, field class and dialog shell are therefore
+ * chosen per role rather than shared.
  */
 export default function ChangePassword({ onClose, variant = 'legacy' }) {
   const spc = variant === 'spc';
-  const officer = variant === 'officer';
+  const officerVariant = variant === 'officer';
+  const admin = variant === 'admin';
+  const themed = officerVariant || admin;
+  const rCtl = admin ? 'rounded-spc-admin-sm' : 'rounded-spc-control';
+  const fieldBase = admin ? ADMIN_FIELD_CLASS : FIELD_CLASS;
   // Field and button classes, chosen once. The non-officer strings below are
   // the originals — global `.label` / `.input` / `.btn` — untouched.
-  const labelCls = officer
+  const labelCls = themed
     ? 'block text-spc-xs font-bold uppercase tracking-[0.11em] text-spc-muted mb-1.5 flex items-center'
     : 'label flex items-center';
-  const inputCls = officer ? `${FIELD_CLASS} pr-10` : 'input pr-10';
+  const inputCls = themed ? `${fieldBase} pr-10` : 'input pr-10';
   const { user, checkAuth } = useAuth();
   // Self-service reset covers students and super admins only — placement
   // officers sign in by phone and are reset by the super admin instead.
@@ -216,18 +233,18 @@ export default function ChangePassword({ onClose, variant = 'legacy' }) {
    * Tailwind, so it matches the reds and greens the rest of the officer role
    * already uses rather than introducing a second set.
    */
-  const meterFill = officer
+  const meterFill = themed
     ? (passwordStrength.level < 40 ? 'bg-spc-bad'
       : passwordStrength.level < 80 ? 'bg-spc-warn' : 'bg-spc-ok')
     : passwordStrength.color;
-  const meterText = officer
+  const meterText = themed
     ? (passwordStrength.level < 40 ? 'text-spc-bad'
       : passwordStrength.level < 80 ? 'text-spc-warn' : 'text-spc-ok')
     : passwordStrength.textColor;
 
   const ValidationItem = ({ met, text }) => (
     <div className={`flex items-center space-x-2 transition-all duration-200 ${
-      officer
+      themed
         ? (met ? 'text-spc-xs text-spc-ok' : 'text-spc-xs text-spc-muted')
         : (met ? 'text-sm text-green-600' : 'text-sm text-gray-500')
     }`}>
@@ -244,14 +261,21 @@ export default function ChangePassword({ onClose, variant = 'legacy' }) {
     <Modal
       onClose={onClose}
       labelledBy="change-password-title"
-      overlayClassName={officer
+      overlayClassName={admin ? ADMIN_OVERLAY : officerVariant
         ? OFFICER_OVERLAY
         : "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"}
-      panelClassName={officer
+      panelClassName={admin ? adminPanel('md', { scroll: true }) : officerVariant
         ? officerPanel('md', { scroll: true })
         : "bg-white rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto overscroll-contain"}
     >
-        {officer ? (
+        {admin ? (
+          <AdminDialogHeader
+            onClose={onClose}
+            id="change-password-title"
+            title="Change password"
+            subtitle="You will stay signed in on this device."
+          />
+        ) : officerVariant ? (
           <OfficerDialogHeader
             onClose={onClose}
             id="change-password-title"
@@ -278,7 +302,7 @@ export default function ChangePassword({ onClose, variant = 'legacy' }) {
           {/* Current Password */}
           <div>
             <label htmlFor="currentPassword" className={labelCls}>
-              <Lock size={16} className={officer ? 'mr-1.5 text-spc-muted' : 'mr-1.5 text-gray-500'} />
+              <Lock size={16} className={themed ? 'mr-1.5 text-spc-muted' : 'mr-1.5 text-gray-500'} />
               Current Password <span className="text-red-500 ml-1">*</span>
             </label>
             <div className="relative">
@@ -295,8 +319,8 @@ export default function ChangePassword({ onClose, variant = 'legacy' }) {
               <button
                 type="button"
                 onClick={() => togglePasswordVisibility('current')}
-                className={officer
-                  ? 'absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-10 h-10 rounded-spc-control text-spc-muted hover:text-spc-ink hover:bg-spc-surface-2 transition-colors'
+                className={themed
+                  ? `absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-10 h-10 ${rCtl} text-spc-muted hover:text-spc-ink hover:bg-spc-surface-2 transition-colors`
                   : 'absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors'}
               >
                 {showPasswords.current ? <EyeOff size={20} /> : <Eye size={20} />}
@@ -310,8 +334,8 @@ export default function ChangePassword({ onClose, variant = 'legacy' }) {
             <div className="mt-2">
               {canSelfReset ? (
                 resetSent ? (
-                  <div className={officer
-                    ? 'flex items-start gap-2 text-spc-xs text-spc-body bg-spc-ok-bg border border-spc-ok/40 rounded-spc-control p-3'
+                  <div className={themed
+                    ? `flex items-start gap-2 text-spc-xs text-spc-body bg-spc-ok-bg border border-spc-ok/40 ${rCtl} p-3`
                     : 'flex items-start gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg p-3'}>
                     <Check size={16} className="flex-shrink-0 mt-0.5" />
                     <span>
@@ -334,7 +358,7 @@ export default function ChangePassword({ onClose, variant = 'legacy' }) {
                   </button>
                 )
               ) : (
-                <p className={officer ? 'text-spc-xs text-spc-body' : 'text-sm text-gray-500'}>
+                <p className={themed ? 'text-spc-xs text-spc-body' : 'text-sm text-gray-500'}>
                   Forgot your current password? Contact your Super Admin to reset it.
                 </p>
               )}
@@ -344,7 +368,7 @@ export default function ChangePassword({ onClose, variant = 'legacy' }) {
           {/* New Password */}
           <div>
             <label htmlFor="newPassword" className={labelCls}>
-              <Lock size={16} className={officer ? 'mr-1.5 text-spc-muted' : 'mr-1.5 text-gray-500'} />
+              <Lock size={16} className={themed ? 'mr-1.5 text-spc-muted' : 'mr-1.5 text-gray-500'} />
               New Password <span className="text-red-500 ml-1">*</span>
             </label>
             <div className="relative">
@@ -367,8 +391,8 @@ export default function ChangePassword({ onClose, variant = 'legacy' }) {
               <button
                 type="button"
                 onClick={() => togglePasswordVisibility('new')}
-                className={officer
-                  ? 'absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-10 h-10 rounded-spc-control text-spc-muted hover:text-spc-ink hover:bg-spc-surface-2 transition-colors'
+                className={themed
+                  ? `absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-10 h-10 ${rCtl} text-spc-muted hover:text-spc-ink hover:bg-spc-surface-2 transition-colors`
                   : 'absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors'}
               >
                 {showPasswords.new ? <EyeOff size={20} /> : <Eye size={20} />}
@@ -379,12 +403,12 @@ export default function ChangePassword({ onClose, variant = 'legacy' }) {
             {formData.newPassword && (
               <div className="mt-3">
                 <div className="flex items-center justify-between mb-2">
-                  <span className={officer ? 'text-xs font-bold uppercase tracking-[0.11em] text-spc-muted' : 'text-xs font-medium text-gray-600'}>Password Strength:</span>
+                  <span className={themed ? 'text-xs font-bold uppercase tracking-[0.11em] text-spc-muted' : 'text-xs font-medium text-gray-600'}>Password Strength:</span>
                   <span className={`text-xs font-bold ${meterText}`}>
                     {passwordStrength.text}
                   </span>
                 </div>
-                <div className={officer ? 'h-1.5 bg-spc-surface-3 rounded-spc-badge overflow-hidden' : 'h-2 bg-gray-200 rounded-full overflow-hidden'}>
+                <div className={themed ? 'h-1.5 bg-spc-surface-3 rounded-spc-badge overflow-hidden' : 'h-2 bg-gray-200 rounded-full overflow-hidden'}>
                   <div
                     className={`h-full ${meterFill} transition-all duration-300 ease-out`}
                     style={{ width: `${passwordStrength.level}%` }}
@@ -395,12 +419,12 @@ export default function ChangePassword({ onClose, variant = 'legacy' }) {
 
             {/* Password Requirements */}
             {formData.newPassword && (
-              <div className={officer
-                ? 'mt-4 p-4 rounded-spc-control border border-spc-line-strong bg-spc-surface-2'
+              <div className={themed
+                ? `mt-4 p-4 ${rCtl} border border-spc-line-strong bg-spc-surface-2`
                 : `mt-4 p-4 rounded-lg border ${passwordStrength.bgColor} ${passwordStrength.borderColor}`}>
                 <div className="flex items-center mb-3">
                   <AlertCircle size={16} className={`mr-2 ${meterText}`} />
-                  <span className={officer ? 'text-spc-xs font-bold uppercase tracking-[0.11em] text-spc-muted' : 'text-sm font-semibold text-gray-700'}>Password Requirements</span>
+                  <span className={themed ? 'text-spc-xs font-bold uppercase tracking-[0.11em] text-spc-muted' : 'text-sm font-semibold text-gray-700'}>Password Requirements</span>
                 </div>
                 <div className="grid grid-cols-1 gap-2">
                   <ValidationItem met={passwordValidation.minLength} text="At least 8 characters" />
@@ -416,7 +440,7 @@ export default function ChangePassword({ onClose, variant = 'legacy' }) {
           {/* Confirm Password */}
           <div>
             <label htmlFor="confirmPassword" className={labelCls}>
-              <Lock size={16} className={officer ? 'mr-1.5 text-spc-muted' : 'mr-1.5 text-gray-500'} />
+              <Lock size={16} className={themed ? 'mr-1.5 text-spc-muted' : 'mr-1.5 text-gray-500'} />
               Confirm New Password <span className="text-red-500 ml-1">*</span>
             </label>
             <div className="relative">
@@ -439,8 +463,8 @@ export default function ChangePassword({ onClose, variant = 'legacy' }) {
               <button
                 type="button"
                 onClick={() => togglePasswordVisibility('confirm')}
-                className={officer
-                  ? 'absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-10 h-10 rounded-spc-control text-spc-muted hover:text-spc-ink hover:bg-spc-surface-2 transition-colors'
+                className={themed
+                  ? `absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-10 h-10 ${rCtl} text-spc-muted hover:text-spc-ink hover:bg-spc-surface-2 transition-colors`
                   : 'absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors'}
               >
                 {showPasswords.confirm ? <EyeOff size={20} /> : <Eye size={20} />}
@@ -481,7 +505,7 @@ export default function ChangePassword({ onClose, variant = 'legacy' }) {
               disabled={loading}
               className={`flex-1 flex items-center justify-center space-x-2 ${
                 officer
-                  ? 'min-h-[44px] px-4 rounded-spc-control bg-spc-accent text-spc-on-accent text-spc-xs font-bold hover:opacity-95 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed'
+                  ? `min-h-[44px] px-4 ${rCtl} bg-spc-accent text-spc-on-accent text-spc-xs font-bold hover:opacity-95 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed`
                   : spc
                   ? 'min-h-[48px] px-5 rounded-spc-sm bg-spc-teal text-spc-on-teal text-spc-sm font-bold hover:opacity-95 transition-opacity disabled:opacity-50'
                   : 'btn btn-primary'
@@ -503,8 +527,8 @@ export default function ChangePassword({ onClose, variant = 'legacy' }) {
               type="button"
               onClick={onClose}
               disabled={loading}
-              className={officer
-                ? 'flex-1 inline-flex items-center justify-center min-h-[44px] px-4 rounded-spc-control bg-spc-surface-2 border border-spc-control text-spc-ink text-spc-xs font-bold hover:bg-spc-surface-3 transition-colors disabled:opacity-50'
+              className={themed
+                ? `flex-1 inline-flex items-center justify-center min-h-[44px] px-4 ${rCtl} bg-spc-surface-2 border border-spc-control text-spc-ink text-spc-xs font-bold hover:bg-spc-surface-3 transition-colors disabled:opacity-50`
                 : 'btn btn-secondary flex-1'}
             >
               Cancel

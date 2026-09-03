@@ -7,15 +7,48 @@ import {
 import {
   PrimaryButton, SecondaryButton, FieldLabel, FIELD_CLASS,
 } from './officer/OfficerUI';
+import {
+  ADMIN_OVERLAY, adminPanel, AdminDialogHeader, AdminDialogFooter,
+} from './admin/AdminDialog';
+import {
+  PrimaryButton as AdminPrimary, SecondaryButton as AdminSecondary,
+  FieldLabel as AdminFieldLabel, FIELD_CLASS as ADMIN_FIELD_CLASS,
+} from './admin/AdminUI';
 
 /**
  * Schedule or update a placement drive.
  *
- * `variant="officer"` renders the Register treatment; every other caller gets
- * the original markup with its class strings unchanged. Same state, same
- * validation, same payload — including the `min` on the date, which is what
- * stops a drive being scheduled in the past.
+ * `variant="officer"` and `variant="admin"` render their own role's dialog;
+ * every other caller gets the original markup with its class strings unchanged.
+ * Same state, same validation, same payload — including the `min` on the date,
+ * which is what stops a drive being scheduled in the past.
+ *
+ * The two role branches are one branch. Officer and Console expose the same
+ * dialog primitives under the same names, so the set is chosen once and the
+ * markup written once — which is the point: a field added for one role cannot
+ * then be missing from the other.
  */
+const OFFICER_UI = {
+  overlay: OFFICER_OVERLAY,
+  panel: officerPanel,
+  Header: OfficerDialogHeader,
+  Footer: OfficerDialogFooter,
+  Primary: PrimaryButton,
+  Secondary: SecondaryButton,
+  Label: FieldLabel,
+  field: FIELD_CLASS,
+};
+
+const ADMIN_UI = {
+  overlay: ADMIN_OVERLAY,
+  panel: adminPanel,
+  Header: AdminDialogHeader,
+  Footer: AdminDialogFooter,
+  Primary: AdminPrimary,
+  Secondary: AdminSecondary,
+  Label: AdminFieldLabel,
+  field: ADMIN_FIELD_CLASS,
+};
 const DriveScheduleModal = ({ isOpen, onClose, onSave, existingDrive, jobTitle, variant }) => {
   const [formData, setFormData] = useState({
     drive_date: '',
@@ -49,28 +82,30 @@ const DriveScheduleModal = ({ isOpen, onClose, onSave, existingDrive, jobTitle, 
   const today = new Date().toISOString().split('T')[0];
   const set = (key) => (e) => setFormData({ ...formData, [key]: e.target.value });
 
-  if (variant === 'officer') {
+  if (variant === 'officer' || variant === 'admin') {
+    const ui = variant === 'admin' ? ADMIN_UI : OFFICER_UI;
     return (
       <Modal
         onClose={onClose}
         labelledBy="drive-schedule-title"
-        overlayClassName={OFFICER_OVERLAY}
-        panelClassName={officerPanel('lg', { scroll: true })}
+        overlayClassName={ui.overlay}
+        panelClassName={ui.panel('lg', { scroll: true })}
       >
-        <OfficerDialogHeader
+        <ui.Header
           onClose={onClose}
           id="drive-schedule-title"
           title={existingDrive ? 'Update placement drive' : 'Schedule placement drive'}
           subtitle={jobTitle}
         />
+
         <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0">
           <div className="flex-1 overflow-y-auto spc-scroll-contain px-5 py-4 space-y-4">
             <p className="text-spc-xs text-spc-body leading-snug">
               Students who applied to this job will see the date, time and place you enter here.
             </p>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <FieldLabel htmlFor="drive-date">Date</FieldLabel>
+                <ui.Label htmlFor="drive-date">Date</ui.Label>
                 <input
                   id="drive-date"
                   type="date"
@@ -78,52 +113,52 @@ const DriveScheduleModal = ({ isOpen, onClose, onSave, existingDrive, jobTitle, 
                   value={formData.drive_date}
                   onChange={set('drive_date')}
                   min={today}
-                  className={FIELD_CLASS}
+                  className={ui.field}
                 />
               </div>
               <div>
-                <FieldLabel htmlFor="drive-time">Time</FieldLabel>
+                <ui.Label htmlFor="drive-time">Time</ui.Label>
                 <input
                   id="drive-time"
                   type="time"
                   required
                   value={formData.drive_time}
                   onChange={set('drive_time')}
-                  className={FIELD_CLASS}
+                  className={ui.field}
                 />
               </div>
             </div>
             <div>
-              <FieldLabel htmlFor="drive-location">Where</FieldLabel>
+              <ui.Label htmlFor="drive-location">Where</ui.Label>
               <input
                 id="drive-location"
                 type="text"
                 required
                 value={formData.drive_location}
                 onChange={set('drive_location')}
-                className={FIELD_CLASS}
+                className={ui.field}
                 placeholder="e.g. Main Auditorium, College Campus"
               />
             </div>
             <div>
-              <FieldLabel htmlFor="drive-instructions">What to bring or know</FieldLabel>
+              <ui.Label htmlFor="drive-instructions">What to bring or know</ui.Label>
               <textarea
                 id="drive-instructions"
                 rows={4}
                 value={formData.additional_instructions}
                 onChange={set('additional_instructions')}
-                className={`${FIELD_CLASS} py-2 h-auto leading-relaxed`}
+                className={`${ui.field} py-2 h-auto leading-relaxed`}
                 placeholder="e.g. Bring two resume copies. Formal dress. Carry your ID card."
               />
               <p className="text-xs text-spc-muted mt-1">Optional.</p>
             </div>
           </div>
-          <OfficerDialogFooter>
-            <SecondaryButton type="button" onClick={onClose}>Cancel</SecondaryButton>
-            <PrimaryButton type="submit">
+          <ui.Footer>
+            <ui.Secondary type="button" onClick={onClose}>Cancel</ui.Secondary>
+            <ui.Primary type="submit">
               {existingDrive ? 'Update drive' : 'Schedule drive'}
-            </PrimaryButton>
-          </OfficerDialogFooter>
+            </ui.Primary>
+          </ui.Footer>
         </form>
       </Modal>
     );

@@ -14,6 +14,22 @@ import ManualStudentAdditionModal from '../../components/ManualStudentAdditionMo
 import ApplicantsBody from './jobEligible/ApplicantsBody';
 import ApplicantsSkeleton from './jobEligible/ApplicantsSkeleton';
 
+/** The cleared state of the extended filters — one definition, so the initial
+ *  value and "clear all" cannot drift apart. */
+const EMPTY_ENHANCED_FILTERS = {
+  applicationStatuses: [],
+  sslcMin: '',
+  twelfthMin: '',
+  district: '',
+  hasPassport: null,
+  hasAadhar: null,
+  hasDrivingLicense: null,
+  hasPan: null,
+  heightMin: '',
+  weightMin: '',
+  physicallyHandicapped: null,
+};
+
 /**
  * One drive's applicants — container.
  *
@@ -76,19 +92,7 @@ export default function SuperAdminJobApplicants() {
   const [driveData, setDriveData] = useState(null);
   const [placementStats, setPlacementStats] = useState(null);
   const [showEnhancedFilters, setShowEnhancedFilters] = useState(false);
-  const [enhancedFilters, setEnhancedFilters] = useState({
-    applicationStatuses: [],
-    sslcMin: '',
-    twelfthMin: '',
-    district: '',
-    hasPassport: null,
-    hasAadhar: null,
-    hasDrivingLicense: null,
-    hasPan: null,
-    heightMin: '',
-    weightMin: '',
-    physicallyHandicapped: null,
-  });
+  const [enhancedFilters, setEnhancedFilters] = useState(EMPTY_ENHANCED_FILTERS);
   const [showPDFFieldSelector, setShowPDFFieldSelector] = useState(false);
   const [pdfExportType, setPdfExportType] = useState('basic'); // 'basic' or 'enhanced'
   const [showManualAddModal, setShowManualAddModal] = useState(false);
@@ -639,10 +643,17 @@ export default function SuperAdminJobApplicants() {
         hasEnhancedFilters={hasEnhancedFilters}
         enhancedFilterPanel={showEnhancedFilters ? (
           <div className="mb-4">
+            {/*
+              `onChange` and `onClear`, not `onFilterChange` and `onClose`.
+              The panel calls `onChange({ ...filters, ...patch })` on every
+              keystroke and tick, so passing the wrong name left it undefined
+              and every control in the panel threw.
+            */}
             <EnhancedFilterPanel
               filters={enhancedFilters}
-              onFilterChange={setEnhancedFilters}
-              onClose={() => setShowEnhancedFilters(false)}
+              onChange={setEnhancedFilters}
+              onClear={() => setEnhancedFilters(EMPTY_ENHANCED_FILTERS)}
+              variant="admin"
             />
           </div>
         ) : null}
@@ -653,15 +664,17 @@ export default function SuperAdminJobApplicants() {
         onClose={() => setShowStudentDetail(false)}
         studentId={selectedStudentId}
         applicationId={selectedApplicationId}
+        userRole="super-admin"
+        variant="admin"
       />
 
       <DriveScheduleModal
         isOpen={showDriveModal}
         onClose={() => setShowDriveModal(false)}
-        jobId={selectedJob?.id}
+        onSave={handleScheduleDrive}
         existingDrive={driveData}
-        onSubmit={handleScheduleDrive}
-        onSuccess={() => { setShowDriveModal(false); fetchDriveSchedule(selectedJob.id); }}
+        jobTitle={selectedJob?.job_title}
+        variant="admin"
       />
 
       {showPDFFieldSelector && (
@@ -671,15 +684,18 @@ export default function SuperAdminJobApplicants() {
           applicantCount={filteredStudents.length}
           exportType={pdfExportType}
           customFields={jobCustomFields}
+          variant="admin"
         />
       )}
 
       <ManualStudentAdditionModal
         isOpen={showManualAddModal}
         onClose={() => setShowManualAddModal(false)}
-        jobId={selectedJob?.id}
-        jobTitle={selectedJob?.job_title}
+        job={selectedJob}
+        api={superAdminAPI}
+        userRole="super-admin"
         onSuccess={() => { setShowManualAddModal(false); fetchJobApplicants(selectedJob.id); }}
+        variant="admin"
       />
     </>
   );

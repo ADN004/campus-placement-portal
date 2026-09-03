@@ -3,6 +3,10 @@ import toast from 'react-hot-toast';
 import { X, Mail, Save } from 'lucide-react';
 import Modal from './Modal';
 import PromptShell from './student/PromptShell';
+import {
+  ADMIN_OVERLAY, adminPanel, AdminDialogHeader, AdminDialogBody, AdminDialogFooter,
+} from './admin/AdminDialog';
+import { PrimaryButton, SecondaryButton } from './admin/AdminUI';
 import GoogleEmailButton from './GoogleEmailButton';
 import usePortalMode from '../hooks/usePortalMode';
 
@@ -14,10 +18,17 @@ import usePortalMode from '../hooks/usePortalMode';
  * picker is offered so the corrected address is typo-proof, with manual
  * entry always available.
  *
- * `variant="spc"` opts into the student design system. It defaults to the
- * original styling because placement officers and super admins open this same
- * modal from their student lists, and their look is frozen until those roles
- * are redesigned.
+ * Three roles open this same modal, so it takes a `variant`:
+ *
+ *   'spc'    — the student design system (PromptShell).
+ *   'admin'  — Console, for super admin.
+ *   'legacy' — the original styling, still the default.
+ *
+ * Only the *shell* differs. The fields between them are written once, in
+ * `EmailFields`, against the role-neutral `spc-*` tokens — those resolve
+ * through whichever role scope class is on the page, so the same markup is
+ * correct in all three. Duplicating the form per variant is how the Google
+ * button ends up wired in one of them and not the others.
  *
  * Props:
  *   currentEmail  — shown for reference
@@ -25,6 +36,58 @@ import usePortalMode from '../hooks/usePortalMode';
  *   onSubmit      — async (email) => void; throws on failure (parent's API call)
  *   onClose       — close without changes
  */
+/**
+ * The fields, written once.
+ *
+ * Everything here is a role-neutral `spc-*` token, so it resolves correctly
+ * under `.spc-student`, `.spc-officer` or `.spc-admin` without knowing which
+ * one it is standing in.
+ */
+function EmailFields({ studentName, currentEmail, email, setEmail, submitting, clientId }) {
+  return (
+    <>
+      <div className="rounded-spc bg-spc-surface-2 border border-spc-line px-4 py-3">
+        {studentName && (
+          <p className="text-spc-sm font-bold text-spc-ink mb-0.5">{studentName}</p>
+        )}
+        <p className="text-spc-label font-bold uppercase text-spc-muted">Current email</p>
+        <p className="text-spc-sm font-semibold text-spc-ink mt-0.5 break-all">{currentEmail}</p>
+      </div>
+
+      <div className="mt-5">
+        <label
+          htmlFor="new-student-email"
+          className="block text-spc-label font-bold uppercase text-spc-muted mb-1.5"
+        >
+          New email address
+        </label>
+        <input
+          id="new-student-email"
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="correct.email@example.com"
+          disabled={submitting}
+          className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm
+            border border-spc-control outline-none transition-colors
+            focus:border-spc-accent focus:ring-2 focus:ring-spc-accent/25 disabled:opacity-60"
+        />
+        <GoogleEmailButton
+          clientId={clientId}
+          onEmail={({ email: googleEmail }) => setEmail(googleEmail)}
+        />
+      </div>
+
+      <p className="text-spc-xs text-spc-muted mt-4 leading-relaxed">
+        Your new address has to be verified before you can sign in with it, so
+        check that inbox after saving.
+      </p>
+    </>
+  );
+}
+
 export default function UpdateStudentEmailModal({
   currentEmail,
   studentName,
@@ -33,6 +96,7 @@ export default function UpdateStudentEmailModal({
   variant = 'legacy',
 }) {
   const spc = variant === 'spc';
+  const admin = variant === 'admin';
   const [email, setEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const portalMode = usePortalMode();
@@ -54,6 +118,17 @@ export default function UpdateStudentEmailModal({
     }
   };
 
+  const fields = (
+    <EmailFields
+      studentName={studentName}
+      currentEmail={currentEmail}
+      email={email}
+      setEmail={setEmail}
+      submitting={submitting}
+      clientId={portalMode.googleClientId}
+    />
+  );
+
   if (spc) {
     return (
       <PromptShell
@@ -69,45 +144,33 @@ export default function UpdateStudentEmailModal({
         }}
         secondary={{ label: 'Cancel', onClick: onClose, disabled: submitting }}
       >
-        <div className="rounded-spc bg-spc-surface-2 border border-spc-line px-4 py-3">
-          {studentName && (
-            <p className="text-spc-sm font-bold text-spc-ink mb-0.5">{studentName}</p>
-          )}
-          <p className="text-spc-label font-bold uppercase text-spc-muted">Current email</p>
-          <p className="text-spc-sm font-semibold text-spc-ink mt-0.5 break-all">{currentEmail}</p>
-        </div>
-
-        <div className="mt-5">
-          <label
-            htmlFor="new-student-email"
-            className="block text-spc-label font-bold uppercase text-spc-muted mb-1.5"
-          >
-            New email address
-          </label>
-          <input
-            id="new-student-email"
-            type="email"
-            inputMode="email"
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="correct.email@example.com"
-            disabled={submitting}
-            className="w-full min-h-[48px] px-3.5 py-2.5 rounded-spc-sm bg-spc-surface text-spc-ink text-spc-sm
-              border border-spc-control outline-none transition-colors
-              focus:border-spc-accent focus:ring-2 focus:ring-spc-accent/25 disabled:opacity-60"
-          />
-          <GoogleEmailButton
-            clientId={portalMode.googleClientId}
-            onEmail={({ email: googleEmail }) => setEmail(googleEmail)}
-          />
-        </div>
-
-        <p className="text-spc-xs text-spc-muted mt-4 leading-relaxed">
-          Your new address has to be verified before you can sign in with it, so
-          check that inbox after saving.
-        </p>
+        {fields}
       </PromptShell>
+    );
+  }
+
+  if (admin) {
+    return (
+      <Modal
+        onClose={onClose}
+        labelledBy="update-email-title"
+        panelClassName={adminPanel('md', { scroll: true })}
+        overlayClassName={ADMIN_OVERLAY}
+      >
+        <AdminDialogHeader
+          id="update-email-title"
+          title="Change the email address"
+          subtitle="A fresh verification link goes to the new one"
+          onClose={onClose}
+        />
+        <AdminDialogBody>{fields}</AdminDialogBody>
+        <AdminDialogFooter>
+          <SecondaryButton onClick={onClose} disabled={submitting}>Cancel</SecondaryButton>
+          <PrimaryButton onClick={handleSubmit} disabled={submitting || !email.trim()}>
+            {submitting ? 'Updating…' : 'Update email'}
+          </PrimaryButton>
+        </AdminDialogFooter>
+      </Modal>
     );
   }
 

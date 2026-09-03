@@ -963,7 +963,7 @@ export default function ManageAllStudents() {
             fetchStudents();
           }}
           onClose={() => setEmailFixStudent(null)}
-          variant="spc"
+          variant="admin"
         />
       )}
 

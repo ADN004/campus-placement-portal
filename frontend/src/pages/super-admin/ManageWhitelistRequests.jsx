@@ -24,6 +24,9 @@ export default function ManageWhitelistRequests() {
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [actionType, setActionType] = useState(null); // 'approve' or 'reject'
   const [reviewComment, setReviewComment] = useState('');
+  // Whether the decision dialog was reached from the record, so closing it
+  // knows whether to step back there or out to the list.
+  const [actionFromDetails, setActionFromDetails] = useState(false);
 
   useEffect(() => {
     fetchRequests();
@@ -58,11 +61,34 @@ export default function ManageWhitelistRequests() {
     setShowDetailsModal(true);
   };
 
+  /*
+   * The decision dialog replaces the record rather than stacking on top of it.
+   *
+   * Approve and Reject can be reached from inside Details, and leaving Details
+   * mounted underneath meant two dialogs and two focus traps at once. Closing
+   * the decision now steps back to the record if that is where it was opened
+   * from, and to the list otherwise — the same shape `StudentJobs` uses for
+   * Details → Apply.
+   */
   const handleOpenActionModal = (request, action) => {
     setSelectedRequest(request);
     setActionType(action);
     setReviewComment('');
+    setActionFromDetails(showDetailsModal);
+    setShowDetailsModal(false);
     setShowActionModal(true);
+  };
+
+  const closeActionModal = () => {
+    setShowActionModal(false);
+    setActionType(null);
+    setReviewComment('');
+    if (actionFromDetails) {
+      setActionFromDetails(false);
+      setShowDetailsModal(true);
+    } else {
+      setSelectedRequest(null);
+    }
   };
 
   const handleApprove = async () => {
@@ -73,6 +99,7 @@ export default function ManageWhitelistRequests() {
       toast.success('Whitelist request approved successfully');
       setShowActionModal(false);
       setShowDetailsModal(false);
+      setActionFromDetails(false);
       setSelectedRequest(null);
       setReviewComment('');
       fetchRequests();
@@ -94,6 +121,7 @@ export default function ManageWhitelistRequests() {
       toast.success('Whitelist request rejected');
       setShowActionModal(false);
       setShowDetailsModal(false);
+      setActionFromDetails(false);
       setSelectedRequest(null);
       setReviewComment('');
       fetchRequests();
@@ -148,11 +176,7 @@ export default function ManageWhitelistRequests() {
           comment={reviewComment}
           onCommentChange={setReviewComment}
           onConfirm={handleSubmitAction}
-          onClose={() => {
-            setShowActionModal(false);
-            setActionType(null);
-            setReviewComment('');
-          }}
+          onClose={closeActionModal}
         />
       )}
     </>

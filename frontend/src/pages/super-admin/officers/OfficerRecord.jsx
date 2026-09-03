@@ -51,14 +51,23 @@ export function DetailsDialog({ officer, onViewPhoto, onViewHistory, onClose }) 
       />
 
       <AdminDialogBody className="px-0 py-0">
-        <div className="flex items-start gap-4 p-5 border-b border-spc-line">
+        {/*
+          Each thing on its own line.
+          `OfficerStanding` is a <span> and the button is inline-flex, so with
+          both loose in a column they sat on one line with no gap between them —
+          the status word butted straight against "Open photograph". Every item
+          is a block now, and the whole thing stacks under the photograph below
+          `sm` rather than squeezing a five-word sentence into what is left of a
+          phone's width beside a 112px image.
+        */}
+        <div className="flex flex-col sm:flex-row sm:items-start gap-4 p-5 border-b border-spc-line">
           {officer.photo_url ? (
             <button
               type="button"
               onClick={() => onViewPhoto(officer.photo_url)}
               aria-label={`Open ${officer.officer_name}'s photograph full size`}
               title="Open full size"
-              className="flex-shrink-0 rounded-spc-admin overflow-hidden
+              className="flex-shrink-0 self-start rounded-spc-admin overflow-hidden
                 border border-spc-line-strong hover:border-spc-accent transition-colors"
             >
               <img
@@ -68,25 +77,25 @@ export function DetailsDialog({ officer, onViewPhoto, onViewHistory, onClose }) 
               />
             </button>
           ) : (
-            <div className="w-28 h-28 flex-shrink-0 rounded-spc-admin bg-spc-surface-2
+            <div className="w-28 h-28 flex-shrink-0 self-start rounded-spc-admin bg-spc-surface-2
               border border-spc-line-strong flex items-center justify-center">
               <User size={36} aria-hidden="true" className="text-spc-body" />
             </div>
           )}
 
-          <div className="min-w-0">
-            <OfficerStanding officer={officer} />
+          <div className="min-w-0 flex-1">
+            <p><OfficerStanding officer={officer} /></p>
+
             {officer.photo_url ? (
               <>
-                <SecondaryButton
-                  onClick={() => onViewPhoto(officer.photo_url)}
-                  className="mt-2"
-                >
-                  <Eye size={15} aria-hidden="true" />
-                  Open photograph
-                </SecondaryButton>
+                <div className="mt-2">
+                  <SecondaryButton onClick={() => onViewPhoto(officer.photo_url)}>
+                    <Eye size={15} aria-hidden="true" />
+                    Open photograph
+                  </SecondaryButton>
+                </div>
                 {officer.photo_uploaded_at && (
-                  <p className="text-spc-xs text-spc-body mt-1.5">
+                  <p className="text-spc-xs text-spc-body mt-2">
                     Uploaded {formatDay(officer.photo_uploaded_at)}
                   </p>
                 )}
@@ -94,7 +103,8 @@ export function DetailsDialog({ officer, onViewPhoto, onViewHistory, onClose }) 
             ) : (
               <p className="text-spc-xs text-spc-body mt-2">No photograph uploaded.</p>
             )}
-            <p className="text-spc-xs text-spc-body mt-1.5">
+
+            <p className="text-spc-xs text-spc-body mt-2">
               Officers manage their own photograph from their dashboard.
             </p>
           </div>

@@ -46,6 +46,9 @@ export default function ManagePlacementOfficers() {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [confirmText, setConfirmText] = useState('');
+  // Whether History was reached from inside Details, so closing it knows
+  // whether to step back there or all the way out.
+  const [historyFromDetails, setHistoryFromDetails] = useState(false);
   const [formData, setFormData] = useState(EMPTY_OFFICER_FORM);
 
   useEffect(() => {
@@ -89,13 +92,35 @@ export default function ManagePlacementOfficers() {
     return true;
   });
 
+  /*
+   * One dialog at a time, and each close puts you back where you came from.
+   *
+   * These were two independent booleans over one `selectedOfficer`, and History
+   * could be opened from inside Details without closing it. That produced two
+   * faults, both reported:
+   *
+   *   - Closing History nulled `selectedOfficer`, so Details vanished with it —
+   *     even though you had opened History *from* Details and expected to land
+   *     back there.
+   *   - `showDetailsModal` was left true when Details vanished that way. The
+   *     next time anything set an officer — clicking History on a row — the
+   *     guard `showDetailsModal && selectedOfficer` passed again and Details
+   *     sprang open beside it.
+   *
+   * `StudentJobs` already had this right: close the one you are leaving before
+   * opening the next. `historyFromDetails` is what lets the back-step know
+   * whether there is anything to go back to.
+   */
   const handleViewDetails = (officer) => {
     setSelectedOfficer(officer);
+    setShowHistoryModal(false);
     setShowDetailsModal(true);
   };
 
-  const handleViewHistory = async (officer) => {
+  const handleViewHistory = async (officer, fromDetails = false) => {
     setSelectedOfficer(officer);
+    setShowDetailsModal(false);
+    setHistoryFromDetails(fromDetails);
     setShowHistoryModal(true);
     setLoadingHistory(true);
     setOfficerHistory([]);
@@ -283,7 +308,7 @@ export default function ManagePlacementOfficers() {
         <DetailsDialog
           officer={selectedOfficer}
           onViewPhoto={handleViewPhoto}
-          onViewHistory={handleViewHistory}
+          onViewHistory={(o) => handleViewHistory(o, true)}
           onClose={() => { setShowDetailsModal(false); setSelectedOfficer(null); }}
         />
       )}
@@ -296,8 +321,14 @@ export default function ManagePlacementOfficers() {
           onClearHistory={handleClearHistory}
           onClose={() => {
             setShowHistoryModal(false);
-            setSelectedOfficer(null);
             setOfficerHistory([]);
+            if (historyFromDetails) {
+              // Opened from the record, so go back to it rather than to the list.
+              setHistoryFromDetails(false);
+              setShowDetailsModal(true);
+            } else {
+              setSelectedOfficer(null);
+            }
           }}
         />
       )}

@@ -592,6 +592,126 @@ if (moduleFiles.length) {
   }
 }
 
+/* 3b. props handed to shared components this page renders */
+
+/*
+ * Check 3 only looks inside the page's own module folder. A page also renders
+ * shared components out of `components/`, and a prop renamed at the call site
+ * is invisible there: the component simply never receives it, React passes the
+ * stray along silently, and the build says nothing.
+ *
+ * That is exactly how `JobApplicants` came to hand `onSubmit` to a dialog that
+ * reads `onSave` — scheduling a drive threw on `onSave is not a function` — and
+ * `onFilterChange` to a panel that reads `onChange`, which broke every control
+ * in it. Both survived a green run of every other check here.
+ *
+ * Only the passed-but-never-read direction is reported. The reverse is normal:
+ * plenty of props are optional and deliberately left out.
+ */
+const IGNORED_PROPS = new Set(['key', 'ref', 'children', 'className', 'style']);
+
+/**
+ * The props a component destructures from its first parameter.
+ *
+ * `null` when that cannot be known — the component does not destructure, or it
+ * collects a rest element, in which case an unrecognised prop may well be used.
+ * Guessing there would produce exactly the noise that gets a check ignored.
+ */
+const declaredProps = (file) => {
+  const src = read(file);
+  const ast = parse(src);
+  let props = null;
+  let hasRest = false;
+  const fromParams = (params) => {
+    const first = params && params[0];
+    if (!first || first.type !== 'ObjectPattern') return;
+    props = [];
+    for (const prop of first.properties) {
+      if (prop.type === 'RestElement') { hasRest = true; continue; }
+      if (prop.key?.type === 'Identifier') props.push(prop.key.name);
+    }
+  };
+  traverse(ast, {
+    ExportDefaultDeclaration(p) {
+      const d = p.node.declaration;
+      if (d.params) fromParams(d.params);
+    },
+    VariableDeclarator(p) {
+      if (props) return;
+      const init = p.node.init;
+      if (!init || !init.params) return;
+      const name = p.node.id?.name;
+      // Only the component this file actually exports by default.
+      if (!name || !new RegExp(`export default ${name}\\b`).test(src)) return;
+      fromParams(init.params);
+    },
+  });
+  return props && !hasRest ? props : null;
+};
+
+const sharedUses = [];
+const ownFiles = new Set([container, ...moduleFiles].map((f) => path.resolve(f)));
+for (const file of [container, ...moduleFiles]) {
+  const ast = parse(read(file));
+  const localToFile = new Map();
+  traverse(ast, {
+    ImportDeclaration(p) {
+      const spec = p.node.source.value;
+      if (!spec.startsWith('.')) return;
+      const base = path.resolve(path.dirname(file), spec);
+      let resolved = null;
+      for (const c of [base, `${base}.jsx`, `${base}.js`, path.join(base, 'index.jsx')]) {
+        if (fs.existsSync(c) && fs.statSync(c).isFile()) { resolved = c; break; }
+      }
+      // Files inside the page's own module are check 3's business.
+      if (!resolved || ownFiles.has(path.resolve(resolved))) return;
+      for (const s of p.node.specifiers) {
+        if (s.type === 'ImportDefaultSpecifier') localToFile.set(s.local.name, resolved);
+      }
+    },
+  });
+  if (localToFile.size === 0) continue;
+  traverse(ast, {
+    JSXOpeningElement(p) {
+      if (p.node.name.type !== 'JSXIdentifier') return;
+      const target = localToFile.get(p.node.name.name);
+      if (!target) return;
+      const attrs = new Set();
+      let spread = false;
+      for (const a of p.node.attributes) {
+        if (a.type === 'JSXAttribute' && a.name.type === 'JSXIdentifier') attrs.add(a.name.name);
+        if (a.type === 'JSXSpreadAttribute') spread = true;
+      }
+      sharedUses.push({ file, name: p.node.name.name, target, attrs, spread });
+    },
+  });
+}
+
+const strayProps = [];
+let unreadable = 0;
+const declaredCache = new Map();
+for (const use of sharedUses) {
+  if (use.spread) { unreadable += 1; continue; }
+  if (!declaredCache.has(use.target)) declaredCache.set(use.target, declaredProps(use.target));
+  const declared = declaredCache.get(use.target);
+  if (!declared) { unreadable += 1; continue; }
+  const unknown = [...use.attrs]
+    .filter((a) => !IGNORED_PROPS.has(a) && !declared.includes(a));
+  for (const prop of unknown) {
+    strayProps.push(`${use.name} ← ${prop}  (${path.basename(use.file)}; it reads ${declared.join(', ')})`);
+  }
+}
+
+if (sharedUses.length === 0) {
+  pass('no shared components rendered here');
+} else if (strayProps.length) {
+  fail(`${strayProps.length} prop(s) passed to a shared component that never reads them`,
+    strayProps.slice(0, 10));
+} else {
+  pass(`every prop reaches the shared component it was meant for  ${DIM}(${sharedUses.length} render site(s))${OFF}`,
+    unreadable ? `(${unreadable} take a spread or a rest and cannot be checked this way)` : '');
+}
+
 /* 4. unused imports, across the page's files */
 const unused = [];
 for (const file of [container, ...moduleFiles]) {

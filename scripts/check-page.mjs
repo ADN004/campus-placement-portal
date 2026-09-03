@@ -426,11 +426,33 @@ if (save) {
   console.log(`${DIM}saved ${handlers.size} handler names to ${path.relative(ROOT, snapFile)}${OFF}`);
 } else if (fs.existsSync(snapFile)) {
   const before = JSON.parse(read(snapFile)).handlers || [];
-  const missing = before.filter((h) => !handlers.has(h));
+  /*
+   * Searched across the container AND its module files, not the container
+   * alone.
+   *
+   * The whole point of a split is that some handlers move: a form's
+   * `toggleBranch` belongs in the form, not in the page that renders it.
+   * Checking the container alone reported those as deleted, which trains you to
+   * wave the check through — and then it is no use on the day something really
+   * did vanish. The question this check exists to answer is "does it still
+   * exist anywhere in this page's code", and that is what it now asks.
+   */
+  const elsewhere = new Map();
+  for (const file of moduleFiles) {
+    for (const name of collectHandlers(parse(read(file))).keys()) {
+      if (!elsewhere.has(name)) elsewhere.set(name, path.basename(file));
+    }
+  }
+  const missing = before.filter((h) => !handlers.has(h) && !elsewhere.has(h));
+  const moved = before.filter((h) => !handlers.has(h) && elsewhere.has(h));
   if (missing.length) {
     fail(`${missing.length} handler(s) present before the rewrite are now gone`, missing);
   } else {
     pass(`all ${before.length} handlers from before the rewrite survive`);
+    if (moved.length) {
+      console.log(`${DIM} ..  ${moved.length} moved out of the container: `
+        + `${moved.map((h) => `${h} → ${elsewhere.get(h)}`).join(', ')}${OFF}`);
+    }
   }
 } else {
   console.log(`${DIM} ..  no snapshot yet — run with --save before rewriting${OFF}`);

@@ -95,6 +95,16 @@ const sourceFiles = [];
  * substring check once reported a removed utility as used by eight files.
  */
 const BOUNDARY = /[\s"'`{}]/;
+
+/**
+ * The start of the line a match sits on — enough to tell an `@apply` from a
+ * class attribute.
+ */
+function lineAt(text, index) {
+  const start = text.lastIndexOf('\n', index) + 1;
+  return text.slice(start, index);
+}
+
 function stillUsed(cls) {
   for (const file of sourceFiles) {
     const text = fs.readFileSync(file, 'utf8');
@@ -104,7 +114,18 @@ function stillUsed(cls) {
       if (at === -1) break;
       const before = at === 0 ? ' ' : text[at - 1];
       const after = text[at + cls.length] ?? ' ';
-      if (BOUNDARY.test(before) && BOUNDARY.test(after)) {
+      /*
+       * An `@apply` is not a reference to the generated utility.
+       *
+       * `@apply text-purple-800` copies that utility's *declarations* into the
+       * rule at build time; it does not link to the class Tailwind emits, and
+       * it keeps working after the standalone `.text-purple-800` has been
+       * purged. Counting it raised a failure twice on this pass — once for
+       * `hover:from-red-700` in `.btn-danger`, once for `text-purple-800` in
+       * `.badge-primary` — and both times the component class was byte-identical
+       * in the two builds. A check that cries wolf is a check you stop reading.
+       */
+      if (BOUNDARY.test(before) && BOUNDARY.test(after) && !/@apply\b/.test(lineAt(text, at))) {
         return path.relative(ROOT, file);
       }
       from = at + 1;

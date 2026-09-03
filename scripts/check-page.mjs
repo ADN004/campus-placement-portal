@@ -281,8 +281,35 @@ const collectImports = (ast) => {
  */
 const collectRuntimeClasses = (ast) => {
   const bad = [];
-  const check = (node, line) => {
-    if (node?.type !== 'TemplateLiteral') return;
+
+  /*
+   * Every template literal inside the expression, not just the outermost one.
+   *
+   * `check` used to return unless the expression *itself* was a template
+   * literal, so the common shape
+   *
+   *   className={`base ${on ? `border-${tone}-500` : 'border-gray-200'}`}
+   *
+   * was waved through: the outer literal's quasi ends in a space, and the inner
+   * one — the one Tailwind cannot see — lives inside an expression that was
+   * never opened. Found on ManageJobs, where the export dialog's selected
+   * format button builds three classes that way. They happened to exist because
+   * other files use them, which is exactly why it went unnoticed.
+   */
+  const eachTemplate = (node, fn) => {
+    if (!node || typeof node !== 'object') return;
+    if (Array.isArray(node)) { node.forEach((child) => eachTemplate(child, fn)); return; }
+    if (node.type === 'TemplateLiteral') fn(node);
+    for (const key of Object.keys(node)) {
+      if (key === 'loc' || key === 'leadingComments' || key === 'trailingComments') continue;
+      const child = node[key];
+      if (child && typeof child === 'object') eachTemplate(child, fn);
+    }
+  };
+
+  const check = (node, line) => eachTemplate(node, (tpl) => inspect(tpl, line));
+
+  const inspect = (node, line) => {
     node.quasis.forEach((quasi, i) => {
       if (i >= node.expressions.length) return;
       const text = quasi.value.raw;

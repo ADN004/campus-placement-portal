@@ -42,6 +42,7 @@ export const MOBILE_READY_ROUTES = [
   '/super-admin/profile',
   '/super-admin/college-branches',
   '/super-admin/prn-ranges',
+  '/super-admin/send-notification',
 ];
 
 export function isMobileReadyRoute(pathname) {

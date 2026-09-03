@@ -379,7 +379,7 @@ fs.mkdirSync(SNAPSHOTS, { recursive: true });
  * file — and the officer page was then checked against the super admin's
  * handlers and reported as having lost one it never had.
  */
-const snapKey = path.relative(SRC, container).replace(/[\/]/g, '__').replace(/\.jsx?$/, '');
+const snapKey = path.relative(SRC, container).split(path.sep).join('__').replace(/\.jsx?$/, '');
 const snapFile = path.join(SNAPSHOTS, `${snapKey}.json`);
 if (save) {
   fs.writeFileSync(snapFile, JSON.stringify({ handlers: [...handlers.keys()].sort() }, null, 2));

@@ -46,6 +46,7 @@ export const MOBILE_READY_ROUTES = [
   '/super-admin/placement-poster',
   '/super-admin/job-eligible-students',
   '/super-admin/job-requests',
+  '/super-admin/students',
 ];
 
 export function isMobileReadyRoute(pathname) {

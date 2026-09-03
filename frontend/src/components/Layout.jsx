@@ -331,9 +331,10 @@ export default function Layout() {
           .spc-admin-bg. The depth in Console comes from the glass chrome above
           the page rather than from colour behind it.
 
-          This branch is unreachable today — every role is one of the three —
-          and it goes with the desktop-view switcher once the redesign is
-          finished. */}
+          This branch is unreachable: Layout renders only inside `{user ? …}`,
+          and routes exist for exactly the three roles, so a user who reached
+          here at all is one of them. Left in place for now — removing it is its
+          own change, and it takes `GradientOrb` with it. */}
       {!isStudent && !isOfficer && !isAdmin && (
         <div className="fixed inset-0 pointer-events-none">
           <GradientOrb color="blue" size="xl" position={{ top: '10%', right: '10%' }} animationDuration="8s" />
@@ -398,8 +399,9 @@ export default function Layout() {
         />
       )}
 
-      {/* The original shell, now unreachable: every role has its own. It goes
-          with the desktop-view switcher at the end of the super-admin pass. */}
+      {/* The original shell, now unreachable: every role has its own, and
+          Layout only renders for a signed-in user whose role is one of the
+          three. Removing it is its own change. */}
       {!isStudent && !isOfficer && !isAdmin && (
       <nav className="fixed w-full top-0 z-30 bg-white/70 backdrop-blur-xl border-b border-gray-200 shadow-sm">
         <div className="px-4 sm:px-6 lg:px-8">

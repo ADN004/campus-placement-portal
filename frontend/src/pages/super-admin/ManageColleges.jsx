@@ -3,11 +3,11 @@ import toast from 'react-hot-toast';
 import { superAdminAPI } from '../../services/api';
 import useSkeleton from '../../hooks/useSkeleton';
 import useDeviceType from '../../hooks/useDeviceType';
-import BulkImportModal from '../../components/BulkImportModal';
 import CollegesBody from './colleges/CollegesBody';
 import CollegesSkeleton from './colleges/CollegesSkeleton';
 import { CollegeFormDialog, ModeSwitchDialog } from './colleges/CollegeModals';
 import RegionsModal from './colleges/RegionsModal';
+import BulkImportModal from './colleges/BulkImportModal';
 
 const EMPTY_COLLEGE_FORM = {
   college_name: '',
@@ -385,6 +385,7 @@ export default function ManageColleges() {
 
       {showImportModal && (
         <BulkImportModal
+          layout={deviceType}
           onClose={() => setShowImportModal(false)}
           onImported={refreshData}
         />

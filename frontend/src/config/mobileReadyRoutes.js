@@ -57,6 +57,8 @@ export const MOBILE_READY_ROUTES = [
   '/super-admin/academic-year-reset',
   '/super-admin/activity-logs',
   '/super-admin/database-backup',
+  // Covers /jobs/new and /jobs/:jobId/edit through the sub-path rule.
+  '/super-admin/jobs',
 ];
 
 export function isMobileReadyRoute(pathname) {

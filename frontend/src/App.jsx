@@ -51,6 +51,7 @@ const ManageCollegeLocks = lazy(() => import('./pages/super-admin/ManageCollegeL
 const PRNRangeStudents = lazy(() => import('./pages/super-admin/PRNRangeStudents'));
 const ManagePlacementOfficers = lazy(() => import('./pages/super-admin/ManagePlacementOfficers'));
 const ManageJobs = lazy(() => import('./pages/super-admin/ManageJobs'));
+const JobEditor = lazy(() => import('./pages/super-admin/JobEditor'));
 const ManageJobRequests = lazy(() => import('./pages/super-admin/ManageJobRequests'));
 const ManageWhitelistRequests = lazy(() => import('./pages/super-admin/ManageWhitelistRequests'));
 const ManageSuperAdmins = lazy(() => import('./pages/super-admin/ManageSuperAdmins'));
@@ -134,6 +135,8 @@ function App() {
                 <Route path="/super-admin/college-locks" element={<ManageCollegeLocks />} />
                 <Route path="/super-admin/placement-officers" element={<ManagePlacementOfficers />} />
                 <Route path="/super-admin/jobs" element={<ManageJobs />} />
+                <Route path="/super-admin/jobs/new" element={<JobEditor />} />
+                <Route path="/super-admin/jobs/:jobId/edit" element={<JobEditor />} />
                 <Route path="/super-admin/job-requests" element={<ManageJobRequests />} />
                 <Route path="/super-admin/requirement-templates" element={<ManageRequirementTemplates />} />
                 <Route path="/super-admin/students" element={<ManageAllStudents />} />

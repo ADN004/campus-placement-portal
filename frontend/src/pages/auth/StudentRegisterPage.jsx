@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { commonAPI } from '../../services/api';
 import Modal from '../../components/Modal';
-import { UserPlus, CheckCircle, XCircle, Upload, X, Mail, ShieldCheck } from 'lucide-react';
+import { UserPlus, CheckCircle, XCircle, Upload, X, Mail, ShieldCheck, Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { BRANCH_SHORT_NAMES } from '../../constants/branches';
 import usePortalMode from '../../hooks/usePortalMode';

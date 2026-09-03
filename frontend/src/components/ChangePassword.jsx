@@ -504,7 +504,7 @@ export default function ChangePassword({ onClose, variant = 'legacy' }) {
               type="submit"
               disabled={loading}
               className={`flex-1 flex items-center justify-center space-x-2 ${
-                officer
+                themed
                   ? `min-h-[44px] px-4 ${rCtl} bg-spc-accent text-spc-on-accent text-spc-xs font-bold hover:opacity-95 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed`
                   : spc
                   ? 'min-h-[48px] px-5 rounded-spc-sm bg-spc-teal text-spc-on-teal text-spc-sm font-bold hover:opacity-95 transition-opacity disabled:opacity-50'

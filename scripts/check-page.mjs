@@ -269,15 +269,36 @@ const collectRuntimeClasses = (ast) => {
 
 /* ----------------------------------------------------------------- run */
 
+/*
+ * Who imports this file, resolved rather than matched by name. Matching on the
+ * basename reported the officer role's `branches/branchesShared.jsx` as a
+ * consumer of the super admin's file of the same name — the two roles use
+ * parallel names on purpose, so a name is not an identity.
+ */
 const consumersOf = (target) => {
   const abs = path.resolve(target);
-  const base = path.basename(abs).replace(/\.jsx?$/, '');
   const hits = [];
   for (const file of walkFiles(SRC)) {
     if (path.resolve(file) === abs) continue;
-    const code = read(file);
-    if (!new RegExp(`from\\s+['"][^'"]*${base}['"]`).test(code)) continue;
-    hits.push(path.relative(ROOT, file));
+    let ast;
+    try {
+      ast = parse(read(file));
+    } catch {
+      continue;
+    }
+    let found = false;
+    traverse(ast, {
+      ImportDeclaration(node) {
+        if (found) return;
+        const spec = node.node.source.value;
+        if (!spec.startsWith('.')) return;
+        const base = path.resolve(path.dirname(file), spec);
+        for (const candidate of [base, base + '.jsx', base + '.js', path.join(base, 'index.jsx')]) {
+          if (path.resolve(candidate) === abs) { found = true; return; }
+        }
+      },
+    });
+    if (found) hits.push(path.relative(ROOT, file));
   }
   return hits;
 };

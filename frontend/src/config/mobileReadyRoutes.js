@@ -40,6 +40,7 @@ export const MOBILE_READY_ROUTES = [
   '/placement-officer/profile',
   '/super-admin/dashboard',
   '/super-admin/profile',
+  '/super-admin/college-branches',
 ];
 
 export function isMobileReadyRoute(pathname) {

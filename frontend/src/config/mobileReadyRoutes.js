@@ -44,6 +44,7 @@ export const MOBILE_READY_ROUTES = [
   '/super-admin/prn-ranges',
   '/super-admin/send-notification',
   '/super-admin/placement-poster',
+  '/super-admin/job-eligible-students',
 ];
 
 export function isMobileReadyRoute(pathname) {

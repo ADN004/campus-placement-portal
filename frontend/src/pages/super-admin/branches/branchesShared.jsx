@@ -215,12 +215,13 @@ export function CollegeList({ colleges, onEdit }) {
  * The contents of the edit dialog: what is chosen, a box to type a new one, and
  * the standard list to pick from.
  *
- * `duplicateWarning` is the page's own text when what has been typed already
- * exists under a different spelling. The check itself lives in the container.
+ * `addError` is why the last attempt to add was refused — a second spelling of
+ * a branch already chosen. The rule itself lives in `utils/branchName`, so the
+ * browser and the database agree on what "the same branch" means.
  */
 export function BranchEditor({
   selected, onRemove, custom, onCustomChange, onAddCustom, templates, onAdd,
-  duplicateWarning, submitting,
+  addError, submitting,
 }) {
   return (
     <div className="space-y-5">
@@ -277,8 +278,8 @@ export function BranchEditor({
             Add
           </SecondaryButton>
         </div>
-        {duplicateWarning && (
-          <p className="text-spc-xs text-spc-warn font-semibold mt-1.5">{duplicateWarning}</p>
+        {addError && (
+          <p role="alert" className="text-spc-xs text-spc-bad font-semibold mt-1.5">{addError}</p>
         )}
       </div>
 

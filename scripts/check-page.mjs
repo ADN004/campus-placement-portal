@@ -373,7 +373,14 @@ if (orphaned.length) {
 
 /* 2. against the snapshot */
 fs.mkdirSync(SNAPSHOTS, { recursive: true });
-const snapFile = path.join(SNAPSHOTS, `${name}.json`);
+/*
+ * Keyed by path, not by file name. Both roles have a page called
+ * ManageCollegeBranches.jsx, so a name-keyed snapshot had them sharing one
+ * file — and the officer page was then checked against the super admin's
+ * handlers and reported as having lost one it never had.
+ */
+const snapKey = path.relative(SRC, container).replace(/[\/]/g, '__').replace(/\.jsx?$/, '');
+const snapFile = path.join(SNAPSHOTS, `${snapKey}.json`);
 if (save) {
   fs.writeFileSync(snapFile, JSON.stringify({ handlers: [...handlers.keys()].sort() }, null, 2));
   console.log(`${DIM}saved ${handlers.size} handler names to ${path.relative(ROOT, snapFile)}${OFF}`);

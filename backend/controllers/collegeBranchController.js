@@ -1,5 +1,31 @@
 import { query } from '../config/database.js';
+import { normalizeBranch } from '../utils/branchName.js';
 import { KERALA_POLYTECHNIC_BRANCHES, BRANCH_SHORT_NAMES, getBranchShortName } from '../constants/branches.js';
+
+/**
+ * Two spellings of one branch in the same list, or null.
+ *
+ * Compared the way everything else compares a branch — letters and digits alone
+ * — because that is what decides whether a student is found. A college holding
+ * both "Civil Engineering" and "Civil-Engineering" splits its students across
+ * two branches that look identical in a dropdown, and a job posted for one of
+ * them silently reaches nobody recorded under the other. That is not
+ * hypothetical: it made 1,556 students invisible to branch filters on
+ * production.
+ *
+ * Checked here rather than only in the browser, because the browser is not the
+ * only way in and both roles post to their own endpoint.
+ */
+const duplicateSpelling = (branches) => {
+  const seen = new Map();
+  for (const branch of branches) {
+    const key = normalizeBranch(branch);
+    if (!key) continue;
+    if (seen.has(key)) return { kept: seen.get(key), duplicate: branch };
+    seen.set(key, branch);
+  }
+  return null;
+};
 
 // ============================================
 // SUPER ADMIN CONTROLLERS
@@ -69,6 +95,16 @@ export const updateCollegeBranches = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Branches must be an array',
+      });
+    }
+
+    const clash = duplicateSpelling(branches);
+    if (clash) {
+      return res.status(400).json({
+        success: false,
+        message: `"${clash.duplicate}" and "${clash.kept}" are the same branch spelled `
+          + 'differently. Keep one spelling — two of them count as two branches in '
+          + 'eligibility, filters and exports.',
       });
     }
 
@@ -350,6 +386,16 @@ export const updateOwnCollegeBranches = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Branches must be an array',
+      });
+    }
+
+    const clash = duplicateSpelling(branches);
+    if (clash) {
+      return res.status(400).json({
+        success: false,
+        message: `"${clash.duplicate}" and "${clash.kept}" are the same branch spelled `
+          + 'differently. Keep one spelling — two of them count as two branches in '
+          + 'eligibility, filters and exports.',
       });
     }
 

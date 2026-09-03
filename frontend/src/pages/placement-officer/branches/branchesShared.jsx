@@ -12,23 +12,17 @@ import { Panel, PanelHeading } from '../../../components/officer/OfficerUI';
  * ever being created, and shows the officer when one already exists.
  */
 
-/**
- * The comparison key for "is this the same branch?".
+/*
+ * The comparison key, and the search key, are the one the database uses.
  *
- * Case-folded and whitespace-collapsed, because "computer engineering" and
- * "Computer  Engineering" are the same branch to a human and two different ones
- * to `= ANY()`.
+ * This used to fold case and collapse whitespace only, which caught
+ * "computer engineering" beside "Computer Engineering" but not
+ * "Civil-Engineering" beside "Civil Engineering" — and the hyphen is the
+ * spelling that actually made 1,556 students invisible to branch filters on
+ * production. `utils/branchName` mirrors the backend rule: letters and digits
+ * alone.
  */
-export function branchKey(name) {
-  return String(name || '').trim().toLowerCase().replace(/\s+/g, ' ');
-}
-
-/** Does `name` already appear in `list`, ignoring case and spacing? */
-export function findSameBranch(list, name) {
-  const key = branchKey(name);
-  if (!key) return null;
-  return list.find((item) => branchKey(item) === key) || null;
-}
+export { normalizeBranch as branchKey, findSameBranch } from '../../../utils/branchName';
 
 /* ------------------------------------------------------------------ counts */
 

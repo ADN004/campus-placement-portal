@@ -8,6 +8,7 @@ import { PrimaryButton, SecondaryButton } from '../../components/admin/AdminUI';
 import {
   ADMIN_OVERLAY, adminPanel, AdminDialogHeader, AdminDialogBody, AdminDialogFooter,
 } from '../../components/admin/AdminDialog';
+import { findSameBranch } from '../../utils/branchName';
 import BranchesBody from './branches/BranchesBody';
 import BranchesSkeleton from './branches/BranchesSkeleton';
 import { BranchEditor } from './branches/branchesShared';
@@ -19,18 +20,13 @@ import { BranchEditor } from './branches/branchesShared';
  * is unchanged: the same three requests on mount, the same client-side search
  * and region filter, the same save, the same optimistic local update.
  *
- * One thing is added and it is a warning, not a rule. `handleAddCustomBranch`
- * only ever refused an exact string match, so "Civil Engineering" could be
- * added to a college that already had "Civil-Engineering" or "civil
- * engineering" — and two spellings of one branch are two branches everywhere
- * else in the system: eligibility, filters, exports. The page now says so when
- * it spots one. It still lets it through, because refusing outright would be a
- * behaviour change and is the user's call.
+ * One behaviour did change, on the user's instruction. Adding a branch used to
+ * refuse only an exact string match, so "Civil Engineering" could be added to a
+ * college that already had "Civil-Engineering" — and two spellings of one
+ * branch are two branches everywhere else: eligibility, filters, exports. That
+ * is how 1,556 students became invisible to branch filters on production. A
+ * second spelling is now refused outright, naming the one already there.
  */
-
-/** The comparison the backend uses: letters and digits, nothing else. */
-const normalizeBranch = (value) =>
-  String(value || '').toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '');
 
 export default function ManageCollegeBranches() {
   const deviceType = useDeviceType();
@@ -46,6 +42,7 @@ export default function ManageCollegeBranches() {
   const [showAddBranchModal, setShowAddBranchModal] = useState(false);
   const [selectedBranches, setSelectedBranches] = useState([]);
   const [customBranch, setCustomBranch] = useState('');
+  const [addError, setAddError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -99,25 +96,45 @@ export default function ManageCollegeBranches() {
   const handleEditCollege = (college) => {
     setEditingCollege(college);
     setSelectedBranches(college.branches || []);
+    setAddError('');
     setShowAddBranchModal(true);
   };
 
   const handleAddBranch = (branch) => {
-    if (!selectedBranches.includes(branch)) {
-      setSelectedBranches([...selectedBranches, branch]);
+    // Picked from the standard list, so it cannot be a new spelling — but it can
+    // still collide with one already chosen by hand.
+    const clash = findSameBranch(selectedBranches, branch);
+    if (clash) {
+      setAddError(clash === branch
+        ? `${clash} is already in the list.`
+        : `${clash} is already in the list — that is the same branch, spelled differently.`);
+      return;
     }
+    setSelectedBranches([...selectedBranches, branch]);
+    setAddError('');
   };
 
   const handleAddCustomBranch = () => {
     const trimmed = customBranch.trim();
-    if (trimmed && !selectedBranches.includes(trimmed)) {
-      setSelectedBranches([...selectedBranches, trimmed]);
-      setCustomBranch('');
+    if (!trimmed) return;
+
+    const clash = findSameBranch(selectedBranches, trimmed);
+    if (clash) {
+      setAddError(clash === trimmed
+        ? `${clash} is already in the list.`
+        : `${clash} is already in the list — that is the same branch, spelled differently. `
+          + 'Remove it first if the spelling needs to change.');
+      return;
     }
+
+    setSelectedBranches([...selectedBranches, trimmed]);
+    setCustomBranch('');
+    setAddError('');
   };
 
   const handleRemoveBranch = (branchToRemove) => {
     setSelectedBranches(selectedBranches.filter((b) => b !== branchToRemove));
+    setAddError('');
   };
 
   const handleSaveBranches = async () => {
@@ -157,6 +174,7 @@ export default function ManageCollegeBranches() {
     setEditingCollege(null);
     setSelectedBranches([]);
     setCustomBranch('');
+    setAddError('');
   };
 
   if (showSkeleton) return <BranchesSkeleton layout={deviceType} />;
@@ -168,22 +186,6 @@ export default function ManageCollegeBranches() {
     few: colleges.filter((c) => branchCount(c) > 0 && branchCount(c) < 3).length,
     full: colleges.filter((c) => branchCount(c) >= 3).length,
   };
-
-  /*
-   * Only a warning. What is typed is compared the way the backend compares
-   * branches — letters and digits alone — so "Civil-Engineering" and "Civil
-   * Engineering" are recognised as the same branch rather than looking like two.
-   */
-  const typed = customBranch.trim();
-  const clash = typed
-    ? selectedBranches.find(
-      (b) => b !== typed && normalizeBranch(b) === normalizeBranch(typed),
-    )
-    : null;
-  const duplicateWarning = clash
-    ? `This college already has "${clash}", which is the same branch spelt differently. `
-      + 'Two spellings count as two branches in eligibility, filters and exports.'
-    : null;
 
   return (
     <>
@@ -221,7 +223,7 @@ export default function ManageCollegeBranches() {
               onAddCustom={handleAddCustomBranch}
               templates={branchTemplates}
               onAdd={handleAddBranch}
-              duplicateWarning={duplicateWarning}
+              addError={addError}
               submitting={submitting}
             />
           </AdminDialogBody>

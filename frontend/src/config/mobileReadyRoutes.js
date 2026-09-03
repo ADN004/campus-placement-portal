@@ -55,6 +55,7 @@ export const MOBILE_READY_ROUTES = [
   '/super-admin/admins',
   '/super-admin/student-counts',
   '/super-admin/academic-year-reset',
+  '/super-admin/activity-logs',
 ];
 
 export function isMobileReadyRoute(pathname) {

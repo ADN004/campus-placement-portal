@@ -25,6 +25,7 @@ export default function ManageJobs() {
   const deviceType = useDeviceType();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('all'); // 'all', 'pending', 'deleted'
+  const [searchQuery, setSearchQuery] = useState('');
   const [jobs, setJobs] = useState([]);
   const [pendingRequests, setPendingRequests] = useState([]);
   const [deletedJobs, setDeletedJobs] = useState([]);
@@ -263,6 +264,21 @@ export default function ManageJobs() {
     }
   };
 
+  /*
+   * The posted list, narrowed. Jobs accumulate every year and nothing prunes
+   * them, so paging alone would mean clicking through forty pages to find one
+   * drive. Derived at render — the list is already in memory and the tile
+   * counters read the full set.
+   */
+  const visibleJobs = searchQuery
+    ? jobs.filter((job) => {
+      const q = searchQuery.toLowerCase();
+      return job.title?.toLowerCase().includes(q)
+        || job.company_name?.toLowerCase().includes(q)
+        || job.location?.toLowerCase().includes(q);
+    })
+    : jobs;
+
   const openExport = (job) => {
     setExportTargetJob(job);
     setExportScope('all');
@@ -280,7 +296,10 @@ export default function ManageJobs() {
         layout={deviceType}
         activeTab={activeTab}
         onTab={setActiveTab}
-        jobs={jobs}
+        jobs={visibleJobs}
+        allJobsCount={jobs.length}
+        searchQuery={searchQuery}
+        onSearch={setSearchQuery}
         pendingRequests={pendingRequests}
         deletedJobs={deletedJobs}
         regions={regions}

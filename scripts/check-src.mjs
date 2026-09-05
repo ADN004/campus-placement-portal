@@ -80,6 +80,28 @@ const files = [];
   }
 }(SRC));
 
+/*
+ * A class name Tailwind cannot see: an expression glued onto a partial class,
+ * like `bg-${tone}`. Tailwind scans the source as text, so it never generates
+ * these and the element renders unstyled in exactly one state.
+ *
+ * The same check lives in check-page.mjs, but that one only ever opens a page
+ * and its module folder — so a shared component could carry one forever. Every
+ * template literal in the expression is inspected, including one nested inside
+ * a ternary, which is where they usually hide.
+ */
+const runtimeClasses = [];
+const eachTemplate = (node, fn) => {
+  if (!node || typeof node !== 'object') return;
+  if (Array.isArray(node)) { node.forEach((child) => eachTemplate(child, fn)); return; }
+  if (node.type === 'TemplateLiteral') fn(node);
+  for (const key of Object.keys(node)) {
+    if (key === 'loc' || key === 'leadingComments' || key === 'trailingComments') continue;
+    const child = node[key];
+    if (child && typeof child === 'object') eachTemplate(child, fn);
+  }
+};
+
 const undeclared = [];
 const unparsed = [];
 
@@ -97,6 +119,24 @@ for (const file of files) {
       if (GLOBALS.has(name)) return;
       if (node.scope.hasBinding(name, true)) return;
       undeclared.push(`${path.relative(ROOT, file)}:${node.node.loc?.start.line ?? 0}  ${name}`);
+    },
+    JSXAttribute(p) {
+      if (p.node.name.name !== 'className') return;
+      const value = p.node.value;
+      if (value?.type !== 'JSXExpressionContainer') return;
+      eachTemplate(value.expression, (tpl) => {
+        tpl.quasis.forEach((quasi, i) => {
+          if (i >= tpl.expressions.length) return;
+          const text = quasi.value.raw;
+          if (text.length === 0 || /\s$/.test(text)) return;
+          const tail = text.split(/\s/).pop();
+          if (tail && /[a-zA-Z0-9]-$|:$/.test(tail)) {
+            runtimeClasses.push(
+              `${path.relative(ROOT, file)}:${p.node.loc?.start.line ?? 0}  ${tail}\${…}`
+            );
+          }
+        });
+      });
     },
   });
 }
@@ -126,6 +166,14 @@ if (undeclared.length) {
   }
 } else {
   console.log(`${GREEN} ok ${OFF} nothing used without being declared or imported`);
+}
+
+if (runtimeClasses.length) {
+  failed = true;
+  console.log(`${RED}FAIL${OFF} ${runtimeClasses.length} class name(s) built at runtime — Tailwind will not generate them`);
+  runtimeClasses.slice(0, 25).forEach((c) => console.log(`       ${c}`));
+} else {
+  console.log(`${GREEN} ok ${OFF} every class name is a whole literal`);
 }
 
 process.exit(failed ? 1 : 0);

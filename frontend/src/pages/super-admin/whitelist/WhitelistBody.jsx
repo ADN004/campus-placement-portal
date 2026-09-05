@@ -3,6 +3,7 @@ import {
   Panel, PanelHeading, PageHeading, SectionLabel, EmptyState,
   PrimaryButton, SecondaryButton, DangerButton,
 } from '../../../components/admin/AdminUI';
+import usePagedList from '../../../hooks/usePagedList';
 
 /**
  * Whitelist requests — an officer asking for a blacklisted student to be let
@@ -157,6 +158,12 @@ const TABS = [
 
 export default function WhitelistBody(p) {
   const { layout } = p;
+  /*
+   * Approved and rejected requests are never removed, so the "all" tab grows
+   * for the life of the portal. Twenty-five cards at a time; the tab counters
+   * still read the full set.
+   */
+  const requestPage = usePagedList(p.requests, { pageSize: 25, resetKey: p.activeTab });
 
   return (
     <div>
@@ -195,7 +202,7 @@ export default function WhitelistBody(p) {
       ) : (
         <>
           <div className="space-y-3">
-            {p.requests.map((request) => (
+            {requestPage.visible.map((request) => (
               <RequestCard
                 key={request.id}
                 layout={layout}
@@ -206,8 +213,33 @@ export default function WhitelistBody(p) {
               />
             ))}
           </div>
+          {requestPage.totalPages > 1 && (
+            <Panel className={`mt-3 p-3 flex gap-3 ${layout === 'desktop'
+              ? 'items-center justify-between flex-wrap' : 'flex-col'}`}>
+              <p className="text-spc-xs text-spc-body tabular-nums">
+                {requestPage.first}–{requestPage.last} of {requestPage.total}
+              </p>
+              <div className="flex items-center gap-2">
+                <SecondaryButton
+                  onClick={() => requestPage.setPage(requestPage.page - 1)}
+                  disabled={requestPage.page === 1}
+                >
+                  Previous
+                </SecondaryButton>
+                <p className="text-spc-xs text-spc-body px-1 tabular-nums" aria-live="polite">
+                  {requestPage.page} / {requestPage.totalPages}
+                </p>
+                <SecondaryButton
+                  onClick={() => requestPage.setPage(requestPage.page + 1)}
+                  disabled={requestPage.page === requestPage.totalPages}
+                >
+                  Next
+                </SecondaryButton>
+              </div>
+            </Panel>
+          )}
           <p className="text-spc-xs text-spc-body mt-3 tabular-nums">
-            Showing {p.requests.length} of {p.stats.total} whitelist requests.
+            Showing {requestPage.first}–{requestPage.last} of {p.stats.total} whitelist requests.
           </p>
         </>
       )}

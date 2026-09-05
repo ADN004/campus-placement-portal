@@ -114,7 +114,23 @@ function parseList(field) {
  * list, so it is resolved to whichever it actually has before anything else —
  * the original did the same, and without it a request-born job reads "N/A".
  */
-export function targetDisplay(job, regions, colleges) {
+/**
+ * Name lookups for the audience column, built once per render of the list.
+ *
+ * `targetDisplay` used to do `colleges.filter(c => ids.includes(c.id))` for
+ * every row. That is O(colleges × ids) per row — with sixty colleges and a job
+ * aimed at all of them, 3,600 comparisons — so a thousand jobs cost millions of
+ * comparisons on every render, and a render happens on every tab click. Two
+ * Maps make it O(ids) per row instead, and they are built once for the whole
+ * table rather than once per row.
+ */
+export function nameLookups(regions, colleges) {
+  const regionName = new Map(regions.map((r) => [r.id, r.region_name || r.name]));
+  const collegeName = new Map(colleges.map((c) => [c.id, c.college_name || c.name]));
+  return { regionName, collegeName };
+}
+
+export function targetDisplay(job, regions, colleges, lookups) {
   let subject = job;
 
   if (job.target_type === 'specific') {
@@ -125,11 +141,15 @@ export function targetDisplay(job, regions, colleges) {
 
   if (subject.target_type === 'all') return 'Every student';
 
+  // Built here only when a caller did not hand them in — a single row opened in
+  // a dialog does not need the table's shared maps.
+  const { regionName, collegeName } = lookups || nameLookups(regions, colleges);
+
   if ((subject.target_type === 'region' || subject.target_type === 'specific')
     && subject.target_regions) {
     const ids = parseList(subject.target_regions);
     if (ids.length === 0) return '—';
-    const names = regions.filter((r) => ids.includes(r.id)).map((r) => r.region_name || r.name);
+    const names = ids.map((id) => regionName.get(id)).filter(Boolean);
     return names.length > 0 ? names.join(', ') : '—';
   }
 
@@ -137,7 +157,7 @@ export function targetDisplay(job, regions, colleges) {
     && subject.target_colleges) {
     const ids = parseList(subject.target_colleges);
     if (ids.length === 0) return '—';
-    const names = colleges.filter((c) => ids.includes(c.id)).map((c) => c.college_name || c.name);
+    const names = ids.map((id) => collegeName.get(id)).filter(Boolean);
     if (names.length === 0) return '—';
     return names.length > 2
       ? `${names.slice(0, 2).join(', ')} and ${names.length - 2} more`

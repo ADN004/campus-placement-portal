@@ -1,3 +1,11 @@
+/** Written out so Tailwind can find each one as text. */
+const STAT_COLUMNS = {
+  1: 'lg:grid-cols-1',
+  2: 'lg:grid-cols-2',
+  3: 'lg:grid-cols-3',
+  4: 'lg:grid-cols-4',
+};
+
 export default function TablePageSkeleton({
   statCards = 0,
   tableColumns = 6,
@@ -18,8 +26,18 @@ export default function TablePageSkeleton({
       </div>
 
       {/* Stats row skeleton */}
+      {/*
+        The column count comes from STAT_COLUMNS rather than being spliced into
+        the class. Tailwind scans the source as text, so a class assembled at
+        runtime is never generated — and two of the four this could produce,
+        `lg:grid-cols-1` and `lg:grid-cols-2`, exist nowhere else in the
+        project. A skeleton with one or two stat cards silently kept
+        `sm:grid-cols-2` at every width above it.
+      */}
       {statCards > 0 && (
-        <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-${Math.min(statCards, 4)} gap-4 mb-6`}>
+        <div className={`grid grid-cols-1 sm:grid-cols-2 ${
+          STAT_COLUMNS[Math.min(statCards, 4)] || STAT_COLUMNS[4]
+        } gap-4 mb-6`}>
           {[...Array(statCards)].map((_, i) => (
             <div key={i} className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
               <div className="flex items-center justify-between">

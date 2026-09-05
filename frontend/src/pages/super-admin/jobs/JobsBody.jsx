@@ -1,11 +1,15 @@
+import { useMemo } from 'react';
 import {
-  Plus, Eye, Edit, ToggleLeft, ToggleRight, Users, Trash2, Check, X,
+  Plus, Eye, Edit, ToggleLeft, ToggleRight, Users, Trash2, Check, X, Search,
 } from 'lucide-react';
 import {
-  Panel, PageHeading, SectionLabel, EmptyState,
+  Panel, PageHeading, SectionLabel, EmptyState, FIELD_CLASS,
   PrimaryButton, SecondaryButton, DangerButton,
 } from '../../../components/admin/AdminUI';
-import { JobStanding, formatDay, formatMoment, targetDisplay, packageOf } from './jobsShared';
+import usePagedList from '../../../hooks/usePagedList';
+import {
+  JobStanding, formatDay, formatMoment, targetDisplay, packageOf, nameLookups,
+} from './jobsShared';
 
 /**
  * Every job on the portal, in three lists.
@@ -83,7 +87,7 @@ const JOB_COLUMNS = [
   ['Status', 'w-[8%]', 'text-right'],
 ];
 
-function JobTable({ jobs, regions, colleges, actions }) {
+function JobTable({ jobs, lookups, actions }) {
   return (
     <Panel className="overflow-hidden">
       <div className="overflow-x-auto">
@@ -127,7 +131,7 @@ function JobTable({ jobs, regions, colleges, actions }) {
                   {formatDay(job.application_deadline)}
                 </td>
                 <td className="px-4 py-3 align-top text-spc-xs text-spc-body break-words">
-                  {targetDisplay(job, regions, colleges)}
+                  {targetDisplay(job, null, null, lookups)}
                 </td>
                 <td className="px-4 py-3 align-top text-right">
                   <JobStanding active={job.is_active} />
@@ -144,7 +148,7 @@ function JobTable({ jobs, regions, colleges, actions }) {
   );
 }
 
-function JobList({ jobs, regions, colleges, actions }) {
+function JobList({ jobs, lookups, actions }) {
   return (
     <Panel className="overflow-hidden">
       <ul className="divide-y divide-spc-line">
@@ -161,7 +165,7 @@ function JobList({ jobs, regions, colleges, actions }) {
                   Closes {formatDay(job.application_deadline)}
                 </p>
                 <p className="text-spc-xs text-spc-body mt-0.5 break-words">
-                  Reaches {targetDisplay(job, regions, colleges)}
+                  Reaches {targetDisplay(job, null, null, lookups)}
                 </p>
               </div>
               <JobStanding active={job.is_active} />
@@ -326,8 +330,58 @@ function DeletedList({ layout, jobs, onClearHistory }) {
 
 /* --------------------------------------------------------------- the page */
 
+/**
+ * How much of a list is on screen, and how to move.
+ *
+ * All three tabs here grow without limit — jobs accumulate every year, requests
+ * pile up, and the deleted history keeps everything until someone clears it.
+ * Rendering all of it was fine at a demo's twenty rows and would put thousands
+ * of DOM nodes on the page at the real number. The whole list stays in memory,
+ * because the counters on the tiles and the filtering read all of it; only the
+ * slice that is drawn is bounded.
+ */
+function ListPager({ page, noun, layout }) {
+  if (page.totalPages <= 1) return null;
+  return (
+    <Panel className={`mt-3 p-3 flex gap-3 ${layout === 'desktop'
+      ? 'items-center justify-between flex-wrap' : 'flex-col'}`}>
+      <p className="text-spc-xs text-spc-body tabular-nums">
+        {page.first}–{page.last} of {page.total} {noun}
+      </p>
+      <div className="flex items-center gap-2">
+        <SecondaryButton onClick={() => page.setPage(page.page - 1)} disabled={page.page === 1}>
+          Previous
+        </SecondaryButton>
+        <p className="text-spc-xs text-spc-body px-1 tabular-nums" aria-live="polite">
+          {page.page} / {page.totalPages}
+        </p>
+        <SecondaryButton
+          onClick={() => page.setPage(page.page + 1)}
+          disabled={page.page === page.totalPages}
+        >
+          Next
+        </SecondaryButton>
+      </div>
+    </Panel>
+  );
+}
+
 export default function JobsBody(p) {
   const { layout } = p;
+
+  /*
+   * Built once for the whole table rather than once per row — see
+   * `nameLookups`. The audience column is the only expensive cell, and it was
+   * the one scanning all sixty colleges for every job on screen.
+   */
+  const lookups = useMemo(
+    () => nameLookups(p.regions, p.colleges),
+    [p.regions, p.colleges]
+  );
+
+  const jobPage = usePagedList(p.jobs, { pageSize: 25, resetKey: p.searchQuery });
+  const pendingPage = usePagedList(p.pendingRequests, { pageSize: 25 });
+  const deletedPage = usePagedList(p.deletedJobs, { pageSize: 25 });
 
   return (
     <div>
@@ -354,19 +408,46 @@ export default function JobsBody(p) {
 
       {p.activeTab === 'all' && (
         <>
-          <SectionLabel>Posted jobs</SectionLabel>
+          <Panel className="p-4 mb-4">
+            <SectionLabel>Find a job</SectionLabel>
+            <div className="relative max-w-md">
+              <Search size={17} aria-hidden="true"
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-spc-body pointer-events-none" />
+              <input
+                id="job-search"
+                type="text"
+                value={p.searchQuery}
+                onChange={(e) => p.onSearch(e.target.value)}
+                placeholder="Search by title, company or location…"
+                aria-label="Search jobs by title, company or location"
+                className={`${FIELD_CLASS} pl-10`}
+              />
+            </div>
+          </Panel>
+
+          <SectionLabel>
+            {jobPage.total === p.allJobsCount
+              ? `${jobPage.total} posted`
+              : `${jobPage.total} of ${p.allJobsCount} posted`}
+          </SectionLabel>
+
           {p.jobs.length === 0 ? (
             <Panel>
               <EmptyState>
-                No jobs yet. &ldquo;New job&rdquo; posts the first one.
+                {p.allJobsCount === 0
+                  ? 'No jobs yet. “New job” posts the first one.'
+                  : 'No job matches that search.'}
               </EmptyState>
             </Panel>
-          ) : layout === 'desktop' ? (
-            <JobTable jobs={p.jobs} regions={p.regions} colleges={p.colleges}
-              actions={p.actions} />
           ) : (
-            <JobList jobs={p.jobs} regions={p.regions} colleges={p.colleges}
-              actions={p.actions} />
+            <>
+              {layout === 'desktop' ? (
+                <JobTable jobs={jobPage.visible} lookups={lookups} actions={p.actions} />
+              ) : (
+                <JobList jobs={jobPage.visible} lookups={lookups} actions={p.actions} />
+              )}
+              <ListPager page={jobPage} noun="jobs" layout={layout} />
+            </>
           )}
         </>
       )}
@@ -376,11 +457,12 @@ export default function JobsBody(p) {
           <SectionLabel>Waiting for approval</SectionLabel>
           <PendingList
             layout={layout}
-            requests={p.pendingRequests}
+            requests={pendingPage.visible}
             onView={p.actions.onView}
             onApprove={p.onApproveRequest}
             onReject={p.onRejectRequest}
           />
+          <ListPager page={pendingPage} noun="requests" layout={layout} />
           <p className="text-spc-xs text-spc-body mt-3">
             The same requests have a page of their own under Job Requests, where a rejection can
             carry a reason the officer will see.
@@ -391,7 +473,9 @@ export default function JobsBody(p) {
       {p.activeTab === 'deleted' && (
         <>
           <SectionLabel>Deleted history</SectionLabel>
-          <DeletedList layout={layout} jobs={p.deletedJobs} onClearHistory={p.onClearHistory} />
+          <DeletedList layout={layout} jobs={deletedPage.visible}
+            onClearHistory={p.onClearHistory} />
+          <ListPager page={deletedPage} noun="deleted jobs" layout={layout} />
         </>
       )}
     </div>

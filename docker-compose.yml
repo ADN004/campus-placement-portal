@@ -97,6 +97,9 @@ services:
       CREATE_SUPER_ADMIN: ${CREATE_SUPER_ADMIN:-false}
       SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:-}
       SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD:-}
+      # Comma-separated job ids whose unanswered custom questions lock a student
+      # out of the portal until they answer. Empty (the default) blocks nobody.
+      BLOCKING_CUSTOM_ANSWER_JOBS: ${BLOCKING_CUSTOM_ANSWER_JOBS:-}
     ports:
       - "${BACKEND_PORT:-5000}:5000"
     volumes:

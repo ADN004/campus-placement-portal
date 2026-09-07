@@ -117,7 +117,13 @@ export default function StudentDashboard() {
   const fetchOwedAnswers = async () => {
     try {
       const response = await studentAPI.getPendingCustomAnswers();
-      setOwedAnswers(response.data.data || []);
+      /*
+       * A blocking job is CustomAnswersGate's, not this prompt's. Both read the
+       * same endpoint, so without this the student would get the wall and the
+       * nudge for one job at once — the same questions twice, one of them
+       * offering a "Not now" that cannot work.
+       */
+      setOwedAnswers((response.data.data || []).filter((entry) => !entry.blocking));
     } catch (error) {
       console.error('Failed to check for unanswered questions:', error);
     }

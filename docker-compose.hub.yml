@@ -113,6 +113,11 @@ services:
       # Staging only: password applied to all non-admin accounts by the
       # post-refresh sanitizer (scripts/sanitizeStagingDb.js)
       STAGING_SANITIZE_PASSWORD: ${STAGING_SANITIZE_PASSWORD:-}
+      # Comma-separated job ids whose unanswered custom questions lock a student
+      # out of the portal until they answer. Empty (the default) blocks nobody.
+      # Remediation for a specific backlog, not a policy — clear it once the
+      # answers are in. See components/CustomAnswersGate.jsx.
+      BLOCKING_CUSTOM_ANSWER_JOBS: ${BLOCKING_CUSTOM_ANSWER_JOBS:-}
     ports:
       - "${BACKEND_PORT:-5000}:5000"
     volumes:

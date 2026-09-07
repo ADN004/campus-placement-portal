@@ -1,6 +1,7 @@
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import CorrectionGate from './CorrectionGate';
+import CustomAnswersGate from './CustomAnswersGate';
 import { placementOfficerAPI } from '../services/api';
 import StudentApprovalGate from './StudentApprovalGate';
 import {
@@ -308,6 +309,11 @@ export default function Layout() {
           against approved students, and the endpoint is now closed to pending
           ones, so polling it on every navigation would just 403. */}
       {isStudent && !isPendingStudent && <CorrectionGate />}
+      {/* Blocks students who still owe answers on a job named in
+          BLOCKING_CUSTOM_ANSWER_JOBS. Renders nothing while that is unset,
+          which is the default. Same pending exclusion as the correction gate:
+          a student awaiting approval has no application to owe answers on. */}
+      {isStudent && !isPendingStudent && <CustomAnswersGate />}
       {/* Sends students still awaiting approval to the waiting page */}
       {isStudent && (
         <StudentApprovalGate

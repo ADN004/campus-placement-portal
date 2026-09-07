@@ -1243,6 +1243,26 @@ const questionsForJob = async (client, jobId) => {
   return Array.isArray(parsed) ? parsed.filter((f) => f && f.field_name) : [];
 };
 
+/**
+ * Jobs whose owed answers lock the portal until they are given.
+ *
+ * Read from the environment rather than a column so it can be turned on for one
+ * job and off again with a restart, without a migration and without a deploy.
+ * Empty by default: nothing blocks unless someone deliberately names a job.
+ *
+ * This is remediation for a specific backlog, not a policy. The answers were
+ * lost by us, and a student who applied in good faith should not lose the
+ * portal over it in the general case — which is why the prompt on the dashboard
+ * stays a nudge, and only a named job is ever allowed to become a wall.
+ */
+const blockingJobIds = () =>
+  new Set(
+    String(process.env.BLOCKING_CUSTOM_ANSWER_JOBS || '')
+      .split(',')
+      .map((part) => part.trim())
+      .filter(Boolean)
+  );
+
 /** True when nothing was ever recorded — no row at all, or a row holding `{}`. */
 const hasNoAnswers = (responses) => {
   if (responses === null || responses === undefined) return true;
@@ -1284,6 +1304,7 @@ export const getPendingCustomAnswers = async (req, res) => {
       [studentId]
     );
 
+    const blocking = blockingJobIds();
     const pending = result.rows
       .map((row) => {
         let fields = [];
@@ -1304,6 +1325,7 @@ export const getPendingCustomAnswers = async (req, res) => {
         job_title: row.job_title,
         company_name: row.company_name,
         custom_fields: fields,
+        blocking: blocking.has(String(row.job_id)),
       }));
 
     res.json({ success: true, count: pending.length, data: pending });

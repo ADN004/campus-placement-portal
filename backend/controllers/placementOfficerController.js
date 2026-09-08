@@ -6,6 +6,17 @@ import ExcelJS from 'exceljs';
 import { sendVerificationEmail, sendRegistrationRejectedEmail } from '../config/emailService.js';
 import { buildVerificationDetails } from '../utils/studentEmailDetails.js';
 import { generateStudentPDF } from '../utils/pdfGenerator.js';
+import { chooseFields, excelColumns, excelRow, fieldsFromQuery } from '../utils/exportFields.js';
+
+/*
+ * The columns the officer's PRN-range sheet has always printed, in order.
+ * Tuples carry this sheet's own spelling where it differs from the registry's.
+ */
+const PO_PRN_RANGE_DEFAULT = [
+  'prn', ['student_name', 'Name'], 'email', 'mobile_number', ['date_of_birth', 'DOB'],
+  'age', 'gender', 'branch', 'college_name', 'region_name',
+  'programme_cgpa', 'backlog_count', 'created_at',
+];
 import { BRANCH_SHORT_NAMES } from '../constants/branches.js';
 import { singleCollegeJobApprovalRequired } from '../utils/portalMode.js';
 import { parseExceptedPrns, prnMatchesRange } from '../utils/prnExceptions.js';
@@ -3627,21 +3638,8 @@ export const exportStudentsByPRNRange = async (req, res) => {
     const worksheet = workbook.addWorksheet('Students');
 
     // Add headers
-    worksheet.columns = [
-      { header: 'PRN', key: 'prn', width: 15 },
-      { header: 'Name', key: 'name', width: 25 },
-      { header: 'Email', key: 'email', width: 30 },
-      { header: 'Mobile', key: 'mobile_number', width: 15 },
-      { header: 'DOB', key: 'date_of_birth', width: 12 },
-      { header: 'Age', key: 'age', width: 8 },
-      { header: 'Gender', key: 'gender', width: 10 },
-      { header: 'Branch', key: 'branch', width: 30 },
-      { header: 'College', key: 'college_name', width: 40 },
-      { header: 'Region', key: 'region_name', width: 20 },
-      { header: 'CGPA', key: 'programme_cgpa', width: 10 },
-      { header: 'Backlogs', key: 'backlog_count', width: 10 },
-      { header: 'Registered On', key: 'created_at', width: 18 },
-    ];
+    const chosen = chooseFields(fieldsFromQuery(req), PO_PRN_RANGE_DEFAULT);
+    worksheet.columns = excelColumns(chosen, {});
 
     // Style header row
     worksheet.getRow(1).font = { bold: true };
@@ -3653,13 +3651,7 @@ export const exportStudentsByPRNRange = async (req, res) => {
     worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
 
     // Add data
-    students.forEach((student) => {
-      worksheet.addRow({
-        ...student,
-        date_of_birth: student.date_of_birth ? new Date(student.date_of_birth).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' }) : '',
-        created_at: student.created_at ? new Date(student.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : '',
-      });
-    });
+    students.forEach((student) => worksheet.addRow(excelRow(student, chosen, {})));
 
     // Generate Excel file
     const buffer = await workbook.xlsx.writeBuffer();

@@ -173,8 +173,13 @@ export const placementOfficerAPI = {
   enhancedExportJobApplicants: (jobId, data) => API.post(`/placement-officer/jobs/${jobId}/applicants/enhanced-export`, data, { responseType: 'blob' }),
   // format: 'pdf' (default) or 'excel'. The server keeps PDF as the default so
   // an older caller that passes nothing behaves exactly as before.
-  exportEligibleNotApplied: (jobId, format = 'pdf') =>
-    API.get(`/placement-officer/jobs/${jobId}/eligible-not-applied/export?format=${format}`, { responseType: 'blob' }),
+  // `fields` is a comma-separated column list; omitted means the sheet the
+  // export has always produced.
+  exportEligibleNotApplied: (jobId, format = 'pdf', fields) =>
+    API.get(`/placement-officer/jobs/${jobId}/eligible-not-applied/export`, {
+      params: { format, ...(fields && fields.length > 0 ? { fields: fields.join(',') } : {}) },
+      responseType: 'blob',
+    }),
 
   // PRN Range Management
   getPRNRanges: () => API.get('/placement-officer/prn-ranges'),
@@ -183,8 +188,8 @@ export const placementOfficerAPI = {
   getPRNRangeDeleteImpact: (id) => API.get(`/placement-officer/prn-ranges/${id}/delete-impact`),
   deletePRNRange: (id) => API.delete(`/placement-officer/prn-ranges/${id}`),
   getStudentsByPRNRange: (rangeId) => API.get(`/placement-officer/prn-ranges/${rangeId}/students`),
-  exportStudentsByPRNRange: (rangeId, format = 'excel') => API.get(`/placement-officer/prn-ranges/${rangeId}/students/export`, {
-    params: { format },
+  exportStudentsByPRNRange: (rangeId, format = 'excel', fields) => API.get(`/placement-officer/prn-ranges/${rangeId}/students/export`, {
+    params: { format, ...(fields && fields.length > 0 ? { fields: fields.join(',') } : {}) },
     responseType: 'blob'
   }),
   // Profile Photo Management
@@ -352,8 +357,8 @@ export const superAdminAPI = {
 
   // PRN Range Students
   getStudentsByPRNRange: (rangeId) => API.get(`/super-admin/prn-ranges/${rangeId}/students`),
-  exportStudentsByPRNRange: (rangeId, format = 'excel') => API.get(`/super-admin/prn-ranges/${rangeId}/students/export`, {
-    params: { format },
+  exportStudentsByPRNRange: (rangeId, format = 'excel', fields) => API.get(`/super-admin/prn-ranges/${rangeId}/students/export`, {
+    params: { format, ...(fields && fields.length > 0 ? { fields: fields.join(',') } : {}) },
     responseType: 'blob'
   }),
 

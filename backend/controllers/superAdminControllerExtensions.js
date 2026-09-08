@@ -15,7 +15,20 @@ import { driveMessage, driveForStudent } from '../utils/driveSchedule.js';
 import { normalizeBranch, NORMALIZED_BRANCH_SQL } from '../utils/branchName.js';
 import { studentOrderSql } from '../utils/studentOrder.js';
 import { placementSessionSpan } from '../utils/placementSession.js';
-import { chooseFields, chooseCustomFields, excelColumns, excelRow } from '../utils/exportFields.js';
+import {
+  chooseFields, chooseCustomFields, excelColumns, excelRow, fieldsFromQuery,
+} from '../utils/exportFields.js';
+
+/*
+ * The columns the PRN-range sheet has always printed, in order. Tuples carry
+ * this sheet's own spelling where it differs from the shared registry's.
+ */
+const PRN_RANGE_DEFAULT = [
+  'prn', 'student_name', 'email', ['mobile_number', 'Mobile Number'], 'date_of_birth',
+  'age', 'gender', 'college_name', 'region_name', 'branch',
+  ['programme_cgpa', 'Programme CGPA'], ['backlog_count', 'Backlog Count'],
+  ['created_at', 'Registration Date'],
+];
 
 /*
  * The columns this export produced before it could be asked for fewer.
@@ -1136,40 +1149,9 @@ export const exportStudentsByPRNRange = async (req, res) => {
     const worksheet = workbook.addWorksheet('Students');
 
     // Define columns
-    worksheet.columns = [
-      { header: 'PRN', key: 'prn', width: 15 },
-      { header: 'Student Name', key: 'student_name', width: 25 },
-      { header: 'Email', key: 'email', width: 30 },
-      { header: 'Mobile Number', key: 'mobile_number', width: 15 },
-      { header: 'Date of Birth', key: 'date_of_birth', width: 15 },
-      { header: 'Age', key: 'age', width: 10 },
-      { header: 'Gender', key: 'gender', width: 10 },
-      { header: 'College', key: 'college_name', width: 30 },
-      { header: 'Region', key: 'region_name', width: 20 },
-      { header: 'Branch', key: 'branch', width: 30 },
-      { header: 'Programme CGPA', key: 'programme_cgpa', width: 15 },
-      { header: 'Backlog Count', key: 'backlog_count', width: 15 },
-      { header: 'Registration Date', key: 'created_at', width: 20 },
-    ];
-
-    // Add rows with formatted data
-    students.forEach(student => {
-      worksheet.addRow({
-        prn: student.prn,
-        student_name: student.name, // Updated to use 'name' alias
-        email: student.email,
-        mobile_number: student.mobile_number,
-        date_of_birth: student.date_of_birth ? new Date(student.date_of_birth).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' }) : '',
-        age: student.age,
-        gender: student.gender,
-        college_name: student.college_name,
-        region_name: student.region_name,
-        branch: student.branch,
-        programme_cgpa: student.programme_cgpa,
-        backlog_count: student.backlog_count,
-        created_at: new Date(student.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
-      });
-    });
+    const chosen = chooseFields(fieldsFromQuery(req), PRN_RANGE_DEFAULT);
+    worksheet.columns = excelColumns(chosen, {});
+    students.forEach((student) => worksheet.addRow(excelRow(student, chosen, {})));
 
     // Style header row
     worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };

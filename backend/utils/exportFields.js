@@ -207,6 +207,36 @@ export const excelRow = (row, chosen, opts = {}) => {
   return cells;
 };
 
+/**
+ * A `fields` query parameter, for the exports reached by GET.
+ *
+ * Comma-separated rather than repeated `fields=` pairs, so a full selection
+ * stays inside a sane URL and the existing `?format=` shape is not disturbed.
+ * Empty means "no choice was made", which every caller reads as its default.
+ */
+export const fieldsFromQuery = (req) =>
+  String(req.query.fields || '')
+    .split(',')
+    .map((f) => f.trim())
+    .filter(Boolean);
+
+/**
+ * The spreadsheet column letter for the nth column — 1 is A, 27 is AA.
+ *
+ * Needed because a sheet's autofilter range was written as a literal ("A1:F1")
+ * back when the column count could not change. It can now.
+ */
+export const columnLetter = (n) => {
+  let out = '';
+  let remaining = Math.max(1, n);
+  while (remaining > 0) {
+    const rem = (remaining - 1) % 26;
+    out = String.fromCharCode(65 + rem) + out;
+    remaining = Math.floor((remaining - 1) / 26);
+  }
+  return out;
+};
+
 /** The ids a client may choose from, for the picker to render. */
 export const exportableFields = () =>
   Object.entries(EXPORT_FIELDS).map(([id, field]) => ({ key: id, label: field.header }));

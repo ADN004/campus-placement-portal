@@ -84,7 +84,8 @@ function GroupLabel({ children }) {
 
 export function ExportOptionsModal({
   isHost, jobCollegeCount, exportCollegeIds, onOpenCollegePicker,
-  onExportExcel, onExportPdf, onEnhancedExport, onEnhancedExcelExport, onExportNotApplied,
+  onExportExcel, onExportPdf, onEnhancedExport, onEnhancedExcelExport,
+  onExportNotApplied, onExportNotAppliedFields,
   placedCount, includePlaced, onIncludePlacedChange,
   barredCount = 0,
   onClose,
@@ -159,6 +160,14 @@ export function ExportOptionsModal({
           title="Not-applied — PDF"
           hint={`The same list as a printable report${isHost ? ', all colleges' : ''}`}
           onClick={() => onExportNotApplied('pdf')}
+        />
+        {/* The same list with contact details, which the six default columns
+            do not carry — the reason an officer opens this list at all. */}
+        <ExportChoice
+          icon={FileSpreadsheet}
+          title="Not-applied — choose columns"
+          hint="Excel, including email and mobile"
+          onClick={onExportNotAppliedFields}
         />
 
         {placedCount > 0 && (

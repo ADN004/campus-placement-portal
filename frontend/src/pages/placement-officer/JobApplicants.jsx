@@ -7,6 +7,7 @@ import StudentDetailModal from '../../components/StudentDetailModal';
 import DriveScheduleModal from '../../components/DriveScheduleModal';
 import PlacementDetailsForm from '../../components/PlacementDetailsForm';
 import PDFFieldSelector from '../../components/PDFFieldSelector';
+import { NOT_APPLIED_FIELD_OPTIONS, NOT_APPLIED_DEFAULT_FIELDS } from '../../components/exportFieldOptions';
 import ManualStudentAdditionModal from '../../components/ManualStudentAdditionModal';
 import AutoRefreshIndicator from '../../components/AutoRefreshIndicator';
 import useAutoRefresh from '../../hooks/useAutoRefresh';
@@ -78,6 +79,12 @@ export default function JobApplicants() {
    * is printed or opened in Excel.
    */
   const [fieldPickerFormat, setFieldPickerFormat] = useState('pdf');
+  /*
+   * Which list the chooser is standing in front of. The applicants sheet and
+   * the not-applied sheet come from different queries, so they can offer
+   * different columns, and the dialog has to be told which set to show.
+   */
+  const [fieldPickerTarget, setFieldPickerTarget] = useState('applicants');
   const [pdfExportType, setPdfExportType] = useState('basic'); // 'basic' or 'enhanced'
   const [showManualAddModal, setShowManualAddModal] = useState(false);
   const [includePlacedInExport, setIncludePlacedInExport] = useState(false);
@@ -578,6 +585,7 @@ export default function JobApplicants() {
 
     setPdfExportType('enhanced');
     setFieldPickerFormat('pdf');
+    setFieldPickerTarget('applicants');
     setShowPDFFieldSelector(true);
     setShowExportModal(false);
   };
@@ -594,11 +602,25 @@ export default function JobApplicants() {
     }
     setPdfExportType('enhanced');
     setFieldPickerFormat('excel');
+    setFieldPickerTarget('applicants');
+    setShowPDFFieldSelector(true);
+    setShowExportModal(false);
+  };
+
+  /* The not-applied list, with the columns an officer actually needs to chase. */
+  const handleNotAppliedWithFields = () => {
+    setFieldPickerFormat('excel');
+    setFieldPickerTarget('not-applied');
     setShowPDFFieldSelector(true);
     setShowExportModal(false);
   };
 
   const handleExportWithFields = async ({ fields: selectedFields, includeSignature, headerLine1, headerLine2 }) => {
+    // A different list entirely, and its own endpoint.
+    if (fieldPickerTarget === 'not-applied') {
+      setShowPDFFieldSelector(false);
+      return handleExportEligibleNotApplied('excel', selectedFields);
+    }
     const asExcel = fieldPickerFormat === 'excel';
     try {
       setExporting(true);
@@ -674,7 +696,7 @@ export default function JobApplicants() {
     }
   };
 
-  const handleExportEligibleNotApplied = async (format = 'pdf') => {
+  const handleExportEligibleNotApplied = async (format = 'pdf', fields) => {
     if (!selectedJob) {
       toast.error('Please select a job first');
       return;
@@ -686,7 +708,7 @@ export default function JobApplicants() {
       const loadingToast = toast.loading(
         `Preparing ${isExcel ? 'Excel' : 'PDF'} export of not-applied students...`
       );
-      const response = await placementOfficerAPI.exportEligibleNotApplied(selectedJob.id, format);
+      const response = await placementOfficerAPI.exportEligibleNotApplied(selectedJob.id, format, fields);
       const blob = new Blob([response.data], {
         type: isExcel
           ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -994,6 +1016,8 @@ export default function JobApplicants() {
           customFields={jobCustomFields}
           onExport={handleExportWithFields}
           format={fieldPickerFormat}
+          fieldOptions={fieldPickerTarget === 'not-applied' ? NOT_APPLIED_FIELD_OPTIONS : undefined}
+          defaultFields={fieldPickerTarget === 'not-applied' ? NOT_APPLIED_DEFAULT_FIELDS : undefined}
           onClose={() => setShowPDFFieldSelector(false)}
           applicantCount={
             pdfExportType === 'selected_only'
@@ -1033,6 +1057,7 @@ export default function JobApplicants() {
           onEnhancedExport={handleEnhancedExport}
           onEnhancedExcelExport={handleEnhancedExcelExport}
           onExportNotApplied={(format) => handleExportEligibleNotApplied(format)}
+          onExportNotAppliedFields={handleNotAppliedWithFields}
           placedCount={filteredStudents.filter((s) => s.is_already_placed).length}
           barredCount={filteredStudents.filter((s) => barredReason(s)).length}
           includePlaced={includePlacedInExport}

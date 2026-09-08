@@ -181,7 +181,8 @@ export function DisableRangeModal({ range, reason, onReasonChange, onConfirm, on
 
 /** The students a range covers, with the export the page already offered. */
 export function RangeStudentsModal({
-  range, students, loading, exporting, showExportMenu, onToggleExportMenu, onExport, onClose,
+  range, students, loading, exporting, showExportMenu, onToggleExportMenu,
+  onExport, onExportColumns, onClose,
 }) {
   const label = range.single_prn || `${range.start_prn} – ${range.end_prn}`;
   return (
@@ -201,8 +202,16 @@ export function RangeStudentsModal({
               <div className="fixed inset-0 z-10" onClick={onToggleExportMenu} />
               <div role="menu" className="absolute right-0 mt-2 w-48 z-20 bg-spc-surface
                 border border-spc-line-strong rounded-spc-panel overflow-hidden">
-                {[['excel', 'Export as Excel'], ['pdf', 'Export as PDF']].map(([fmt, text], i) => (
-                  <button key={fmt} role="menuitem" onClick={() => onExport(fmt)}
+                {/* "columns" is not a format — it opens the chooser rather
+                    than exporting, so the menu reads as one list of things
+                    you can ask for. */}
+                {[
+                  ['excel', 'Export as Excel'],
+                  ['columns', 'Excel — choose columns'],
+                  ['pdf', 'Export as PDF'],
+                ].map(([fmt, text], i) => (
+                  <button key={fmt} role="menuitem"
+                    onClick={() => (fmt === 'columns' ? onExportColumns() : onExport(fmt))}
                     className={`w-full px-4 py-3 min-h-[48px] text-left text-spc-xs font-bold
                       text-spc-ink hover:bg-spc-surface-2 transition-colors
                       ${i > 0 ? 'border-t border-spc-line' : ''}`}>

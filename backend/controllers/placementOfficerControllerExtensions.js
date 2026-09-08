@@ -3,7 +3,20 @@ import { uploadImage, deleteImage, deleteFolderOnly, extractFolderPath } from '.
 import logActivity from '../middleware/activityLogger.js';
 import ExcelJS from 'exceljs';
 import { generateStudentPDF, generatePlacementPosterPDF, MAX_PDF_EXPORT_FIELDS } from '../utils/pdfGenerator.js';
-import { chooseFields, chooseCustomFields, excelColumns, excelRow } from '../utils/exportFields.js';
+import {
+  chooseFields, chooseCustomFields, excelColumns, excelRow, fieldsFromQuery, columnLetter,
+} from '../utils/exportFields.js';
+
+/*
+ * The six columns the eligible-not-applied sheet has always printed.
+ *
+ * The query behind it now returns more than these — contact details among them
+ * — but only a caller who asks for fields gets any of it, so the file an
+ * officer downloads today is unchanged.
+ */
+const NOT_APPLIED_DEFAULT = [
+  'prn', ['student_name', 'Name'], 'college_name', 'region_name', 'branch', 'programme_cgpa',
+];
 
 /*
  * The columns this export produced before it could be asked for fewer.
@@ -1128,7 +1141,17 @@ export const exportEligibleNotApplied = async (req, res) => {
     const whereSQL = whereClauses.join(' AND ');
 
     const studentsResult = await query(
+      /*
+       * Wider than the six columns the sheet prints by default.
+       *
+       * This is the list an officer uses to chase students who have not applied
+       * yet, and it carried no way to reach any of them — no email, no phone.
+       * The extra columns are selectable rather than printed: the default sheet
+       * is unchanged, and an officer who wants contact details can now ask.
+       */
       `SELECT s.id, s.prn, s.student_name, s.branch, s.programme_cgpa,
+              s.email, s.mobile_number, s.date_of_birth, s.gender,
+              s.backlog_count, s.height, s.weight,
               c.college_name, r.region_name
        FROM students s
        LEFT JOIN colleges c ON s.college_id = c.id
@@ -1180,33 +1203,24 @@ export const exportEligibleNotApplied = async (req, res) => {
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Eligible — Not Applied');
 
-    sheet.columns = [
-      { header: 'PRN', key: 'prn', width: 16 },
-      { header: 'Name', key: 'student_name', width: 28 },
-      { header: 'College', key: 'college_name', width: 34 },
-      { header: 'Region', key: 'region_name', width: 20 },
-      { header: 'Branch', key: 'branch', width: 30 },
-      { header: 'CGPA', key: 'programme_cgpa', width: 10 },
-    ];
+    const chosen = chooseFields(fieldsFromQuery(req), NOT_APPLIED_DEFAULT);
+    sheet.columns = excelColumns(chosen, {});
 
     students.forEach((student) => {
-      sheet.addRow({
-        prn: student.prn,
-        student_name: student.student_name,
-        college_name: student.college_name || '',
-        region_name: student.region_name || '',
-        branch: student.branch || '',
-        // Written as a number so the column sorts and averages as one; the PDF
-        // shows the same value as text because a page cannot be sorted.
-        programme_cgpa: student.programme_cgpa === null || student.programme_cgpa === undefined
-          ? '' : Number(student.programme_cgpa),
-      });
+      const row = excelRow(student, chosen, {});
+      // Written as a number so the column sorts and averages as one; the PDF
+      // shows the same value as text because a page cannot be sorted.
+      if ('programme_cgpa' in row) {
+        row.programme_cgpa = row.programme_cgpa === '' ? '' : Number(row.programme_cgpa);
+      }
+      sheet.addRow(row);
     });
 
     sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
     sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
     sheet.views = [{ state: 'frozen', ySplit: 1 }];
-    sheet.autoFilter = { from: 'A1', to: 'F1' };
+    // Spans whatever was chosen, not a hardcoded six columns.
+    sheet.autoFilter = { from: 'A1', to: `${columnLetter(chosen.length)}1` };
 
     /*
      * A per-college tally, but only when there is more than one college in the

@@ -79,18 +79,14 @@ const ADMIN_UI = {
  */
 const PDFFieldSelector = ({
   onExport, onClose, applicantCount, exportType = 'enhanced', variant,
-  customFields = [], format = 'pdf',
+  customFields = [], format = 'pdf', fieldOptions, defaultFields,
 }) => {
   const isExcel = format === 'excel';
   const [headerLine1, setHeaderLine1] = useState('');
   const [headerLine2, setHeaderLine2] = useState('');
-  const [selectedFields, setSelectedFields] = useState([
-    'prn',
-    'student_name',
-    'branch',
-    'programme_cgpa',
-    'application_status'
-  ]);
+  const [selectedFields, setSelectedFields] = useState(
+    defaultFields || ['prn', 'student_name', 'branch', 'programme_cgpa', 'application_status'],
+  );
   const [includeSignature, setIncludeSignature] = useState(true);
 
   /*
@@ -105,7 +101,13 @@ const PDFFieldSelector = ({
     .filter((f) => f && f.field_name)
     .map((f) => ({ key: `custom_${f.field_name}`, label: f.field_label || f.field_name }));
 
-  const availableFields = [
+  /*
+   * `fieldOptions` exists because not every export can offer every column.
+   * A list is only as wide as the query behind it, and offering a column the
+   * query never selected would hand back a blank one — worse than not offering
+   * it, because the reader assumes the data is missing rather than unasked for.
+   */
+  const availableFields = (fieldOptions || [
     { key: 'prn', label: 'PRN' },
     { key: 'student_name', label: 'Student Name' },
     { key: 'college_name', label: 'College' },
@@ -126,8 +128,8 @@ const PDFFieldSelector = ({
     { key: 'has_driving_license', label: 'Driving License' },
     { key: 'has_pan_card', label: 'PAN Card' },
     { key: 'height_cm', label: 'Height (cm)' },
-    { key: 'weight_kg', label: 'Weight (kg)' }
-  ].concat(customOptions);
+    { key: 'weight_kg', label: 'Weight (kg)' },
+  ]).concat(customOptions);
 
   const toggleField = (fieldKey) => {
     if (selectedFields.includes(fieldKey)) {

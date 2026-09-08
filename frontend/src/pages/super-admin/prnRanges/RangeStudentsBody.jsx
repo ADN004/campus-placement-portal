@@ -157,12 +157,17 @@ export default function RangeStudentsBody(p) {
               {rangeInfo.is_enabled ? 'Enabled' : 'Disabled'}
             </span>
           )}
-          {/* Two buttons rather than a dropdown: there are exactly two formats,
-              and a menu to choose between two things is a click that buys
-              nothing. */}
+          {/* Buttons rather than a dropdown: a menu to choose between three
+              named things is a click that buys nothing. "Excel" stays one
+              click for the whole sheet; "Excel columns" is for when it isn't
+              the whole sheet that's wanted. */}
           <SecondaryButton onClick={() => p.onExport('excel')} disabled={p.exporting}>
             <FileSpreadsheet size={15} aria-hidden="true" />
             Excel
+          </SecondaryButton>
+          <SecondaryButton onClick={p.onExportColumns} disabled={p.exporting}>
+            <FileSpreadsheet size={15} aria-hidden="true" />
+            Excel columns
           </SecondaryButton>
           <SecondaryButton onClick={() => p.onExport('pdf')} disabled={p.exporting}>
             <FileText size={15} aria-hidden="true" />

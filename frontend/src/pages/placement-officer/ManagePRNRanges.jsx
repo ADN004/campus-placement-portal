@@ -5,6 +5,10 @@ import useSkeletonLoading from '../../hooks/useSkeletonLoading';
 import useDeviceType from '../../hooks/useDeviceType';
 import PrnRangesPage from './prnRanges/PrnRangesPage';
 import OfficerConfirm from '../../components/officer/OfficerConfirm';
+import PDFFieldSelector from '../../components/PDFFieldSelector';
+import {
+  PRN_RANGE_FIELD_OPTIONS, PRN_RANGE_DEFAULT_FIELDS,
+} from '../../components/exportFieldOptions';
 import {
   RangeFormModal,
   SinglePrnModal,
@@ -319,13 +323,17 @@ export default function ManagePRNRanges() {
   const showSkeleton = useSkeletonLoading(loading);
   const deviceType = useDeviceType();
 
-  const handleExportRangeStudents = async (format) => {
+  /* The chooser, for the Excel export only — the PDF's column set is what
+     that report is, and changing it is a separate decision. */
+  const [showFieldPicker, setShowFieldPicker] = useState(false);
+
+  const handleExportRangeStudents = async (format, fields) => {
     if (!selectedRange) return;
 
     setExportingStudents(true);
     setShowExportMenu(false);
     try {
-      const response = await placementOfficerAPI.exportStudentsByPRNRange(selectedRange.id, format);
+      const response = await placementOfficerAPI.exportStudentsByPRNRange(selectedRange.id, format, fields);
 
       const blob = new Blob([response.data], {
         type: format === 'pdf'
@@ -548,7 +556,22 @@ export default function ManagePRNRanges() {
           showExportMenu={showExportMenu}
           onToggleExportMenu={() => setShowExportMenu(!showExportMenu)}
           onExport={handleExportRangeStudents}
+          onExportColumns={() => { setShowExportMenu(false); setShowFieldPicker(true); }}
           onClose={() => { setShowViewStudentsModal(false); setShowExportMenu(false); }}
+        />
+      )}
+      {showFieldPicker && (
+        <PDFFieldSelector
+          variant="officer"
+          format="excel"
+          applicantCount={rangeStudents.length}
+          fieldOptions={PRN_RANGE_FIELD_OPTIONS}
+          defaultFields={PRN_RANGE_DEFAULT_FIELDS}
+          onClose={() => setShowFieldPicker(false)}
+          onExport={({ fields }) => {
+            setShowFieldPicker(false);
+            handleExportRangeStudents('excel', fields);
+          }}
         />
       )}
     </>

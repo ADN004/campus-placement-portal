@@ -6,6 +6,10 @@ import useSkeleton from '../../hooks/useSkeleton';
 import useDeviceType from '../../hooks/useDeviceType';
 import RangeStudentsBody from './prnRanges/RangeStudentsBody';
 import RangeStudentsSkeleton from './prnRanges/RangeStudentsSkeleton';
+import PDFFieldSelector from '../../components/PDFFieldSelector';
+import {
+  PRN_RANGE_FIELD_OPTIONS, PRN_RANGE_DEFAULT_FIELDS,
+} from '../../components/exportFieldOptions';
 
 /**
  * Students in one PRN range — container.
@@ -44,11 +48,18 @@ export default function PRNRangeStudents() {
     }
   };
 
-  const handleExport = async (format) => {
+  /*
+   * The chooser, for the Excel export only. The PDF from this page has never
+   * taken a field list and its column set is what the report is; adding one
+   * there would be a second decision, not part of this one.
+   */
+  const [showFieldPicker, setShowFieldPicker] = useState(false);
+
+  const handleExport = async (format, fields) => {
     try {
       setExporting(true);
       const formatLabel = format === 'excel' ? 'Excel' : 'PDF';
-      const response = await superAdminAPI.exportStudentsByPRNRange(rangeId, format);
+      const response = await superAdminAPI.exportStudentsByPRNRange(rangeId, format, fields);
 
       // Create blob and download
       const mimeType = format === 'excel'
@@ -81,15 +92,32 @@ export default function PRNRangeStudents() {
   const blacklistedCount = students.filter((s) => s.is_blacklisted).length;
 
   return (
-    <RangeStudentsBody
-      layout={deviceType}
-      students={students}
-      rangeInfo={rangeInfo}
-      approvedCount={approvedCount}
-      pendingCount={pendingCount}
-      blacklistedCount={blacklistedCount}
-      exporting={exporting}
-      onExport={handleExport}
-    />
+    <>
+      <RangeStudentsBody
+        layout={deviceType}
+        students={students}
+        rangeInfo={rangeInfo}
+        approvedCount={approvedCount}
+        pendingCount={pendingCount}
+        blacklistedCount={blacklistedCount}
+        exporting={exporting}
+        onExport={handleExport}
+        onExportColumns={() => setShowFieldPicker(true)}
+      />
+      {showFieldPicker && (
+        <PDFFieldSelector
+          variant="admin"
+          format="excel"
+          applicantCount={students.length}
+          fieldOptions={PRN_RANGE_FIELD_OPTIONS}
+          defaultFields={PRN_RANGE_DEFAULT_FIELDS}
+          onClose={() => setShowFieldPicker(false)}
+          onExport={({ fields }) => {
+            setShowFieldPicker(false);
+            handleExport('excel', fields);
+          }}
+        />
+      )}
+    </>
   );
 }

@@ -39,17 +39,38 @@ const moment = (value) =>
   (value ? new Date(value).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : '');
 
 /*
- * Booleans read as words.
+ * Booleans read as words, and one nobody was ever asked reads as nothing.
  *
- * NULL becomes "No", matching every existing export rather than what is
- * strictly true. These columns are nullable and reached through a LEFT JOIN to
- * student_extended_profiles, so a student with no extended profile row yields
- * NULL for all four document flags — and there are many. Distinguishing
- * "answered no" from "never asked" would be more honest, but it would silently
- * change a large number of cells in exports officers already rely on, so it
- * belongs in its own change with its own decision, not smuggled in here.
+ * These columns are nullable and reached through a LEFT JOIN to
+ * student_extended_profiles, so a student who has never filled that section
+ * yields NULL for all four document flags. Printing "No" there asserts the
+ * student told us they hold no PAN card, when in truth nobody asked — and an
+ * officer filtering the sheet for "No" was collecting the never-asked along
+ * with the answered, unable to tell them apart.
+ *
+ * Blank says the honest thing and filters correctly.
  */
-const yesNo = (value) => (value ? 'Yes' : 'No');
+const yesNo = (value) => {
+  if (value === null || value === undefined) return '';
+  return value ? 'Yes' : 'No';
+};
+
+/*
+ * A number, so the column behaves like one.
+ *
+ * DECIMAL comes back from node-postgres as a string, so a CGPA written
+ * straight into a cell lands as text: it will not sort, average or chart, and
+ * Excel marks every cell "number stored as text". Only the eligible-not-applied
+ * sheet had noticed, and cast it by hand.
+ *
+ * Blank stays blank rather than becoming 0 — a student with no recorded mark
+ * has not scored zero, and an average taken over a column of them would lie.
+ */
+const numeric = (value) => {
+  if (value === null || value === undefined || value === '') return '';
+  const n = Number(value);
+  return Number.isNaN(n) ? value : n;
+};
 
 /** The first of several source properties that is actually present. */
 const firstOf = (row, keys) => {
@@ -87,25 +108,29 @@ export const EXPORT_FIELDS = {
   complete_address: { header: 'Address', width: 40 },
   district: { header: 'District', width: 15 },
 
-  programme_cgpa: { header: 'CGPA', width: 10 },
-  cgpa_sem1: { header: 'Sem 1 CGPA', width: 12 },
-  cgpa_sem2: { header: 'Sem 2 CGPA', width: 12 },
-  cgpa_sem3: { header: 'Sem 3 CGPA', width: 12 },
-  cgpa_sem4: { header: 'Sem 4 CGPA', width: 12 },
-  cgpa_sem5: { header: 'Sem 5 CGPA', width: 12 },
-  cgpa_sem6: { header: 'Sem 6 CGPA', width: 12 },
+  programme_cgpa: { header: 'CGPA', width: 10, value: (row) => numeric(row.programme_cgpa) },
+  cgpa_sem1: { header: 'Sem 1 CGPA', width: 12, value: (row) => numeric(row.cgpa_sem1) },
+  cgpa_sem2: { header: 'Sem 2 CGPA', width: 12, value: (row) => numeric(row.cgpa_sem2) },
+  cgpa_sem3: { header: 'Sem 3 CGPA', width: 12, value: (row) => numeric(row.cgpa_sem3) },
+  cgpa_sem4: { header: 'Sem 4 CGPA', width: 12, value: (row) => numeric(row.cgpa_sem4) },
+  cgpa_sem5: { header: 'Sem 5 CGPA', width: 12, value: (row) => numeric(row.cgpa_sem5) },
+  cgpa_sem6: { header: 'Sem 6 CGPA', width: 12, value: (row) => numeric(row.cgpa_sem6) },
   backlog_count: { header: 'Backlogs', width: 12 },
   backlog_details: { header: 'Backlog Details', width: 30 },
 
-  sslc_marks: { header: 'SSLC %', width: 10 },
+  sslc_marks: { header: 'SSLC %', width: 10, value: (row) => numeric(row.sslc_marks) },
   sslc_year: { header: 'SSLC Year', width: 12 },
   sslc_board: { header: 'SSLC Board', width: 15 },
-  twelfth_marks: { header: '12th %', width: 10 },
+  twelfth_marks: { header: '12th %', width: 10, value: (row) => numeric(row.twelfth_marks) },
   twelfth_year: { header: '12th Year', width: 12 },
   twelfth_board: { header: '12th Board', width: 15 },
 
-  height_cm: { header: 'Height (cm)', width: 12, from: ['height_cm', 'height'] },
-  weight_kg: { header: 'Weight (kg)', width: 12, from: ['weight_kg', 'weight'] },
+  height_cm: {
+    header: 'Height (cm)', width: 12, value: (row) => numeric(row.height_cm ?? row.height),
+  },
+  weight_kg: {
+    header: 'Weight (kg)', width: 12, value: (row) => numeric(row.weight_kg ?? row.weight),
+  },
   physically_handicapped: {
     header: 'Disability', width: 12, value: (row) => yesNo(row.physically_handicapped),
   },
@@ -135,7 +160,9 @@ export const EXPORT_FIELDS = {
   company_name: {
     header: 'Company Name', width: 25, value: (row, opts) => row.company_name ?? opts.companyName ?? '',
   },
-  placement_package: { header: 'Package (LPA)', width: 12 },
+  placement_package: {
+    header: 'Package (LPA)', width: 12, value: (row) => numeric(row.placement_package),
+  },
   joining_date: { header: 'Joining Date', width: 12, value: (row) => day(row.joining_date) },
   placement_location: { header: 'Location', width: 20 },
 

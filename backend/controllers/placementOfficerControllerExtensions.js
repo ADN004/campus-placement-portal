@@ -1208,13 +1208,9 @@ export const exportEligibleNotApplied = async (req, res) => {
     sheet.columns = excelColumns(chosen, {});
 
     students.forEach((student) => {
-      const row = excelRow(student, chosen, {});
-      // Written as a number so the column sorts and averages as one; the PDF
-      // shows the same value as text because a page cannot be sorted.
-      if ('programme_cgpa' in row) {
-        row.programme_cgpa = row.programme_cgpa === '' ? '' : Number(row.programme_cgpa);
-      }
-      sheet.addRow(row);
+      // CGPA arrives as a number from the registry — this sheet used to cast
+      // it by hand, because it was the only one that had noticed.
+      sheet.addRow(excelRow(student, chosen, {}));
     });
 
     sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
@@ -2455,14 +2451,14 @@ export const enhancedExportJobApplicants = async (req, res) => {
      * for. The job's own questions stay last, so picking fields cannot push
      * them in among the fixed columns.
      *
-     * useShortNames is deliberately false: `use_short_names` reaches this
-     * handler's PDF branch but its Excel branch has never applied it, and
-     * honouring it here would quietly change the branch column in every
-     * existing officer download. Left as found, to be decided separately.
+     * `use_short_names` now reaches the sheet as well as the PDF. It never had
+     * before, though the officer had asked for it and the branch column is
+     * twelve wide — a width only a short code fits, so full branch names sat
+     * truncated in a column sized for codes that were never applied.
      */
     const chosen = chooseFields(excel_fields, PO_ENHANCED_APPLICANT_DEFAULT);
     const chosenCustom = chooseCustomFields(excel_fields, customFields, CUSTOM_KEY);
-    const cellOpts = { useShortNames: false, jobTitle, companyName };
+    const cellOpts = { useShortNames: use_short_names === true, jobTitle, companyName };
     worksheet.columns = [
       ...excelColumns(chosen, cellOpts),
       ...customColumnsFor(chosenCustom),

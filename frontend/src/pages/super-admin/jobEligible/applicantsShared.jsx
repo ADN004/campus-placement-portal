@@ -452,7 +452,8 @@ export function ExportScope({ regions, colleges, filters, onRegion, onToggleColl
 
 export function ApplicantToolbar({
   onToggleFilters, filtersOpen, hasFilters, onToggleEnhanced, enhancedOpen, hasEnhanced,
-  onManualAdd, onExportExcel, onExportPdf, exporting, onToggleScope, scopeOpen, scopeCount,
+  onManualAdd, onExportExcel, onExportExcelFields, onExportPdf, exporting,
+  onToggleScope, scopeOpen, scopeCount,
 }) {
   return (
     <div className="flex items-center gap-2 flex-wrap mb-4">
@@ -481,6 +482,13 @@ export function ApplicantToolbar({
         <SecondaryButton onClick={onExportExcel} disabled={exporting}>
           <Download size={15} aria-hidden="true" />
           Excel
+        </SecondaryButton>
+        {/* Beside "Excel", not instead of it: that one is a single click for
+            the whole sheet, which is what most exports want. This one opens
+            the same chooser the PDF uses, for the times it isn't. */}
+        <SecondaryButton onClick={onExportExcelFields} disabled={exporting}>
+          <Download size={15} aria-hidden="true" />
+          Excel columns
         </SecondaryButton>
         <SecondaryButton onClick={onExportPdf} disabled={exporting}>
           <Download size={15} aria-hidden="true" />

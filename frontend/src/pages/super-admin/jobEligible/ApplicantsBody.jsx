@@ -86,6 +86,7 @@ export default function ApplicantsBody(p) {
         hasEnhanced={p.hasEnhancedFilters}
         onManualAdd={p.onManualAdd}
         onExportExcel={p.onExportExcel}
+        onExportExcelFields={p.onExportExcelFields}
         onExportPdf={p.onExportPdf}
         exporting={p.exporting}
         onToggleScope={p.onToggleExportScope}

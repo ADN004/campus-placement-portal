@@ -66,7 +66,22 @@ const ADMIN_UI = {
   checkbox: Admin_CHECKBOX_CLASS,
 };
 
-const PDFFieldSelector = ({ onExport, onClose, applicantCount, exportType = 'enhanced', variant, customFields = [] }) => {
+/*
+ * `format="excel"` reuses the whole chooser and drops the three things that
+ * only mean something on a page: the printed heading, its subtitle, and the
+ * blank signature column. A spreadsheet has no page furniture, and a required
+ * "Title" input in front of an Excel export is a question with no answer.
+ *
+ * The field keys are unchanged between the two. They were chosen for the PDF
+ * generator — `mobile`, `cgpa`, `dob` — and the server translates them for
+ * Excel rather than the picker sending a different vocabulary per format, so
+ * one selection means the same thing whichever button the user pressed.
+ */
+const PDFFieldSelector = ({
+  onExport, onClose, applicantCount, exportType = 'enhanced', variant,
+  customFields = [], format = 'pdf',
+}) => {
+  const isExcel = format === 'excel';
   const [headerLine1, setHeaderLine1] = useState('');
   const [headerLine2, setHeaderLine2] = useState('');
   const [selectedFields, setSelectedFields] = useState([
@@ -131,7 +146,8 @@ const PDFFieldSelector = ({ onExport, onClose, applicantCount, exportType = 'enh
   };
 
   const handleExport = () => {
-    if (!headerLine1.trim()) {
+    // A heading is page furniture, so Excel neither asks for one nor needs it.
+    if (!isExcel && !headerLine1.trim()) {
       alert('Please enter a title for the PDF header (Line 1)');
       return;
     }
@@ -141,9 +157,9 @@ const PDFFieldSelector = ({ onExport, onClose, applicantCount, exportType = 'enh
     }
     onExport({
       fields: selectedFields,
-      includeSignature,
-      headerLine1: headerLine1.trim(),
-      headerLine2: headerLine2.trim() || null,
+      includeSignature: isExcel ? false : includeSignature,
+      headerLine1: isExcel ? null : headerLine1.trim(),
+      headerLine2: isExcel ? null : (headerLine2.trim() || null),
     });
   };
 
@@ -153,7 +169,7 @@ const PDFFieldSelector = ({ onExport, onClose, applicantCount, exportType = 'enh
 
   if (variant === 'officer' || variant === 'admin') {
     const ui = variant === 'admin' ? ADMIN_UI : OFFICER_UI;
-    const titleMissing = !headerLine1.trim();
+    const titleMissing = !isExcel && !headerLine1.trim();
     const noFields = selectedFields.length === 0;
     return (
       <Modal
@@ -165,7 +181,9 @@ const PDFFieldSelector = ({ onExport, onClose, applicantCount, exportType = 'enh
         <ui.Header
           onClose={onClose}
           id="pdf-export-title"
-          title={exportType === 'selected_only' ? 'Export selected students' : 'Export as PDF'}
+          title={exportType === 'selected_only'
+            ? 'Export selected students'
+            : (isExcel ? 'Export as Excel' : 'Export as PDF')}
           subtitle={
             exportType === 'selected_only'
               ? `${applicantCount} selected student${applicantCount !== 1 ? 's' : ''}`
@@ -174,45 +192,48 @@ const PDFFieldSelector = ({ onExport, onClose, applicantCount, exportType = 'enh
         />
 
         <div className="flex-1 overflow-y-auto spc-scroll-contain">
-          <section className="px-5 py-4 border-b border-spc-line">
-            <h3 className="font-khand font-medium uppercase tracking-[0.06em] text-spc-sm text-spc-ink mb-1">
-              Heading printed on the PDF
-            </h3>
-            <p className="text-xs text-spc-muted mb-3">
-              This is what appears at the top of every page of the document.
-            </p>
-            <div className="space-y-3">
-              <div>
-                <ui.Label htmlFor="pdf-header-1">Title</ui.Label>
-                <input
-                  id="pdf-header-1"
-                  type="text"
-                  value={headerLine1}
-                  onChange={(e) => setHeaderLine1(e.target.value)}
-                  placeholder="e.g. Cadence Design Systems, Bangalore 2026"
-                  className={ui.field}
-                  aria-invalid={titleMissing ? 'true' : undefined}
-                />
-                {titleMissing && (
-                  <p className="text-xs text-spc-bad mt-1">
-                    A title is required — the export will not run without it.
-                  </p>
-                )}
+          {!isExcel && (
+            /* Page furniture: a spreadsheet has no heading to print. */
+            <section className="px-5 py-4 border-b border-spc-line">
+              <h3 className="font-khand font-medium uppercase tracking-[0.06em] text-spc-sm text-spc-ink mb-1">
+                Heading printed on the PDF
+              </h3>
+              <p className="text-xs text-spc-muted mb-3">
+                This is what appears at the top of every page of the document.
+              </p>
+              <div className="space-y-3">
+                <div>
+                  <ui.Label htmlFor="pdf-header-1">Title</ui.Label>
+                  <input
+                    id="pdf-header-1"
+                    type="text"
+                    value={headerLine1}
+                    onChange={(e) => setHeaderLine1(e.target.value)}
+                    placeholder="e.g. Cadence Design Systems, Bangalore 2026"
+                    className={ui.field}
+                    aria-invalid={titleMissing ? 'true' : undefined}
+                  />
+                  {titleMissing && (
+                    <p className="text-xs text-spc-bad mt-1">
+                      A title is required — the export will not run without it.
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <ui.Label htmlFor="pdf-header-2">Subtitle</ui.Label>
+                  <input
+                    id="pdf-header-2"
+                    type="text"
+                    value={headerLine2}
+                    onChange={(e) => setHeaderLine2(e.target.value)}
+                    placeholder="e.g. Placement Drive at GPC Palakkad on 06-02-2026"
+                    className={ui.field}
+                  />
+                  <p className="text-xs text-spc-muted mt-1">Optional.</p>
+                </div>
               </div>
-              <div>
-                <ui.Label htmlFor="pdf-header-2">Subtitle</ui.Label>
-                <input
-                  id="pdf-header-2"
-                  type="text"
-                  value={headerLine2}
-                  onChange={(e) => setHeaderLine2(e.target.value)}
-                  placeholder="e.g. Placement Drive at GPC Palakkad on 06-02-2026"
-                  className={ui.field}
-                />
-                <p className="text-xs text-spc-muted mt-1">Optional.</p>
-              </div>
-            </div>
-          </section>
+            </section>
+          )}
 
           <section className="px-5 py-4 border-b border-spc-line">
             <div className="flex items-baseline justify-between gap-3 flex-wrap mb-3">
@@ -265,24 +286,27 @@ const PDFFieldSelector = ({ onExport, onClose, applicantCount, exportType = 'enh
             )}
           </section>
 
-          <section className="px-5 py-4">
-            <h3 className="font-khand font-medium uppercase tracking-[0.06em] text-spc-sm text-spc-ink mb-1">
-              Signature column
-            </h3>
-            <ui.Toggle
-              checked={includeSignature}
-              onChange={() => setIncludeSignature(!includeSignature)}
-              label="Leave a blank column for signatures"
-              hint="For printing and collecting signatures on the day."
-            />
-          </section>
+          {!isExcel && (
+            /* A blank column to sign is for a printed sheet, not a file. */
+            <section className="px-5 py-4">
+              <h3 className="font-khand font-medium uppercase tracking-[0.06em] text-spc-sm text-spc-ink mb-1">
+                Signature column
+              </h3>
+              <ui.Toggle
+                checked={includeSignature}
+                onChange={() => setIncludeSignature(!includeSignature)}
+                label="Leave a blank column for signatures"
+                hint="For printing and collecting signatures on the day."
+              />
+            </section>
+          )}
         </div>
 
         <ui.Footer>
           <ui.Secondary type="button" onClick={onClose}>Cancel</ui.Secondary>
           <ui.Primary type="button" onClick={handleExport} disabled={noFields || titleMissing}>
             <FileText size={15} aria-hidden="true" />
-            <span>Export PDF</span>
+            <span>{isExcel ? 'Export Excel' : 'Export PDF'}</span>
           </ui.Primary>
         </ui.Footer>
       </Modal>

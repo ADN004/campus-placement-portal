@@ -94,6 +94,14 @@ export default function SuperAdminJobApplicants() {
   const [showEnhancedFilters, setShowEnhancedFilters] = useState(false);
   const [enhancedFilters, setEnhancedFilters] = useState(EMPTY_ENHANCED_FILTERS);
   const [showPDFFieldSelector, setShowPDFFieldSelector] = useState(false);
+  /*
+   * Which format the field chooser is standing in front of.
+   *
+   * One dialog serves both: the columns a reader wants are the same question
+   * whether the answer is printed or opened in Excel, and asking it twice with
+   * two dialogs would let the two lists drift apart.
+   */
+  const [fieldPickerFormat, setFieldPickerFormat] = useState('pdf');
   const [pdfExportType, setPdfExportType] = useState('basic'); // 'basic' or 'enhanced'
   const [showManualAddModal, setShowManualAddModal] = useState(false);
   const [includePlacedInExport, setIncludePlacedInExport] = useState(false);
@@ -418,8 +426,27 @@ export default function SuperAdminJobApplicants() {
       return;
     }
 
-    // Enhanced export only supports PDF with field selector
     setPdfExportType('enhanced');
+    setFieldPickerFormat('pdf');
+    setShowPDFFieldSelector(true);
+    setShowExportDropdown(false);
+    setShowExportFilters(false);
+  };
+
+  /*
+   * The spreadsheet, with only the columns asked for.
+   *
+   * Beside handleExcelExport rather than replacing it: that one is a single
+   * click for the whole sheet, which is what most exports want, and turning it
+   * into a dialog would tax every officer who just needs the file.
+   */
+  const handleExcelExportWithFields = async () => {
+    if (filteredStudents.length === 0) {
+      toast.error('No applicants to export');
+      return;
+    }
+    setPdfExportType('enhanced');
+    setFieldPickerFormat('excel');
     setShowPDFFieldSelector(true);
     setShowExportDropdown(false);
     setShowExportFilters(false);
@@ -487,15 +514,18 @@ export default function SuperAdminJobApplicants() {
     }
   };
 
-  const handlePDFExportWithFields = async ({ fields: selectedFields, includeSignature, headerLine1, headerLine2 }) => {
+  const handleExportWithFields = async ({ fields: selectedFields, includeSignature, headerLine1, headerLine2 }) => {
+    const asExcel = fieldPickerFormat === 'excel';
     try {
       setExporting(true);
       setShowPDFFieldSelector(false);
-      const loadingToast = toast.loading('Preparing PDF export...');
+      const loadingToast = toast.loading(`Preparing ${asExcel ? 'Excel' : 'PDF'} export...`);
 
       const exportData = {
-        format: 'pdf',
-        pdf_fields: selectedFields,
+        format: asExcel ? 'excel' : 'pdf',
+        // The same chosen list, under the name the format reads it by. The
+        // server translates the picker's PDF-shaped keys for the sheet.
+        ...(asExcel ? { excel_fields: selectedFields } : { pdf_fields: selectedFields }),
         include_signature: includeSignature || false,
         header_line1: headerLine1 || '',
         header_line2: headerLine2 || null,
@@ -518,13 +548,17 @@ export default function SuperAdminJobApplicants() {
 
       const response = await superAdminAPI.enhancedExportJobApplicants(selectedJob.id, exportData);
 
-      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const blob = new Blob([response.data], {
+        type: asExcel
+          ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+          : 'application/pdf',
+      });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       const fileName = `job_applicants_${selectedJob.job_title.replace(/\s+/g, '_')}_${
         new Date().toISOString().split('T')[0]
-      }.pdf`;
+      }.${asExcel ? 'xlsx' : 'pdf'}`;
       link.setAttribute('download', fileName);
       document.body.appendChild(link);
       link.click();
@@ -532,11 +566,11 @@ export default function SuperAdminJobApplicants() {
       window.URL.revokeObjectURL(url);
 
       toast.dismiss(loadingToast);
-      toast.success(`Exported ${filteredStudents.length} applicants as PDF`);
+      toast.success(`Exported ${filteredStudents.length} applicants as ${asExcel ? 'Excel' : 'PDF'}`);
       setShowExportFilters(false);
     } catch (error) {
-      console.error('PDF export error:', error);
-      toast.error('Failed to export as PDF');
+      console.error('Field-selected export error:', error);
+      toast.error(`Failed to export as ${asExcel ? 'Excel' : 'PDF'}`);
     } finally {
       setExporting(false);
     }
@@ -622,6 +656,7 @@ export default function SuperAdminJobApplicants() {
         onManualAdd={() => setShowManualAddModal(true)}
         onExportExcel={() => handleExcelExport()}
         onExportPdf={handleExport}
+        onExportExcelFields={handleExcelExportWithFields}
         exportRegions={exportRegions}
         exportFilters={exportFilters}
         showExportFilters={showExportFilters}
@@ -679,7 +714,8 @@ export default function SuperAdminJobApplicants() {
 
       {showPDFFieldSelector && (
         <PDFFieldSelector
-          onExport={handlePDFExportWithFields}
+          onExport={handleExportWithFields}
+          format={fieldPickerFormat}
           onClose={() => setShowPDFFieldSelector(false)}
           applicantCount={filteredStudents.length}
           exportType={pdfExportType}

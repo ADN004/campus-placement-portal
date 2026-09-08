@@ -84,7 +84,7 @@ function GroupLabel({ children }) {
 
 export function ExportOptionsModal({
   isHost, jobCollegeCount, exportCollegeIds, onOpenCollegePicker,
-  onExportExcel, onExportPdf, onEnhancedExport, onExportNotApplied,
+  onExportExcel, onExportPdf, onEnhancedExport, onEnhancedExcelExport, onExportNotApplied,
   placedCount, includePlaced, onIncludePlacedChange,
   barredCount = 0,
   onClose,
@@ -137,6 +137,12 @@ export function ExportOptionsModal({
           title="Enhanced PDF"
           hint="Comprehensive report with field selection"
           onClick={onEnhancedExport}
+        />
+        <ExportChoice
+          icon={FileSpreadsheet}
+          title="Enhanced Excel"
+          hint="Spreadsheet with field selection"
+          onClick={onEnhancedExcelExport}
         />
 
         <GroupLabel>Not-applied students</GroupLabel>

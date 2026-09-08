@@ -72,6 +72,12 @@ export default function JobApplicants() {
   const [showPlacementForm, setShowPlacementForm] = useState(false);
   const [selectedApplication, setSelectedApplication] = useState(null);
   const [showPDFFieldSelector, setShowPDFFieldSelector] = useState(false);
+  /*
+   * Which format the field chooser is standing in front of. One dialog serves
+   * both: the columns a reader wants are the same question whether the answer
+   * is printed or opened in Excel.
+   */
+  const [fieldPickerFormat, setFieldPickerFormat] = useState('pdf');
   const [pdfExportType, setPdfExportType] = useState('basic'); // 'basic' or 'enhanced'
   const [showManualAddModal, setShowManualAddModal] = useState(false);
   const [includePlacedInExport, setIncludePlacedInExport] = useState(false);
@@ -570,21 +576,40 @@ export default function JobApplicants() {
       return;
     }
 
-    // Enhanced export only supports PDF with field selector
     setPdfExportType('enhanced');
+    setFieldPickerFormat('pdf');
     setShowPDFFieldSelector(true);
     setShowExportModal(false);
   };
 
-  const handlePDFExportWithFields = async ({ fields: selectedFields, includeSignature, headerLine1, headerLine2 }) => {
+  /*
+   * The spreadsheet, with only the columns asked for. Beside the basic Excel
+   * export rather than replacing it: that one is a single click for the whole
+   * sheet, which is what most exports want.
+   */
+  const handleEnhancedExcelExport = async () => {
+    if (filteredStudents.length === 0) {
+      toast.error('No applicants to export');
+      return;
+    }
+    setPdfExportType('enhanced');
+    setFieldPickerFormat('excel');
+    setShowPDFFieldSelector(true);
+    setShowExportModal(false);
+  };
+
+  const handleExportWithFields = async ({ fields: selectedFields, includeSignature, headerLine1, headerLine2 }) => {
+    const asExcel = fieldPickerFormat === 'excel';
     try {
       setExporting(true);
       setShowPDFFieldSelector(false);
-      const loadingToast = toast.loading('Preparing PDF export...');
+      const loadingToast = toast.loading(`Preparing ${asExcel ? 'Excel' : 'PDF'} export...`);
 
       const exportData = {
-        format: 'pdf',
-        pdf_fields: selectedFields,
+        format: asExcel ? 'excel' : 'pdf',
+        // The same chosen list, under the name the format reads it by. The
+        // server translates the picker's PDF-shaped keys for the sheet.
+        ...(asExcel ? { excel_fields: selectedFields } : { pdf_fields: selectedFields }),
         include_signature: includeSignature || false,
         header_line1: headerLine1 || '',
         header_line2: headerLine2 || null,
@@ -618,15 +643,21 @@ export default function JobApplicants() {
 
       const response = (pdfExportType === 'enhanced' || pdfExportType === 'selected_only')
         ? await placementOfficerAPI.enhancedExportJobApplicants(selectedJob.id, exportData)
-        : await placementOfficerAPI.exportJobApplicants(selectedJob.id, 'pdf', !includePlacedInExport);
+        : await placementOfficerAPI.exportJobApplicants(
+          selectedJob.id, asExcel ? 'excel' : 'pdf', !includePlacedInExport,
+        );
 
-      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const blob = new Blob([response.data], {
+        type: asExcel
+          ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+          : 'application/pdf',
+      });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       const fileName = `job_applicants_${pdfExportType}_${selectedJob.job_title.replace(/\s+/g, '_')}_${
         new Date().toISOString().split('T')[0]
-      }.pdf`;
+      }.${asExcel ? 'xlsx' : 'pdf'}`;
       link.setAttribute('download', fileName);
       document.body.appendChild(link);
       link.click();
@@ -634,10 +665,10 @@ export default function JobApplicants() {
       window.URL.revokeObjectURL(url);
 
       toast.dismiss(loadingToast);
-      toast.success(`Exported ${filteredStudents.length} applicants as PDF`);
+      toast.success(`Exported ${filteredStudents.length} applicants as ${asExcel ? 'Excel' : 'PDF'}`);
     } catch (error) {
-      console.error('PDF export error:', error);
-      toast.error('Failed to export as PDF');
+      console.error('Field-selected export error:', error);
+      toast.error(`Failed to export as ${asExcel ? 'Excel' : 'PDF'}`);
     } finally {
       setExporting(false);
     }
@@ -961,7 +992,8 @@ export default function JobApplicants() {
       {showPDFFieldSelector && (
         <PDFFieldSelector
           customFields={jobCustomFields}
-          onExport={handlePDFExportWithFields}
+          onExport={handleExportWithFields}
+          format={fieldPickerFormat}
           onClose={() => setShowPDFFieldSelector(false)}
           applicantCount={
             pdfExportType === 'selected_only'
@@ -999,6 +1031,7 @@ export default function JobApplicants() {
           onExportExcel={() => handleExport('excel')}
           onExportPdf={() => handleExport('pdf')}
           onEnhancedExport={handleEnhancedExport}
+          onEnhancedExcelExport={handleEnhancedExcelExport}
           onExportNotApplied={(format) => handleExportEligibleNotApplied(format)}
           placedCount={filteredStudents.filter((s) => s.is_already_placed).length}
           barredCount={filteredStudents.filter((s) => barredReason(s)).length}

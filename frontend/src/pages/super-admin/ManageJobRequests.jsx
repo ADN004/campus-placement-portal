@@ -63,7 +63,7 @@ export default function ManageJobRequests() {
 
     try {
       setProcessing(true);
-      await superAdminAPI.rejectJobRequest(selectedRequest.id);
+      await superAdminAPI.rejectJobRequest(selectedRequest.id, rejectReason.trim());
       toast.success('Job request rejected');
       setShowRejectModal(false);
       setSelectedRequest(null);

@@ -275,7 +275,11 @@ export const superAdminAPI = {
   deleteJob: (id) => API.delete(`/super-admin/jobs/${id}`),
   toggleJobStatus: (id) => API.put(`/super-admin/jobs/${id}/toggle-status`),
   approveJobRequest: (id) => API.put(`/super-admin/jobs/requests/${id}/approve`),
-  rejectJobRequest: (id) => API.put(`/super-admin/jobs/requests/${id}/reject`),
+  // The reason the officer is shown. The endpoint has always accepted
+  // review_comment; this call used to send only the id, so every rejection
+  // reached the officer blank.
+  rejectJobRequest: (id, reviewComment) =>
+    API.put(`/super-admin/jobs/requests/${id}/reject`, { review_comment: reviewComment || null }),
   createJobRequirements: (jobId, data) => API.post(`/super-admin/jobs/${jobId}/requirements`, data),
   getJobRequirements: (jobId) => API.get(`/super-admin/jobs/${jobId}/requirements`),
   updateJobRequirements: (jobId, data) => API.put(`/super-admin/jobs/${jobId}/requirements`, data),

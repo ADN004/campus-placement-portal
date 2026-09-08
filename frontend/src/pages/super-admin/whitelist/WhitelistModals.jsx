@@ -135,7 +135,7 @@ export function DetailsDialog({ request, onApprove, onReject, onClose }) {
  * the student's account comes back.
  */
 export function ActionDialog({
-  request, action, comment, onCommentChange, onConfirm, onClose,
+  request, action, comment, onCommentChange, onConfirm, onClose, processing = false,
 }) {
   const approving = action === 'approve';
 
@@ -196,9 +196,13 @@ export function ActionDialog({
       <AdminDialogFooter>
         <SecondaryButton onClick={onClose}>Cancel</SecondaryButton>
         {approving ? (
-          <PrimaryButton onClick={onConfirm}>Approve request</PrimaryButton>
+          <PrimaryButton onClick={onConfirm} disabled={processing}>
+            {processing ? 'Approving…' : 'Approve request'}
+          </PrimaryButton>
         ) : (
-          <DangerButton onClick={onConfirm}>Reject request</DangerButton>
+          <DangerButton onClick={onConfirm} disabled={processing}>
+            {processing ? 'Rejecting…' : 'Reject request'}
+          </DangerButton>
         )}
       </AdminDialogFooter>
     </Modal>

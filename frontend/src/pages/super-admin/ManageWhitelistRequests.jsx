@@ -27,6 +27,15 @@ export default function ManageWhitelistRequests() {
   // Whether the decision dialog was reached from the record, so closing it
   // knows whether to step back there or out to the list.
   const [actionFromDetails, setActionFromDetails] = useState(false);
+  /*
+   * In flight, so the confirm button cannot be pressed twice.
+   *
+   * There was no such state at all: a double-click sent approve twice, and a
+   * whitelist approval is not idempotent — the second call lands on a request
+   * that is no longer pending and fails, so the officer saw a success toast
+   * and an error toast for one action.
+   */
+  const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
     fetchRequests();
@@ -92,9 +101,10 @@ export default function ManageWhitelistRequests() {
   };
 
   const handleApprove = async () => {
-    if (!selectedRequest) return;
+    if (!selectedRequest || processing) return;
 
     try {
+      setProcessing(true);
       await superAdminAPI.approveWhitelistRequest(selectedRequest.id, reviewComment);
       toast.success('Whitelist request approved successfully');
       setShowActionModal(false);
@@ -105,11 +115,13 @@ export default function ManageWhitelistRequests() {
       fetchRequests();
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to approve request');
+    } finally {
+      setProcessing(false);
     }
   };
 
   const handleReject = async () => {
-    if (!selectedRequest) return;
+    if (!selectedRequest || processing) return;
 
     if (!reviewComment.trim()) {
       toast.error('Please provide a rejection reason');
@@ -117,6 +129,7 @@ export default function ManageWhitelistRequests() {
     }
 
     try {
+      setProcessing(true);
       await superAdminAPI.rejectWhitelistRequest(selectedRequest.id, reviewComment);
       toast.success('Whitelist request rejected');
       setShowActionModal(false);
@@ -127,6 +140,8 @@ export default function ManageWhitelistRequests() {
       fetchRequests();
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to reject request');
+    } finally {
+      setProcessing(false);
     }
   };
 
@@ -177,6 +192,7 @@ export default function ManageWhitelistRequests() {
           onCommentChange={setReviewComment}
           onConfirm={handleSubmitAction}
           onClose={closeActionModal}
+          processing={processing}
         />
       )}
     </>

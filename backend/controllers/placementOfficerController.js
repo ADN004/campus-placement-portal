@@ -7,6 +7,7 @@ import { sendVerificationEmail, sendRegistrationRejectedEmail } from '../config/
 import { buildVerificationDetails } from '../utils/studentEmailDetails.js';
 import { generateStudentPDF } from '../utils/pdfGenerator.js';
 import { chooseFields, excelColumns, excelRow, fieldsFromQuery } from '../utils/exportFields.js';
+import { attachmentName } from '../utils/downloadName.js';
 
 /*
  * The columns the officer's PRN-range sheet has always printed, in order.
@@ -3666,7 +3667,7 @@ export const exportStudentsByPRNRange = async (req, res) => {
     );
     res.setHeader(
       'Content-Disposition',
-      `attachment; filename=students_prn_range_${rangeLabel}_${new Date().toISOString().split('T')[0]}.xlsx`
+      attachmentName(`students_prn_range_${rangeLabel}_${new Date().toISOString().split('T')[0]}.xlsx`)
     );
 
     // Log activity

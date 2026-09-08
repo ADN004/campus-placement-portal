@@ -6,6 +6,7 @@ import { generateStudentPDF, generatePlacementPosterPDF, MAX_PDF_EXPORT_FIELDS }
 import {
   chooseFields, chooseCustomFields, excelColumns, excelRow, fieldsFromQuery, columnLetter,
 } from '../utils/exportFields.js';
+import { attachmentName } from '../utils/downloadName.js';
 
 /*
  * The six columns the eligible-not-applied sheet has always printed.
@@ -948,7 +949,7 @@ export const exportJobApplicants = async (req, res) => {
     );
     res.setHeader(
       'Content-Disposition',
-      `attachment; filename=job_applicants_${jobTitle.replace(/\s+/g, '_')}_${Date.now()}.xlsx`
+      attachmentName(`job_applicants_${jobTitle.replace(/\s+/g, '_')}_${Date.now()}.xlsx`)
     );
 
     // Write to response
@@ -2491,7 +2492,7 @@ export const enhancedExportJobApplicants = async (req, res) => {
     );
     res.setHeader(
       'Content-Disposition',
-      `attachment; filename=job_applicants_${jobTitle.replace(/\s+/g, '_')}_${Date.now()}.xlsx`
+      attachmentName(`job_applicants_${jobTitle.replace(/\s+/g, '_')}_${Date.now()}.xlsx`)
     );
 
     // Write to response

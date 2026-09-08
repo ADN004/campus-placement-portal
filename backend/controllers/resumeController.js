@@ -6,6 +6,7 @@
 
 import { query } from '../config/database.js';
 import { generateResume } from '../utils/resumeGenerator.js';
+import { attachmentName } from '../utils/downloadName.js';
 
 /**
  * Helper function to get student ID from user ID
@@ -297,7 +298,7 @@ export const downloadOwnResume = async (req, res) => {
 
     res.set({
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Disposition': attachmentName(filename),
       'Content-Length': pdfBuffer.length
     });
 
@@ -369,7 +370,7 @@ export const downloadStudentResumePO = async (req, res) => {
 
     res.set({
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Disposition': attachmentName(filename),
       'Content-Length': pdfBuffer.length
     });
 
@@ -473,7 +474,7 @@ export const downloadStudentResumeSA = async (req, res) => {
 
     res.set({
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Disposition': attachmentName(filename),
       'Content-Length': pdfBuffer.length
     });
 

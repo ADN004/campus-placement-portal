@@ -1,5 +1,6 @@
 import PDFDocument from 'pdfkit';
 import { BRANCH_SHORT_NAMES } from '../constants/branches.js';
+import { attachmentName } from './downloadName.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -1665,7 +1666,7 @@ export const generateEligibleNotAppliedPDF = async (students, options, res) => {
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Length', pdfData.length);
       const fname = `eligible_not_applied_${(jobTitle).replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '')}_${Date.now()}.pdf`;
-      res.setHeader('Content-Disposition', `attachment; filename=${fname}`);
+      res.setHeader('Content-Disposition', attachmentName(fname));
       res.send(pdfData);
     });
 
@@ -1883,10 +1884,7 @@ export const generateJobApplicantsPDF = async (applicants, options, res) => {
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Length', pdfData.length);
       const filename = `job_applicants_${jobTitle?.replace(/\s+/g, '_') || 'export'}_${Date.now()}.pdf`;
-      res.setHeader(
-        'Content-Disposition',
-        `attachment; filename=${filename}`
-      );
+      res.setHeader('Content-Disposition', attachmentName(filename));
 
       // Send the complete PDF
       res.send(pdfData);
@@ -3785,7 +3783,7 @@ export const generatePlacementPosterPDF = async (placements, options, res) => {
       res.setHeader('Content-Length', pdfData.length);
       res.setHeader(
         'Content-Disposition',
-        `attachment; filename=Placement_Poster_${collegeName.replace(/\s+/g, '_')}_${academicYear.replace('-', '_')}_${Date.now()}.pdf`
+        attachmentName(`Placement_Poster_${collegeName.replace(/\s+/g, '_')}_${academicYear.replace('-', '_')}_${Date.now()}.pdf`)
       );
       res.send(pdfData);
     });

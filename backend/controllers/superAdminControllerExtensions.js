@@ -15,6 +15,7 @@ import { driveMessage, driveForStudent } from '../utils/driveSchedule.js';
 import { normalizeBranch, NORMALIZED_BRANCH_SQL } from '../utils/branchName.js';
 import { studentOrderSql } from '../utils/studentOrder.js';
 import { placementSessionSpan } from '../utils/placementSession.js';
+import { attachmentName } from '../utils/downloadName.js';
 import {
   chooseFields, chooseCustomFields, excelColumns, excelRow, fieldsFromQuery,
 } from '../utils/exportFields.js';
@@ -1169,7 +1170,7 @@ export const exportStudentsByPRNRange = async (req, res) => {
     );
     res.setHeader(
       'Content-Disposition',
-      `attachment; filename=students_prn_range_${rangeLabel}_${Date.now()}.xlsx`
+      attachmentName(`students_prn_range_${rangeLabel}_${Date.now()}.xlsx`)
     );
 
     // Write to response
@@ -1394,7 +1395,7 @@ export const exportJobApplicants = async (req, res) => {
     );
     res.setHeader(
       'Content-Disposition',
-      `attachment; filename=job_applicants_${jobTitle.replace(/\s+/g, '_')}_${Date.now()}.xlsx`
+      attachmentName(`job_applicants_${jobTitle.replace(/\s+/g, '_')}_${Date.now()}.xlsx`)
     );
 
     // Write to response
@@ -2292,7 +2293,7 @@ export const enhancedExportJobApplicants = async (req, res) => {
       );
 
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('Content-Disposition', attachmentName(filename));
       res.send(buffer);
     } else if (format === 'pdf') {
       const selectedFields = pdf_fields.length > 0

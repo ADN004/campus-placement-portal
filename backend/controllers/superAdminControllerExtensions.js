@@ -15,6 +15,27 @@ import { driveMessage, driveForStudent } from '../utils/driveSchedule.js';
 import { normalizeBranch, NORMALIZED_BRANCH_SQL } from '../utils/branchName.js';
 import { studentOrderSql } from '../utils/studentOrder.js';
 import { placementSessionSpan } from '../utils/placementSession.js';
+import { chooseFields, excelColumns, excelRow } from '../utils/exportFields.js';
+
+/*
+ * The columns this export produced before it could be asked for fewer.
+ *
+ * Kept verbatim, order included, so a caller that sends no field list gets the
+ * file they got yesterday. The tuples carry the spelling this sheet has always
+ * used where it differs from the shared registry's — "Name" rather than
+ * "Student Name", "DL" rather than "Driving License" — so nobody's existing
+ * download changes headings under them.
+ */
+const ENHANCED_APPLICANT_DEFAULT = [
+  'prn', ['student_name', 'Name'], 'email', 'mobile_number', 'college_name', 'region_name',
+  'branch', 'gender', ['date_of_birth', 'DOB'], 'programme_cgpa', 'backlog_count',
+  'sslc_marks', 'sslc_year', 'sslc_board', 'twelfth_marks', 'twelfth_year', 'twelfth_board',
+  'height_cm', 'weight_kg', 'district',
+  'father_name', 'father_occupation', 'mother_name', 'mother_occupation',
+  ['has_driving_license', 'DL'], ['has_pan_card', 'PAN'], 'has_aadhar_card', 'has_passport',
+  ['application_status', 'Status'], 'applied_date',
+  'placement_package', 'joining_date', 'placement_location',
+];
 
 /*
  * A job's own extra questions — "10th Maths %", "Aadhaar Number", whatever that
@@ -2060,6 +2081,9 @@ export const enhancedExportJobApplicants = async (req, res) => {
     const {
       format = 'excel',
       pdf_fields = [],
+      // The Excel counterpart of pdf_fields. Absent means "the sheet this
+      // export has always produced" — see ENHANCED_APPLICANT_DEFAULT.
+      excel_fields = [],
       college_ids = [],
       branches = [],
       application_statuses = [],
@@ -2233,42 +2257,15 @@ export const enhancedExportJobApplicants = async (req, res) => {
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet('Applicants');
 
-      // Define columns
+      /*
+       * The chosen fields, or this sheet's historical set when none were
+       * asked for. The job's own questions stay last, so picking fields
+       * cannot push them in among the fixed columns.
+       */
+      const chosen = chooseFields(excel_fields, ENHANCED_APPLICANT_DEFAULT);
+      const cellOpts = { useShortNames: use_short_names === true, jobTitle, companyName };
       worksheet.columns = [
-        { header: 'PRN', key: 'prn', width: 15 },
-        { header: 'Name', key: 'name', width: 25 },
-        { header: 'Email', key: 'email', width: 30 },
-        { header: 'Mobile', key: 'mobile', width: 15 },
-        { header: 'College', key: 'college', width: 30 },
-        { header: 'Region', key: 'region', width: 20 },
-        { header: 'Branch', key: 'branch', width: use_short_names ? 10 : 35 },
-        { header: 'Gender', key: 'gender', width: 10 },
-        { header: 'DOB', key: 'dob', width: 12 },
-        { header: 'CGPA', key: 'cgpa', width: 10 },
-        { header: 'Backlogs', key: 'backlogs', width: 10 },
-        { header: 'SSLC %', key: 'sslc_marks', width: 10 },
-        { header: 'SSLC Year', key: 'sslc_year', width: 12 },
-        { header: 'SSLC Board', key: 'sslc_board', width: 15 },
-        { header: '12th %', key: 'twelfth_marks', width: 10 },
-        { header: '12th Year', key: 'twelfth_year', width: 12 },
-        { header: '12th Board', key: 'twelfth_board', width: 15 },
-        { header: 'Height (cm)', key: 'height_cm', width: 12 },
-        { header: 'Weight (kg)', key: 'weight_kg', width: 12 },
-        { header: 'District', key: 'district', width: 20 },
-        { header: 'Father Name', key: 'father_name', width: 25 },
-        { header: 'Father Occupation', key: 'father_occupation', width: 20 },
-        { header: 'Mother Name', key: 'mother_name', width: 25 },
-        { header: 'Mother Occupation', key: 'mother_occupation', width: 20 },
-        { header: 'DL', key: 'has_driving_license', width: 8 },
-        { header: 'PAN', key: 'has_pan_card', width: 8 },
-        { header: 'Aadhar', key: 'has_aadhar_card', width: 8 },
-        { header: 'Passport', key: 'has_passport', width: 10 },
-        { header: 'Status', key: 'status', width: 15 },
-        { header: 'Applied Date', key: 'applied_date', width: 12 },
-        { header: 'Package (LPA)', key: 'package', width: 12 },
-        { header: 'Joining Date', key: 'joining_date', width: 12 },
-        { header: 'Location', key: 'location', width: 20 },
-        // This job's own questions, last so the fixed columns keep their order.
+        ...excelColumns(chosen, cellOpts),
         ...customColumnsFor(customFields),
       ];
 
@@ -2284,39 +2281,7 @@ export const enhancedExportJobApplicants = async (req, res) => {
       // Add data
       applicants.forEach((applicant) => {
         worksheet.addRow({
-          prn: applicant.prn,
-          name: applicant.student_name,
-          email: applicant.email,
-          mobile: applicant.mobile_number,
-          college: applicant.college_name,
-          region: applicant.region_name,
-          branch: use_short_names ? BRANCH_SHORT_NAMES[applicant.branch] || applicant.branch : applicant.branch,
-          gender: applicant.gender,
-          dob: applicant.date_of_birth ? new Date(applicant.date_of_birth).toLocaleDateString('en-IN') : '',
-          cgpa: applicant.programme_cgpa,
-          backlogs: applicant.backlog_count,
-          sslc_marks: applicant.sslc_marks,
-          sslc_year: applicant.sslc_year,
-          sslc_board: applicant.sslc_board,
-          twelfth_marks: applicant.twelfth_marks,
-          twelfth_year: applicant.twelfth_year,
-          twelfth_board: applicant.twelfth_board,
-          height_cm: applicant.height_cm,
-          weight_kg: applicant.weight_kg,
-          district: applicant.district,
-          father_name: applicant.father_name,
-          father_occupation: applicant.father_occupation,
-          mother_name: applicant.mother_name,
-          mother_occupation: applicant.mother_occupation,
-          has_driving_license: applicant.has_driving_license ? 'Yes' : 'No',
-          has_pan_card: applicant.has_pan_card ? 'Yes' : 'No',
-          has_aadhar_card: applicant.has_aadhar_card ? 'Yes' : 'No',
-          has_passport: applicant.has_passport ? 'Yes' : 'No',
-          status: applicant.application_status,
-          applied_date: applicant.applied_date ? new Date(applicant.applied_date).toLocaleDateString('en-IN') : '',
-          package: applicant.placement_package,
-          joining_date: applicant.joining_date ? new Date(applicant.joining_date).toLocaleDateString('en-IN') : '',
-          location: applicant.placement_location,
+          ...excelRow(applicant, chosen, cellOpts),
           ...customCells(applicant, customFields),
         });
       });

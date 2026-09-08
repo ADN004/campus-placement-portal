@@ -3,6 +3,25 @@ import { uploadImage, deleteImage, deleteFolderOnly, extractFolderPath } from '.
 import logActivity from '../middleware/activityLogger.js';
 import ExcelJS from 'exceljs';
 import { generateStudentPDF, generatePlacementPosterPDF, MAX_PDF_EXPORT_FIELDS } from '../utils/pdfGenerator.js';
+import { chooseFields, excelColumns, excelRow } from '../utils/exportFields.js';
+
+/*
+ * The columns this export produced before it could be asked for fewer.
+ *
+ * Verbatim, order included, so a caller that sends no field list gets the file
+ * they got yesterday. Tuples carry this sheet's own spelling where it differs
+ * from the shared registry's.
+ */
+const PO_ENHANCED_APPLICANT_DEFAULT = [
+  'prn', ['student_name', 'Name'], 'email', 'mobile_number', 'college_name', 'branch',
+  'programme_cgpa', 'backlog_count', 'gender', ['date_of_birth', 'DOB'],
+  ['application_status', 'Status'], 'applied_date',
+  'sslc_marks', 'sslc_year', 'twelfth_marks', 'twelfth_year', 'district', 'father_name',
+  'height_cm', 'weight_kg', 'physically_handicapped',
+  ['has_driving_license', 'Has DL'], ['has_pan_card', 'Has PAN'],
+  ['has_aadhar_card', 'Has Aadhar'], ['has_passport', 'Has Passport'],
+  'placement_package', 'joining_date', 'placement_location',
+];
 import { BRANCH_SHORT_NAMES } from '../constants/branches.js';
 import { normalizeBranch, NORMALIZED_BRANCH_SQL } from '../utils/branchName.js';
 import { studentOrderSql } from '../utils/studentOrder.js';
@@ -2173,6 +2192,9 @@ export const enhancedExportJobApplicants = async (req, res) => {
     const {
       format = 'excel',
       pdf_fields = [],
+      // The Excel counterpart of pdf_fields. Absent means "the sheet this
+      // export has always produced" — see PO_ENHANCED_APPLICANT_DEFAULT.
+      excel_fields = [],
       college_ids = [],
       branches = [],
       application_statuses = [],
@@ -2413,37 +2435,20 @@ export const enhancedExportJobApplicants = async (req, res) => {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Job Applicants');
 
-    // Define columns
+    /*
+     * The chosen fields, or this sheet's historical set when none were asked
+     * for. The job's own questions stay last, so picking fields cannot push
+     * them in among the fixed columns.
+     *
+     * useShortNames is deliberately false: `use_short_names` reaches this
+     * handler's PDF branch but its Excel branch has never applied it, and
+     * honouring it here would quietly change the branch column in every
+     * existing officer download. Left as found, to be decided separately.
+     */
+    const chosen = chooseFields(excel_fields, PO_ENHANCED_APPLICANT_DEFAULT);
+    const cellOpts = { useShortNames: false, jobTitle, companyName };
     worksheet.columns = [
-      { header: 'PRN', key: 'prn', width: 15 },
-      { header: 'Name', key: 'student_name', width: 25 },
-      { header: 'Email', key: 'email', width: 30 },
-      { header: 'Mobile', key: 'mobile_number', width: 15 },
-      { header: 'College', key: 'college_name', width: 35 },
-      { header: 'Branch', key: 'branch', width: 12 },
-      { header: 'CGPA', key: 'programme_cgpa', width: 10 },
-      { header: 'Backlogs', key: 'backlog_count', width: 10 },
-      { header: 'Gender', key: 'gender', width: 10 },
-      { header: 'DOB', key: 'date_of_birth', width: 12 },
-      { header: 'Status', key: 'application_status', width: 15 },
-      { header: 'Applied Date', key: 'applied_date', width: 12 },
-      { header: 'SSLC %', key: 'sslc_marks', width: 10 },
-      { header: 'SSLC Year', key: 'sslc_year', width: 10 },
-      { header: '12th %', key: 'twelfth_marks', width: 10 },
-      { header: '12th Year', key: 'twelfth_year', width: 10 },
-      { header: 'District', key: 'district', width: 15 },
-      { header: 'Father Name', key: 'father_name', width: 25 },
-      { header: 'Height (cm)', key: 'height_cm', width: 12 },
-      { header: 'Weight (kg)', key: 'weight_kg', width: 12 },
-      { header: 'Disability', key: 'physically_handicapped', width: 12 },
-      { header: 'Has DL', key: 'has_driving_license', width: 10 },
-      { header: 'Has PAN', key: 'has_pan_card', width: 10 },
-      { header: 'Has Aadhar', key: 'has_aadhar_card', width: 10 },
-      { header: 'Has Passport', key: 'has_passport', width: 12 },
-      { header: 'Package (LPA)', key: 'placement_package', width: 12 },
-      { header: 'Joining Date', key: 'joining_date', width: 12 },
-      { header: 'Location', key: 'placement_location', width: 20 },
-      // This job's own questions, last so the fixed columns keep their order.
+      ...excelColumns(chosen, cellOpts),
       ...customColumnsFor(customFields),
     ];
 
@@ -2459,15 +2464,8 @@ export const enhancedExportJobApplicants = async (req, res) => {
     // Add data rows
     applicants.forEach((applicant) => {
       worksheet.addRow({
-        ...applicant,
-        date_of_birth: applicant.date_of_birth ? new Date(applicant.date_of_birth).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' }) : '',
-        applied_date: applicant.applied_date ? new Date(applicant.applied_date).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' }) : '',
-        joining_date: applicant.joining_date ? new Date(applicant.joining_date).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' }) : '',
-        physically_handicapped: applicant.physically_handicapped ? 'Yes' : 'No',
-        has_driving_license: applicant.has_driving_license ? 'Yes' : 'No',
-        has_pan_card: applicant.has_pan_card ? 'Yes' : 'No',
-        has_aadhar_card: applicant.has_aadhar_card ? 'Yes' : 'No',
-        has_passport: applicant.has_passport ? 'Yes' : 'No',
+        ...excelRow(applicant, chosen, cellOpts),
+        ...customCells(applicant, customFields),
       });
     });
 

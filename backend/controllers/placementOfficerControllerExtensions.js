@@ -3,7 +3,7 @@ import { uploadImage, deleteImage, deleteFolderOnly, extractFolderPath } from '.
 import logActivity from '../middleware/activityLogger.js';
 import ExcelJS from 'exceljs';
 import { generateStudentPDF, generatePlacementPosterPDF, MAX_PDF_EXPORT_FIELDS } from '../utils/pdfGenerator.js';
-import { chooseFields, excelColumns, excelRow } from '../utils/exportFields.js';
+import { chooseFields, chooseCustomFields, excelColumns, excelRow } from '../utils/exportFields.js';
 
 /*
  * The columns this export produced before it could be asked for fewer.
@@ -2446,10 +2446,11 @@ export const enhancedExportJobApplicants = async (req, res) => {
      * existing officer download. Left as found, to be decided separately.
      */
     const chosen = chooseFields(excel_fields, PO_ENHANCED_APPLICANT_DEFAULT);
+    const chosenCustom = chooseCustomFields(excel_fields, customFields, CUSTOM_KEY);
     const cellOpts = { useShortNames: false, jobTitle, companyName };
     worksheet.columns = [
       ...excelColumns(chosen, cellOpts),
-      ...customColumnsFor(customFields),
+      ...customColumnsFor(chosenCustom),
     ];
 
     // Style header row
@@ -2465,7 +2466,7 @@ export const enhancedExportJobApplicants = async (req, res) => {
     applicants.forEach((applicant) => {
       worksheet.addRow({
         ...excelRow(applicant, chosen, cellOpts),
-        ...customCells(applicant, customFields),
+        ...customCells(applicant, chosenCustom),
       });
     });
 

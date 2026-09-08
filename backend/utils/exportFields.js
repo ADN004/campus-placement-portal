@@ -142,16 +142,42 @@ export const EXPORT_FIELDS = {
   photo_url: { header: 'Photo URL', width: 50 },
 };
 
+/*
+ * The names the PDF has always used for the same columns.
+ *
+ * The field picker is shared, and its keys were chosen for the PDF generator,
+ * whose own map calls these `mobile`, `cgpa` and `dob`. Renaming them there
+ * would change what `pdf_fields` means for every existing caller, so the
+ * translation lives here instead: one picked list works for both formats,
+ * which is the whole point of picking once.
+ */
+const ALIASES = {
+  mobile: 'mobile_number',
+  name: 'student_name',
+  dob: 'date_of_birth',
+  cgpa: 'programme_cgpa',
+  backlogs: 'backlog_count',
+  status: 'application_status',
+  height: 'height_cm',
+  weight: 'weight_kg',
+  college: 'college_name',
+  region: 'region_name',
+  package: 'placement_package',
+  location: 'placement_location',
+};
+
 /**
  * Normalises a default list or a caller's list into `{ id, header }` pairs.
  *
  * A default entry may be `'prn'` or `['student_name', 'Name']`; a caller sends
  * plain ids. Anything unknown is dropped rather than throwing — a stale field
- * name in a saved preset should cost that column, not the whole export.
+ * name in a saved preset, or a `custom_*` question handled elsewhere, should
+ * cost that column rather than the whole export.
  */
 const resolve = (fields) =>
   (fields || [])
     .map((entry) => (Array.isArray(entry) ? { id: entry[0], header: entry[1] } : { id: entry, header: null }))
+    .map(({ id, header }) => ({ id: ALIASES[id] || id, header }))
     .filter(({ id }) => Boolean(EXPORT_FIELDS[id]));
 
 /** Which fields an export should use: the caller's choice, or its default. */
@@ -184,3 +210,17 @@ export const excelRow = (row, chosen, opts = {}) => {
 /** The ids a client may choose from, for the picker to render. */
 export const exportableFields = () =>
   Object.entries(EXPORT_FIELDS).map(([id, field]) => ({ key: id, label: field.header }));
+
+/**
+ * The job's own questions the caller actually asked for.
+ *
+ * These are not in the registry — they differ per job, which is what they are
+ * for — so they are chosen separately. A caller who picked nothing gets all of
+ * them, which is what every export did before there was anything to pick; a
+ * caller who picked gets exactly the ones they ticked, or the picker would
+ * offer a choice the sheet then ignored.
+ */
+export const chooseCustomFields = (requested, customFields, keyOf) => {
+  if (!Array.isArray(requested) || requested.length === 0) return customFields;
+  return customFields.filter((f) => requested.includes(keyOf(f.field_name)));
+};

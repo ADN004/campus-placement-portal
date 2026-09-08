@@ -15,7 +15,7 @@ import { driveMessage, driveForStudent } from '../utils/driveSchedule.js';
 import { normalizeBranch, NORMALIZED_BRANCH_SQL } from '../utils/branchName.js';
 import { studentOrderSql } from '../utils/studentOrder.js';
 import { placementSessionSpan } from '../utils/placementSession.js';
-import { chooseFields, excelColumns, excelRow } from '../utils/exportFields.js';
+import { chooseFields, chooseCustomFields, excelColumns, excelRow } from '../utils/exportFields.js';
 
 /*
  * The columns this export produced before it could be asked for fewer.
@@ -2263,10 +2263,13 @@ export const enhancedExportJobApplicants = async (req, res) => {
        * cannot push them in among the fixed columns.
        */
       const chosen = chooseFields(excel_fields, ENHANCED_APPLICANT_DEFAULT);
-      const cellOpts = { useShortNames: use_short_names === true, jobTitle, companyName };
+      const chosenCustom = chooseCustomFields(excel_fields, customFields, CUSTOM_KEY);
+      // No companyName here: this query selects j.company_name onto every row,
+      // so the registry reads it from the row and needs no fallback.
+      const cellOpts = { useShortNames: use_short_names === true, jobTitle };
       worksheet.columns = [
         ...excelColumns(chosen, cellOpts),
-        ...customColumnsFor(customFields),
+        ...customColumnsFor(chosenCustom),
       ];
 
       // Style header row
@@ -2282,7 +2285,7 @@ export const enhancedExportJobApplicants = async (req, res) => {
       applicants.forEach((applicant) => {
         worksheet.addRow({
           ...excelRow(applicant, chosen, cellOpts),
-          ...customCells(applicant, customFields),
+          ...customCells(applicant, chosenCustom),
         });
       });
 

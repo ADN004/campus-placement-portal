@@ -11,8 +11,9 @@ import { FIELD_CLASS as ADMIN_FIELD_CLASS } from './admin/AdminUI';
 
 /**
  * All three roles open this modal, so it takes a `variant`: 'spc' for the
- * student design system, 'officer', 'admin' for Console, and 'legacy' — the
- * original, now the default only because nothing passes it any more.
+ * student design system, 'officer', and 'admin' for Console. 'spc' is the
+ * default; every caller names one, so the default only decides what an
+ * unlabelled caller would get, and the student shell is the safe answer.
  *
  * Officer and super admin share every *colour* branch below: the spc tokens
  * resolve through whichever scope class is on the page, so one set of classes
@@ -25,7 +26,7 @@ import { FIELD_CLASS as ADMIN_FIELD_CLASS } from './admin/AdminUI';
  * roles indistinguishable. Radius, field class and dialog shell are therefore
  * chosen per role rather than shared.
  */
-export default function ChangePassword({ onClose, variant = 'legacy' }) {
+export default function ChangePassword({ onClose, variant = 'spc' }) {
   const spc = variant === 'spc';
   const officerVariant = variant === 'officer';
   const admin = variant === 'admin';

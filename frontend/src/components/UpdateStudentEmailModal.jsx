@@ -20,9 +20,10 @@ import usePortalMode from '../hooks/usePortalMode';
  *
  * Three roles open this same modal, so it takes a `variant`:
  *
- *   'spc'    — the student design system (PromptShell).
+ *   'spc'    — the student design system (PromptShell), and the default:
+ *              officers open this from their student list and get the same
+ *              shell, so only Console needs to say so.
  *   'admin'  — Console, for super admin.
- *   'legacy' — the original styling, still the default.
  *
  * Only the *shell* differs. The fields between them are written once, in
  * `EmailFields`, against the role-neutral `spc-*` tokens — those resolve
@@ -93,9 +94,8 @@ export default function UpdateStudentEmailModal({
   studentName,
   onSubmit,
   onClose,
-  variant = 'legacy',
+  variant = 'spc',
 }) {
-  const spc = variant === 'spc';
   const admin = variant === 'admin';
   const [email, setEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -129,26 +129,6 @@ export default function UpdateStudentEmailModal({
     />
   );
 
-  if (spc) {
-    return (
-      <PromptShell
-        onClose={onClose}
-        labelledBy="update-email-title"
-        title="Change your email address"
-        eyebrow="We'll send a fresh verification link"
-        icon={Mail}
-        primary={{
-          label: submitting ? 'Updating…' : 'Update email',
-          onClick: handleSubmit,
-          disabled: submitting || !email.trim(),
-        }}
-        secondary={{ label: 'Cancel', onClick: onClose, disabled: submitting }}
-      >
-        {fields}
-      </PromptShell>
-    );
-  }
-
   if (admin) {
     return (
       <Modal
@@ -174,83 +154,24 @@ export default function UpdateStudentEmailModal({
     );
   }
 
+  // The student shell is the fallback: officers open this from their
+  // student list and get the same one, so only Console differs.
   return (
-    <Modal
+    <PromptShell
       onClose={onClose}
       labelledBy="update-email-title"
-      panelClassName="bg-white rounded-lg shadow-xl max-w-md w-full"
+      title="Change your email address"
+      eyebrow="We'll send a fresh verification link"
+      icon={Mail}
+      primary={{
+        label: submitting ? 'Updating…' : 'Update email',
+        onClick: handleSubmit,
+        disabled: submitting || !email.trim(),
+      }}
+      secondary={{ label: 'Cancel', onClick: onClose, disabled: submitting }}
     >
-        <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Mail className="h-5 w-5 text-blue-600" aria-hidden="true" />
-            <h2 id="update-email-title" className="text-lg font-bold text-gray-900">Update Email Address</h2>
-          </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600" disabled={submitting}>
-            <X className="h-6 w-6" />
-          </button>
-        </div>
-
-        <div className="p-6 space-y-4">
-          <div className="text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-4 py-3">
-            {studentName && (
-              <p className="font-medium text-gray-800 mb-1">{studentName}</p>
-            )}
-            <p>
-              Current email: <span className="font-medium">{currentEmail}</span>
-            </p>
-            <p className="text-xs text-gray-500 mt-1">
-              A fresh verification link will be sent to the new address.
-            </p>
-          </div>
-
-          <div>
-            <label htmlFor="new-student-email" className="block text-sm font-medium text-gray-700 mb-1">
-              New email address
-            </label>
-            <input
-              id="new-student-email"
-              type="email"
-              inputMode="email"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="correct.email@example.com"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              disabled={submitting}
-            />
-            <GoogleEmailButton
-              clientId={portalMode.googleClientId}
-              onEmail={({ email: googleEmail }) => setEmail(googleEmail)}
-            />
-          </div>
-        </div>
-
-        <div className="bg-gray-50 border-t border-gray-200 px-6 py-4 flex justify-end space-x-3">
-          <button
-            onClick={onClose}
-            disabled={submitting}
-            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={submitting || !email.trim()}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center"
-          >
-            {submitting ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                Updating...
-              </>
-            ) : (
-              <>
-                <Save className="h-4 w-4 mr-2" />
-                Update Email
-              </>
-            )}
-          </button>
-        </div>
-    </Modal>
+      {fields}
+    </PromptShell>
   );
+
 }

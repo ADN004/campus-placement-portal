@@ -30,7 +30,6 @@ import {
   Inbox,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import GradientOrb from './GradientOrb';
 import StudentBottomNav from './StudentBottomNav';
 import StudentTopBar from './student/StudentTopBar';
 import StudentSidebar from './student/StudentSidebar';
@@ -323,32 +322,6 @@ export default function Layout() {
              after the profile hydrates. */
           status={user?.profile?.registration_status ?? user?.registration_status}
         />
-      )}
-      {/* The animated background orbs are gone from every role.
-
-          They rendered with mix-blend-multiply, darkening whatever sat beneath
-          them: measured, the ground went #eff6ff → #cadefd under one orb and
-          → #bcc0fb where two overlapped. Over that, grey label text on the
-          translucent panels scored 3.79 and 3.14 against a 4.5 minimum, and
-          the effect cost a continuous large-blur composite on every phone.
-
-          Students get the calm static ground from .spc-student-bg, officers the
-          flat one from .spc-officer-bg, and super admins now the flat one from
-          .spc-admin-bg. The depth in Console comes from the glass chrome above
-          the page rather than from colour behind it.
-
-          This branch is unreachable: Layout renders only inside `{user ? …}`,
-          and routes exist for exactly the three roles, so a user who reached
-          here at all is one of them. Left in place for now — removing it is its
-          own change, and it takes `GradientOrb` with it. */}
-      {!isStudent && !isOfficer && !isAdmin && (
-        <div className="fixed inset-0 pointer-events-none">
-          <GradientOrb color="blue" size="xl" position={{ top: '10%', right: '10%' }} animationDuration="8s" />
-          <GradientOrb color="purple" size="lg" position={{ bottom: '15%', left: '5%' }} animationDuration="10s" delay="2s" />
-          <GradientOrb color="pink" size="md" position={{ top: '50%', left: '50%' }} animationDuration="12s" delay="4s" />
-          <GradientOrb color="cyan" size="lg" position={{ top: '30%', left: '15%' }} animationDuration="9s" delay="1s" />
-          <GradientOrb color="indigo" size="md" position={{ bottom: '25%', right: '20%' }} animationDuration="11s" delay="3s" />
-        </div>
       )}
 
       {/* Students get their own top bar; every other role keeps this one. */}

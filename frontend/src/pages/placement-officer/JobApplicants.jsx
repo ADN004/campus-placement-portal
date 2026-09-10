@@ -32,6 +32,32 @@ import { barredReason } from './jobEligible/jobEligibleShared';
 import { utcToLocalInput, localInputToUtc } from '../../utils/deadline';
 import { compareStudents } from '../../utils/studentOrder';
 
+/*
+ * A drive whose students have already been told, changed since.
+ *
+ * Not sent automatically: adding a venue can mean hundreds of emails, and an
+ * officer part-way through entering five of them would fire that off four
+ * times over. Offered instead, right after the save, because the alternative
+ * is an officer who never realises the people already told are holding a
+ * message that no longer matches the venues.
+ */
+const offerRenotify = (venueCount, notify) => {
+  toast((t) => (
+    <span className="text-spc-sm text-spc-ink">
+      Students were already told about this drive.
+      {venueCount > 1 ? ` It now has ${venueCount} venues.` : ''}
+      {' Send them the update?'}
+      <button
+        type="button"
+        onClick={() => { toast.dismiss(t.id); notify(); }}
+        className="ml-3 font-bold underline underline-offset-2"
+      >
+        Notify students
+      </button>
+    </span>
+  ), { duration: 12000 });
+};
+
 export default function JobApplicants() {
   const { jobId } = useParams();
   const navigate = useNavigate();
@@ -55,6 +81,13 @@ export default function JobApplicants() {
   const [selectedApplicationId, setSelectedApplicationId] = useState(null);
   const [showDriveModal, setShowDriveModal] = useState(false);
   const [driveData, setDriveData] = useState(null);
+  /*
+   * Every venue, and whether the students already told are now holding a
+   * message that no longer matches. `driveData` stays the earliest venue,
+   * which is what the screens showing a single drive read.
+   */
+  const [driveSlots, setDriveSlots] = useState([]);
+  const [driveNeedsRenotify, setDriveNeedsRenotify] = useState(false);
   const [placementStats, setPlacementStats] = useState(null);
   const [showEnhancedFilters, setShowEnhancedFilters] = useState(false);
   const [enhancedFilters, setEnhancedFilters] = useState({
@@ -184,9 +217,13 @@ export default function JobApplicants() {
     try {
       const response = await placementOfficerAPI.getJobDrive(selectedJob.id);
       setDriveData(response.data.data);
+      setDriveSlots(response.data.slots || []);
+      setDriveNeedsRenotify(response.data.needsRenotify === true);
     } catch (error) {
       console.error('Failed to fetch drive schedule:', error);
       setDriveData(null);
+      setDriveSlots([]);
+      setDriveNeedsRenotify(false);
     }
   };
 
@@ -475,10 +512,16 @@ export default function JobApplicants() {
 
   const handleDriveSubmit = async (driveFormData) => {
     try {
-      await placementOfficerAPI.createOrUpdateJobDrive(selectedJob.id, driveFormData);
-      toast.success(driveData ? 'Drive updated successfully' : 'Drive scheduled successfully');
+      const response = await placementOfficerAPI.createOrUpdateJobDrive(selectedJob.id, driveFormData);
+      const saved = response.data.slots || [];
+      toast.success(saved.length > 1
+        ? `Drive saved at ${saved.length} venues`
+        : (driveData ? 'Drive updated successfully' : 'Drive scheduled successfully'));
       setShowDriveModal(false);
       await fetchDriveSchedule();
+      if (response.data.needsRenotify) {
+        offerRenotify(saved.length, () => handleNotifyStudents('drive_scheduled'));
+      }
     } catch (error) {
       console.error('Drive submit error:', error);
       toast.error('Failed to save drive schedule');
@@ -996,6 +1039,7 @@ export default function JobApplicants() {
         onClose={() => setShowDriveModal(false)}
         onSave={handleDriveSubmit}
         existingDrive={driveData}
+        existingSlots={driveSlots}
         jobTitle={selectedJob?.job_title}
         variant="officer"
       />

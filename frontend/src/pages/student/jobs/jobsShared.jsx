@@ -149,7 +149,13 @@ export function JobCard({ job, onViewDetails, onApply, size = 'sm' }) {
       {job.drive && (
         <p className="inline-flex items-center rounded-spc-sm bg-spc-teal-soft text-spc-teal
           text-xs font-bold px-2.5 py-1.5 mt-2 break-words">
-          Drive {job.drive.date} · {job.drive.time}
+          {/* The earliest date, and how many places it is held. A card has no
+              room for five venues; the panel on the job itself carries them. */}
+          Drive {job.drive.date}
+          {' · '}
+          {job.drives && job.drives.length > 1
+            ? `${job.drives.length} venues`
+            : job.drive.time}
         </p>
       )}
 
@@ -314,7 +320,7 @@ export function JobDetailsModal({ job, onClose, onApply }) {
               to act on. Only present for applicants — the API withholds it from
               everyone else, so a date and a venue never read as an instruction
               to somebody who was never in the process. */}
-          <DrivePanel drive={job.drive} />
+          <DrivePanel drive={job.drive} drives={job.drives} />
 
           {/* Eligibility */}
           <section>

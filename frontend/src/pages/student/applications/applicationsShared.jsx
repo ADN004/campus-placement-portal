@@ -124,7 +124,7 @@ export function ApplicationCard({ application, onViewDetails, size = 'sm' }) {
             {application.company_name}
           </p>
           <p className="text-spc-xs text-spc-muted mt-0.5 break-words">{application.job_title}</p>
-          <DriveLine drive={application.drive} />
+          <DriveLine drive={application.drive} drives={application.drives} />
         </div>
         <div className="flex-shrink-0">
           <StatusPill status={application.status} />
@@ -159,35 +159,67 @@ export function ApplicationCard({ application, onViewDetails, size = 'sm' }) {
  * student has to act on, so it leads — above the status, and marked, because a
  * placement drive is an appointment and everything else here is a record.
  */
-export function DrivePanel({ drive, compact = false }) {
-  if (!drive) return null;
+export function DrivePanel({ drive, drives, compact = false }) {
+  const venues = (drives && drives.length > 0) ? drives : (drive ? [drive] : []);
+  if (venues.length === 0) return null;
+
+  /*
+   * One venue reads exactly as it always did. Several are listed, and the panel
+   * says to attend the one you have been told to — the portal genuinely does
+   * not know which is yours, and a heading that implied it did would send
+   * somebody to the wrong district.
+   */
+  const many = venues.length > 1;
+  const shared = many && venues.every((v) => v.instructions === venues[0].instructions)
+    ? venues[0].instructions
+    : null;
+
   return (
     <section
       className={`rounded-spc border border-spc-teal/40 bg-spc-teal-soft ${compact ? 'p-3' : 'p-4'}`}
     >
       <h3 className="text-spc-label font-bold uppercase text-spc-teal mb-1.5">
-        Placement drive scheduled
+        {many ? `Placement drive · ${venues.length} venues` : 'Placement drive scheduled'}
       </h3>
-      <p className="text-spc-h3 font-bold text-spc-ink leading-tight">
-        {drive.date} · {drive.time}
-      </p>
-      <p className="text-spc-sm text-spc-body mt-1 break-words">
-        <span className="font-semibold">Venue:</span> {drive.location}
-      </p>
-      {drive.instructions && (
-        <p className="text-spc-xs text-spc-body mt-2 break-words">{drive.instructions}</p>
+      {many && (
+        <p className="text-spc-xs text-spc-body mb-2">
+          Attend the one you have been told to.
+        </p>
+      )}
+
+      {venues.map((venue, i) => (
+        <div key={`${venue.date}-${venue.time}-${venue.location}`} className={i > 0 ? 'mt-3 pt-3 border-t border-spc-teal/25' : ''}>
+          <p className="text-spc-h3 font-bold text-spc-ink leading-tight">
+            {venue.date} · {venue.time}
+          </p>
+          <p className="text-spc-sm text-spc-body mt-1 break-words">
+            <span className="font-semibold">Venue:</span> {venue.location}
+          </p>
+          {!shared && venue.instructions && (
+            <p className="text-spc-xs text-spc-body mt-2 break-words">{venue.instructions}</p>
+          )}
+        </div>
+      ))}
+
+      {/* Said once when every venue says the same thing. */}
+      {shared && (
+        <p className="text-spc-xs text-spc-body mt-2 break-words">{shared}</p>
       )}
     </section>
   );
 }
 
 /** One line for a card, where a full panel would crowd everything else out. */
-export function DriveLine({ drive }) {
-  if (!drive) return null;
+export function DriveLine({ drive, drives }) {
+  const venues = (drives && drives.length > 0) ? drives : (drive ? [drive] : []);
+  if (venues.length === 0) return null;
+  const first = venues[0];
   return (
     <span className="inline-flex items-center rounded-spc-sm bg-spc-teal-soft text-spc-teal
       text-xs font-bold px-2.5 py-1.5 mt-2 break-words">
-      Drive {drive.date} · {drive.time}
+      {/* The earliest date, and how many places it is held — the card has no
+          room for five venues, and the panel below carries them. */}
+      Drive {first.date} · {venues.length > 1 ? `${venues.length} venues` : first.time}
     </span>
   );
 }
@@ -227,7 +259,7 @@ export function ApplicationDetailsModal({ application, onClose }) {
         </div>
 
         <div className="px-5 sm:px-6 py-5 space-y-6">
-          <DrivePanel drive={application.drive} />
+          <DrivePanel drive={application.drive} drives={application.drives} />
 
           {/* Status */}
           <section>

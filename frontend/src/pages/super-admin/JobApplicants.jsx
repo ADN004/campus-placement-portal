@@ -51,6 +51,32 @@ const EMPTY_ENHANCED_FILTERS = {
  * does not change what the page does. Whether super admin *should* have those
  * two abilities is a question for the user, not something to add quietly.
  */
+/*
+ * A drive whose students have already been told, changed since.
+ *
+ * Not sent automatically: adding a venue can mean hundreds of emails, and an
+ * officer part-way through entering five of them would fire that off four
+ * times over. Offered instead, right after the save, because the alternative
+ * is an officer who never realises the people already told are holding a
+ * message that no longer matches the venues.
+ */
+const offerRenotify = (venueCount, notify) => {
+  toast((t) => (
+    <span className="text-spc-sm text-spc-ink">
+      Students were already told about this drive.
+      {venueCount > 1 ? ` It now has ${venueCount} venues.` : ''}
+      {' Send them the update?'}
+      <button
+        type="button"
+        onClick={() => { toast.dismiss(t.id); notify(); }}
+        className="ml-3 font-bold underline underline-offset-2"
+      >
+        Notify students
+      </button>
+    </span>
+  ), { duration: 12000 });
+};
+
 export default function SuperAdminJobApplicants() {
   const { jobId } = useParams();
   const navigate = useNavigate();
@@ -90,6 +116,13 @@ export default function SuperAdminJobApplicants() {
   const [selectedApplicationId, setSelectedApplicationId] = useState(null);
   const [showDriveModal, setShowDriveModal] = useState(false);
   const [driveData, setDriveData] = useState(null);
+  /*
+   * Every venue, and whether the students already told are now holding a
+   * message that no longer matches. `driveData` stays the earliest venue,
+   * which is what the screens showing a single drive read.
+   */
+  const [driveSlots, setDriveSlots] = useState([]);
+  const [driveNeedsRenotify, setDriveNeedsRenotify] = useState(false);
   const [placementStats, setPlacementStats] = useState(null);
   const [showEnhancedFilters, setShowEnhancedFilters] = useState(false);
   const [enhancedFilters, setEnhancedFilters] = useState(EMPTY_ENHANCED_FILTERS);
@@ -266,6 +299,8 @@ export default function SuperAdminJobApplicants() {
     try {
       const response = await superAdminAPI.getJobDrive(selectedJob.id);
       setDriveData(response.data.data);
+      setDriveSlots(response.data.slots || []);
+      setDriveNeedsRenotify(response.data.needsRenotify === true);
     } catch (error) {
       console.error('Error fetching drive schedule:', error);
     }
@@ -364,10 +399,16 @@ export default function SuperAdminJobApplicants() {
 
   const handleScheduleDrive = async (driveDetails) => {
     try {
-      await superAdminAPI.createOrUpdateJobDrive(selectedJob.id, driveDetails);
-      toast.success('Drive scheduled successfully');
+      const response = await superAdminAPI.createOrUpdateJobDrive(selectedJob.id, driveDetails);
+      const saved = response.data.slots || [];
+      toast.success(saved.length > 1
+        ? `Drive scheduled at ${saved.length} venues`
+        : 'Drive scheduled successfully');
       setShowDriveModal(false);
       fetchDriveSchedule();
+      if (response.data.needsRenotify) {
+        offerRenotify(saved.length, () => handleNotifyStudents('drive_scheduled'));
+      }
     } catch (error) {
       toast.error('Failed to schedule drive');
       console.error(error);
@@ -708,6 +749,7 @@ export default function SuperAdminJobApplicants() {
         onClose={() => setShowDriveModal(false)}
         onSave={handleScheduleDrive}
         existingDrive={driveData}
+        existingSlots={driveSlots}
         jobTitle={selectedJob?.job_title}
         variant="admin"
       />

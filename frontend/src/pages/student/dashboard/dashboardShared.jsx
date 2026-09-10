@@ -385,7 +385,14 @@ export function UpcomingDrives({ drives = [] }) {
               <span className="font-bold tabular-nums">{d.date}</span>
               {' at '}
               <span className="font-bold">{d.time}</span>
-              <span className="text-spc-body"> — {d.location}</span>
+              {/* A drive held in several places names the earliest and says how
+                  many: the venue is what a student needs, and a line that
+                  printed one of five would name the wrong one four times. */}
+              {d.venues && d.venues.length > 1 ? (
+                <span className="text-spc-body"> — {d.venues.length} venues, see your applications</span>
+              ) : (
+                <span className="text-spc-body"> — {d.location}</span>
+              )}
             </p>
           </li>
         ))}

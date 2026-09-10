@@ -1171,6 +1171,7 @@ export const createJob = async (req, res) => {
       application_deadline,
       min_cgpa,
       max_backlogs,
+      requires_no_backlog_history,
       backlog_max_semester,
       allowed_backlog_semesters,
       allowed_branches,
@@ -1229,8 +1230,8 @@ export const createJob = async (req, res) => {
         `INSERT INTO jobs
          (job_title, company_name, job_description, job_location, no_of_vacancies, salary_package,
           application_form_url, application_start_date, application_deadline, min_cgpa, max_backlogs, backlog_max_semester, allowed_backlog_semesters, allowed_branches,
-          dob_on_or_before, dob_on_or_after, gender_requirement, target_type, target_regions, target_colleges, created_by, is_active)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, $8, $9, $10, $11, $12::jsonb, $13, $14, $15, $16, $17, $18, $19, $20, TRUE)
+          dob_on_or_before, dob_on_or_after, gender_requirement, target_type, target_regions, target_colleges, created_by, requires_no_backlog_history, is_active)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, $8, $9, $10, $11, $12::jsonb, $13, $14, $15, $16, $17, $18, $19, $20, $21, TRUE)
          RETURNING *`,
         [
           title,
@@ -1253,6 +1254,7 @@ export const createJob = async (req, res) => {
           target_regions ? (typeof target_regions === 'string' ? target_regions : JSON.stringify(target_regions)) : null,
           finalTargetColleges ? (typeof finalTargetColleges === 'string' ? finalTargetColleges : JSON.stringify(finalTargetColleges)) : null,
           req.user.id,
+          requires_no_backlog_history === true,
         ]
       );
 
@@ -1352,6 +1354,7 @@ export const updateJob = async (req, res) => {
       application_deadline,
       min_cgpa,
       max_backlogs,
+      requires_no_backlog_history,
       backlog_max_semester,
       allowed_backlog_semesters,
       allowed_branches,
@@ -1589,6 +1592,10 @@ export const updateJob = async (req, res) => {
     if (max_backlogs !== undefined) {
       updates.push(`max_backlogs = $${paramCount++}`);
       values.push(max_backlogs !== '' ? max_backlogs : null);
+    }
+    if (requires_no_backlog_history !== undefined) {
+      updates.push(`requires_no_backlog_history = $${paramCount++}`);
+      values.push(requires_no_backlog_history === true);
     }
     if (backlog_max_semester !== undefined) {
       updates.push(`backlog_max_semester = $${paramCount++}`);
@@ -3098,8 +3105,8 @@ export const approveJobRequest = async (req, res) => {
           application_form_url, application_start_date, application_deadline, min_cgpa, max_backlogs, backlog_max_semester, allowed_backlog_semesters,
           allowed_branches, dob_on_or_before, dob_on_or_after, gender_requirement,
           target_type, target_regions, target_colleges, created_by, is_active,
-          placement_officer_id, source_job_request_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, $8, $9, $10, $11, $12::jsonb, $13::jsonb, $14, $15, $16, $17, $18::jsonb, $19::jsonb, $20, TRUE, $21, $22)
+          placement_officer_id, source_job_request_id, requires_no_backlog_history)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, $8, $9, $10, $11, $12::jsonb, $13::jsonb, $14, $15, $16, $17, $18::jsonb, $19::jsonb, $20, TRUE, $21, $22, $23)
          RETURNING *`,
         [
           jobRequest.job_title,
@@ -3127,6 +3134,9 @@ export const approveJobRequest = async (req, res) => {
           req.user.id,
           jobRequest.placement_officer_id || null,
           jobRequest.id,
+          // Carried from the request, or the requirement the officer recorded
+          // would be lost at the moment it becomes a job.
+          jobRequest.requires_no_backlog_history === true,
         ]
       );
 

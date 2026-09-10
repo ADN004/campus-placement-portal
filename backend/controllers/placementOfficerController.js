@@ -2021,6 +2021,7 @@ export const createJobRequest = async (req, res) => {
       dob_on_or_before,
       dob_on_or_after,
       gender_requirement,
+      requires_no_backlog_history,
       target_type,
       target_regions,
       target_colleges,
@@ -2124,8 +2125,8 @@ export const createJobRequest = async (req, res) => {
             no_of_vacancies, location, salary_range, application_deadline, application_form_url,
             min_cgpa, max_backlogs, backlog_max_semester, allowed_backlog_semesters, allowed_branches,
             dob_on_or_before, dob_on_or_after, gender_requirement, target_type, target_regions, target_colleges,
-            status, reviewed_date
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb, $15, $16, $17, $18, $19, $20, $21, $22, CURRENT_TIMESTAMP)
+            requires_no_backlog_history, status, reviewed_date
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb, $15, $16, $17, $18, $19, $20, $21, $22, $23, CURRENT_TIMESTAMP)
           RETURNING *`,
           [
             officer.id,
@@ -2149,6 +2150,7 @@ export const createJobRequest = async (req, res) => {
             'specific',
             null, // No target regions for own college
             JSON.stringify([officer.college_id]), // Target only own college
+            requires_no_backlog_history === true,
             'auto_approved',
           ]
         );
@@ -2161,8 +2163,8 @@ export const createJobRequest = async (req, res) => {
            (job_title, company_name, job_description, job_location, no_of_vacancies, salary_package,
             application_form_url, application_start_date, application_deadline, min_cgpa, max_backlogs, backlog_max_semester, allowed_backlog_semesters,
             allowed_branches, dob_on_or_before, dob_on_or_after, gender_requirement, target_type, target_regions, target_colleges, created_by, is_active,
-            placement_officer_id, is_auto_approved, source_job_request_id)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, $8, $9, $10, $11, $12::jsonb, $13::jsonb, $14, $15, $16, $17, $18::jsonb, $19::jsonb, $20, TRUE, $21, TRUE, $22)
+            placement_officer_id, is_auto_approved, source_job_request_id, requires_no_backlog_history)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, $8, $9, $10, $11, $12::jsonb, $13::jsonb, $14, $15, $16, $17, $18::jsonb, $19::jsonb, $20, TRUE, $21, TRUE, $22, $23)
            RETURNING *`,
           [
             job_title.trim(),
@@ -2187,6 +2189,7 @@ export const createJobRequest = async (req, res) => {
             req.user.id,
             officer.id,
             jobRequest.id,
+            requires_no_backlog_history === true,
           ]
         );
 
@@ -2304,8 +2307,8 @@ export const createJobRequest = async (req, res) => {
         no_of_vacancies, location, salary_range, application_deadline, application_form_url,
         min_cgpa, max_backlogs, backlog_max_semester, allowed_backlog_semesters, allowed_branches,
         dob_on_or_before, dob_on_or_after, gender_requirement, target_type, target_regions, target_colleges,
-        status, notify_by_email
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb, $15, $16, $17, $18, $19, $20, $21, $22, $23)
+        requires_no_backlog_history, status, notify_by_email
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
       RETURNING *`,
       [
         officer.id,
@@ -2331,6 +2334,7 @@ export const createJobRequest = async (req, res) => {
         finalTargetColleges.length > 0 ? JSON.stringify(finalTargetColleges) : null,
         'pending',
         // Coerced rather than passed through: the column is a boolean, and an
+        requires_no_backlog_history === true,
         // absent field on an older client must mean "no" rather than NULL.
         notify_by_email === true || notify_by_email === 'true',
       ]

@@ -154,6 +154,13 @@ export const checkApplicationReadiness = async (req, res) => {
     // so it can be stale after branch changes.
     requirements.allowed_branches = job.allowed_branches;
 
+    /*
+     * Same reason: this lives on the job, and job_requirement_templates has no
+     * column for it. Without this it is undefined whenever a template exists,
+     * which is most jobs, and the rule would silently never fire.
+     */
+    requirements.requires_no_backlog_history = job.requires_no_backlog_history === true;
+
     const missingFields = [];
 
     // Check college/region targeting FIRST (blocking if student's college is not targeted)
@@ -302,6 +309,19 @@ export const checkApplicationReadiness = async (req, res) => {
         } else if (withinRange > requirements.max_backlogs) {
           backlogFailed = true;
           backlogMessage = `Maximum ${requirements.max_backlogs} backlogs allowed within Sem 1-${backlogMaxSem}. You have ${withinRange}`;
+        }
+      } else if (requirements.requires_no_backlog_history) {
+        /*
+         * No backlog history is not "no backlogs now", and the portal can only
+         * enforce the half it can see. A student carrying one today has a
+         * history by definition and is refused here; one showing zero may have
+         * cleared one, which nothing in the record can reveal, so they are
+         * asked to declare it at the moment of applying instead.
+         */
+        if (totalBacklogs > 0) {
+          backlogFailed = true;
+          backlogMessage = 'This company asks for students who have never had a backlog. '
+            + `Your record shows ${totalBacklogs} active.`;
         }
       } else {
         if (totalBacklogs > requirements.max_backlogs) {
@@ -468,6 +488,13 @@ export const checkApplicationReadiness = async (req, res) => {
       has_blocking_issues: hasBlockingIssues,
       missing_fields: missingFields,
       custom_fields: customFields,
+      /*
+       * The half the portal cannot check for itself. True only for a student
+       * the record shows as clean — anyone carrying a backlog has already been
+       * refused above, and asking them to declare otherwise would be inviting
+       * a false answer.
+       */
+      requires_backlog_declaration: requirements.requires_no_backlog_history === true,
       message: readyToApply
         ? 'You can apply for this job'
         : hasBlockingIssues
@@ -729,6 +756,23 @@ export const submitEnhancedApplication = async (req, res) => {
 
       const job = jobResult.rows[0];
 
+      /*
+       * The declaration this job asks for, refused if it is missing.
+       *
+       * Checked here and not only in the browser, because the browser is not
+       * the only way in and because this is the whole of the requirement the
+       * portal cannot verify. A student carrying backlogs today is refused by
+       * the eligibility rules below on max_backlogs, which a job of this kind
+       * also stores as 0; this covers the ones whose record is clean and whose
+       * history only they know.
+       */
+      if (job.requires_no_backlog_history && req.body.declared_no_backlog_history !== true) {
+        throw new Error(
+          'This company asks for students who have never had a backlog. '
+          + 'Please confirm that on the application before submitting.'
+        );
+      }
+
       // Check deadline
       if (new Date(job.application_deadline) < new Date()) {
         throw new Error('Application deadline has passed');
@@ -976,10 +1020,16 @@ export const submitEnhancedApplication = async (req, res) => {
 
       // Create basic application
       const applicationResult = await client.query(
-        `INSERT INTO job_applications (job_id, student_id, application_status)
-         VALUES ($1, $2, $3)
+        `INSERT INTO job_applications
+           (job_id, student_id, application_status, declared_no_backlog_history)
+         VALUES ($1, $2, $3, $4)
          RETURNING *`,
-        [jobId, student.id, meetsRequirements ? 'submitted' : 'rejected']
+        [
+          jobId, student.id, meetsRequirements ? 'submitted' : 'rejected',
+          // Recorded only where it was actually asked for, so the column reads
+          // as "declared this" rather than "was never asked".
+          job.requires_no_backlog_history === true,
+        ]
       );
 
       const application = applicationResult.rows[0];

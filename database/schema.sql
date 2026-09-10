@@ -449,6 +449,12 @@ CREATE TABLE jobs (
     max_backlogs INTEGER,
     backlog_max_semester INTEGER CHECK (backlog_max_semester >= 1 AND backlog_max_semester <= 6),
     allowed_backlog_semesters JSONB DEFAULT '[]'::jsonb,
+    -- Never had a backlog, as opposed to having none now. The portal cannot
+    -- tell the two apart -- backlogs_sem1..6 hold what is outstanding today --
+    -- so a job with this set also stores max_backlogs = 0 to refuse students
+    -- carrying one, and the student declares the rest at apply time.
+    -- See migration 019.
+    requires_no_backlog_history BOOLEAN NOT NULL DEFAULT FALSE,
     allowed_branches JSONB,
 
     -- Date-of-birth cutoff and gender, both optional (migration 015).
@@ -644,6 +650,11 @@ CREATE TABLE job_applications (
     placement_location VARCHAR(255),
     placement_notes TEXT,
 
+    -- What the student asserted at the moment of applying, for a job that asks
+    -- for no backlog history. An assertion about a person made for a particular
+    -- company, so it belongs to the application rather than the student.
+    declared_no_backlog_history BOOLEAN NOT NULL DEFAULT FALSE,
+
     -- Manual addition tracking
     is_manual_addition BOOLEAN DEFAULT FALSE,
     -- Set only when an officer created the row for a student who never applied.
@@ -698,6 +709,8 @@ CREATE TABLE job_requests (
     application_form_url TEXT,
     min_cgpa DECIMAL(4,2),
     max_backlogs INTEGER,
+    -- Carried through approval onto the job. See migration 019.
+    requires_no_backlog_history BOOLEAN NOT NULL DEFAULT FALSE,
     backlog_max_semester INTEGER CHECK (backlog_max_semester >= 1 AND backlog_max_semester <= 6),
     allowed_backlog_semesters JSONB DEFAULT '[]'::jsonb,
     allowed_branches JSONB,

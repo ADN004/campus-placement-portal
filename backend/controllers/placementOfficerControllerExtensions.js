@@ -1,4 +1,4 @@
-import { query, getClient } from '../config/database.js';
+import { query, getClient, transaction } from '../config/database.js';
 import { uploadImage, deleteImage, deleteFolderOnly, extractFolderPath } from '../config/cloudinary.js';
 import logActivity from '../middleware/activityLogger.js';
 import ExcelJS from 'exceljs';
@@ -46,7 +46,10 @@ import {
   sendShortlistEmail,
 } from '../config/emailService.js';
 import { eligibilitySqlClauses } from '../utils/jobEligibility.js';
-import { driveMessage, hasDrive, driveForStudent } from '../utils/driveSchedule.js';
+import { driveMessage, hasDrive, driveForStudent, drivesForStudent } from '../utils/driveSchedule.js';
+import {
+  validateDriveSlots, saveDriveSlots, readDriveSlots, driveNeedsRenotify, markDriveNotified,
+} from '../utils/driveSlots.js';
 import { TOTAL_BACKLOGS_SQL, parseMaxBacklogs } from '../utils/backlogPolicy.js';
 import { validateImageFormat } from '../utils/photoValidation.js';
 import { placementSessionSpan } from '../utils/placementSession.js';
@@ -1788,17 +1791,21 @@ export const updatePlacementDetails = async (req, res) => {
 export const createOrUpdateJobDrive = async (req, res) => {
   try {
     const { jobId } = req.params;
-    const { drive_date, drive_time, drive_location, additional_instructions } = req.body;
+    const check = validateDriveSlots(req.body);
+    if (check.error) {
+      return res.status(400).json({ success: false, message: check.error });
+    }
 
     /*
      * Only the officer who posted the job may set its drive.
      *
-     * job_drives is UNIQUE on job_id, so there is one drive per job and writing
-     * it replaces whatever was there. On a job posted for several colleges that
-     * meant any participating officer could move the host's drive — change the
-     * date, the venue, the instructions — with nothing to stop them and nothing
-     * to tell the host it had happened. Editing the job itself was already the
-     * creator's alone; this was the half that was left open.
+     * Writing a drive replaces the job's whole list of venues. On a job posted
+     * for several colleges that means any participating officer could move the
+     * host's drive — change a date, a venue, the instructions, or delete one —
+     * with nothing to stop them and nothing to tell the host it had happened.
+     * Editing the job itself was already the creator's alone; this was the half
+     * that was left open. The host may set venues at other colleges, because on
+     * a joint posting they are the one arranging the whole thing.
      *
      * A job with no officer creator is one the Super Admin posted, and its
      * drive is the Super Admin's to arrange for the same reason: whoever posts
@@ -1830,60 +1837,36 @@ export const createOrUpdateJobDrive = async (req, res) => {
       });
     }
 
-    // Check if drive already exists
-    const existingDrive = await query(
-      'SELECT id FROM job_drives WHERE job_id = $1',
-      [jobId]
+    /*
+     * The officer sends the job's whole list, and it is applied as one unit:
+     * a half-written list would leave a job showing two venues when three were
+     * entered, and students being told about it.
+     */
+    const existingDrive = await query('SELECT id FROM job_drives WHERE job_id = $1', [jobId]);
+    const wasScheduled = existingDrive.rows.length > 0;
+
+    const slots = await transaction(async (client) =>
+      saveDriveSlots({ jobId, slots: check.slots, userId: req.user.id }, client));
+
+    await logActivity(
+      req.user.id,
+      wasScheduled ? 'UPDATE_JOB_DRIVE' : 'CREATE_JOB_DRIVE',
+      `${wasScheduled ? 'Updated' : 'Created'} job drive for job ${jobId}`
+        + `${slots.length > 1 ? ` (${slots.length} venues)` : ''}`,
+      'job_drive',
+      slots[0]?.id ?? null,
+      { venues: slots.map((s) => s.drive_location) },
+      req
     );
-
-    let result;
-    if (existingDrive.rows.length > 0) {
-      // Update existing drive
-      result = await query(
-        `UPDATE job_drives
-         SET drive_date = $1,
-             drive_time = $2,
-             drive_location = $3,
-             additional_instructions = $4,
-             updated_at = CURRENT_TIMESTAMP
-         WHERE job_id = $5
-         RETURNING *`,
-        [drive_date, drive_time, drive_location, additional_instructions, jobId]
-      );
-
-      await logActivity(
-        req.user.id,
-        'UPDATE_JOB_DRIVE',
-        `Updated job drive for job ${jobId}`,
-        'job_drive',
-        result.rows[0].id,
-        { drive_date, drive_time, drive_location },
-        req
-      );
-    } else {
-      // Create new drive
-      result = await query(
-        `INSERT INTO job_drives (job_id, drive_date, drive_time, drive_location, additional_instructions, created_by)
-         VALUES ($1, $2, $3, $4, $5, $6)
-         RETURNING *`,
-        [jobId, drive_date, drive_time, drive_location, additional_instructions, req.user.id]
-      );
-
-      await logActivity(
-        req.user.id,
-        'CREATE_JOB_DRIVE',
-        `Created job drive for job ${jobId}`,
-        'job_drive',
-        result.rows[0].id,
-        { drive_date, drive_time, drive_location },
-        req
-      );
-    }
 
     res.status(200).json({
       success: true,
-      message: existingDrive.rows.length > 0 ? 'Drive updated successfully' : 'Drive created successfully',
-      data: result.rows[0],
+      message: wasScheduled ? 'Drive updated successfully' : 'Drive created successfully',
+      // `data` stays the first slot, which is what the single-drive callers
+      // read; `slots` is the whole list for the composer.
+      data: slots[0] || null,
+      slots,
+      needsRenotify: driveNeedsRenotify(slots),
     });
   } catch (error) {
     console.error('Create/update job drive error:', error);
@@ -1906,13 +1889,19 @@ export const getJobDrive = async (req, res) => {
       `SELECT jd.*, u.email as created_by_email
        FROM job_drives jd
        LEFT JOIN users u ON jd.created_by = u.id
-       WHERE jd.job_id = $1`,
+       WHERE jd.job_id = $1
+       ORDER BY jd.drive_date, jd.drive_time, jd.id`,
       [jobId]
     );
+    const slots = driveResult.rows;
 
     res.status(200).json({
       success: true,
-      data: driveResult.rows.length > 0 ? driveResult.rows[0] : null,
+      // `data` stays the first slot so anything reading a single drive keeps
+      // working; `slots` is the list the composer reopens.
+      data: slots.length > 0 ? slots[0] : null,
+      slots,
+      needsRenotify: driveNeedsRenotify(slots),
     });
   } catch (error) {
     console.error('Get job drive error:', error);
@@ -1975,11 +1964,10 @@ export const notifyApplicationStatus = async (req, res) => {
                * notification — silently, since an absent column just reads as
                * an empty optional field.
                */
-              jd.drive_date, jd.drive_time, jd.drive_location, jd.additional_instructions
+              j.id AS drive_job_id
        FROM job_applications ja
        JOIN students s ON ja.student_id = s.id
        JOIN jobs j ON ja.job_id = j.id
-       LEFT JOIN job_drives jd ON j.id = jd.job_id
        WHERE ja.id = ANY($1)`,
       [application_ids]
     );
@@ -2020,8 +2008,31 @@ export const notifyApplicationStatus = async (req, res) => {
      * slips past it. Without this the message is built from three nulls and
      * every applicant is told their drive is "on null at null. Venue: null".
      */
+    /*
+     * The venues are fetched per job rather than joined onto each application.
+     *
+     * The join used to be `LEFT JOIN job_drives ON j.id = jd.job_id`, exactly
+     * one row while a job could only have one venue. A job with three would
+     * have produced three copies of every application — three notifications
+     * and three emails for one student — so the drive is read once per job and
+     * looked up by id instead.
+     */
+    const drivesByJob = new Map();
     if (notification_type === 'drive_scheduled') {
-      const missing = applicationsResult.rows.filter((app) => !hasDrive(app));
+      const jobIds = [...new Set(applicationsResult.rows.map((app) => app.job_id))];
+      const driveRows = await client.query(
+        `SELECT * FROM job_drives WHERE job_id = ANY($1::int[])
+          ORDER BY drive_date, drive_time, id`,
+        [jobIds]
+      );
+      driveRows.rows.forEach((row) => {
+        if (!drivesByJob.has(row.job_id)) drivesByJob.set(row.job_id, []);
+        drivesByJob.get(row.job_id).push(row);
+      });
+
+      const missing = applicationsResult.rows.filter(
+        (app) => (drivesByJob.get(app.job_id) || []).filter(hasDrive).length === 0
+      );
       if (missing.length > 0) {
         await client.query('ROLLBACK');
         return res.status(400).json({
@@ -2041,7 +2052,7 @@ export const notifyApplicationStatus = async (req, res) => {
       switch (notification_type) {
         case 'drive_scheduled':
           title = `Placement Drive Scheduled - ${app.company_name}`;
-          message = driveMessage(app.job_title, app.company_name, app);
+          message = driveMessage(app.job_title, app.company_name, drivesByJob.get(app.job_id));
           break;
         case 'shortlisted':
           title = `Application Shortlisted - ${app.company_name}`;
@@ -2092,11 +2103,12 @@ export const notifyApplicationStatus = async (req, res) => {
 
         switch (notification_type) {
           case 'drive_scheduled':
-            const driveDetails = {
-              drive_date: app.drive_date,
-              drive_time: app.drive_time,
-              drive_location: app.drive_location,
-            };
+            const driveDetails = (drivesByJob.get(app.job_id) || []).map((d) => ({
+              drive_date: d.drive_date,
+              drive_time: d.drive_time,
+              drive_location: d.drive_location,
+              additional_instructions: d.additional_instructions,
+            }));
             await sendDriveScheduleEmail(app.email, app.student_name, jobDetails, driveDetails);
             break;
           case 'shortlisted':
@@ -2119,6 +2131,16 @@ export const notifyApplicationStatus = async (req, res) => {
         console.error('Error sending email:', emailError);
         // Continue even if email fails
       }
+    }
+
+    /*
+     * Stamped once per job, not per student: a drive is one event however many
+     * people are told about it. This is what lets the composer say later that
+     * the students already notified are holding a message that no longer
+     * matches the venues.
+     */
+    for (const jobId of drivesByJob.keys()) {
+      await markDriveNotified(jobId, client.query.bind(client));
     }
 
     await client.query('COMMIT');

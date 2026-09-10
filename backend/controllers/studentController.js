@@ -6,7 +6,10 @@ import {
   hasSemesterValue,
 } from '../utils/cgpaCalculation.js';
 import { dobAndGenderFailure } from '../utils/jobEligibility.js';
-import { driveForStudent, applicationSeesDrive, driveVisibleSql } from '../utils/driveSchedule.js';
+import {
+  driveForStudent, drivesForStudent, applicationSeesDrive, driveVisibleSql,
+} from '../utils/driveSchedule.js';
+import { driveSlotsLateralSql } from '../utils/driveSlots.js';
 import { normalizeBranch } from '../utils/branchName.js';
 
 // @desc    Get student dashboard data
@@ -89,12 +92,30 @@ export const getDashboard = async (req, res) => {
           eligibleJobsCount: parseInt(eligibleJobsResult.rows[0].count),
           unreadNotifications: parseInt(notificationsResult.rows[0].count),
         },
-        upcomingDrives: drivesResult.rows.map((row) => ({
-          job_id: row.job_id,
-          job_title: row.job_title,
-          company_name: row.company_name,
-          ...driveForStudent(row),
-        })),
+        /*
+         * One entry per job, not per venue.
+         *
+         * The query returns a row for every venue, so a job held in three
+         * places would list the same company three times on the dashboard and
+         * read as a bug. The earliest upcoming venue is the entry — that is the
+         * date the student needs to see — and the rest travel with it under
+         * `venues` for the screen to show as "3 venues" if it wants to.
+         */
+        upcomingDrives: [...drivesResult.rows.reduce((byJob, row) => {
+          const shaped = driveForStudent(row);
+          if (!shaped) return byJob;
+          if (!byJob.has(row.job_id)) {
+            byJob.set(row.job_id, {
+              job_id: row.job_id,
+              job_title: row.job_title,
+              company_name: row.company_name,
+              ...shaped,
+              venues: [],
+            });
+          }
+          byJob.get(row.job_id).venues.push(shaped);
+          return byJob;
+        }, new Map()).values()],
       },
     });
   } catch (error) {
@@ -164,10 +185,11 @@ export const getEligibleJobs = async (req, res) => {
       `SELECT j.*,
               CASE WHEN ja.id IS NOT NULL THEN TRUE ELSE FALSE END as has_applied,
               ja.application_status,
-              jd.drive_date, jd.drive_time, jd.drive_location, jd.additional_instructions
+              jd.drive_date, jd.drive_time, jd.drive_location, jd.additional_instructions,
+              jd.drive_slots
        FROM jobs j
        LEFT JOIN job_applications ja ON j.id = ja.job_id AND ja.student_id = $1
-       LEFT JOIN job_drives jd ON jd.job_id = j.id
+       ${driveSlotsLateralSql('j')}
        WHERE j.is_deleted IS NOT TRUE
          AND (j.is_active IS NOT FALSE OR ja.id IS NOT NULL)
          /*
@@ -254,11 +276,21 @@ export const getEligibleJobs = async (req, res) => {
         drive: job.has_applied && applicationSeesDrive(job.application_status)
           ? driveForStudent(job)
           : null,
+        /*
+         * Every venue, on the same rule. `drive` stays the earliest one so the
+         * screens that show a single drive keep working; a job run in several
+         * places needs all of them, because which one is a given student's is
+         * settled off the portal and the portal must not pick for them.
+         */
+        drives: job.has_applied && applicationSeesDrive(job.application_status)
+          ? drivesForStudent(job.drive_slots || [])
+          : [],
       };
       delete mappedJob.drive_date;
       delete mappedJob.drive_time;
       delete mappedJob.drive_location;
       delete mappedJob.additional_instructions;
+      delete mappedJob.drive_slots;
 
       jobsWithEligibility.push(mappedJob);
     }
@@ -387,10 +419,11 @@ export const getMyApplications = async (req, res) => {
               j.job_title, j.company_name, j.application_deadline, j.application_form_url,
               j.job_description as description, j.job_location as location,
               j.salary_package, j.min_cgpa, j.max_backlogs,
-              jd.drive_date, jd.drive_time, jd.drive_location, jd.additional_instructions
+              jd.drive_date, jd.drive_time, jd.drive_location, jd.additional_instructions,
+              jd.drive_slots
        FROM job_applications ja
        JOIN jobs j ON ja.job_id = j.id
-       LEFT JOIN job_drives jd ON jd.job_id = j.id
+       ${driveSlotsLateralSql('j')}
        WHERE ja.student_id = $1
        ORDER BY ja.applied_date DESC`,
       [studentId]
@@ -407,13 +440,17 @@ export const getMyApplications = async (req, res) => {
      */
     const applications = applicationsResult.rows.map((row) => {
       const {
-        drive_date, drive_time, drive_location, additional_instructions, ...application
+        drive_date, drive_time, drive_location, additional_instructions, drive_slots,
+        ...application
       } = row;
+      const visible = applicationSeesDrive(row.status);
       return {
         ...application,
         // A rejected application says "not selected" beside a panel telling
         // them where to turn up. Withheld rather than contradicting itself.
-        drive: applicationSeesDrive(row.status) ? driveForStudent(row) : null,
+        drive: visible ? driveForStudent(row) : null,
+        // The earliest venue is `drive`; this is all of them.
+        drives: visible ? drivesForStudent(drive_slots || []) : [],
       };
     });
 

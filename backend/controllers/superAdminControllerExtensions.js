@@ -19,6 +19,9 @@ import { attachmentName } from '../utils/downloadName.js';
 import {
   chooseFields, chooseCustomFields, excelColumns, excelRow, fieldsFromQuery,
 } from '../utils/exportFields.js';
+import {
+  validateDriveSlots, saveDriveSlots, driveNeedsRenotify, markDriveNotified,
+} from '../utils/driveSlots.js';
 
 /*
  * The columns the PRN-range sheet has always printed, in order. Tuples carry
@@ -1700,14 +1703,9 @@ export const updatePlacementDetails = async (req, res) => {
 export const createOrUpdateJobDrive = async (req, res) => {
   try {
     const { jobId } = req.params;
-    const { drive_date, drive_time, drive_location, additional_instructions } = req.body;
-
-    // Validate required fields
-    if (!drive_date || !drive_time || !drive_location) {
-      return res.status(400).json({
-        success: false,
-        message: 'Please provide drive date, time, and location',
-      });
+    const check = validateDriveSlots(req.body);
+    if (check.error) {
+      return res.status(400).json({ success: false, message: check.error });
     }
 
     // Check if job exists
@@ -1719,50 +1717,28 @@ export const createOrUpdateJobDrive = async (req, res) => {
       });
     }
 
-    // Check if drive already exists
-    const existingDrive = await query(
-      `SELECT id FROM job_drives WHERE job_id = $1`,
-      [jobId]
-    );
+    /*
+     * The whole list is applied as one unit: a half-written list would leave a
+     * job showing two venues when three were entered.
+     */
+    const existingDrive = await query('SELECT id FROM job_drives WHERE job_id = $1', [jobId]);
+    const wasScheduled = existingDrive.rows.length > 0;
 
-    let driveResult;
-    if (existingDrive.rows.length > 0) {
-      // Update existing drive
-      driveResult = await query(
-        `UPDATE job_drives
-         SET drive_date = $1,
-             drive_time = $2,
-             drive_location = $3,
-             additional_instructions = $4,
-             updated_at = CURRENT_TIMESTAMP
-         WHERE job_id = $5
-         RETURNING *`,
-        [drive_date, drive_time, drive_location, additional_instructions || null, jobId]
-      );
+    const slots = await transaction(async (client) =>
+      saveDriveSlots({ jobId, slots: check.slots, userId: req.user.id }, client));
 
-      await logActivity(req.user.id, 'UPDATE', 'job_drives', driveResult.rows[0].id, {
-        action: 'update_job_drive',
-        job_id: jobId,
-      });
-    } else {
-      // Create new drive
-      driveResult = await query(
-        `INSERT INTO job_drives (job_id, drive_date, drive_time, drive_location, additional_instructions, created_by)
-         VALUES ($1, $2, $3, $4, $5, $6)
-         RETURNING *`,
-        [jobId, drive_date, drive_time, drive_location, additional_instructions || null, req.user.id]
-      );
-
-      await logActivity(req.user.id, 'CREATE', 'job_drives', driveResult.rows[0].id, {
-        action: 'create_job_drive',
-        job_id: jobId,
-      });
-    }
+    await logActivity(req.user.id, wasScheduled ? 'UPDATE' : 'CREATE', 'job_drives', slots[0]?.id ?? null, {
+      action: wasScheduled ? 'update_job_drive' : 'create_job_drive',
+      job_id: jobId,
+      venues: slots.map((s) => s.drive_location),
+    });
 
     res.status(200).json({
       success: true,
-      message: existingDrive.rows.length > 0 ? 'Drive schedule updated successfully' : 'Drive schedule created successfully',
-      data: driveResult.rows[0],
+      message: wasScheduled ? 'Drive schedule updated successfully' : 'Drive schedule created successfully',
+      data: slots[0] || null,
+      slots,
+      needsRenotify: driveNeedsRenotify(slots),
     });
   } catch (error) {
     console.error('Create/update job drive error:', error);
@@ -1785,13 +1761,19 @@ export const getJobDrive = async (req, res) => {
       `SELECT jd.*, u.email as created_by_email
        FROM job_drives jd
        LEFT JOIN users u ON jd.created_by = u.id
-       WHERE jd.job_id = $1`,
+       WHERE jd.job_id = $1
+       ORDER BY jd.drive_date, jd.drive_time, jd.id`,
       [jobId]
     );
+    const slots = driveResult.rows;
 
     res.status(200).json({
       success: true,
-      data: driveResult.rows.length > 0 ? driveResult.rows[0] : null,
+      // `data` stays the first slot so anything reading a single drive keeps
+      // working; `slots` is the list the composer reopens.
+      data: slots.length > 0 ? slots[0] : null,
+      slots,
+      needsRenotify: driveNeedsRenotify(slots),
     });
   } catch (error) {
     console.error('Get job drive error:', error);
@@ -1850,6 +1832,13 @@ export const notifyApplicationStatus = async (req, res) => {
     const client = await getClient();
     let emailsSent = 0;
     let notificationsCreated = 0;
+    /*
+     * Jobs whose drive was announced in this run. Stamped once at the end
+     * rather than per application: a drive is one event however many students
+     * are told, and this is what lets the composer say later that the people
+     * already notified are holding an out-of-date message.
+     */
+    const notifiedDriveJobs = new Set();
 
     try {
       await client.query('BEGIN');
@@ -1876,7 +1865,8 @@ export const notifyApplicationStatus = async (req, res) => {
         } else if (notification_type === 'drive_scheduled') {
           // Get drive details
           const driveResult = await client.query(
-            `SELECT * FROM job_drives WHERE job_id = $1`,
+            `SELECT * FROM job_drives WHERE job_id = $1
+              ORDER BY drive_date, drive_time, id`,
             [app.job_id]
           );
 
@@ -1885,12 +1875,15 @@ export const notifyApplicationStatus = async (req, res) => {
             continue;
           }
 
-          const drive = driveResult.rows[0];
+          // Every venue, not the first one: a student told about one of five
+          // would travel to a place that may not be theirs.
+          const drives = driveResult.rows;
+          notifiedDriveJobs.add(app.job_id);
           title = `Placement Drive Scheduled - ${app.company_name}`;
           // The same sentence the officer's path sends, from one formatter.
           // This one formatted the date but left the time as '14:30:00'
           // and never mentioned the venue at all.
-          message = driveMessage(app.job_title, app.company_name, drive);
+          message = driveMessage(app.job_title, app.company_name, drives);
           notifType = 'job_posted';
 
           // Send drive schedule email
@@ -1899,12 +1892,12 @@ export const notifyApplicationStatus = async (req, res) => {
               app.email,
               app.student_name,
               { job_title: app.job_title, company_name: app.company_name },
-              {
-                drive_date: drive.drive_date,
-                drive_time: drive.drive_time,
-                drive_location: drive.drive_location,
-                additional_instructions: drive.additional_instructions,
-              }
+              drives.map((d) => ({
+                drive_date: d.drive_date,
+                drive_time: d.drive_time,
+                drive_location: d.drive_location,
+                additional_instructions: d.additional_instructions,
+              }))
             );
             emailsSent++;
           } catch (emailError) {
@@ -1965,6 +1958,10 @@ export const notifyApplicationStatus = async (req, res) => {
             console.error(`Email error for ${app.email}:`, emailError);
           }
         }
+      }
+
+      for (const id of notifiedDriveJobs) {
+        await markDriveNotified(id, client.query.bind(client));
       }
 
       await client.query('COMMIT');

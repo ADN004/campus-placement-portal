@@ -24,7 +24,7 @@ import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { driveCalendarInvite } from '../utils/driveSchedule.js';
+import { driveCalendarInvite, formatDriveTime } from '../utils/driveSchedule.js';
 
 dotenv.config();
 
@@ -622,35 +622,81 @@ export const sendCorrectionRequestEmail = async (email, studentName, note, photo
   });
 };
 
-/** Placement drive scheduled. */
+/**
+ * The drive email, for one venue or for several.
+ *
+ * `driveDetails` may be a single drive or a job's whole list. One venue renders
+ * exactly as it always did; several render a numbered block each, because a
+ * student reading this has to find their own venue in it and a run-on paragraph
+ * is the wrong shape for that.
+ *
+ * The time goes through formatDriveTime rather than into the template raw. This
+ * builder printed the TIME column as node-postgres hands it over — '14:30:00' —
+ * while the in-app message beside it said '2:30 pm', so the same drive reached
+ * one student two ways depending which they read.
+ */
 export function buildDriveScheduleEmail(studentName, jobDetails, driveDetails) {
   const accent = ACCENTS.blue;
-  const driveDate = new Date(driveDetails.drive_date).toLocaleDateString('en-IN', {
+  const drives = (Array.isArray(driveDetails) ? driveDetails : [driveDetails]).filter(Boolean);
+  const longDate = (value) => new Date(value).toLocaleDateString('en-IN', {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
     day: 'numeric',
+    timeZone: 'Asia/Kolkata',
   });
+
+  const single = drives.length <= 1;
+  const first = drives[0] || {};
+
+  // Instructions every venue shares are said once, under the list, rather than
+  // repeated beside each one.
+  const sharedInstructions = drives.length > 0
+    && drives.every((d) => d.additional_instructions === first.additional_instructions)
+    ? first.additional_instructions
+    : null;
+
+  const venueBlocks = single
+    ? emailCallout(
+      `<div style="font-size:16px;font-weight:700;color:#1e40af;margin-bottom:6px;">${jobDetails.company_name}</div>`
+        + emailDetailList([
+          ['Position', jobDetails.job_title],
+          ['Date', longDate(first.drive_date)],
+          ['Time', formatDriveTime(first.drive_time)],
+          ['Location', first.drive_location],
+        ]),
+      accent
+    )
+    : drives.map((d, i) => emailCallout(
+      `<div style="font-size:16px;font-weight:700;color:#1e40af;margin-bottom:6px;">Venue ${i + 1} of ${drives.length}</div>`
+        + emailDetailList([
+          ['Date', longDate(d.drive_date)],
+          ['Time', formatDriveTime(d.drive_time)],
+          ['Location', d.drive_location],
+          ...(sharedInstructions ? [] : [['Please note', d.additional_instructions || '']]),
+        ]),
+      accent
+    )).join('');
+
+  const intro = single
+    ? 'Good news — a placement drive has been scheduled for the following opportunity:'
+    : `A placement drive has been scheduled for <strong>${jobDetails.job_title}</strong> at `
+      + `<strong>${jobDetails.company_name}</strong>, and it is being held at ${drives.length} venues. `
+      + 'Please attend the one you have been told to:';
+
   return {
     subject: `Placement Drive Scheduled — ${jobDetails.company_name}`,
     ...shell({
       bannerName: 'drive-header',
       accent,
-      preheader: `${jobDetails.company_name} drive on ${driveDate}.`,
+      preheader: single
+        ? `${jobDetails.company_name} drive on ${longDate(first.drive_date)}.`
+        : `${jobDetails.company_name} drive at ${drives.length} venues.`,
       heading: `Hello ${studentName},`,
       bodyHtml: `
-              ${p('Good news — a placement drive has been scheduled for the following opportunity:')}
-              ${emailCallout(
-                `<div style="font-size:16px;font-weight:700;color:#1e40af;margin-bottom:6px;">${jobDetails.company_name}</div>` +
-                  emailDetailList([
-                    ['Position', jobDetails.job_title],
-                    ['Date', driveDate],
-                    ['Time', driveDetails.drive_time],
-                    ['Location', driveDetails.drive_location],
-                  ]),
-                accent
-              )}
-              ${driveDetails.additional_instructions ? emailCallout(`<strong>Important instructions:</strong><br/>${driveDetails.additional_instructions}`, ACCENTS.amber) : ''}
+              ${p(intro)}
+              ${venueBlocks}
+              ${sharedInstructions ? emailCallout(`<strong>Important instructions:</strong><br/>${sharedInstructions}`, ACCENTS.amber) : ''}
               ${p('<strong>Please make sure to:</strong>')}
               ${emailList([
                 'Arrive at least 15 minutes before the scheduled time',

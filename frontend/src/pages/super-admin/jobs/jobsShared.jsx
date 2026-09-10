@@ -45,6 +45,7 @@ export const EMPTY_JOB_FORM = {
   min_cgpa: '',
   max_backlogs: '',
   backlog_policy: 'no_restriction',
+  requires_no_backlog_history: false,
   allowed_backlog_semesters: [],
   allowed_branches: [],
   dob_on_or_before: '',

@@ -10,6 +10,7 @@ import {
   CollectBody,
   ExternalFormBody,
   SubmitBody,
+  BacklogHistoryDeclaration,
 } from './student/apply/applyShared';
 import { MobileApply, TabletApply, DesktopApply } from './student/apply/ApplyPresenters';
 
@@ -195,6 +196,14 @@ export default function SmartApplicationModal({ job, onClose, onSuccess }) {
     }
   };
 
+  /*
+   * The declaration a no-backlog-history job asks for. Held here rather than in
+   * a body, because three different steps can be the one that submits and the
+   * gate has to hold on all of them.
+   */
+  const requiresBacklogDeclaration = readinessData?.requires_backlog_declaration === true;
+  const [backlogDeclared, setBacklogDeclared] = useState(false);
+
   const handleSubmitApplication = async () => {
     // Validate required custom fields
     if (readinessData?.custom_fields) {
@@ -218,7 +227,9 @@ export default function SmartApplicationModal({ job, onClose, onSuccess }) {
       const applicationData = {
         tier2_data,
         tier3_custom_responses: customFieldResponses,
-        sections_filled: sectionsToShow
+        sections_filled: sectionsToShow,
+        // Refused by the server when the job asks for it and this is absent.
+        declared_no_backlog_history: requiresBacklogDeclaration ? backlogDeclared : undefined,
       };
 
       await studentAPI.applyEnhanced(job.id, applicationData);
@@ -313,6 +324,20 @@ export default function SmartApplicationModal({ job, onClose, onSuccess }) {
     body = <SubmitBody />;
   }
 
+  /*
+   * Appended to whichever body is showing, rather than built into each of them:
+   * collect, external_form and submit can all be the step that submits, and the
+   * declaration has to be in front of the student on whichever one it is.
+   */
+  if (requiresBacklogDeclaration && currentStep !== 'blocked') {
+    body = (
+      <div className="space-y-4">
+        {body}
+        <BacklogHistoryDeclaration checked={backlogDeclared} onChange={setBacklogDeclared} />
+      </div>
+    );
+  }
+
   /* ----------------------------------------------------------- actions */
 
   let primary = null;
@@ -323,19 +348,24 @@ export default function SmartApplicationModal({ job, onClose, onSuccess }) {
   } else if (currentStep === 'collect') {
     primary = job.application_form_url
       ? { label: 'Continue to the company form', onClick: () => setCurrentStep('external_form'), disabled: false }
-      : { label: submitting ? 'Submitting…' : 'Submit application', onClick: handleSubmitApplication, disabled: submitting };
+      : {
+        label: submitting ? 'Submitting…' : 'Submit application',
+        onClick: handleSubmitApplication,
+        disabled: submitting || (requiresBacklogDeclaration && !backlogDeclared),
+      };
   } else if (currentStep === 'external_form') {
     secondary = { label: 'Cancel', disabled: false };
     primary = {
       label: submitting ? 'Submitting…' : 'Submit application',
       onClick: handleSubmitApplication,
-      disabled: !formCompletionAcknowledged || submitting,
+      disabled: !formCompletionAcknowledged || submitting
+        || (requiresBacklogDeclaration && !backlogDeclared),
     };
   } else if (currentStep === 'submit') {
     primary = {
       label: submitting ? 'Submitting…' : 'Confirm & submit',
       onClick: handleSubmitApplication,
-      disabled: submitting,
+      disabled: submitting || (requiresBacklogDeclaration && !backlogDeclared),
     };
   }
 

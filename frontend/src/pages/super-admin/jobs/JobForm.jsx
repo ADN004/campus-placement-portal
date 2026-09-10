@@ -255,8 +255,16 @@ export default function JobForm(p) {
               onChange={(e) => p.onBacklogPolicy(e.target.value)}>
               <option value="no_restriction">No restriction</option>
               <option value="no_backlogs">None allowed</option>
+              <option value="no_history">No backlog history (never had one)</option>
               <option value="limited">Allow a limited number</option>
             </select>
+            {formData.backlog_policy === 'no_history' && (
+              <p className="text-spc-xs text-spc-body mt-1.5 max-w-md leading-snug">
+                Students carrying a backlog are refused automatically. A cleared
+                backlog leaves no record, so the rest is asked of the student:
+                they must confirm they have never had one before they can apply.
+              </p>
+            )}
           </div>
 
           {formData.backlog_policy === 'limited' && (

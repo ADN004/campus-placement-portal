@@ -425,3 +425,55 @@ export function SubmitBody() {
     </div>
   );
 }
+
+/**
+ * The one requirement the portal cannot check for itself.
+ *
+ * A company asking for no backlog history means never having had one, and the
+ * record only holds what is outstanding today — a backlog failed in Semester 2
+ * and cleared by Semester 4 leaves nothing behind. Students still carrying one
+ * have already been refused, so everybody who sees this reads as clean; only
+ * they know whether they always were.
+ *
+ * Worded as a statement the student makes, not a box to get past, and it says
+ * what a false answer costs. Same shape as the external-form acknowledgement
+ * beside it, so a student meets one pattern rather than two.
+ */
+export function BacklogHistoryDeclaration({ checked, onChange }) {
+  return (
+    <div className="space-y-3">
+      <label
+        className={`block rounded-spc border-2 p-4 cursor-pointer transition-colors ${
+          checked
+            ? 'border-spc-ok/45 bg-spc-ok-bg'
+            : 'border-spc-line-strong bg-spc-surface'
+        }`}
+      >
+        <div className="flex items-start gap-3">
+          <input
+            type="checkbox"
+            checked={checked}
+            onChange={(e) => onChange(e.target.checked)}
+            className="mt-0.5 h-5 w-5 flex-shrink-0 rounded border-spc-line-strong text-spc-ok focus:ring-spc-ok/40"
+          />
+          <div className="min-w-0">
+            <span className="text-spc-sm font-bold text-spc-ink">
+              I have never had a backlog in any semester
+            </span>
+            <p className="text-spc-xs text-spc-muted mt-1.5 leading-relaxed">
+              This company only accepts students with no backlog history at all — including
+              any you have since cleared. Tick this only if it is true of you. Giving false
+              information can get your application rejected.
+            </p>
+          </div>
+        </div>
+      </label>
+
+      {!checked && (
+        <p className="text-spc-xs text-spc-muted">
+          The submit button unlocks once you confirm this.
+        </p>
+      )}
+    </div>
+  );
+}

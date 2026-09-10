@@ -155,19 +155,35 @@ export default function JobRequestForm({
               value={formData.backlog_policy}
               onChange={(e) => {
                 const policy = e.target.value;
+                /*
+                 * `no_history` also stores max_backlogs = 0. The portal cannot
+                 * see a cleared backlog, so the zero is the half it can check —
+                 * anyone carrying one today is refused — and the flag is what
+                 * makes the student declare the rest when they apply.
+                 */
                 if (policy === 'no_restriction') {
-                  onFieldChange({ ...formData, backlog_policy: policy, max_backlogs: '', allowed_backlog_semesters: [] });
+                  onFieldChange({ ...formData, backlog_policy: policy, max_backlogs: '', allowed_backlog_semesters: [], requires_no_backlog_history: false });
                 } else if (policy === 'no_backlogs') {
-                  onFieldChange({ ...formData, backlog_policy: policy, max_backlogs: '0', allowed_backlog_semesters: [] });
+                  onFieldChange({ ...formData, backlog_policy: policy, max_backlogs: '0', allowed_backlog_semesters: [], requires_no_backlog_history: false });
+                } else if (policy === 'no_history') {
+                  onFieldChange({ ...formData, backlog_policy: policy, max_backlogs: '0', allowed_backlog_semesters: [], requires_no_backlog_history: true });
                 } else {
-                  onFieldChange({ ...formData, backlog_policy: policy, max_backlogs: formData.max_backlogs || '1', allowed_backlog_semesters: [] });
+                  onFieldChange({ ...formData, backlog_policy: policy, max_backlogs: formData.max_backlogs || '1', allowed_backlog_semesters: [], requires_no_backlog_history: false });
                 }
               }}
             >
               <option value="no_restriction">No restriction</option>
               <option value="no_backlogs">No backlogs allowed</option>
+              <option value="no_history">No backlog history (never had one)</option>
               <option value="limited">Allow limited backlogs</option>
             </select>
+            {formData.backlog_policy === 'no_history' && (
+              <p className="text-xs text-spc-muted mt-1 leading-snug">
+                Students carrying a backlog are refused automatically. A cleared
+                backlog leaves no record, so the rest is asked of the student:
+                they must confirm they have never had one before they can apply.
+              </p>
+            )}
           </div>
         </FieldGrid>
 

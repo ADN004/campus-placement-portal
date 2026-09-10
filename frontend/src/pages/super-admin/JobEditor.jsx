@@ -192,7 +192,10 @@ export default function JobEditor() {
       application_deadline: utcToLocalInput(job.application_deadline),
       min_cgpa: job.min_cgpa || '',
       max_backlogs: job.max_backlogs !== null && job.max_backlogs !== undefined ? String(job.max_backlogs) : '',
-      backlog_policy: job.max_backlogs === null || job.max_backlogs === undefined ? 'no_restriction' : job.max_backlogs === 0 ? 'no_backlogs' : 'limited',
+      backlog_policy: job.requires_no_backlog_history ? 'no_history'
+        : job.max_backlogs === null || job.max_backlogs === undefined ? 'no_restriction'
+          : job.max_backlogs === 0 ? 'no_backlogs' : 'limited',
+      requires_no_backlog_history: job.requires_no_backlog_history === true,
       allowed_backlog_semesters: Array.isArray(job.allowed_backlog_semesters) ? job.allowed_backlog_semesters.map(Number) : [],
       allowed_branches: parseJsonField(job.allowed_branches),
       // A DATE comes back as a full ISO timestamp; the picker wants a day.
@@ -544,15 +547,33 @@ export default function JobEditor() {
       editApplicantCount={editApplicantCount}
       onBranchToggle={handleBranchToggle}
       onBacklogPolicy={(policy) => {
+        /*
+         * `no_history` also stores max_backlogs = 0. The portal cannot see a
+         * cleared backlog, so the zero is the half it can check — anyone
+         * carrying one today is refused — and the flag is what makes the
+         * student declare the rest when they apply.
+         */
         if (policy === 'no_restriction') {
-          set({ backlog_policy: policy, max_backlogs: '', allowed_backlog_semesters: [] });
+          set({
+            backlog_policy: policy, max_backlogs: '', allowed_backlog_semesters: [],
+            requires_no_backlog_history: false,
+          });
         } else if (policy === 'no_backlogs') {
-          set({ backlog_policy: policy, max_backlogs: '0', allowed_backlog_semesters: [] });
+          set({
+            backlog_policy: policy, max_backlogs: '0', allowed_backlog_semesters: [],
+            requires_no_backlog_history: false,
+          });
+        } else if (policy === 'no_history') {
+          set({
+            backlog_policy: policy, max_backlogs: '0', allowed_backlog_semesters: [],
+            requires_no_backlog_history: true,
+          });
         } else {
           set({
             backlog_policy: policy,
             max_backlogs: formData.max_backlogs || '1',
             allowed_backlog_semesters: [],
+            requires_no_backlog_history: false,
           });
         }
       }}

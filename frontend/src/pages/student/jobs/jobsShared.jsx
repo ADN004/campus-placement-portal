@@ -10,6 +10,7 @@ import {
 import Modal from '../../../components/Modal';
 import { EmptyState, ErrorState, formatPackage } from '../../../components/student/StudentUI';
 import { DrivePanel } from '../applications/applicationsShared';
+import backlogRequirementText from '../../../utils/backlogRequirement';
 
 /** A cutoff date as DD-MM-YYYY, matching every other date in the role. */
 function formatDobCriteria(value) {
@@ -338,11 +339,7 @@ export function JobDetailsModal({ job, onClose, onApply }) {
                 <div className="rounded-spc bg-spc-surface border border-spc-line p-4">
                   <p className="text-spc-label font-bold uppercase text-spc-muted">Backlogs</p>
                   <p className="text-spc-h2 font-bold text-spc-ink mt-1">
-                    {job.max_backlogs === 0
-                      ? 'None allowed'
-                      : job.backlog_max_semester
-                      ? `Max ${job.max_backlogs} within Sem 1–${job.backlog_max_semester}`
-                      : `Max ${job.max_backlogs}`}
+                    {backlogRequirementText(job, 'No bar')}
                   </p>
                 </div>
               )}

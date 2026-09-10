@@ -72,6 +72,7 @@ export default function ApplicantsBody(p) {
 
       <DrivePanel
         drive={p.driveData}
+        driveSlots={p.driveSlots}
         onSchedule={p.onScheduleDrive}
         onNotifyAll={p.onNotifyDrive}
         disabled={p.loadingStudents}

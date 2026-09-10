@@ -4,6 +4,7 @@ import Pagination from '../../../components/officer/Pagination';
 import {
   PageHeading, Panel, EmptyState, FIELD_CLASS, formatDate,
 } from '../../../components/officer/OfficerUI';
+import backlogRequirementText from '../../../utils/backlogRequirement';
 
 /**
  * The job list — everything at /placement-officer/job-eligible-students.
@@ -101,8 +102,8 @@ export default function JobListPage({
 
                 <span className="block text-xs text-spc-muted mt-2 tabular-nums">
                   {job.min_cgpa ? `Min CGPA ${job.min_cgpa}` : 'No CGPA bar'}
-                  {job.max_backlogs !== null && job.max_backlogs !== undefined
-                    ? ` · Max backlogs ${job.max_backlogs}`
+                  {backlogRequirementText(job)
+                    ? ` · ${backlogRequirementText(job)}`
                     : ''}
                   {job.allowed_branches?.length ? ` · ${job.allowed_branches.length} branch(es)` : ''}
                 </span>

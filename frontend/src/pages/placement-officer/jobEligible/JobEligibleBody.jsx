@@ -102,6 +102,7 @@ export default function JobEligibleBody({ layout, ...p }) {
           <div className="mb-5">
             <DrivePanel
               driveData={p.driveData}
+              driveSlots={p.driveSlots}
               onSchedule={p.onScheduleDrive}
               onNotifyAll={p.onNotifyDrive}
               canManageDrive={p.canManageDrive}

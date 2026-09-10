@@ -2,6 +2,7 @@ import Modal from '../../../components/Modal';
 import { ExternalLink } from 'lucide-react';
 import { SecondaryButton, formatDate } from '../../../components/officer/OfficerUI';
 import { RequestStatus } from './jobRequestShared';
+import backlogRequirementText from '../../../utils/backlogRequirement';
 import { OfficerDialogClose } from '../../../components/officer/OfficerDialog';
 
 /**
@@ -74,16 +75,9 @@ function Section({ title, children }) {
 
 /** Read-only view of a submitted request and what became of it. */
 export function RequestDetailsModal({ request, onClose }) {
-  const backlogRule = () => {
-    if (request.max_backlogs === 0) return 'No backlogs';
-    const sems =
-      Array.isArray(request.allowed_backlog_semesters) && request.allowed_backlog_semesters.length > 0
-        ? request.allowed_backlog_semesters
-        : null;
-    return sems
-      ? `Max ${request.max_backlogs} in Sem ${sems.join(', ')}`
-      : `Max ${request.max_backlogs} (any semester)`;
-  };
+  // One sentence for the whole portal, so an officer's own request cannot
+  // describe its rule differently from the Console reviewing it.
+  const backlogRule = () => backlogRequirementText(request, 'No bar');
 
   return (
     <Dialog

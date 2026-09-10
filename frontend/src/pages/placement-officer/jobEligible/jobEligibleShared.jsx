@@ -5,6 +5,7 @@ import {
   CHECKBOX_CLASS, EmptyState, formatDate,
 } from '../../../components/officer/OfficerUI';
 import RowActions from '../../../components/officer/RowActions';
+import backlogRequirementText from '../../../utils/backlogRequirement';
 
 /**
  * Pieces shared by the three JobEligibleStudents presenters.
@@ -93,8 +94,8 @@ export function JobPicker({ jobs, selectedJob, onSelect, onDownloadJobPdf, colum
               <p className="text-spc-xs text-spc-body mt-0.5 break-words">{job.company_name}</p>
               <p className="text-xs text-spc-muted mt-2 tabular-nums">
                 {job.min_cgpa ? `Min CGPA ${job.min_cgpa}` : 'No CGPA bar'}
-                {job.max_backlogs !== null && job.max_backlogs !== undefined
-                  ? ` · Max backlogs ${job.max_backlogs}`
+                {backlogRequirementText(job)
+                  ? ` · ${backlogRequirementText(job)}`
                   : ''}
               </p>
               <p className="text-xs text-spc-muted mt-0.5 tabular-nums">
@@ -154,37 +155,62 @@ export function StatBlock({ stats, columns = 4 }) {
 
 /* ----------------------------------------------------------- drive & job */
 
-export function DrivePanel({ driveData, onSchedule, onNotifyAll, canManageDrive = true }) {
+export function DrivePanel({
+  driveData, driveSlots = [], onSchedule, onNotifyAll, canManageDrive = true,
+}) {
+  /*
+   * `driveData` is the earliest venue. A job may now be held at several, and an
+   * officer shown only the first would have no way to tell there are more —
+   * which is the one thing they need to know before telling students where to
+   * go. One venue renders exactly as it did.
+   */
+  const venues = driveSlots.length > 0 ? driveSlots : (driveData ? [driveData] : []);
+  const many = venues.length > 1;
   return (
     <Panel>
-      <PanelHeading>Drive schedule</PanelHeading>
+      <PanelHeading>
+        {many ? `Drive schedule · ${venues.length} venues` : 'Drive schedule'}
+      </PanelHeading>
       <div className="p-4 flex items-start justify-between gap-3 flex-wrap">
         <div className="min-w-0 flex-1">
-          {driveData ? (
-            <dl className="text-spc-xs text-spc-body space-y-1">
-              <div className="flex gap-2">
-                <dt className="font-bold text-spc-ink w-20 flex-shrink-0">Date</dt>
-                <dd className="tabular-nums">{formatDate(driveData.drive_date)}</dd>
-              </div>
-              <div className="flex gap-2">
-                <dt className="font-bold text-spc-ink w-20 flex-shrink-0">Time</dt>
-                <dd className="tabular-nums">{driveData.drive_time}</dd>
-              </div>
-              <div className="flex gap-2">
-                <dt className="font-bold text-spc-ink w-20 flex-shrink-0">Venue</dt>
-                {/* The column is drive_location. There is no `venue` anywhere in
-                    the schema, the API or the form — reading one printed an
-                    empty cell under a heading, which reads as "no venue set"
-                    rather than as a fault. */}
-                <dd className="break-words">{driveData.drive_location}</dd>
-              </div>
-              {driveData.additional_instructions && (
-                <div className="flex gap-2">
-                  <dt className="font-bold text-spc-ink w-20 flex-shrink-0">Notes</dt>
-                  <dd className="break-words">{driveData.additional_instructions}</dd>
-                </div>
-              )}
-            </dl>
+          {venues.length > 0 ? (
+            <div className="space-y-3">
+              {venues.map((venue, i) => (
+                <dl
+                  key={venue.id ?? `${venue.drive_date}-${venue.drive_location}`}
+                  className={`text-spc-xs text-spc-body space-y-1 ${
+                    i > 0 ? 'pt-3 border-t border-spc-line' : ''}`}
+                >
+                  {many && (
+                    <p className="text-spc-xs font-bold uppercase tracking-[0.1em] text-spc-muted">
+                      Venue {i + 1}
+                    </p>
+                  )}
+                  <div className="flex gap-2">
+                    <dt className="font-bold text-spc-ink w-20 flex-shrink-0">Date</dt>
+                    <dd className="tabular-nums">{formatDate(venue.drive_date)}</dd>
+                  </div>
+                  <div className="flex gap-2">
+                    <dt className="font-bold text-spc-ink w-20 flex-shrink-0">Time</dt>
+                    <dd className="tabular-nums">{venue.drive_time}</dd>
+                  </div>
+                  <div className="flex gap-2">
+                    <dt className="font-bold text-spc-ink w-20 flex-shrink-0">Venue</dt>
+                    {/* The column is drive_location. There is no `venue` anywhere in
+                        the schema, the API or the form — reading one printed an
+                        empty cell under a heading, which reads as "no venue set"
+                        rather than as a fault. */}
+                    <dd className="break-words">{venue.drive_location}</dd>
+                  </div>
+                  {venue.additional_instructions && (
+                    <div className="flex gap-2">
+                      <dt className="font-bold text-spc-ink w-20 flex-shrink-0">Notes</dt>
+                      <dd className="break-words">{venue.additional_instructions}</dd>
+                    </div>
+                  )}
+                </dl>
+              ))}
+            </div>
           ) : (
             <p className="text-spc-xs text-spc-muted">No drive scheduled yet.</p>
           )}
@@ -256,8 +282,8 @@ export function JobSummary({
           <p className="text-spc-sm text-spc-body mt-0.5 break-words">{job.company_name}</p>
           <p className="text-xs text-spc-muted mt-2 tabular-nums">
             {job.min_cgpa ? `Min CGPA ${job.min_cgpa}` : 'No CGPA bar'}
-            {job.max_backlogs !== null && job.max_backlogs !== undefined
-              ? ` · Max backlogs ${job.max_backlogs}`
+            {backlogRequirementText(job)
+              ? ` · ${backlogRequirementText(job)}`
               : ''}
             {job.allowed_branches?.length ? ` · ${job.allowed_branches.length} branch(es)` : ''}
           </p>

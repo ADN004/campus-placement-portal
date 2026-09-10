@@ -1,4 +1,5 @@
 import jsPDF from 'jspdf';
+import backlogRequirementText from './backlogRequirement';
 
 // ─── Color Palette (unchanged) ─────────────────────────────────────────────
 const NAVY       = [27, 42, 74];
@@ -203,12 +204,12 @@ export function generateJobDetailsPDF(job) {
 
   const eligF = [];
   if (job.min_cgpa) eligF.push({ label: 'Minimum CGPA', value: String(job.min_cgpa) });
-  if (job.max_backlogs !== null && job.max_backlogs !== undefined) {
-    let t;
-    if (job.max_backlogs === 0) t = 'No Backlogs Allowed';
-    else if (job.backlog_max_semester) t = `Max ${job.max_backlogs} (within Sem 1-${job.backlog_max_semester})`;
-    else t = `Max ${job.max_backlogs}`;
-    eligF.push({ label: 'Backlog Criteria', value: t });
+  // The same sentence the screens use. This printed "No Backlogs Allowed" for a
+  // job asking for no backlog *history*, which stores zero as well — a sheet
+  // handed to a student understating the very rule that would exclude them.
+  const backlogText = backlogRequirementText(job);
+  if (backlogText) {
+    eligF.push({ label: 'Backlog Criteria', value: backlogText });
   }
   if (job.dob_on_or_before) {
     const d = String(job.dob_on_or_before).slice(0, 10).split('-');

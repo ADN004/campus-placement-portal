@@ -973,6 +973,7 @@ export default function JobApplicants() {
     canManageDrive: isHost,
     placementStats: placementStatCards,
     driveData,
+    driveSlots,
     onScheduleDrive: () => setShowDriveModal(true),
     onNotifyDrive: () => handleNotifyStudents('drive_scheduled'),
     onEditJob: handleOpenEditJob,

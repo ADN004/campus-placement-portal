@@ -679,6 +679,7 @@ export default function SuperAdminJobApplicants() {
         colleges={colleges}
         placementStats={placementStats}
         driveData={driveData}
+        driveSlots={driveSlots}
         loadingStudents={loadingStudents}
         exporting={exporting}
         selectedStudents={selectedStudents}

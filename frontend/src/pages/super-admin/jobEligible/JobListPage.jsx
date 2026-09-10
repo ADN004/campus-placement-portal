@@ -4,6 +4,7 @@ import {
 } from '../../../components/admin/AdminUI';
 import Pagination from '../../../components/officer/Pagination';
 import usePagedList from '../../../hooks/usePagedList';
+import backlogRequirementText from '../../../utils/backlogRequirement';
 
 /**
  * The drives to choose from — everything at
@@ -98,8 +99,8 @@ export default function JobListPage({ layout, jobs, searchQuery, onSearchChange,
 
                 <span className="block text-spc-xs text-spc-body mt-2 tabular-nums">
                   {job.min_cgpa ? `Min CGPA ${job.min_cgpa}` : 'No CGPA bar'}
-                  {job.max_backlogs !== null && job.max_backlogs !== undefined
-                    ? ` · Max backlogs ${job.max_backlogs}`
+                  {backlogRequirementText(job)
+                    ? ` · ${backlogRequirementText(job)}`
                     : ''}
                 </span>
                 <span className="block text-spc-xs text-spc-body mt-0.5 tabular-nums">

@@ -1,6 +1,7 @@
 import { CheckCircle, Clock, XCircle, Award, X, Calendar } from 'lucide-react';
 import Modal from '../../../components/Modal';
 import { formatPackage } from '../../../components/student/StudentUI';
+import backlogRequirementText from '../../../utils/backlogRequirement';
 
 /**
  * Pieces shared by the three StudentApplications presenters.
@@ -343,11 +344,7 @@ export function ApplicationDetailsModal({ application, onClose }) {
                   <div className="rounded-spc bg-spc-surface border border-spc-line p-4">
                     <p className="text-spc-label font-bold uppercase text-spc-muted">Backlogs</p>
                     <p className="text-spc-h2 font-bold text-spc-ink mt-1">
-                      {application.max_backlogs === 0
-                        ? 'None allowed'
-                        : application.backlog_max_semester
-                        ? `Max ${application.max_backlogs} within Sem 1–${application.backlog_max_semester}`
-                        : `Max ${application.max_backlogs}`}
+                      {backlogRequirementText(application, 'No bar')}
                     </p>
                   </div>
                 )}

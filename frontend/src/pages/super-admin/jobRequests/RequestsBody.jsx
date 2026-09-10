@@ -3,6 +3,7 @@ import {
   Panel, PanelHeading, PageHeading, SectionLabel, EmptyState,
   PrimaryButton, DangerButton, formatDate,
 } from '../../../components/admin/AdminUI';
+import backlogRequirementText from '../../../utils/backlogRequirement';
 
 /**
  * Job requests waiting on a decision, at every width.
@@ -92,9 +93,8 @@ function RequestCard({ layout, request, onApprove, onReject }) {
             value={request.min_cgpa ? String(request.min_cgpa) : 'No bar'}
           />
           <Criterion
-            label="Max backlogs"
-            value={request.max_backlogs !== null && request.max_backlogs !== undefined
-              ? String(request.max_backlogs) : 'No bar'}
+            label="Backlogs"
+            value={backlogRequirementText(request, 'No bar')}
           />
           <Criterion label="Closes" value={formatDate(request.application_deadline)} />
         </div>

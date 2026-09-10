@@ -8,6 +8,7 @@ import {
   PrimaryButton, SecondaryButton, DangerButton,
 } from '../../../components/admin/AdminUI';
 import { JobStanding, formatMoment, targetDisplay, packageOf } from './jobsShared';
+import backlogRequirementText from '../../../utils/backlogRequirement';
 
 /* ---------------------------------------------------------------- details */
 
@@ -39,13 +40,7 @@ function asList(field) {
 
 /** How the backlog rule reads, given the two columns that express it. */
 function backlogRule(job) {
-  if (job.max_backlogs === null || job.max_backlogs === undefined) return 'No bar';
-  if (Number(job.max_backlogs) === 0) return 'None allowed';
-  const semesters = asList(job.allowed_backlog_semesters);
-  if (semesters.length > 0) {
-    return `Up to ${job.max_backlogs}, in semester${semesters.length === 1 ? '' : 's'} ${semesters.join(', ')}`;
-  }
-  return `Up to ${job.max_backlogs}`;
+  return backlogRequirementText(job, 'No bar');
 }
 
 /**

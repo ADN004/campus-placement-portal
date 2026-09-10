@@ -63,7 +63,15 @@ export function PlacementStats({ layout, stats }) {
 /* ------------------------------------------------------------- the drive */
 
 /** When and where, or an invitation to set it. */
-export function DrivePanel({ drive, onSchedule, onNotifyAll, disabled }) {
+export function DrivePanel({ drive, driveSlots = [], onSchedule, onNotifyAll, disabled }) {
+  /*
+   * `drive` is the earliest venue. A job may now be held at several, and a
+   * Console shown only the first would have no way to tell there are more —
+   * which is the one thing to know before announcing it. One venue renders
+   * exactly as it did.
+   */
+  const venues = driveSlots.length > 0 ? driveSlots : (drive ? [drive] : []);
+  const many = venues.length > 1;
   return (
     <Panel className="mb-5">
       <PanelHeading
@@ -82,30 +90,43 @@ export function DrivePanel({ drive, onSchedule, onNotifyAll, disabled }) {
           </div>
         )}
       >
-        Drive schedule
+        {many ? `Drive schedule · ${venues.length} venues` : 'Drive schedule'}
       </PanelHeading>
       <div className="p-4">
-        {drive ? (
-          <dl className="text-spc-xs text-spc-body space-y-1">
-            <div className="flex gap-2">
-              <dt className="font-bold text-spc-ink w-20 flex-shrink-0">Date</dt>
-              <dd className="tabular-nums">{formatDate(drive.drive_date)}</dd>
-            </div>
-            <div className="flex gap-2">
-              <dt className="font-bold text-spc-ink w-20 flex-shrink-0">Time</dt>
-              <dd className="tabular-nums">{drive.drive_time}</dd>
-            </div>
-            <div className="flex gap-2">
-              <dt className="font-bold text-spc-ink w-20 flex-shrink-0">Venue</dt>
-              <dd className="break-words">{drive.drive_location}</dd>
-            </div>
-            {drive.additional_instructions && (
-              <div className="flex gap-2">
-                <dt className="font-bold text-spc-ink w-20 flex-shrink-0">Notes</dt>
-                <dd className="break-words">{drive.additional_instructions}</dd>
-              </div>
-            )}
-          </dl>
+        {venues.length > 0 ? (
+          <div className="space-y-3">
+            {venues.map((venue, i) => (
+              <dl
+                key={venue.id ?? `${venue.drive_date}-${venue.drive_location}`}
+                className={`text-spc-xs text-spc-body space-y-1 ${
+                  i > 0 ? 'pt-3 border-t border-spc-line' : ''}`}
+              >
+                {many && (
+                  <p className="text-spc-xs font-bold uppercase tracking-[0.1em] text-spc-body">
+                    Venue {i + 1}
+                  </p>
+                )}
+                <div className="flex gap-2">
+                  <dt className="font-bold text-spc-ink w-20 flex-shrink-0">Date</dt>
+                  <dd className="tabular-nums">{formatDate(venue.drive_date)}</dd>
+                </div>
+                <div className="flex gap-2">
+                  <dt className="font-bold text-spc-ink w-20 flex-shrink-0">Time</dt>
+                  <dd className="tabular-nums">{venue.drive_time}</dd>
+                </div>
+                <div className="flex gap-2">
+                  <dt className="font-bold text-spc-ink w-20 flex-shrink-0">Venue</dt>
+                  <dd className="break-words">{venue.drive_location}</dd>
+                </div>
+                {venue.additional_instructions && (
+                  <div className="flex gap-2">
+                    <dt className="font-bold text-spc-ink w-20 flex-shrink-0">Notes</dt>
+                    <dd className="break-words">{venue.additional_instructions}</dd>
+                  </div>
+                )}
+              </dl>
+            ))}
+          </div>
         ) : (
           <p className="text-spc-xs text-spc-body">
             No drive scheduled yet. Students see the date, time and place once one is set.

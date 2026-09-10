@@ -62,13 +62,66 @@ export const driveForStudent = (row) => {
   };
 };
 
-/** The sentence both notify paths send. */
-export const driveMessage = (jobTitle, companyName, row) => {
-  const drive = driveForStudent(row);
-  if (!drive) return null;
-  const extra = drive.instructions ? ` ${drive.instructions}` : '';
-  return `Placement drive for ${jobTitle} at ${companyName} is on ${drive.date} at `
-    + `${drive.time}. Venue: ${drive.location}.${extra}`;
+/**
+ * The most venues one job may be run at.
+ *
+ * Five, because there are five regions and a drive that the whole state applies
+ * to is held region by region. It is a real cap, not a guideline: the composer
+ * stops offering Add at five and both write paths refuse a sixth, so the two
+ * cannot disagree about it.
+ */
+export const MAX_DRIVE_SLOTS = 5;
+
+/**
+ * One row or a job's whole list, as a list of usable slots.
+ *
+ * Callers hold either shape — a single row where a drive was fetched with the
+ * job, an array where the slots were fetched deliberately — and normalising
+ * here means neither has to know which the other passed.
+ */
+const asDriveRows = (value) =>
+  (Array.isArray(value) ? value : [value]).filter(hasDrive);
+
+/** A job's slots as the student should receive them, earliest first. */
+export const drivesForStudent = (rows) => asDriveRows(rows).map(driveForStudent);
+
+/**
+ * The sentence both notify paths send.
+ *
+ * One venue reads exactly as it always has — the overwhelming majority of
+ * drives, and no reason to reword them. Several are listed numbered, and the
+ * message says to attend the one you were told to: which student goes where is
+ * settled off the portal, so a message that implied the portal knew would be
+ * lying to them.
+ *
+ * Instructions shared by every slot are printed once at the end rather than
+ * repeated five times; where they differ, each slot carries its own.
+ */
+export const driveMessage = (jobTitle, companyName, rows) => {
+  const drives = drivesForStudent(rows);
+  if (drives.length === 0) return null;
+
+  if (drives.length === 1) {
+    const [drive] = drives;
+    const extra = drive.instructions ? ` ${drive.instructions}` : '';
+    return `Placement drive for ${jobTitle} at ${companyName} is on ${drive.date} at `
+      + `${drive.time}. Venue: ${drive.location}.${extra}`;
+  }
+
+  const shared = drives.every((d) => d.instructions === drives[0].instructions)
+    ? drives[0].instructions
+    : null;
+
+  const list = drives
+    .map((d, i) => {
+      const own = !shared && d.instructions ? ` ${d.instructions}` : '';
+      return `${i + 1}. ${d.date} at ${d.time} — ${d.location}.${own}`;
+    })
+    .join('\n');
+
+  return `Placement drive for ${jobTitle} at ${companyName} is being held at `
+    + `${drives.length} venues. Please attend the one you have been told to:\n\n${list}`
+    + `${shared ? `\n\n${shared}` : ''}`;
 };
 
 /* ------------------------------------------------------------- calendar */
@@ -82,19 +135,13 @@ const icsEscape = (text) =>
     .replace(/\r?\n/g, '\\n');
 
 /**
- * The drive as a calendar invitation, or null when none is scheduled.
+ * One slot as a calendar event, or null when the row is not a usable drive.
  *
- * A drive is an appointment, and the one thing a student has to be somewhere
- * for. An email they have to remember to re-read is a worse reminder than an
- * entry that puts itself in their calendar with an alarm the evening before.
- *
- * Times are written as local wall-clock with a TZID rather than converted to
- * UTC. The officer typed 2:30 pm meaning half past two in Kerala; converting
- * would make it depend on where the server thinks it is, and a drive an hour
- * out is worse than no calendar entry at all. Two hours is assumed for the
- * length, since job_drives records a start and no end.
+ * The UID is built from the slot's own id, so a job with five venues produces
+ * five distinct entries and re-sending an updated drive replaces each one in
+ * place rather than adding a second beside it.
  */
-export const driveCalendarInvite = (jobTitle, companyName, row) => {
+const driveVevent = (jobTitle, companyName, row) => {
   if (!hasDrive(row)) return null;
 
   const d = row.drive_date instanceof Date ? row.drive_date : new Date(row.drive_date);
@@ -108,19 +155,12 @@ export const driveCalendarInvite = (jobTitle, companyName, row) => {
   const start = `${day}T${pad(startH)}${time[2]}00`;
   const end = `${day}T${pad((startH + 2) % 24)}${time[2]}00`;
 
-  // A stable identifier, so re-sending an updated drive replaces the entry in
-  // the student's calendar instead of adding a second one beside it.
   const uid = `drive-${row.id || `${day}-${companyName}`}@spc.gptcpalakkad.ac.in`
     .replace(/\s+/g, '-');
 
   const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
 
-  const lines = [
-    'BEGIN:VCALENDAR',
-    'VERSION:2.0',
-    'PRODID:-//State Placement Cell//Kerala Polytechnics//EN',
-    'CALSCALE:GREGORIAN',
-    'METHOD:PUBLISH',
+  return [
     'BEGIN:VEVENT',
     `UID:${uid}`,
     `DTSTAMP:${stamp}`,
@@ -137,6 +177,30 @@ export const driveCalendarInvite = (jobTitle, companyName, row) => {
     'DESCRIPTION:Placement drive tomorrow',
     'END:VALARM',
     'END:VEVENT',
+  ];
+};
+
+/**
+ * The drive as a calendar invitation, or null when none is scheduled.
+ *
+ * Takes one row or a job's whole list. A job run in several places becomes
+ * several events in one file: which venue a student attends is settled off the
+ * portal, so the honest thing is to hand them all of them and let them delete
+ * the ones that are not theirs — rather than guess, or send nothing.
+ */
+export const driveCalendarInvite = (jobTitle, companyName, rows) => {
+  const events = asDriveRows(rows)
+    .map((row) => driveVevent(jobTitle, companyName, row))
+    .filter(Boolean);
+  if (events.length === 0) return null;
+
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//State Placement Cell//Kerala Polytechnics//EN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    ...events.flat(),
     'END:VCALENDAR',
   ];
 

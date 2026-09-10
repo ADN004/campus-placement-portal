@@ -504,19 +504,30 @@ CREATE INDEX idx_jobs_auto_approved ON jobs(is_auto_approved);
 -- ============================================
 -- 12. JOB DRIVES TABLE
 -- ============================================
+-- A job may be run in several places: five regions, five venues. There is no
+-- UNIQUE on job_id -- each row is one slot, and a job's slots are read as a
+-- list in chronological order. See migration 018.
 CREATE TABLE job_drives (
     id SERIAL PRIMARY KEY,
-    job_id INTEGER NOT NULL UNIQUE REFERENCES jobs(id) ON DELETE CASCADE,
+    job_id INTEGER NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
     drive_date DATE NOT NULL,
     drive_time TIME NOT NULL,
     drive_location VARCHAR(500) NOT NULL,
+    -- Slots share one set of instructions unless one is overridden. The shared
+    -- text is copied onto every slot that uses it, so this stays a per-row
+    -- column that every reader can use without knowing about the sharing.
     additional_instructions TEXT,
+    has_custom_instructions BOOLEAN NOT NULL DEFAULT FALSE,
+    -- When students were last told about this job's drive, stamped on every
+    -- slot: a drive is notified as one event, however many venues it has.
+    notified_at TIMESTAMP,
     created_by INTEGER NOT NULL REFERENCES users(id),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_job_drives_job ON job_drives(job_id);
+CREATE INDEX idx_job_drives_job_when ON job_drives (job_id, drive_date, drive_time, id);
 
 -- ============================================
 -- 13. DELETED JOBS HISTORY TABLE

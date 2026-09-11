@@ -1472,18 +1472,21 @@ export const saveCustomAnswers = async (req, res) => {
 };
 
 /**
- * The four academic fields a gated job needs from its male applicants.
- * All live on student_extended_profiles; a student who already filled them
- * is never gated, and one who filled some sees them pre-filled.
+ * The academic fields a gated job needs from its male applicants. Only the
+ * 10th (SSLC) pair is mandatory — some students came up through a diploma and
+ * never sat 12th, so the twelfth_* fields are collected when present but never
+ * gate anyone. All live on student_extended_profiles; a student who already
+ * filled the required ones is never gated, and one who filled some sees them
+ * pre-filled.
  */
-const ACADEMIC_GATE_FIELDS = ['sslc_board', 'sslc_year', 'twelfth_board', 'twelfth_year'];
+const ACADEMIC_GATE_FIELDS = ['sslc_board', 'sslc_year'];
 
 /**
  * @route   GET /api/students/jobs/academic-gate-status
- * @desc    Whether this student must fill 10th/12th board + year before
- *          using the portal, because they are a male applicant of a job
- *          named in ACADEMIC_GATE_JOBS and their profile is missing any of
- *          those four fields.
+ * @desc    Whether this student must fill their 10th board + passing year
+ *          before using the portal, because they are a male applicant of a
+ *          job named in ACADEMIC_GATE_JOBS and their profile is missing
+ *          either of those two fields. 12th details are never gating.
  * @access  Private (Student)
  *
  * Fails open, like the custom-answers gate: with ACADEMIC_GATE_JOBS unset —

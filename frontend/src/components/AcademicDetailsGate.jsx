@@ -7,14 +7,16 @@ import PromptShell from './student/PromptShell';
 
 /**
  * Blocking gate for male applicants of a job named in ACADEMIC_GATE_JOBS who
- * have not yet given their 10th and 12th board + passing year.
+ * have not yet given their 10th board + passing year.
  *
- * The data lives on the student's extended profile (sslc_board, sslc_year,
- * twelfth_board, twelfth_year). A student who already filled all four is never
- * gated; one who filled some sees them pre-filled. The form is here rather
- * than behind a redirect because the fields belong to the profile but the
- * requirement belongs to the job — and the student must not lose the portal
- * over it.
+ * The data lives on the student's extended profile (sslc_board, sslc_year).
+ * A student who already filled both is never gated; one who filled some sees
+ * them pre-filled. 12th board and year are collected in the same form but are
+ * optional — some students came through a diploma and never sat 12th.
+ *
+ * The form is here rather than behind a redirect because the fields belong to
+ * the profile but the requirement belongs to the job — and the student must
+ * not lose the portal over it.
  *
  * The server decides who is gated, and the wall is opt-in per job via the
  * ACADEMIC_GATE_JOBS env var. With that unset — the default — this renders
@@ -80,13 +82,15 @@ export default function AcademicDetailsGate() {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const missing = ['sslc_board', 'sslc_year', 'twelfth_board', 'twelfth_year'].filter(
+  // Only 10th board and year are required — some students (e.g. diploma holders)
+  // never sat 12th, so the twelfth_* fields are optional.
+  const missing = ['sslc_board', 'sslc_year'].filter(
     (field) => String(form[field] ?? '').trim() === ''
   );
 
   const handleSubmit = async () => {
     if (missing.length > 0) {
-      toast.error('Please fill all four fields to continue');
+      toast.error('Please fill both 10th board and passing year to continue');
       return;
     }
     setSaving(true);
@@ -123,8 +127,9 @@ export default function AcademicDetailsGate() {
     >
       <p className="text-spc-sm text-spc-body leading-relaxed mb-4">
         You applied to <span className="font-bold text-spc-ink">{gate.job_title}</span>, and the
-        company needs your 10th and 12th board and passing year to consider your application. The
-        rest of the portal stays closed until they are provided.
+        company needs your 10th board and passing year to consider your application. The rest of
+        the portal stays closed until they are provided. 12th details are optional &mdash; fill
+        them in if you have them.
       </p>
 
       <div className="rounded-spc bg-spc-surface-2 p-5 mb-4">
@@ -165,10 +170,11 @@ export default function AcademicDetailsGate() {
 
       <div className="rounded-spc bg-spc-surface-2 p-5">
         <h3 className="text-spc-h2 font-bold text-spc-ink mb-4">12th Details</h3>
+        <p className="text-spc-xs text-spc-muted mb-4">Optional &mdash; skip if you did not complete 12th</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label htmlFor="twelfth_board" className="block text-spc-label font-bold uppercase text-spc-muted mb-1.5">
-              12th Board <span className="text-spc-bad ml-1">*</span>
+              12th Board <span className="text-spc-muted ml-1 font-normal normal-case">(optional)</span>
             </label>
             <input
               id="twelfth_board"
@@ -182,7 +188,7 @@ export default function AcademicDetailsGate() {
           </div>
           <div>
             <label htmlFor="twelfth_year" className="block text-spc-label font-bold uppercase text-spc-muted mb-1.5">
-              12th Passing Year <span className="text-spc-bad ml-1">*</span>
+              12th Passing Year <span className="text-spc-muted ml-1 font-normal normal-case">(optional)</span>
             </label>
             <input
               id="twelfth_year"

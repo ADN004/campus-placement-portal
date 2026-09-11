@@ -813,6 +813,7 @@ export const exportJobApplicants = async (req, res) => {
               ja.applied_date,
               j.job_title, j.company_name,
               ep.height_cm, ep.weight_kg, ep.sslc_marks, ep.twelfth_marks,
+              ep.sslc_board, ep.sslc_year, ep.twelfth_board, ep.twelfth_year,
               jae.custom_field_responses
        FROM students s
        JOIN job_applications ja ON s.id = ja.student_id

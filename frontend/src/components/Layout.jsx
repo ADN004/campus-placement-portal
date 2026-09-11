@@ -2,6 +2,7 @@ import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import CorrectionGate from './CorrectionGate';
 import CustomAnswersGate from './CustomAnswersGate';
+import AcademicDetailsGate from './AcademicDetailsGate';
 import { placementOfficerAPI } from '../services/api';
 import StudentApprovalGate from './StudentApprovalGate';
 import {
@@ -313,6 +314,11 @@ export default function Layout() {
           which is the default. Same pending exclusion as the correction gate:
           a student awaiting approval has no application to owe answers on. */}
       {isStudent && !isPendingStudent && <CustomAnswersGate />}
+      {/* Blocks male applicants of a job named in ACADEMIC_GATE_JOBS who have
+          not given their 10th/12th board and year. Renders nothing while that
+          is unset, which is the default. Same pending exclusion as the other
+          gates: a student awaiting approval has no application to gate on. */}
+      {isStudent && !isPendingStudent && <AcademicDetailsGate />}
       {/* Sends students still awaiting approval to the waiting page */}
       {isStudent && (
         <StudentApprovalGate

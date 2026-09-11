@@ -100,6 +100,9 @@ export const studentAPI = {
   // Answers a student still owes on an application already submitted.
   getPendingCustomAnswers: () => API.get('/students/jobs/pending-custom-answers'),
   saveCustomAnswers: (jobId, answers) => API.put(`/students/jobs/${jobId}/custom-answers`, { answers }),
+  // Whether this student is a male applicant of a gated job and must fill
+  // 10th/12th board + year details before using the portal.
+  getAcademicGateStatus: () => API.get('/students/jobs/academic-gate-status'),
 
   // Resume APIs
   getResume: () => API.get('/students/resume'),

@@ -100,6 +100,9 @@ services:
       # Comma-separated job ids whose unanswered custom questions lock a student
       # out of the portal until they answer. Empty (the default) blocks nobody.
       BLOCKING_CUSTOM_ANSWER_JOBS: ${BLOCKING_CUSTOM_ANSWER_JOBS:-}
+      # Comma-separated job ids whose male applicants must fill 10th/12th board
+      # and passing year before using the portal. Empty (the default) blocks nobody.
+      ACADEMIC_GATE_JOBS: ${ACADEMIC_GATE_JOBS:-}
     ports:
       - "${BACKEND_PORT:-5000}:5000"
     volumes:

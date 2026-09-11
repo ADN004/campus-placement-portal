@@ -1471,10 +1471,99 @@ export const saveCustomAnswers = async (req, res) => {
   }
 };
 
+/**
+ * The four academic fields a gated job needs from its male applicants.
+ * All live on student_extended_profiles; a student who already filled them
+ * is never gated, and one who filled some sees them pre-filled.
+ */
+const ACADEMIC_GATE_FIELDS = ['sslc_board', 'sslc_year', 'twelfth_board', 'twelfth_year'];
+
+/**
+ * @route   GET /api/students/jobs/academic-gate-status
+ * @desc    Whether this student must fill 10th/12th board + year before
+ *          using the portal, because they are a male applicant of a job
+ *          named in ACADEMIC_GATE_JOBS and their profile is missing any of
+ *          those four fields.
+ * @access  Private (Student)
+ *
+ * Fails open, like the custom-answers gate: with ACADEMIC_GATE_JOBS unset —
+ * the default — nobody is ever gated, and an unreadable status blocks nobody.
+ */
+export const getAcademicGateStatus = async (req, res) => {
+  try {
+    const gatedJobIds = String(process.env.ACADEMIC_GATE_JOBS || '')
+      .split(',')
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .map(Number)
+      .filter((id) => Number.isInteger(id));
+
+    if (gatedJobIds.length === 0) {
+      return res.json({ success: true, data: { gate_active: false } });
+    }
+
+    const studentResult = await query('SELECT id FROM students WHERE user_id = $1', [req.user.id]);
+    if (studentResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Student profile not found' });
+    }
+    const studentId = studentResult.rows[0].id;
+
+    const result = await query(
+      `SELECT j.id AS job_id, j.job_title, j.company_name,
+              ep.sslc_board, ep.sslc_year, ep.twelfth_board, ep.twelfth_year
+       FROM job_applications ja
+       JOIN students s ON s.id = ja.student_id
+       JOIN jobs j ON j.id = ja.job_id
+       LEFT JOIN student_extended_profiles ep ON ep.student_id = s.id
+       WHERE s.id = $1
+         AND LOWER(s.gender) = 'male'
+         AND j.id = ANY($2::int[])
+       ORDER BY ja.applied_date DESC
+       LIMIT 1`,
+      [studentId, gatedJobIds]
+    );
+
+    if (result.rows.length === 0) {
+      return res.json({ success: true, data: { gate_active: false } });
+    }
+
+    const row = result.rows[0];
+    const missing = ACADEMIC_GATE_FIELDS.filter((field) => {
+      const value = row[field];
+      return value === null || value === undefined || String(value).trim() === '';
+    });
+
+    if (missing.length === 0) {
+      return res.json({ success: true, data: { gate_active: false } });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        gate_active: true,
+        job_id: row.job_id,
+        job_title: row.job_title,
+        company_name: row.company_name,
+        missing_fields: missing,
+        prefill: {
+          sslc_board: row.sslc_board ?? '',
+          sslc_year: row.sslc_year ?? '',
+          twelfth_board: row.twelfth_board ?? '',
+          twelfth_year: row.twelfth_year ?? '',
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Error checking academic gate status:', error);
+    res.json({ success: true, data: { gate_active: false } });
+  }
+};
+
 export default {
   checkApplicationReadiness,
   submitEnhancedApplication,
   getMissingFields,
   getPendingCustomAnswers,
-  saveCustomAnswers
+  saveCustomAnswers,
+  getAcademicGateStatus
 };

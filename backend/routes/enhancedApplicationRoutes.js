@@ -11,7 +11,8 @@ import {
   submitEnhancedApplication,
   getMissingFields,
   getPendingCustomAnswers,
-  saveCustomAnswers
+  saveCustomAnswers,
+  getAcademicGateStatus
 } from '../controllers/enhancedApplicationController.js';
 
 const router = express.Router();
@@ -35,6 +36,13 @@ router.use(checkStudentApproval);
  * "pending-custom-answers".
  */
 router.get('/pending-custom-answers', getPendingCustomAnswers);
+
+/*
+ * Declared before the ':jobId' routes for the same reason as
+ * pending-custom-answers: a single-segment literal must never be read as a
+ * job id.
+ */
+router.get('/academic-gate-status', getAcademicGateStatus);
 
 router.post('/:jobId/check-readiness', checkApplicationReadiness);
 

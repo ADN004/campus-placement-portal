@@ -2332,9 +2332,8 @@ export const createJobRequest = async (req, res) => {
         'specific',
         target_regions && target_regions.length > 0 ? JSON.stringify(target_regions) : null,
         finalTargetColleges.length > 0 ? JSON.stringify(finalTargetColleges) : null,
-        'pending',
-        // Coerced rather than passed through: the column is a boolean, and an
         requires_no_backlog_history === true,
+        'pending',
         // absent field on an older client must mean "no" rather than NULL.
         notify_by_email === true || notify_by_email === 'true',
       ]

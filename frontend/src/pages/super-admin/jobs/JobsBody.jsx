@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import {
-  Plus, Eye, Edit, ToggleLeft, ToggleRight, Users, Trash2, Check, X, Search,
+  Plus, Eye, Edit, ToggleLeft, ToggleRight, Users, Trash2, Check, X, Search, Download,
 } from 'lucide-react';
 import {
   Panel, PageHeading, SectionLabel, EmptyState, FIELD_CLASS,
@@ -45,7 +45,7 @@ function TabTile({ label, value, active, onClick }) {
 const ICON_BUTTON = 'inline-flex items-center justify-center w-11 h-11 rounded-spc-admin-sm '
   + 'text-spc-body hover:bg-spc-surface-2 hover:text-spc-ink transition-colors';
 
-function JobActions({ job, onView, onEdit, onToggleStatus, onExport, onDelete }) {
+function JobActions({ job, onView, onEdit, onToggleStatus, onDownloadPdf, onExport, onDelete }) {
   return (
     <span className="flex items-center gap-0.5 justify-end">
       <button type="button" onClick={() => onView(job)} className={ICON_BUTTON}
@@ -63,6 +63,10 @@ function JobActions({ job, onView, onEdit, onToggleStatus, onExport, onDelete })
         {job.is_active
           ? <ToggleRight size={16} aria-hidden="true" />
           : <ToggleLeft size={16} aria-hidden="true" />}
+      </button>
+      <button type="button" onClick={() => onDownloadPdf(job)} className={ICON_BUTTON}
+        aria-label={`Download job summary PDF for ${job.title}`} title="Download job summary">
+        <Download size={16} aria-hidden="true" />
       </button>
       <button type="button" onClick={() => onExport(job)} className={ICON_BUTTON}
         aria-label={`Export applicants for ${job.title}`} title="Export applicants">

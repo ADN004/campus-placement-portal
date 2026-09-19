@@ -288,6 +288,20 @@ export default function ManageJobs() {
     setShowExportModal(true);
   };
 
+  const handleDownloadPdf = async (job) => {
+    try {
+      const { generateJobDetailsPDF } = await import('../../utils/jobDetailsPdf');
+      generateJobDetailsPDF({
+        ...job,
+        title: job.title,
+        description: job.description,
+      });
+    } catch (error) {
+      console.error('PDF generation error:', error);
+      toast.error('Failed to generate PDF');
+    }
+  };
+
   if (showSkeleton) return <JobsSkeleton layout={deviceType} />;
 
   return (
@@ -308,6 +322,7 @@ export default function ManageJobs() {
           onView: handleViewDetails,
           onEdit: handleEditJob,
           onToggleStatus: handleToggleStatus,
+          onDownloadPdf: handleDownloadPdf,
           onExport: openExport,
           onDelete: handleOpenDeleteModal,
         }}

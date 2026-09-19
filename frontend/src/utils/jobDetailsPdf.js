@@ -68,6 +68,14 @@ export function generateJobDetailsPDF(job) {
     return new Date(d).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' });
   };
 
+  const fmtDateTime = (d) => {
+    if (!d) return 'N/A';
+    const dt = new Date(d);
+    const date = dt.toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' });
+    const time = dt.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
+    return `${date} at ${time}`;
+  };
+
   const parseBranches = (b) => {
     if (!b) return [];
     if (Array.isArray(b)) return b;
@@ -281,7 +289,7 @@ export function generateJobDetailsPDF(job) {
 
   const appF = [];
   if (job.application_start_date) appF.push({ label: 'Start Date', value: fmtDate(job.application_start_date) });
-  if (job.application_deadline) appF.push({ label: 'Deadline', value: fmtDate(job.application_deadline) });
+  if (job.application_deadline) appF.push({ label: 'Deadline', value: fmtDateTime(job.application_deadline) });
   if (appF.length > 0) infoCard(appF);
 
   if (job.application_form_url) {

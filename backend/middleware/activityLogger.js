@@ -9,6 +9,20 @@ const isExpressReq = (x) =>
   typeof x.get === 'function' &&
   ('headers' in x || 'method' in x || 'ip' in x);
 
+/*
+ * An entity id, or null.
+ *
+ * The absent cases are tested for before the numeric conversion, because
+ * Number(null) and Number('') are both 0 and Number.isInteger(0) is true — so
+ * a missing id would be stored as a row pointing at entity 0, which exists
+ * nowhere and reads like a real reference.
+ */
+const asEntityId = (value) => {
+  if (value === null || value === undefined || value === '') return null;
+  const n = Number(value);
+  return Number.isInteger(n) ? n : null;
+};
+
 // Log activity to database.
 //
 // Documented signature:
@@ -47,6 +61,35 @@ export const logActivity = async (
       metadata = arg6 ?? arg7 ?? null;
     }
 
+    /*
+     * A second historical miscall: some sites omit actionDescription entirely,
+     * so every argument after it arrives one position to the left.
+     *
+     *   logActivity(user, 'UPDATE', 'job_applications', 42, { ... })
+     *
+     * reads as actionDescription='job_applications', entityType=42,
+     * entityId={...} — and entity_id is an integer column, so Postgres rejects
+     * the whole insert with "invalid input syntax for type integer". The catch
+     * below swallows it, so the action itself succeeds and the audit trail
+     * silently loses the row. That is the worst shape for this particular bug:
+     * nobody notices until they go looking for a record that was never written.
+     *
+     * Detected by entityId holding an object where an id belongs, and repaired
+     * by shifting the arguments back. Same principle as the sort above, and for
+     * the same reason: healing it here fixes every existing call site at once
+     * rather than depending on nine of them being found and edited correctly.
+     */
+    if (entityId !== null && typeof entityId === 'object' && !isExpressReq(entityId)) {
+      if (metadata === null || metadata === undefined) metadata = entityId;
+      entityId = asEntityId(entityType);
+      entityType = typeof actionDescription === 'string' ? actionDescription : null;
+      // action_description is NOT NULL, so it always ends up with something:
+      // the metadata's own `action` where there is one, else the action type.
+      actionDescription = (metadata && typeof metadata.action === 'string')
+        ? metadata.action
+        : actionType;
+    }
+
     // Extract only non-circular data from req object
     const ipAddress = req ? (req.ip || req.connection?.remoteAddress || null) : null;
     const userAgent = req ? req.get?.('user-agent') || null : null;
@@ -72,9 +115,13 @@ export const logActivity = async (
       [
         userId,
         actionType,
-        actionDescription,
+        // NOT NULL in the table, so never let a missing one fail the insert.
+        actionDescription ?? actionType,
         entityType,
-        entityId,
+        // Anything that is not a whole number is not an id. Stored as NULL
+        // rather than rejected, so a bad argument costs a column and not the
+        // entire audit row.
+        asEntityId(entityId),
         metadataString,
         ipAddress,
         userAgent,

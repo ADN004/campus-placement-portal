@@ -7,6 +7,11 @@ import {
   chooseFields, chooseCustomFields, excelColumns, excelRow, fieldsFromQuery, columnLetter,
 } from '../utils/exportFields.js';
 import { attachmentName } from '../utils/downloadName.js';
+import { applicantFilterClauses, filtersFromRequest } from '../utils/applicantFilters.js';
+import {
+  ACCEPTED_STATUS_INPUTS, normalizeStatus, newBatchId, applyStatusChange,
+  syncCascadeForJob, cascadeTargets, liveCascadesForJob,
+} from '../utils/applicationLifecycle.js';
 
 /*
  * The six columns the eligible-not-applied sheet has always printed.
@@ -805,6 +810,22 @@ export const exportJobApplicants = async (req, res) => {
          )`
       : '';
 
+    /*
+     * The filters the officer had set on screen.
+     *
+     * This export took none of them. An officer who narrowed the list to
+     * "Shortlisted" and pressed Export got every applicant on the job back,
+     * with nothing in the file to say the filter had been dropped -- and that
+     * file goes to a company. The filters arrive as query parameters here
+     * rather than in a body, which is why they are read through the shared
+     * normaliser rather than destructured.
+     */
+    const params = [jobId, collegeId];
+    const filterClauses = applicantFilterClauses(
+      filtersFromRequest(req), params, { student: 's', application: 'ja', extended: 'ep' }
+    );
+    const filterClause = filterClauses.length > 0 ? `AND ${filterClauses.join(' AND ')}` : '';
+
     // Get job applicants from officer's college only
     const applicantsResult = await query(
       `SELECT s.id, s.prn, s.student_name as name, s.email, s.mobile_number,
@@ -826,8 +847,9 @@ export const exportJobApplicants = async (req, res) => {
          AND s.registration_status = 'approved'
          AND s.is_blacklisted = FALSE
          ${alreadyPlacedClause}
+         ${filterClause}
        ORDER BY ${studentOrderSql()}`,
-      [jobId, collegeId]
+      params
     );
 
     let applicants = applicantsResult.rows;
@@ -1491,6 +1513,75 @@ const getOfficerCollegeId = async (userId) => {
   return officerResult.rows[0].college_id;
 };
 
+/**
+ * Which colleges on this job this officer may act on at all.
+ *
+ * An officer whose college was merely included on somebody else's posting acts
+ * on their own students and nobody else's. The officer who posted the job may
+ * reach every college on it -- they work their own college by default, but the
+ * applicants page lets them open the others and mark there themselves, because
+ * somebody has to be able to finish a job whose joint colleges never engaged.
+ *
+ * Returns { isHost, ownCollegeId }. What a given marking actually closes is
+ * decided from the colleges of the students marked, narrowed by this.
+ */
+const officerReach = async (userId, jobId) => {
+  const officer = await getOfficer(userId);
+  const jobResult = await query(
+    'SELECT placement_officer_id FROM jobs WHERE id = $1',
+    [jobId]
+  );
+  return {
+    isHost: jobResult.rows[0]?.placement_officer_id === officer.id,
+    ownCollegeId: officer.college_id,
+  };
+};
+
+/**
+ * The applications out of this set that this officer is allowed to act on.
+ *
+ * Two ways to qualify, and a row needs only one: the student is at the
+ * officer's own college, or the application is on a job this officer posted.
+ * The second is what makes the college picker work -- a host who can open
+ * another college's list and mark somebody there must also be able to save it,
+ * and this check used to permit only the first, so every such write came back
+ * 403 from a page that had just offered the button.
+ *
+ * Returns the permitted rows, so the caller can compare the count against what
+ * was asked for and refuse the whole batch rather than silently writing part.
+ */
+const permittedApplications = async (runner, { applicationIds, officer }) => {
+  const result = await runner(
+    `SELECT ja.id, ja.job_id, s.college_id,
+            (j.placement_officer_id = $3) AS is_host
+       FROM job_applications ja
+       JOIN students s ON s.id = ja.student_id
+       JOIN jobs j ON j.id = ja.job_id
+      WHERE ja.id = ANY($1)
+        AND (s.college_id = $2 OR j.placement_officer_id = $3)`,
+    [applicationIds, officer.college_id, officer.id]
+  );
+  return result.rows;
+};
+
+/**
+ * The colleges a marking closes the round for.
+ *
+ * Taken from the students actually marked rather than from whatever the page
+ * was showing: opening the college picker to look at a list is not a decision
+ * about the people on it, and a countdown that started merely because somebody
+ * scrolled through a college would reject students nobody ever judged.
+ *
+ * A non-host officer is narrowed to their own college as a second line of
+ * defence -- the applicants query already refuses to hand them anybody else's
+ * students, so this should never remove anything, and if it ever does then
+ * something upstream is wrong and the safe direction is fewer.
+ */
+const closingScope = (changedRows, { isHost, ownCollegeId }) => {
+  const colleges = changedRows.map((r) => r.college_id).filter((id) => id != null);
+  return [...new Set(isHost ? colleges : colleges.filter((id) => id === ownCollegeId))];
+};
+
 // @desc    Get detailed student profile (basic + extended) - COLLEGE SCOPED
 // @route   GET /api/placement-officer/students/:studentId/detailed-profile
 // @access  Private (Placement Officer)
@@ -1559,71 +1650,86 @@ export const getDetailedStudentProfile = async (req, res) => {
 // @route   PUT /api/placement-officer/applications/:applicationId/status
 // @access  Private (Placement Officer)
 export const updateApplicationStatus = async (req, res) => {
+  const client = await getClient();
   try {
     const { applicationId } = req.params;
     const { status, review_notes } = req.body;
-    const collegeId = await getOfficerCollegeId(req.user.id);
+    const officer = await getOfficer(req.user.id);
 
     // Validate status
-    const validStatuses = ['submitted', 'under_review', 'shortlisted', 'rejected', 'selected'];
-    if (!validStatuses.includes(status)) {
+    if (!ACCEPTED_STATUS_INPUTS.includes(status)) {
       return res.status(400).json({
         success: false,
         message: 'Invalid status value',
       });
     }
 
-    // Verify application belongs to officer's college
-    const appCheck = await query(
-      `SELECT ja.id FROM job_applications ja
-       JOIN students s ON ja.student_id = s.id
-       WHERE ja.id = $1 AND s.college_id = $2`,
-      [applicationId, collegeId]
-    );
+    // Own college, or any college on a job this officer posted.
+    const appCheck = await permittedApplications(query, {
+      applicationIds: [Number(applicationId)], officer,
+    });
 
-    if (appCheck.rows.length === 0) {
+    if (appCheck.length === 0) {
       return res.status(404).json({
         success: false,
-        message: 'Application not found in your college',
+        message: 'That application is outside the jobs and colleges you manage',
       });
     }
 
-    // Update application status
-    const updateResult = await query(
-      `UPDATE job_applications
-       SET application_status = $1,
-           reviewed_by = $2,
-           reviewed_at = CURRENT_TIMESTAMP,
-           review_notes = $3,
-           updated_at = CURRENT_TIMESTAMP
-       WHERE id = $4
-       RETURNING id, job_id, student_id, application_status`,
-      [status, req.user.id, review_notes, applicationId]
-    );
+    const jobId = appCheck[0].job_id;
+
+    await client.query('BEGIN');
+
+    // Through the lifecycle engine rather than a bare UPDATE, so the change is
+    // recorded in application_status_events and can be undone later.
+    const changed = await applyStatusChange(client, {
+      applicationIds: [Number(applicationId)],
+      status,
+      source: 'officer',
+      actorUserId: req.user.id,
+      reason: review_notes || null,
+    });
+
+    // Marking somebody keeps that college's countdown alive, and shortlisting
+    // or selecting starts one -- for the college the student is at, not for
+    // every college on the job.
+    const reach = await officerReach(req.user.id, jobId);
+    const schedules = await syncCascadeForJob(client, {
+      jobId,
+      scopeCollegeIds: closingScope(changed, reach),
+      actorUserId: req.user.id,
+      statuses: [status],
+    });
+
+    await client.query('COMMIT');
 
     // Log activity
     await logActivity(
       req.user.id,
       'UPDATE_APPLICATION_STATUS',
-      `Updated application ${applicationId} status to ${status}`,
+      `Updated application ${applicationId} status to ${normalizeStatus(status)}`,
       'job_application',
       applicationId,
-      { status, review_notes },
+      { status: normalizeStatus(status), review_notes },
       req
     );
 
     res.status(200).json({
       success: true,
       message: 'Application status updated successfully',
-      data: updateResult.rows[0],
+      data: changed[0] || null,
+      cascades: schedules,
     });
   } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
     console.error('Update application status error:', error);
     res.status(500).json({
       success: false,
       message: 'Error updating application status',
       error: error.message,
     });
+  } finally {
+    client.release();
   }
 };
 
@@ -1636,9 +1742,13 @@ export const bulkUpdateApplicationStatus = async (req, res) => {
     await client.query('BEGIN');
 
     const { application_ids, status, review_notes } = req.body;
-    const collegeId = await getOfficerCollegeId(req.user.id);
+    const officer = await getOfficer(req.user.id);
 
     if (!application_ids || application_ids.length === 0) {
+      // ROLLBACK, not a bare return: BEGIN has already run, and returning
+      // without it handed a connection back to the pool with a transaction
+      // still open on it.
+      await client.query('ROLLBACK');
       return res.status(400).json({
         success: false,
         message: 'No application IDs provided',
@@ -1646,52 +1756,67 @@ export const bulkUpdateApplicationStatus = async (req, res) => {
     }
 
     // Validate status
-    const validStatuses = ['submitted', 'under_review', 'shortlisted', 'rejected', 'selected'];
-    if (!validStatuses.includes(status)) {
+    if (!ACCEPTED_STATUS_INPUTS.includes(status)) {
+      await client.query('ROLLBACK');
       return res.status(400).json({
         success: false,
         message: 'Invalid status value',
       });
     }
 
-    // Verify all applications belong to officer's college
-    const appCheck = await client.query(
-      `SELECT ja.id FROM job_applications ja
-       JOIN students s ON ja.student_id = s.id
-       WHERE ja.id = ANY($1) AND s.college_id = $2`,
-      [application_ids, collegeId]
-    );
+    // Own college, or any college on a job this officer posted.
+    const appCheck = await permittedApplications(client.query.bind(client), {
+      applicationIds: application_ids, officer,
+    });
 
-    if (appCheck.rows.length !== application_ids.length) {
+    if (appCheck.length !== application_ids.length) {
       await client.query('ROLLBACK');
       return res.status(403).json({
         success: false,
-        message: 'Some applications do not belong to your college',
+        message: 'Some of those applications are outside the jobs and colleges you manage',
       });
     }
 
-    // Bulk update
-    const updateResult = await client.query(
-      `UPDATE job_applications
-       SET application_status = $1,
-           reviewed_by = $2,
-           reviewed_at = CURRENT_TIMESTAMP,
-           review_notes = $3,
-           updated_at = CURRENT_TIMESTAMP
-       WHERE id = ANY($4)
-       RETURNING id, job_id, student_id, application_status`,
-      [status, req.user.id, review_notes, application_ids]
-    );
+    // Bulk update, through the lifecycle engine so every row lands in the
+    // audit trail and the whole click can be undone as one batch.
+    const batchId = newBatchId();
+    const updateResult = await applyStatusChange(client, {
+      applicationIds: application_ids,
+      status,
+      source: 'officer',
+      actorUserId: req.user.id,
+      batchId,
+      reason: review_notes || null,
+    });
+
+    // One click can span several jobs, so each job's countdowns are refreshed
+    // separately, and within each job one per college actually marked.
+    const jobIds = [...new Set(updateResult.map((r) => r.job_id))];
+    const schedules = [];
+    for (const jobId of jobIds) {
+      const reach = await officerReach(req.user.id, jobId);
+      schedules.push(
+        ...(await syncCascadeForJob(client, {
+          jobId,
+          scopeCollegeIds: closingScope(
+            updateResult.filter((r) => r.job_id === jobId),
+            reach
+          ),
+          actorUserId: req.user.id,
+          statuses: [status],
+        }))
+      );
+    }
 
     // Log activity for each
-    for (const app of updateResult.rows) {
+    for (const app of updateResult) {
       await logActivity(
         req.user.id,
         'BULK_UPDATE_APPLICATION_STATUS',
-        `Bulk updated application ${app.id} to ${status}`,
+        `Bulk updated application ${app.id} to ${normalizeStatus(status)}`,
         'job_application',
         app.id,
-        { status, review_notes },
+        { status: normalizeStatus(status), review_notes, batch_id: batchId },
         req
       );
     }
@@ -1700,8 +1825,10 @@ export const bulkUpdateApplicationStatus = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: `${updateResult.rows.length} applications updated successfully`,
-      data: updateResult.rows,
+      message: `${updateResult.length} applications updated successfully`,
+      data: updateResult,
+      batch_id: batchId,
+      cascades: schedules,
     });
   } catch (error) {
     await client.query('ROLLBACK');
@@ -2188,8 +2315,10 @@ export const getJobPlacementStats = async (req, res) => {
     const overallStats = await query(
       `SELECT
         COUNT(*) as total_applications,
-        COUNT(*) FILTER (WHERE application_status = 'submitted') as submitted,
-        COUNT(*) FILTER (WHERE application_status = 'under_review') as under_review,
+        -- One state, counted once. 'submitted' is the retired spelling and is
+        -- still tolerated in the CHECK constraint for rollback safety, so any
+        -- row left holding it belongs in this tile rather than its own.
+        COUNT(*) FILTER (WHERE application_status IN ('under_review', 'submitted')) as under_review,
         COUNT(*) FILTER (WHERE application_status = 'shortlisted') as shortlisted,
         COUNT(*) FILTER (WHERE application_status = 'rejected') as rejected,
         COUNT(*) FILTER (WHERE application_status = 'selected') as selected,
@@ -2242,6 +2371,16 @@ export const enhancedExportJobApplicants = async (req, res) => {
       height_min,
       weight_min,
       physically_handicapped,
+      // The "Additional filters" panel. These reached the list on screen and
+      // no export at all, so an officer who narrowed to CGPA >= 8 and pressed
+      // Export got every applicant back with nothing to say the filter had
+      // been dropped.
+      cgpa_min,
+      cgpa_max,
+      max_backlogs,
+      dob_from,
+      dob_to,
+      college_id,
       use_short_names = true,
       include_signature = false,
       exclude_already_placed = false,
@@ -2360,6 +2499,22 @@ export const enhancedExportJobApplicants = async (req, res) => {
       params.push(physically_handicapped);
       paramIndex++;
     }
+
+    /*
+     * The Additional-filters panel, from the shared builder.
+     *
+     * Only these keys are passed: everything above is already handled by this
+     * handler's own clauses, and sending them twice would filter correctly but
+     * bind the same value a second time for no reason. The builder appends to
+     * `params`, and paramIndex is params.length + 1 throughout this function,
+     * so the numbering stays consistent either way.
+     */
+    whereConditions.push(...applicantFilterClauses(
+      { cgpa_min, cgpa_max, max_backlogs, dob_from, dob_to, college_id },
+      params,
+      { student: 's', application: 'ja', extended: 'sep' }
+    ));
+    paramIndex = params.length + 1;
 
     if (exclude_already_placed) {
       whereConditions.push(`NOT EXISTS (

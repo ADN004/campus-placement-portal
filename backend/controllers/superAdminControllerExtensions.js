@@ -22,6 +22,12 @@ import {
 import {
   validateDriveSlots, saveDriveSlots, driveNeedsRenotify, markDriveNotified,
 } from '../utils/driveSlots.js';
+import { applicantFilterClauses, filtersFromRequest } from '../utils/applicantFilters.js';
+import {
+  ACCEPTED_STATUS_INPUTS, normalizeStatus, newBatchId, applyStatusChange,
+  syncCascadeForJob, cascadeTargets, liveCascadesForJob, executeCascade,
+  undoBatch, getCascadeConfig,
+} from '../utils/applicationLifecycle.js';
 
 /*
  * The columns the PRN-range sheet has always printed, in order. Tuples carry
@@ -1254,6 +1260,18 @@ export const exportJobApplicants = async (req, res) => {
       params.push(branches.map(normalizeBranch).filter(Boolean));
     }
 
+    /*
+     * The filters set on screen.
+     *
+     * This export took the college and branch lists and nothing else, so an
+     * admin who narrowed to "Shortlisted" and pressed Export got the whole job
+     * back, with nothing in the file to say so.
+     */
+    const filterClauses = applicantFilterClauses(
+      filtersFromRequest(req), params, { student: 's', application: 'ja', extended: 'ep' }
+    );
+    if (filterClauses.length > 0) queryText += ` AND ${filterClauses.join(' AND ')}`;
+
     // Exclude already-placed students if requested
     if (exclude_already_placed) {
       queryText += ` AND NOT EXISTS (
@@ -1504,58 +1522,82 @@ export const getDetailedStudentProfile = async (req, res) => {
 // @route   PUT /api/super-admin/applications/:applicationId/status
 // @access  Private (Super Admin)
 export const updateApplicationStatus = async (req, res) => {
+  const client = await getClient();
   try {
     const { applicationId } = req.params;
     const { status, review_notes } = req.body;
 
     // Validate status
-    const validStatuses = ['submitted', 'under_review', 'shortlisted', 'rejected', 'selected'];
-    if (!validStatuses.includes(status)) {
+    if (!ACCEPTED_STATUS_INPUTS.includes(status)) {
       return res.status(400).json({
         success: false,
         message: 'Invalid status value',
       });
     }
 
-    // Update application
-    const updateResult = await query(
-      `UPDATE job_applications
-       SET application_status = $1,
-           reviewed_by = $2,
-           reviewed_at = CURRENT_TIMESTAMP,
-           review_notes = $3,
-           updated_at = CURRENT_TIMESTAMP
-       WHERE id = $4
-       RETURNING *`,
-      [status, req.user.id, review_notes || null, applicationId]
+    const existing = await query(
+      'SELECT id, job_id FROM job_applications WHERE id = $1',
+      [applicationId]
     );
 
-    if (updateResult.rows.length === 0) {
+    if (existing.rows.length === 0) {
       return res.status(404).json({
         success: false,
         message: 'Application not found',
       });
     }
 
+    const jobId = existing.rows[0].job_id;
+
+    await client.query('BEGIN');
+
+    const changed = await applyStatusChange(client, {
+      applicationIds: [Number(applicationId)],
+      status,
+      // A Super Admin moving somebody backwards is a correction, and the audit
+      // trail should say which of the two it was.
+      source: 'officer',
+      actorUserId: req.user.id,
+      reason: review_notes || null,
+    });
+
+    // Per college, from the student actually marked. The Super Admin can reach
+    // every college on the job, but reaching them is not the same as having
+    // decided anything about them: a college nobody has worked on keeps its
+    // students under review rather than having them closed on the strength of
+    // another college's shortlist.
+    const schedules = await syncCascadeForJob(client, {
+      jobId,
+      scopeCollegeIds: changed.map((r) => r.college_id).filter((id) => id != null),
+      actorUserId: req.user.id,
+      statuses: [status],
+    });
+
+    await client.query('COMMIT');
+
     // Log activity
     await logActivity(req.user.id, 'UPDATE', 'job_applications', applicationId, {
       action: 'update_application_status',
-      new_status: status,
+      new_status: normalizeStatus(status),
       review_notes: review_notes,
     });
 
     res.status(200).json({
       success: true,
       message: 'Application status updated successfully',
-      data: updateResult.rows[0],
+      data: changed[0] || null,
+      cascades: schedules,
     });
   } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
     console.error('Update application status error:', error);
     res.status(500).json({
       success: false,
       message: 'Error updating application status',
       error: error.message,
     });
+  } finally {
+    client.release();
   }
 };
 
@@ -1574,8 +1616,7 @@ export const bulkUpdateApplicationStatus = async (req, res) => {
     }
 
     // Validate status
-    const validStatuses = ['submitted', 'under_review', 'shortlisted', 'rejected', 'selected'];
-    if (!validStatuses.includes(status)) {
+    if (!ACCEPTED_STATUS_INPUTS.includes(status)) {
       return res.status(400).json({
         success: false,
         message: 'Invalid status value',
@@ -1588,25 +1629,43 @@ export const bulkUpdateApplicationStatus = async (req, res) => {
     try {
       await client.query('BEGIN');
 
-      // Update all applications
-      const updateResult = await client.query(
-        `UPDATE job_applications
-         SET application_status = $1,
-             reviewed_by = $2,
-             reviewed_at = CURRENT_TIMESTAMP,
-             review_notes = $3,
-             updated_at = CURRENT_TIMESTAMP
-         WHERE id = ANY($4)
-         RETURNING id, job_id, student_id, application_status`,
-        [status, req.user.id, review_notes || null, application_ids]
-      );
+      // Update all applications, through the lifecycle engine: every row is
+      // recorded, and the whole click shares a batch id so a mistaken bulk
+      // rejection of three hundred people is one undo rather than none.
+      const batchId = newBatchId();
+      const updateResult = await applyStatusChange(client, {
+        applicationIds: application_ids,
+        status,
+        source: 'officer',
+        actorUserId: req.user.id,
+        batchId,
+        reason: review_notes || null,
+      });
+
+      // One click can span several jobs, and within each job several colleges.
+      // A countdown opens per college actually marked, never for the job whole.
+      const schedules = [];
+      for (const jobId of [...new Set(updateResult.map((r) => r.job_id))]) {
+        schedules.push(
+          ...(await syncCascadeForJob(client, {
+            jobId,
+            scopeCollegeIds: updateResult
+              .filter((r) => r.job_id === jobId)
+              .map((r) => r.college_id)
+              .filter((id) => id != null),
+            actorUserId: req.user.id,
+            statuses: [status],
+          }))
+        );
+      }
 
       // Log activity for each application
-      for (const app of updateResult.rows) {
+      for (const app of updateResult) {
         await logActivity(req.user.id, 'UPDATE', 'job_applications', app.id, {
           action: 'bulk_update_application_status',
-          new_status: status,
+          new_status: normalizeStatus(status),
           review_notes: review_notes,
+          batch_id: batchId,
         });
       }
 
@@ -1614,9 +1673,11 @@ export const bulkUpdateApplicationStatus = async (req, res) => {
 
       res.status(200).json({
         success: true,
-        message: `${updateResult.rows.length} applications updated successfully`,
-        count: updateResult.rows.length,
-        data: updateResult.rows,
+        message: `${updateResult.length} applications updated successfully`,
+        count: updateResult.length,
+        data: updateResult,
+        batch_id: batchId,
+        cascades: schedules,
       });
     } catch (error) {
       await client.query('ROLLBACK');
@@ -2007,8 +2068,10 @@ export const getJobPlacementStats = async (req, res) => {
     const statsResult = await query(
       `SELECT
         COUNT(*) as total_applications,
-        COUNT(*) FILTER (WHERE application_status = 'submitted') as submitted_count,
-        COUNT(*) FILTER (WHERE application_status = 'under_review') as under_review_count,
+        -- One state, counted once. 'submitted' is the retired spelling and is
+        -- still tolerated in the CHECK constraint for rollback safety, so any
+        -- row left holding it belongs in this tile rather than its own.
+        COUNT(*) FILTER (WHERE application_status IN ('under_review', 'submitted')) as under_review_count,
         COUNT(*) FILTER (WHERE application_status = 'shortlisted') as shortlisted_count,
         COUNT(*) FILTER (WHERE application_status = 'rejected') as rejected_count,
         COUNT(*) FILTER (WHERE application_status = 'selected') as selected_count,
@@ -2078,6 +2141,15 @@ export const enhancedExportJobApplicants = async (req, res) => {
       height_min,
       weight_min,
       physically_handicapped,
+      // The "Narrow the list" panel. These reached the list on screen and no
+      // export at all, so narrowing to CGPA >= 8 and pressing Export returned
+      // every applicant, with nothing to say the filter had been dropped.
+      cgpa_min,
+      cgpa_max,
+      max_backlogs,
+      dob_from,
+      dob_to,
+      college_id,
       use_short_names = true,
       include_signature = false,
       exclude_already_placed = false,
@@ -2169,6 +2241,19 @@ export const enhancedExportJobApplicants = async (req, res) => {
       params.push(physically_handicapped);
       paramIndex++;
     }
+
+    /*
+     * The Narrow-the-list panel, from the shared builder. Only these keys are
+     * passed -- everything above is already handled by this function's own
+     * clauses. The builder appends to `params`, and paramIndex is
+     * params.length + 1 throughout, so the numbering stays consistent.
+     */
+    whereConditions.push(...applicantFilterClauses(
+      { cgpa_min, cgpa_max, max_backlogs, dob_from, dob_to, college_id },
+      params,
+      { student: 's', application: 'ja', extended: 'sep' }
+    ));
+    paramIndex = params.length + 1;
 
     if (exclude_already_placed) {
       whereConditions.push(`NOT EXISTS (

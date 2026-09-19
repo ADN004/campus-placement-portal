@@ -81,6 +81,10 @@ import {
   getBranchTemplates,
 } from '../controllers/collegeBranchController.js';
 import { updateStudentEmailByStaff } from '../controllers/studentEmailController.js';
+import {
+  getRoundClosures, previewRoundClosure, extendRoundClosure, cancelRoundClosure,
+  runRoundClosure, undoStatusBatch, getApplicationHistory,
+} from '../controllers/roundClosureController.js';
 import { protect, authorize } from '../middleware/auth.js';
 import { exportLimiter, uploadLimiter } from '../middleware/rateLimiter.js';
 import { noStore } from '../middleware/noStore.js';
@@ -150,6 +154,18 @@ router.put('/applications/:applicationId/status', updateApplicationStatus);
 router.post('/applications/bulk-update-status', bulkUpdateApplicationStatus);
 router.put('/applications/:applicationId/placement', updatePlacementDetails);
 router.post('/applications/notify', notifyApplicationStatus);
+
+// Closing a round. The same handlers the Console uses: the controller decides
+// how far this officer reaches from job ownership, so a joint college's officer
+// gets their own college's countdown and cannot touch the whole-job one.
+router.get('/jobs/:jobId/round-closures', getRoundClosures);
+router.get('/round-closures/:id/preview', previewRoundClosure);
+router.post('/round-closures/:id/extend', extendRoundClosure);
+router.post('/round-closures/:id/cancel', cancelRoundClosure);
+router.post('/round-closures/:id/run', runRoundClosure);
+router.post('/applications/undo/:batchId', undoStatusBatch);
+router.get('/applications/:applicationId/history', getApplicationHistory);
+
 router.get('/jobs/:jobId/placement-stats', getJobPlacementStats);
 router.post('/jobs/:jobId/drive', createOrUpdateJobDrive);
 router.get('/jobs/:jobId/drive', getJobDrive);

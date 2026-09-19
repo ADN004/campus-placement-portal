@@ -2905,6 +2905,10 @@ export const getJobApplicants = async (req, res) => {
         c.college_name,
         r.region_name,
         ja.id as application_id, ja.applied_date, ja.application_status,
+        -- Why it holds that status. 'rejected' covers an officer's decision, a
+        -- failed eligibility check and a round that closed automatically, and
+        -- the list should not make those three look like one thing.
+        ja.status_source,
         j.job_title, j.company_name, j.min_cgpa, j.max_backlogs, j.allowed_branches,
         EXISTS (
           SELECT 1 FROM job_applications ja_other

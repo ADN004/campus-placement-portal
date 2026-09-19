@@ -1,5 +1,6 @@
 import React from 'react';
 import { formatStatus } from '../utils/formatStatus';
+import { APPLICATION_STATUSES } from '../utils/applicationStatus';
 import {
   Panel, PanelHeading, FieldLabel, FIELD_CLASS, CHECKBOX_CLASS,
 } from './officer/OfficerUI';
@@ -11,7 +12,11 @@ const DISTRICTS = [
   'Kannur', 'Kasaragod',
 ];
 
-const STATUSES = ['submitted', 'under_review', 'shortlisted', 'rejected', 'selected'];
+// From the shared vocabulary rather than typed out: 'submitted' used to sit at
+// the front of this list as a fifth option that filtered to the same rows as
+// 'under_review', so ticking either gave the same result and ticking both
+// looked like it should give more.
+const STATUSES = APPLICATION_STATUSES;
 
 /** Documents the filter can require. Each is two-state in the data: required, or not asked. */
 const DOCUMENTS = [
@@ -196,7 +201,7 @@ function OfficerFilterPanel({ filters, onChange, onClear, activeCount }) {
 }
 
 const EnhancedFilterPanel = ({ filters, onChange, onClear, variant }) => {
-  const statuses = ['submitted', 'under_review', 'shortlisted', 'rejected', 'selected'];
+  const statuses = APPLICATION_STATUSES;
 
   const districts = [
     'Thiruvananthapuram', 'Kollam', 'Pathanamthitta', 'Alappuzha',

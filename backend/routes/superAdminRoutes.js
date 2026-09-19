@@ -132,6 +132,10 @@ import {
   unlockCollege,
   setAllowedPrns,
 } from '../controllers/collegeLockController.js';
+import {
+  getRoundClosures, previewRoundClosure, extendRoundClosure, cancelRoundClosure,
+  runRoundClosure, undoStatusBatch, getApplicationHistory,
+} from '../controllers/roundClosureController.js';
 import { protect, authorize } from '../middleware/auth.js';
 import { exportLimiter } from '../middleware/rateLimiter.js';
 import { exportStudentCounts } from '../controllers/studentCountExportController.js';
@@ -244,6 +248,16 @@ router.put('/applications/:applicationId/status', updateApplicationStatus);
 router.post('/applications/bulk-update-status', bulkUpdateApplicationStatus);
 router.put('/applications/:applicationId/placement', updatePlacementDetails);
 router.post('/applications/notify', notifyApplicationStatus);
+
+// Closing a round: the countdown that rejects whoever the round moved past,
+// and the undo for when a marking -- automatic or not -- was wrong.
+router.get('/jobs/:jobId/round-closures', getRoundClosures);
+router.get('/round-closures/:id/preview', previewRoundClosure);
+router.post('/round-closures/:id/extend', extendRoundClosure);
+router.post('/round-closures/:id/cancel', cancelRoundClosure);
+router.post('/round-closures/:id/run', runRoundClosure);
+router.post('/applications/undo/:batchId', undoStatusBatch);
+router.get('/applications/:applicationId/history', getApplicationHistory);
 
 // Branches
 router.get('/branches', getNormalizedBranches);

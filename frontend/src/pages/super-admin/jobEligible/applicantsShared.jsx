@@ -1,4 +1,4 @@
-import { Eye, Calendar, Send, Filter, UserPlus, Download, X } from 'lucide-react';
+import { Eye, Calendar, Send, Filter, UserPlus, Download, X, Undo2 } from 'lucide-react';
 import {
   Panel, PanelHeading, SectionLabel, EmptyState, FIELD_CLASS, FieldLabel,
   SecondaryButton, PrimaryButton, formatDate,
@@ -23,9 +23,12 @@ const STATUS_TONE = {
 };
 
 export function ApplicationStatus({ status }) {
-  const label = String(status || 'submitted').replace(/_/g, ' ');
+  // 'submitted' is the retired spelling of under_review and may still appear on
+  // a row written by an older image; it reads as the state it actually is.
+  const normalized = status === 'submitted' ? 'under_review' : status;
+  const label = String(normalized || 'under_review').replace(/_/g, ' ');
   return (
-    <span className={`text-spc-xs font-semibold capitalize ${STATUS_TONE[status] || 'text-spc-body'}`}>
+    <span className={`text-spc-xs font-semibold capitalize ${STATUS_TONE[normalized] || 'text-spc-body'}`}>
       {label}
     </span>
   );
@@ -200,7 +203,7 @@ export function AdvancedFilters({ layout, filters, onChange, colleges, onClear }
  * Sticky at the bottom, because the tick boxes are in a long table and a bar at
  * the top of it scrolls out of reach exactly when it is needed.
  */
-export function BulkBar({ count, onStatus, onNotify, onClear, disabled }) {
+export function BulkBar({ count, onStatus, onNotify, onRevert, onClear, disabled }) {
   if (count === 0) return null;
   return (
     <div className="sticky bottom-3 z-10 mt-3">
@@ -210,8 +213,15 @@ export function BulkBar({ count, onStatus, onNotify, onClear, disabled }) {
           {count} selected
         </span>
         <div className="flex items-center gap-2 flex-wrap ml-auto">
+          {/*
+            'Under review' is gone from this row of forward actions. It was the
+            only one of the four that moved somebody *backwards*, sitting
+            unlabelled among three that move them onwards — and every
+            application now starts there, so it was never a step anybody needed
+            to take. Putting people back is a correction and gets its own
+            control, below, which says what it is doing before it does it.
+          */}
           {[
-            ['under_review', 'Under review'],
             ['shortlisted', 'Shortlist'],
             ['selected', 'Select'],
             ['rejected', 'Reject'],
@@ -220,10 +230,44 @@ export function BulkBar({ count, onStatus, onNotify, onClear, disabled }) {
               {label}
             </SecondaryButton>
           ))}
-          <PrimaryButton onClick={onNotify} disabled={disabled}>
+          {/*
+            One button, and it reads the selection to decide what to send.
+
+            It used to be passed straight to onClick, so what reached the server
+            was a click event and every notification failed. Before that it was
+            hard-wired to 'shortlisted', so marking five people Selected and
+            pressing Notify told all five they had been shortlisted.
+
+            Three buttons, one per message, would also be correct — but this bar
+            is sticky on a phone and already carries three status actions, and
+            the type is not really a choice: it is whatever the selected people
+            have just been marked. So it is derived, and a selection spanning
+            two statuses is refused with a sentence rather than guessed at.
+          */}
+          <PrimaryButton onClick={() => onNotify()} disabled={disabled}>
             <Send size={15} aria-hidden="true" />
             Notify
           </PrimaryButton>
+
+          {/*
+            Undoing somebody else's mistake.
+
+            The Undo banner only reaches a batch this page just wrote, and every
+            status set before any of this existed has no batch at all — so a
+            drive where three hundred people were marked Selected by accident
+            last term was, until this button, unrecoverable from the interface.
+            Separated from the three above by a rule because it is the only one
+            that moves people backwards.
+          */}
+          {onRevert && (
+            <>
+              <span aria-hidden="true" className="w-px h-7 bg-spc-line-strong mx-1" />
+              <SecondaryButton onClick={() => onRevert()} disabled={disabled}>
+                <Undo2 size={15} aria-hidden="true" />
+                Move back…
+              </SecondaryButton>
+            </>
+          )}
           <button
             type="button"
             onClick={onClear}

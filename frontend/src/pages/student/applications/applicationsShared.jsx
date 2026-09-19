@@ -2,6 +2,9 @@ import { CheckCircle, Clock, XCircle, Award, X, Calendar } from 'lucide-react';
 import Modal from '../../../components/Modal';
 import { formatPackage } from '../../../components/student/StudentUI';
 import backlogRequirementText from '../../../utils/backlogRequirement';
+import {
+  normalizeApplicationStatus, REJECTION_EXPLANATIONS,
+} from '../../../utils/applicationStatus';
 
 /**
  * Pieces shared by the three StudentApplications presenters.
@@ -54,13 +57,15 @@ export function formatDateTime(dateString) {
  * zero beside three of them.
  */
 const STATUS_META = {
-  submitted: { label: 'Submitted', Icon: Clock, classes: 'bg-spc-warn-bg text-spc-warn' },
   under_review: { label: 'Under review', Icon: Clock, classes: 'bg-spc-warn-bg text-spc-warn' },
   shortlisted: { label: 'Shortlisted', Icon: CheckCircle, classes: 'bg-spc-ok-bg text-spc-ok' },
   selected: { label: 'Selected', Icon: Award, classes: 'bg-spc-teal text-spc-on-teal' },
   rejected: { label: 'Rejected', Icon: XCircle, classes: 'bg-spc-bad-bg text-spc-bad' },
-  // Kept as an alias: nothing writes it now, but older rows may carry it.
-  pending: { label: 'Pending', Icon: Clock, classes: 'bg-spc-warn-bg text-spc-warn' },
+  // Kept as aliases: nothing writes either now, but older rows may carry them.
+  // 'submitted' in particular is still legal in the CHECK constraint so that a
+  // rollback to the previous image does not fail every insert.
+  submitted: { label: 'Under review', Icon: Clock, classes: 'bg-spc-warn-bg text-spc-warn' },
+  pending: { label: 'Under review', Icon: Clock, classes: 'bg-spc-warn-bg text-spc-warn' },
 };
 
 /**
@@ -100,12 +105,29 @@ export function StatusPill({ status, size = 'sm' }) {
 
 /** The one-line summary shown beside the status inside the detail modal. */
 const STATUS_NOTE = {
-  submitted: 'Your application has been received and is awaiting review.',
-  under_review: 'Your application is being reviewed.',
+  under_review: 'Your application has been received and is awaiting review.',
   shortlisted: 'Congratulations — you have been shortlisted for this position.',
   selected: 'Congratulations — you have been selected for this position.',
   rejected: 'Unfortunately, your application was not selected for this position.',
-  pending: 'Your application is under review.',
+  submitted: 'Your application has been received and is awaiting review.',
+  pending: 'Your application has been received and is awaiting review.',
+};
+
+/**
+ * The sentence a rejected student actually needs.
+ *
+ * 'rejected' covers three unrelated things: the criteria were not met at the
+ * moment of applying, an officer decided, or the round closed and they were not
+ * carried forward. The first is worth acting on — a profile can be fixed before
+ * the next job — and the third is not anybody's failing at all. One word for
+ * all three left students chasing problems that were never theirs, so the
+ * source is read where it exists and the general wording is kept where it does
+ * not.
+ */
+const statusNoteFor = (application) => {
+  const base = STATUS_NOTE[application.status];
+  if (normalizeApplicationStatus(application.status) !== 'rejected') return base;
+  return REJECTION_EXPLANATIONS[application.status_source] || base;
 };
 
 /* -------------------------------------------------------------- list card */
@@ -228,7 +250,7 @@ export function DriveLine({ drive, drives }) {
 /* ------------------------------------------------------------ details modal */
 
 export function ApplicationDetailsModal({ application, onClose }) {
-  const note = STATUS_NOTE[application.status];
+  const note = statusNoteFor(application);
 
   return (
     <Modal

@@ -158,9 +158,13 @@ export const placementOfficerAPI = {
   deleteJob: (jobId) => API.delete(`/placement-officer/jobs/${jobId}`),
   removeManualApplicant: (jobId, applicationId) =>
     API.delete(`/placement-officer/jobs/${jobId}/applicants/${applicationId}`),
-  getJobApplicants: (jobId) => API.get(`/placement-officer/jobs/${jobId}/applicants`),
-  exportJobApplicants: (jobId, format = 'excel', excludeAlreadyPlaced = false) => API.get(`/placement-officer/jobs/${jobId}/applicants/export`, {
-    params: { format, exclude_already_placed: excludeAlreadyPlaced },
+  // `params` widens the host officer's view beyond their own college:
+  // { college_ids: '3,7' } or { all_colleges: true }. Ignored for anyone else.
+  getJobApplicants: (jobId, params) => API.get(`/placement-officer/jobs/${jobId}/applicants`, { params }),
+  // `filters` carries whatever the reader has narrowed the list to. This used
+  // to take none of them, so a filtered screen exported unfiltered.
+  exportJobApplicants: (jobId, format = 'excel', excludeAlreadyPlaced = false, filters = {}) => API.get(`/placement-officer/jobs/${jobId}/applicants/export`, {
+    params: { format, exclude_already_placed: excludeAlreadyPlaced, ...filters },
     responseType: 'blob'
   }),
 
@@ -170,6 +174,16 @@ export const placementOfficerAPI = {
   bulkUpdateApplicationStatus: (data) => API.post('/placement-officer/applications/bulk-update-status', data),
   updatePlacementDetails: (applicationId, data) => API.put(`/placement-officer/applications/${applicationId}/placement`, data),
   notifyApplicationStatus: (data) => API.post('/placement-officer/applications/notify', data),
+
+  // Closing a round: the countdown that rejects whoever the round moved past.
+  getRoundClosures: (jobId) => API.get(`/placement-officer/jobs/${jobId}/round-closures`),
+  previewRoundClosure: (id) => API.get(`/placement-officer/round-closures/${id}/preview`),
+  extendRoundClosure: (id) => API.post(`/placement-officer/round-closures/${id}/extend`),
+  cancelRoundClosure: (id) => API.post(`/placement-officer/round-closures/${id}/cancel`),
+  runRoundClosure: (id) => API.post(`/placement-officer/round-closures/${id}/run`),
+  undoStatusBatch: (batchId) => API.post(`/placement-officer/applications/undo/${batchId}`),
+  getApplicationHistory: (applicationId) => API.get(`/placement-officer/applications/${applicationId}/history`),
+
   getJobPlacementStats: (jobId) => API.get(`/placement-officer/jobs/${jobId}/placement-stats`),
   createOrUpdateJobDrive: (jobId, data) => API.post(`/placement-officer/jobs/${jobId}/drive`, data),
   getJobDrive: (jobId) => API.get(`/placement-officer/jobs/${jobId}/drive`),
@@ -393,6 +407,17 @@ export const superAdminAPI = {
   bulkUpdateApplicationStatus: (data) => API.post('/super-admin/applications/bulk-update-status', data),
   updatePlacementDetails: (applicationId, data) => API.put(`/super-admin/applications/${applicationId}/placement`, data),
   notifyApplicationStatus: (data) => API.post('/super-admin/applications/notify', data),
+
+  // Closing a round. Same handlers as the officer role — the server decides
+  // how far the caller reaches, so these differ only in their prefix.
+  getRoundClosures: (jobId) => API.get(`/super-admin/jobs/${jobId}/round-closures`),
+  previewRoundClosure: (id) => API.get(`/super-admin/round-closures/${id}/preview`),
+  extendRoundClosure: (id) => API.post(`/super-admin/round-closures/${id}/extend`),
+  cancelRoundClosure: (id) => API.post(`/super-admin/round-closures/${id}/cancel`),
+  runRoundClosure: (id) => API.post(`/super-admin/round-closures/${id}/run`),
+  undoStatusBatch: (batchId) => API.post(`/super-admin/applications/undo/${batchId}`),
+  getApplicationHistory: (applicationId) => API.get(`/super-admin/applications/${applicationId}/history`),
+
   getJobPlacementStats: (jobId) => API.get(`/super-admin/jobs/${jobId}/placement-stats`),
 
   // Drive Scheduling

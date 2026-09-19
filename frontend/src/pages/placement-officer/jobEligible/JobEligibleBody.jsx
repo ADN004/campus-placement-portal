@@ -10,6 +10,8 @@ import {
   ApplicantTable, ApplicantList, barredReason,
 } from './jobEligibleShared';
 import AdditionalFilters from './AdditionalFilters';
+import { RoundClosurePanel, UndoBanner } from '../../../components/RoundClosure';
+import CollegeScopePicker from '../../../components/officer/CollegeScopePicker';
 
 /**
  * Everything below the page heading, shared by the three presenters.
@@ -99,6 +101,41 @@ export default function JobEligibleBody({ layout, ...p }) {
             />
           </div>
 
+          {/* Only the host has other colleges to reach. The component renders
+              nothing when this job drew applicants from one college only. */}
+          {p.isHost && (
+            <CollegeScopePicker
+              options={p.collegeOptions}
+              ownCollegeId={p.ownCollegeId}
+              viewing={p.viewing}
+              selected={p.scopeColleges}
+              outstanding={p.outstandingColleges}
+              busy={p.loadingStudents}
+              onApply={p.onScopeApply}
+              onShowAll={p.onScopeAll}
+              onShowOwn={p.onScopeOwn}
+            />
+          )}
+
+          {/* Before the drive: a round closing in two days is the only thing on
+              this page with a deadline attached to it. */}
+          <RoundClosurePanel
+            variant="officer"
+            cascades={p.roundClosures}
+            busy={p.closureBusy}
+            onExtend={(c) => p.onClosureAction('extend', c)}
+            onCancel={(c) => p.onClosureAction('cancel', c)}
+            onRunNow={(c) => p.onClosureAction('run', c)}
+          />
+
+          <UndoBanner
+            variant="officer"
+            batch={p.lastBatch}
+            busy={p.closureBusy}
+            onUndo={p.onUndoBatch}
+            onDismiss={p.onDismissBatch}
+          />
+
           <div className="mb-5">
             <DrivePanel
               driveData={p.driveData}
@@ -114,6 +151,8 @@ export default function JobEligibleBody({ layout, ...p }) {
               count={p.selectedStudents.length}
               allAlreadySelected={p.allSelectedAreSelected}
               onStatusUpdate={p.onBulkStatusUpdate}
+              onNotify={p.onNotifySelected}
+              onRevert={p.isHost ? p.onRevert : undefined}
               onClear={p.onClearSelection}
             />
           </div>

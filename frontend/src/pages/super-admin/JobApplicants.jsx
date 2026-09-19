@@ -5,12 +5,14 @@ import { superAdminAPI, commonAPI } from '../../services/api';
 import useSkeleton from '../../hooks/useSkeleton';
 import useAutoRefresh from '../../hooks/useAutoRefresh';
 import { compareStudents } from '../../utils/studentOrder';
+import { exportFilterPayload } from '../../utils/exportFilters';
 import useDeviceType from '../../hooks/useDeviceType';
 import StudentDetailModal from '../../components/StudentDetailModal';
 import DriveScheduleModal from '../../components/DriveScheduleModal';
 import EnhancedFilterPanel from '../../components/EnhancedFilterPanel';
 import PDFFieldSelector from '../../components/PDFFieldSelector';
 import ManualStudentAdditionModal from '../../components/ManualStudentAdditionModal';
+import { RoundClosureWarning, RevertDialog } from '../../components/RoundClosure';
 import ApplicantsBody from './jobEligible/ApplicantsBody';
 import ApplicantsSkeleton from './jobEligible/ApplicantsSkeleton';
 
@@ -137,6 +139,24 @@ export default function SuperAdminJobApplicants() {
   const [fieldPickerFormat, setFieldPickerFormat] = useState('pdf');
   const [pdfExportType, setPdfExportType] = useState('basic'); // 'basic' or 'enhanced'
   const [showManualAddModal, setShowManualAddModal] = useState(false);
+  /*
+   * Closing a round: the countdown, the warning shown before a marking starts
+   * one, and the undo for the marking just made.
+   *
+   * `pendingMarking` holds the click while the warning is open — the status the
+   * officer asked for and the number of people it will leave behind — so the
+   * dialog is a confirmation of a decision already expressed rather than a
+   * second form to fill in.
+   */
+  const [roundClosures, setRoundClosures] = useState([]);
+  const [graceDays, setGraceDays] = useState(5);
+  const [pendingMarking, setPendingMarking] = useState(null);
+  const [closureBusy, setClosureBusy] = useState(false);
+  const [lastBatch, setLastBatch] = useState(null);
+  // Open when the Console is putting a batch of students back to an earlier
+  // stage. Holds nothing but the fact that the dialog is open -- what it acts
+  // on is the current selection.
+  const [reverting, setReverting] = useState(false);
   const [includePlacedInExport, setIncludePlacedInExport] = useState(false);
   // The selected job's own custom questions, which arrive with its applicants.
   const [jobCustomFields, setJobCustomFields] = useState([]);
@@ -163,6 +183,7 @@ export default function SuperAdminJobApplicants() {
     if (selectedJob) {
       fetchDriveSchedule();
       fetchPlacementStats();
+      fetchRoundClosures();
     }
   }, [selectedJob]);
 
@@ -375,24 +396,172 @@ export default function SuperAdminJobApplicants() {
     setShowStudentDetail(true);
   };
 
+  const fetchRoundClosures = async () => {
+    if (!selectedJob) return;
+    try {
+      const response = await superAdminAPI.getRoundClosures(selectedJob.id);
+      setRoundClosures(response.data.data.cascades || []);
+      setGraceDays(response.data.data.grace_days || 5);
+    } catch (error) {
+      // A countdown that cannot be read is not worth blocking the page over:
+      // the panel simply does not appear and everything else still works.
+      console.error('Round closure fetch failed:', error);
+      setRoundClosures([]);
+    }
+  };
+
+  /**
+   * How many people this marking would leave behind.
+   *
+   * Counted from the list already on screen rather than asked of the server,
+   * which makes it exactly the set this user can see — and therefore exactly
+   * the set their marking is allowed to close. It is also the number they can
+   * check with their own eyes, which matters for a warning about rejecting
+   * people automatically.
+   */
+  const remainingAfterMarking = (status) => {
+    const from = status === 'shortlisted'
+      ? ['under_review', 'submitted']
+      : status === 'selected' ? ['shortlisted'] : null;
+    if (!from) return 0;
+    return students.filter(
+      (s) => from.includes(s.application_status) && !selectedStudents.includes(s.application_id)
+    ).length;
+  };
+
   const handleBulkStatusUpdate = async (status) => {
     if (selectedStudents.length === 0) {
       toast.error('Please select students first');
       return;
     }
 
+    // Shortlisting or selecting starts a countdown that will reject everybody
+    // left below it, so it is confirmed first. Every other marking applies
+    // straight away — rejecting one person says nothing about anybody else.
+    const stage = status === 'shortlisted' ? 'shortlist' : status === 'selected' ? 'select' : null;
+    if (stage) {
+      setPendingMarking({
+        status,
+        stage,
+        count: selectedStudents.length,
+        remaining: remainingAfterMarking(status),
+      });
+      return;
+    }
+
+    await commitBulkStatusUpdate(status);
+  };
+
+  const commitBulkStatusUpdate = async (status) => {
+    setClosureBusy(true);
     try {
-      await superAdminAPI.bulkUpdateApplicationStatus({
+      const response = await superAdminAPI.bulkUpdateApplicationStatus({
         application_ids: selectedStudents,
         status,
       });
-      toast.success(`${selectedStudents.length} applications updated to ${status}`);
+      const count = response.data.count ?? selectedStudents.length;
+      toast.success(`${count} ${count === 1 ? 'application' : 'applications'} updated`);
+      // Kept so the bar can offer an undo while the page is still open. A bulk
+      // click can move three hundred rows and used to be unrecoverable.
+      if (response.data.batch_id) {
+        setLastBatch({
+          id: response.data.batch_id,
+          count,
+          label: status === 'under_review' ? 'Under review'
+            : status.charAt(0).toUpperCase() + status.slice(1),
+        });
+      }
       setSelectedStudents([]);
+      setPendingMarking(null);
       fetchJobApplicants();
       fetchPlacementStats();
+      fetchRoundClosures();
     } catch (error) {
       toast.error('Failed to update application status');
       console.error(error);
+    } finally {
+      setClosureBusy(false);
+    }
+  };
+
+  /**
+   * Put the ticked students back to an earlier stage.
+   *
+   * Goes through the ordinary bulk endpoint, which records the change and marks
+   * it as a correction rather than a decision because it moves people
+   * backwards. That matters for the two hundred applications nobody can reach
+   * with Undo -- anything marked before this feature existed has no batch id,
+   * so this is the only way to correct it, and the history should say plainly
+   * that it was a correction.
+   */
+  const handleRevert = async (target) => {
+    setClosureBusy(true);
+    try {
+      const response = await superAdminAPI.bulkUpdateApplicationStatus({
+        application_ids: selectedStudents,
+        status: target,
+      });
+      const count = response.data.count ?? selectedStudents.length;
+      toast.success(`${count} moved back to ${target === 'under_review' ? 'under review' : target}`);
+      if (response.data.batch_id) {
+        setLastBatch({ id: response.data.batch_id, count, label: target === 'under_review' ? 'Under review' : 'Shortlisted' });
+      }
+      setSelectedStudents([]);
+      setReverting(false);
+      fetchJobApplicants();
+      fetchPlacementStats();
+      fetchRoundClosures();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Could not move those students back');
+    } finally {
+      setClosureBusy(false);
+    }
+  };
+
+  /** The stages the ticked students are currently at, for the dialog to name. */
+  const selectedStages = () => [...new Set(
+    students
+      .filter((s) => selectedStudents.includes(s.application_id))
+      .map((s) => (s.application_status === 'submitted' ? 'under review' : String(s.application_status).replace(/_/g, ' ')))
+  )];
+
+  const handleUndoBatch = async () => {
+    if (!lastBatch) return;
+    setClosureBusy(true);
+    try {
+      const response = await superAdminAPI.undoStatusBatch(lastBatch.id);
+      toast.success(response.data.message);
+      setLastBatch(null);
+      fetchJobApplicants();
+      fetchPlacementStats();
+      fetchRoundClosures();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Could not undo that change');
+    } finally {
+      setClosureBusy(false);
+    }
+  };
+
+  /** Extend, call off, or run one of this job's countdowns. */
+  const handleClosureAction = async (action, cascade) => {
+    setClosureBusy(true);
+    try {
+      const call = {
+        extend: superAdminAPI.extendRoundClosure,
+        cancel: superAdminAPI.cancelRoundClosure,
+        run: superAdminAPI.runRoundClosure,
+      }[action];
+      const response = await call(cascade.id);
+      toast.success(response.data.message);
+      fetchRoundClosures();
+      if (action === 'run') {
+        fetchJobApplicants();
+        fetchPlacementStats();
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'That did not work');
+    } finally {
+      setClosureBusy(false);
     }
   };
 
@@ -415,7 +584,54 @@ export default function SuperAdminJobApplicants() {
     }
   };
 
+  /**
+   * Which message the ticked students should get.
+   *
+   * Their current status, because that is what "notify" means here — tell these
+   * people what has just been decided about them. A selection spanning two
+   * statuses has no single answer, so it is refused rather than guessed: the
+   * previous version guessed 'shortlisted' for everybody, which told people
+   * marked Selected that they had been shortlisted.
+   */
+  const notifyTypeForSelection = () => {
+    const statuses = new Set(
+      students
+        .filter((s) => selectedStudents.includes(s.application_id))
+        .map((s) => (s.application_status === 'submitted' ? 'under_review' : s.application_status))
+    );
+
+    if (statuses.size === 0) return { error: 'Please select students first' };
+    if (statuses.size > 1) {
+      return {
+        error: 'Those students are at different stages — select one stage at a time to notify them',
+      };
+    }
+
+    const [status] = [...statuses];
+    if (!['shortlisted', 'selected', 'rejected'].includes(status)) {
+      return { error: 'There is nothing to tell students who are still under review' };
+    }
+    return { type: status };
+  };
+
+  /**
+   * Tell students where their application stands.
+   *
+   * `notificationType` used to arrive as a click event: the bulk bar passed
+   * this handler straight to a button's onClick, so what reached the server was
+   * a serialised SyntheticEvent and the whitelist rejected every one of them.
+   * Called with no argument it now derives the type from the selection.
+   */
   const handleNotifyStudents = async (notificationType) => {
+    if (typeof notificationType !== 'string') {
+      const derived = notifyTypeForSelection();
+      if (derived.error) {
+        toast.error(derived.error);
+        return;
+      }
+      notificationType = derived.type;
+    }
+
     const applicationsToNotify =
       notificationType === 'drive_scheduled'
         ? filteredStudents.filter((s) => s.application_status === 'shortlisted').map((s) => s.application_id)
@@ -526,6 +742,10 @@ export default function SuperAdminJobApplicants() {
         use_short_names: true,
         exclude_already_placed: !includePlacedInExport,
         college_ids: selectedColleges.length > 0 ? selectedColleges : undefined,
+        // Whatever the reader has narrowed the list to. This export used to
+        // take the college list and nothing else, so a screen filtered to
+        // "Shortlisted" produced a file containing everybody.
+        ...exportFilterPayload(advancedFilters, enhancedFilters),
       });
       const blob = new Blob([response.data], {
         type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -572,19 +792,13 @@ export default function SuperAdminJobApplicants() {
         header_line2: headerLine2 || null,
         exclude_already_placed: !includePlacedInExport,
         college_ids: exportFilters.selectedColleges.length > 0 ? exportFilters.selectedColleges : undefined,
-        application_statuses: pdfExportType === 'selected_only'
-          ? ['selected']
-          : (enhancedFilters.applicationStatuses.length > 0 ? enhancedFilters.applicationStatuses : undefined),
-        sslc_min: enhancedFilters.sslcMin || undefined,
-        twelfth_min: enhancedFilters.twelfthMin || undefined,
-        district: enhancedFilters.district || undefined,
-        has_passport: enhancedFilters.hasPassport,
-        has_aadhar: enhancedFilters.hasAadhar,
-        has_driving_license: enhancedFilters.hasDrivingLicense,
-        has_pan: enhancedFilters.hasPan,
-        height_min: enhancedFilters.heightMin || undefined,
-        weight_min: enhancedFilters.weightMin || undefined,
-        physically_handicapped: enhancedFilters.physicallyHandicapped,
+        // Every filter on screen, from the shared builder — the CGPA, backlog
+        // and date-of-birth filters were missing from this list and reached no
+        // export in either role.
+        ...exportFilterPayload(advancedFilters, enhancedFilters),
+        // "Selected only" is a deliberate choice of list rather than a filter,
+        // so it overrides whatever stage filter happens to be set.
+        ...(pdfExportType === 'selected_only' ? { application_statuses: ['selected'] } : {}),
       };
 
       const response = await superAdminAPI.enhancedExportJobApplicants(selectedJob.id, exportData);
@@ -692,6 +906,16 @@ export default function SuperAdminJobApplicants() {
         onClearSelection={() => setSelectedStudents([])}
         onBulkStatusUpdate={handleBulkStatusUpdate}
         onNotifyStudents={handleNotifyStudents}
+        onRevert={() => {
+          if (selectedStudents.length === 0) { toast.error('Please select students first'); return; }
+          setReverting(true);
+        }}
+        roundClosures={roundClosures}
+        closureBusy={closureBusy}
+        onClosureAction={handleClosureAction}
+        lastBatch={lastBatch}
+        onUndoBatch={handleUndoBatch}
+        onDismissBatch={() => setLastBatch(null)}
         onViewStudent={handleViewStudentDetail}
         onScheduleDrive={() => setShowDriveModal(true)}
         onNotifyDrive={() => handleNotifyStudents('drive_scheduled')}
@@ -735,6 +959,32 @@ export default function SuperAdminJobApplicants() {
           </div>
         ) : null}
       />
+
+      {reverting && (
+        <RevertDialog
+          variant="admin"
+          count={selectedStudents.length}
+          currentStages={selectedStages()}
+          busy={closureBusy}
+          onConfirm={handleRevert}
+          onCancel={() => setReverting(false)}
+        />
+      )}
+
+      {/* Shown before a marking that will start a countdown, so the officer
+          learns what it does to everybody else while they can still act. */}
+      {pendingMarking && (
+        <RoundClosureWarning
+          variant="admin"
+          stage={pendingMarking.stage}
+          count={pendingMarking.count}
+          remaining={pendingMarking.remaining}
+          graceDays={graceDays}
+          busy={closureBusy}
+          onConfirm={() => commitBulkStatusUpdate(pendingMarking.status)}
+          onCancel={() => setPendingMarking(null)}
+        />
+      )}
 
       <StudentDetailModal
         isOpen={showStudentDetail}

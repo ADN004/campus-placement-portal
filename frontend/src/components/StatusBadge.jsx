@@ -1,5 +1,6 @@
 import React from 'react';
 import { formatStatus } from '../utils/formatStatus';
+import { normalizeApplicationStatus } from '../utils/applicationStatus';
 
 /**
  * Application status.
@@ -15,7 +16,6 @@ import { formatStatus } from '../utils/formatStatus';
  */
 
 const OFFICER_TONE = {
-  submitted: 'bg-spc-muted',
   under_review: 'bg-spc-warn',
   shortlisted: 'bg-spc-accent',
   rejected: 'bg-spc-bad',
@@ -23,8 +23,13 @@ const OFFICER_TONE = {
 };
 
 const StatusBadge = ({ status, className = '', variant }) => {
+  // 'submitted' is the retired spelling of under_review. Normalising here means
+  // a row written by an older image is coloured and named as the state it is,
+  // instead of falling through to the unknown-status default.
+  const normalized = normalizeApplicationStatus(status);
+
   if (variant === 'officer') {
-    const dot = OFFICER_TONE[status] || OFFICER_TONE.submitted;
+    const dot = OFFICER_TONE[normalized] || OFFICER_TONE.under_review;
     return (
       <span className={`inline-flex items-center gap-1.5 whitespace-nowrap ${className}`}>
         <span aria-hidden="true" className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${dot}`} />
@@ -33,12 +38,8 @@ const StatusBadge = ({ status, className = '', variant }) => {
     );
   }
 
-  const getStatusConfig = (status) => {
+  const getStatusConfig = (value) => {
     const configs = {
-      submitted: {
-        bg: 'bg-blue-100',
-        text: 'text-blue-700',
-      },
       under_review: {
         bg: 'bg-yellow-100',
         text: 'text-yellow-700',
@@ -57,10 +58,10 @@ const StatusBadge = ({ status, className = '', variant }) => {
       },
     };
 
-    return configs[status] || configs.submitted;
+    return configs[value] || configs.under_review;
   };
 
-  const config = getStatusConfig(status);
+  const config = getStatusConfig(normalized);
 
   return (
     <div className={`flex justify-center ${className}`}>

@@ -9,6 +9,7 @@ import PlacementDetailsForm from '../../components/PlacementDetailsForm';
 import PDFFieldSelector from '../../components/PDFFieldSelector';
 import { NOT_APPLIED_FIELD_OPTIONS, NOT_APPLIED_DEFAULT_FIELDS } from '../../components/exportFieldOptions';
 import ManualStudentAdditionModal from '../../components/ManualStudentAdditionModal';
+import { RoundClosureWarning, RevertDialog } from '../../components/RoundClosure';
 import AutoRefreshIndicator from '../../components/AutoRefreshIndicator';
 import useAutoRefresh from '../../hooks/useAutoRefresh';
 import useSkeletonLoading from '../../hooks/useSkeletonLoading';
@@ -31,6 +32,7 @@ import {
 import { barredReason } from './jobEligible/jobEligibleShared';
 import { utcToLocalInput, localInputToUtc } from '../../utils/deadline';
 import { compareStudents } from '../../utils/studentOrder';
+import { exportFilterPayload, exportFilterParams } from '../../utils/exportFilters';
 
 /*
  * A drive whose students have already been told, changed since.
@@ -76,6 +78,32 @@ export default function JobApplicants() {
 
   // Enhanced Features State
   const [selectedStudents, setSelectedStudents] = useState([]);
+  /*
+   * Closing a round: the countdown, the warning shown before a marking starts
+   * one, and the undo for the marking just made. `pendingMarking` holds the
+   * click while the warning is open, so the dialog confirms a decision already
+   * expressed rather than asking for it again.
+   */
+  const [roundClosures, setRoundClosures] = useState([]);
+  const [outstandingColleges, setOutstandingColleges] = useState([]);
+  const [graceDays, setGraceDays] = useState(5);
+  /*
+   * Which colleges the host is looking at. The page opens on their own, and
+   * these widen it: `scopeColleges` for a picked few, `viewAllColleges` for the lot.
+   * Both are ignored for a non-host, who only ever gets their own college.
+   */
+  const [ownCollegeId, setOwnCollegeId] = useState(null);
+  const [collegeOptions, setCollegeOptions] = useState([]);
+  const [scopeColleges, setScopeColleges] = useState([]);
+  const [viewAllColleges, setViewAllColleges] = useState(false);
+  const [viewing, setViewing] = useState('own');
+  const [pendingMarking, setPendingMarking] = useState(null);
+  const [closureBusy, setClosureBusy] = useState(false);
+  const [lastBatch, setLastBatch] = useState(null);
+  // Open while the host is putting a batch of students back to an earlier
+  // stage. Host only -- an officer whose college was merely included on this
+  // job has Undo for their own click and nothing beyond it.
+  const [reverting, setReverting] = useState(false);
   const [showStudentDetail, setShowStudentDetail] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState(null);
   const [selectedApplicationId, setSelectedApplicationId] = useState(null);
@@ -174,8 +202,16 @@ export default function JobApplicants() {
       fetchJobApplicants();
       fetchDriveSchedule();
       fetchPlacementStats();
+      fetchRoundClosures();
     }
   }, [selectedJob]);
+
+  // The host widening or narrowing which colleges they are looking at. Separate
+  // from the effect above so changing the scope refetches the list without
+  // pulling the drive and the statistics down with it.
+  useEffect(() => {
+    if (selectedJob && isHost) fetchJobApplicants();
+  }, [scopeColleges, viewAllColleges]);
 
   useEffect(() => {
     if (selectedJob && students.length > 0) {
@@ -197,13 +233,36 @@ export default function JobApplicants() {
     }
   };
 
+  /**
+   * Whichever colleges the host has asked to see.
+   *
+   * The page opens on their own college, so this is empty and `viewAllColleges` is
+   * false until they open the picker. A non-host never sends either — the
+   * server scopes them to their own college regardless.
+   */
+  const applicantScopeParams = () => {
+    if (!isHost) return undefined;
+    if (viewAllColleges) return { all_colleges: true };
+    if (scopeColleges.length > 0) return { college_ids: scopeColleges.join(',') };
+    return undefined;
+  };
+
+  const absorbApplicants = (payload) => {
+    setStudents(payload.data || []);
+    setIsHost(payload.is_host || false);
+    setOwnCollegeId(payload.own_college_id ?? null);
+    setCollegeOptions(payload.college_options || []);
+    setViewing(payload.viewing || 'own');
+    setJobCustomFields(payload.custom_fields || []);
+  };
+
   const fetchJobApplicants = async () => {
     try {
       setLoadingStudents(true);
-      const response = await placementOfficerAPI.getJobApplicants(selectedJob.id);
-      setStudents(response.data.data || []);
-      setIsHost(response.data.is_host || false);
-      setJobCustomFields(response.data.custom_fields || []);
+      const response = await placementOfficerAPI.getJobApplicants(
+        selectedJob.id, applicantScopeParams()
+      );
+      absorbApplicants(response.data);
     } catch (error) {
       toast.error('Failed to load job applicants');
       console.error('Failed to load applicants:', error);
@@ -242,12 +301,10 @@ export default function JobApplicants() {
     if (!selectedJob) return;
     try {
       const [applicantsRes, statsRes] = await Promise.all([
-        placementOfficerAPI.getJobApplicants(selectedJob.id),
+        placementOfficerAPI.getJobApplicants(selectedJob.id, applicantScopeParams()),
         placementOfficerAPI.getJobPlacementStats(selectedJob.id),
       ]);
-      setStudents(applicantsRes.data.data || []);
-      setIsHost(applicantsRes.data.is_host || false);
-      setJobCustomFields(applicantsRes.data.custom_fields || []);
+      absorbApplicants(applicantsRes.data);
       setPlacementStats(statsRes.data.data);
     } catch (e) {
       // Silently fail on auto-refresh
@@ -414,30 +471,223 @@ export default function JobApplicants() {
     );
   };
 
+  const fetchRoundClosures = async () => {
+    if (!selectedJob) return;
+    try {
+      const response = await placementOfficerAPI.getRoundClosures(selectedJob.id);
+      setRoundClosures(response.data.data.cascades || []);
+      setOutstandingColleges(response.data.data.outstanding_colleges || []);
+      setGraceDays(response.data.data.grace_days || 5);
+    } catch (error) {
+      // Not worth blocking the page over: the panel simply does not appear.
+      console.error('Round closure fetch failed:', error);
+      setRoundClosures([]);
+      setOutstandingColleges([]);
+    }
+  };
+
+  /**
+   * How many people this marking would leave behind.
+   *
+   * Counted from the list on screen, which for an officer of a joint college is
+   * already only their own students — so the number they are warned about is
+   * exactly the number their marking can close, and never includes somebody at
+   * another college they cannot see.
+   */
+  const remainingAfterMarking = (status) => {
+    const from = status === 'shortlisted'
+      ? ['under_review', 'submitted']
+      : status === 'selected' ? ['shortlisted'] : null;
+    if (!from) return 0;
+    return students.filter(
+      (s) => from.includes(s.application_status) && !selectedStudents.includes(s.application_id)
+    ).length;
+  };
+
   const handleBulkStatusUpdate = async (status) => {
     if (selectedStudents.length === 0) {
       toast.error('No students selected');
       return;
     }
 
+    // Shortlisting or selecting starts a countdown that rejects everyone left
+    // below it, so it is confirmed first. Rejecting says nothing about anybody
+    // else and applies straight away.
+    const stage = status === 'shortlisted' ? 'shortlist' : status === 'selected' ? 'select' : null;
+    if (stage) {
+      setPendingMarking({
+        status,
+        stage,
+        count: selectedStudents.length,
+        remaining: remainingAfterMarking(status),
+      });
+      return;
+    }
+
+    await commitBulkStatusUpdate(status);
+  };
+
+  const commitBulkStatusUpdate = async (status) => {
+    setClosureBusy(true);
+    const loadingToast = toast.loading(`Updating ${selectedStudents.length} applications...`);
     try {
-      const loadingToast = toast.loading(`Updating ${selectedStudents.length} applications...`);
-      await placementOfficerAPI.bulkUpdateApplicationStatus({
+      const response = await placementOfficerAPI.bulkUpdateApplicationStatus({
         application_ids: selectedStudents,
         status,
       });
       toast.dismiss(loadingToast);
-      toast.success(`Updated ${selectedStudents.length} applications to ${status}`);
+      const count = response.data.data?.length ?? selectedStudents.length;
+      toast.success(`Updated ${count} ${count === 1 ? 'application' : 'applications'}`);
+      if (response.data.batch_id) {
+        setLastBatch({
+          id: response.data.batch_id,
+          count,
+          label: status === 'under_review' ? 'Under review'
+            : status.charAt(0).toUpperCase() + status.slice(1),
+        });
+      }
       setSelectedStudents([]);
+      setPendingMarking(null);
       await fetchJobApplicants();
       await fetchPlacementStats();
+      await fetchRoundClosures();
     } catch (error) {
+      toast.dismiss(loadingToast);
       console.error('Bulk update error:', error);
       toast.error('Failed to update applications');
+    } finally {
+      setClosureBusy(false);
     }
   };
 
+  /**
+   * Put the ticked students back to an earlier stage.
+   *
+   * The case Undo cannot reach: anything marked before this feature existed has
+   * no batch id, so without this there is no way to correct it from the
+   * interface at all. Goes through the ordinary bulk endpoint, which records
+   * the change as a correction rather than a decision because it moves people
+   * backwards.
+   */
+  const handleRevert = async (target) => {
+    setClosureBusy(true);
+    try {
+      const response = await placementOfficerAPI.bulkUpdateApplicationStatus({
+        application_ids: selectedStudents,
+        status: target,
+      });
+      const count = response.data.data?.length ?? selectedStudents.length;
+      toast.success(`${count} moved back to ${target === 'under_review' ? 'under review' : target}`);
+      if (response.data.batch_id) {
+        setLastBatch({
+          id: response.data.batch_id,
+          count,
+          label: target === 'under_review' ? 'Under review' : 'Shortlisted',
+        });
+      }
+      setSelectedStudents([]);
+      setReverting(false);
+      await fetchJobApplicants();
+      await fetchPlacementStats();
+      await fetchRoundClosures();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Could not move those students back');
+    } finally {
+      setClosureBusy(false);
+    }
+  };
+
+  /** The stages the ticked students are at now, for the dialog to name. */
+  const selectedStages = () => [...new Set(
+    students
+      .filter((s) => selectedStudents.includes(s.application_id))
+      .map((s) => (s.application_status === 'submitted'
+        ? 'under review'
+        : String(s.application_status).replace(/_/g, ' ')))
+  )];
+
+  const handleUndoBatch = async () => {
+    if (!lastBatch) return;
+    setClosureBusy(true);
+    try {
+      const response = await placementOfficerAPI.undoStatusBatch(lastBatch.id);
+      toast.success(response.data.message);
+      setLastBatch(null);
+      await fetchJobApplicants();
+      await fetchPlacementStats();
+      await fetchRoundClosures();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Could not undo that change');
+    } finally {
+      setClosureBusy(false);
+    }
+  };
+
+  /** Extend, call off, or run one of this job's countdowns. */
+  const handleClosureAction = async (action, cascade) => {
+    setClosureBusy(true);
+    try {
+      const call = {
+        extend: placementOfficerAPI.extendRoundClosure,
+        cancel: placementOfficerAPI.cancelRoundClosure,
+        run: placementOfficerAPI.runRoundClosure,
+      }[action];
+      const response = await call(cascade.id);
+      toast.success(response.data.message);
+      await fetchRoundClosures();
+      if (action === 'run') {
+        await fetchJobApplicants();
+        await fetchPlacementStats();
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'That did not work');
+    } finally {
+      setClosureBusy(false);
+    }
+  };
+
+  /**
+   * Which message the ticked students should get.
+   *
+   * Their current stage, because that is what notifying means here: tell these
+   * people what has just been decided about them. A selection spanning two
+   * stages has no single answer and is refused rather than guessed.
+   */
+  const notifyTypeForSelection = () => {
+    const statuses = new Set(
+      students
+        .filter((s) => selectedStudents.includes(s.application_id))
+        .map((s) => (s.application_status === 'submitted' ? 'under_review' : s.application_status))
+    );
+
+    if (statuses.size === 0) return { error: 'No students selected' };
+    if (statuses.size > 1) {
+      return {
+        error: 'Those students are at different stages — select one stage at a time to notify them',
+      };
+    }
+
+    const [status] = [...statuses];
+    if (!['shortlisted', 'selected', 'rejected'].includes(status)) {
+      return { error: 'There is nothing to tell students who are still under review' };
+    }
+    return { type: status };
+  };
+
   const handleNotifyStudents = async (notificationType) => {
+    // Called with no argument from the bulk bar: the type comes from the
+    // selection, and only the ticked students are told.
+    let selectionOnly = false;
+    if (typeof notificationType !== 'string') {
+      const derived = notifyTypeForSelection();
+      if (derived.error) {
+        toast.error(derived.error);
+        return;
+      }
+      notificationType = derived.type;
+      selectionOnly = true;
+    }
+
     if (!driveData && notificationType === 'drive_scheduled') {
       toast.error('Please schedule a drive first');
       return;
@@ -445,7 +695,9 @@ export default function JobApplicants() {
 
     let applicationsToNotify = [];
 
-    if (notificationType === 'drive_scheduled') {
+    if (selectionOnly) {
+      applicationsToNotify = selectedStudents;
+    } else if (notificationType === 'drive_scheduled') {
       applicationsToNotify = filteredStudents.map((s) => s.application_id);
     } else if (notificationType === 'shortlisted' || notificationType === 'rejected' || notificationType === 'selected') {
       applicationsToNotify = filteredStudents
@@ -682,34 +934,28 @@ export default function JobApplicants() {
         college_ids: isHost && exportCollegeIds.length > 0 ? exportCollegeIds : [],
       };
 
-      // Add enhanced filters if it's an enhanced export
-      if (pdfExportType === 'enhanced') {
-        Object.assign(exportData, {
-          application_statuses: enhancedFilters.applicationStatuses.length > 0
-            ? enhancedFilters.applicationStatuses
-            : undefined,
-          sslc_min: enhancedFilters.sslcMin || undefined,
-          twelfth_min: enhancedFilters.twelfthMin || undefined,
-          district: enhancedFilters.district || undefined,
-          has_passport: enhancedFilters.hasPassport,
-          has_aadhar: enhancedFilters.hasAadhar,
-          has_driving_license: enhancedFilters.hasDrivingLicense,
-          has_pan: enhancedFilters.hasPan,
-          height_min: enhancedFilters.heightMin || undefined,
-          weight_min: enhancedFilters.weightMin || undefined,
-          physically_handicapped: enhancedFilters.physicallyHandicapped,
-        });
-      } else if (pdfExportType === 'selected_only') {
-        // Export only students with 'selected' status
-        Object.assign(exportData, {
-          application_statuses: ['selected'],
-        });
+      /*
+       * Every filter on screen, whichever export this is.
+       *
+       * These used to be attached only on the "enhanced" branch, so an officer
+       * who narrowed the list to Shortlisted and then chose the ordinary export
+       * got every applicant on the job back — in a file that looked exactly
+       * like a filtered one, and that goes to a company. The CGPA, backlog and
+       * date-of-birth filters reached no export at all.
+       */
+      Object.assign(exportData, exportFilterPayload(advancedFilters, enhancedFilters));
+
+      if (pdfExportType === 'selected_only') {
+        // A deliberate choice of list rather than a filter, so it overrides
+        // whatever stage filter happens to be set.
+        Object.assign(exportData, { application_statuses: ['selected'] });
       }
 
       const response = (pdfExportType === 'enhanced' || pdfExportType === 'selected_only')
         ? await placementOfficerAPI.enhancedExportJobApplicants(selectedJob.id, exportData)
         : await placementOfficerAPI.exportJobApplicants(
           selectedJob.id, asExcel ? 'excel' : 'pdf', !includePlacedInExport,
+          exportFilterParams(advancedFilters, enhancedFilters),
         );
 
       const blob = new Blob([response.data], {
@@ -834,7 +1080,8 @@ export default function JobApplicants() {
   const placementStatCards = placementStats
     ? [
         { label: 'Total applications', value: placementStats.total_applications || 0 },
-        { label: 'Submitted', value: placementStats.submitted || 0 },
+        // "Submitted" and "Under review" were two tiles counting one state, so
+        // the pair always read like a split that meant something. One tile now.
         { label: 'Under review', value: placementStats.under_review || 0 },
         { label: 'Shortlisted', value: placementStats.shortlisted || 0 },
         { label: 'Selected', value: placementStats.selected || 0 },
@@ -989,7 +1236,29 @@ export default function JobApplicants() {
     selectedStudents,
     allSelectedAreSelected,
     onBulkStatusUpdate: handleBulkStatusUpdate,
+    onNotifySelected: () => handleNotifyStudents(),
+    onRevert: () => {
+      if (selectedStudents.length === 0) { toast.error('No students selected'); return; }
+      setReverting(true);
+    },
     onClearSelection: () => setSelectedStudents([]),
+    ownCollegeId,
+    collegeOptions,
+    scopeColleges,
+    viewing,
+    outstandingColleges,
+    // Changing what is on screen clears the ticks: the selection refers to
+    // application ids that may no longer be listed, and a bulk action carrying
+    // students the officer can no longer see is exactly what must not happen.
+    onScopeApply: (ids) => { setSelectedStudents([]); setViewAllColleges(false); setScopeColleges(ids); },
+    onScopeAll: () => { setSelectedStudents([]); setScopeColleges([]); setViewAllColleges(true); },
+    onScopeOwn: () => { setSelectedStudents([]); setScopeColleges([]); setViewAllColleges(false); },
+    roundClosures,
+    closureBusy,
+    onClosureAction: handleClosureAction,
+    lastBatch,
+    onUndoBatch: handleUndoBatch,
+    onDismissBatch: () => setLastBatch(null),
     onSelectStudent: handleSelectStudent,
     onSelectAll: handleSelectAll,
     onViewStudent: handleViewStudent,
@@ -1034,6 +1303,32 @@ export default function JobApplicants() {
         userRole="placement-officer"
         variant="officer"
       />
+
+      {reverting && (
+        <RevertDialog
+          variant="officer"
+          count={selectedStudents.length}
+          currentStages={selectedStages()}
+          busy={closureBusy}
+          onConfirm={handleRevert}
+          onCancel={() => setReverting(false)}
+        />
+      )}
+
+      {/* Shown before a marking that will start a countdown, so the officer
+          learns what it does to everybody else while they can still act. */}
+      {pendingMarking && (
+        <RoundClosureWarning
+          variant="officer"
+          stage={pendingMarking.stage}
+          count={pendingMarking.count}
+          remaining={pendingMarking.remaining}
+          graceDays={graceDays}
+          busy={closureBusy}
+          onConfirm={() => commitBulkStatusUpdate(pendingMarking.status)}
+          onCancel={() => setPendingMarking(null)}
+        />
+      )}
 
       <DriveScheduleModal
         isOpen={showDriveModal}

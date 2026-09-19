@@ -208,25 +208,31 @@ async function main() {
     }
 
     // ---- Applications (mixed statuses) ----
+    //
+    // 'submitted' is gone: it and 'under_review' were one state under two
+    // names, and seeding both made staging look like it had a distinction that
+    // production does not. status_source carries what the status cannot —
+    // whether a row is where the student left it or where somebody put it.
     const applications = [
       // [studentIdx, jobIdx, status, package, location]
       [0, 0, 'selected', 4.5, 'Kochi'],
       [1, 0, 'shortlisted', null, null],
-      [2, 0, 'submitted', null, null],
+      [2, 0, 'under_review', null, null],
       [3, 1, 'under_review', null, null],
       [4, 2, 'rejected', null, null],
-      [6, 3, 'submitted', null, null],
+      [6, 3, 'under_review', null, null],
     ];
     for (const [sIdx, jIdx, status, pkg, loc] of applications) {
-      const isReviewed = status !== 'submitted';
+      const isReviewed = status !== 'under_review';
       await client.query(
         `INSERT INTO job_applications (
-           job_id, student_id, application_status,
+           job_id, student_id, application_status, status_source,
            reviewed_by, reviewed_at,
            placement_package, placement_location, joining_date
-         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
         [
           jobIds[jIdx], studentIds[sIdx], status,
+          isReviewed ? 'officer' : 'student_apply',
           isReviewed ? adminUserId : null, isReviewed ? new Date() : null,
           pkg, loc, pkg !== null ? new Date(now + 60 * day) : null,
         ]

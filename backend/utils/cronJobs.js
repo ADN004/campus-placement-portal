@@ -1,4 +1,5 @@
 import { query } from '../config/database.js';
+import { runDueCascades } from './applicationLifecycle.js';
 
 /**
  * Daily age update job
@@ -58,6 +59,29 @@ export const refreshMaterializedViews = async () => {
 };
 
 /**
+ * Close the rounds that have gone quiet.
+ *
+ * Wraps the sweep so a failure here can never take the scheduler down with it:
+ * these tasks run from a bare setInterval with nothing above them to catch a
+ * rejected promise, and an unhandled one would stop every later run.
+ */
+export const closeDueRounds = async () => {
+  try {
+    console.log('🔄 Closing rounds that have gone quiet...');
+    const result = await runDueCascades();
+    if (!result.ran) {
+      console.log('⏭️  Round closure is switched off — nothing done');
+      return { success: true, skipped: true };
+    }
+    console.log(`✅ Round closure: ${result.affected} application(s) closed`);
+    return { success: true, ...result };
+  } catch (error) {
+    console.error('❌ Error closing rounds:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+/**
  * Schedule daily cron jobs
  * Sets up daily tasks to run at midnight
  */
@@ -89,6 +113,13 @@ export const scheduleDailyCronJobs = () => {
   // Schedule materialized view refresh
   scheduleTask(refreshMaterializedViews, 'materialized view refresh');
 
+  // Close rounds nobody has touched for the grace period.
+  //
+  // Safe to run late, early, or twice: the sweep asks which closures are
+  // overdue *now* rather than which fell due since it last ran, so a container
+  // restart that skips a midnight costs nothing and the next run catches up.
+  scheduleTask(closeDueRounds, 'round closure sweep');
+
   console.log('✅ Cron jobs scheduled successfully');
 };
 
@@ -101,6 +132,7 @@ export const runMaintenanceTasks = async () => {
   const results = {
     age_update: await updateAllStudentAges(),
     view_refresh: await refreshMaterializedViews(),
+    round_closure: await closeDueRounds(),
   };
 
   console.log('✅ Maintenance tasks completed');

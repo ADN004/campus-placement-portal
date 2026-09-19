@@ -1,4 +1,4 @@
-import { Download, Eye, DollarSign, Calendar, Send, Filter, ChevronDown, ChevronUp, Trash2, EyeOff } from 'lucide-react';
+import { Download, Eye, DollarSign, Calendar, Send, Filter, ChevronDown, ChevronUp, Trash2, EyeOff, Undo2 } from 'lucide-react';
 import StatusBadge from '../../../components/StatusBadge';
 import {
   Panel, PanelHeading, SectionLabel, PrimaryButton, SecondaryButton, DangerButton,
@@ -323,7 +323,9 @@ export function JobSummary({
  * the action buttons are replaced by a plain note, exactly as before — there is
  * nothing useful left to apply to them.
  */
-export function BulkActionBar({ count, allAlreadySelected, onStatusUpdate, onClear }) {
+export function BulkActionBar({
+  count, allAlreadySelected, onStatusUpdate, onNotify, onRevert, onClear,
+}) {
   if (count === 0) return null;
 
   return (
@@ -343,9 +345,14 @@ export function BulkActionBar({ count, allAlreadySelected, onStatusUpdate, onCle
             <SecondaryButton onClick={onClear}>Clear selection</SecondaryButton>
           ) : (
             <>
-              <SecondaryButton onClick={() => onStatusUpdate('under_review')}>
-                Mark under review
-              </SecondaryButton>
+              {/*
+                "Mark under review" is gone. It was the only button here that
+                moved somebody backwards, and every application now starts at
+                under review, so it was a step that took a student from where
+                they already were to where they already were. Putting somebody
+                back is a correction — it belongs to the Super Admin, or to the
+                Undo that appears straight after a marking.
+              */}
               <SecondaryButton onClick={() => onStatusUpdate('shortlisted')}>
                 Shortlist
               </SecondaryButton>
@@ -353,6 +360,33 @@ export function BulkActionBar({ count, allAlreadySelected, onStatusUpdate, onCle
                 Mark selected
               </PrimaryButton>
               <SecondaryButton onClick={() => onStatusUpdate('rejected')}>Reject</SecondaryButton>
+              {/*
+                Officers could mark a student shortlisted, selected or rejected
+                and had no way at all to tell them so -- the only notification
+                this role could send was a drive announcement. Sends to exactly
+                the ticked students, and the message follows the stage they are
+                at, so it cannot tell somebody the wrong thing.
+              */}
+              {onNotify && (
+                <SecondaryButton onClick={() => onNotify()}>
+                  <Send size={15} aria-hidden="true" />
+                  <span>Notify</span>
+                </SecondaryButton>
+              )}
+              {/*
+                Correcting a marking. Only for the officer who posted the job --
+                on their own posting they are the person responsible for it, and
+                they can reach every college on it. An officer whose college was
+                merely included gets the Undo that appears straight after their
+                own click and nothing beyond it: once that click is behind them,
+                a correction goes through whoever owns the job.
+              */}
+              {onRevert && (
+                <SecondaryButton onClick={() => onRevert()}>
+                  <Undo2 size={15} aria-hidden="true" />
+                  <span>Move back…</span>
+                </SecondaryButton>
+              )}
               <SecondaryButton onClick={onClear}>Clear</SecondaryButton>
             </>
           )}

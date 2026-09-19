@@ -7,6 +7,7 @@ import {
   PlacementStats, DrivePanel, AdvancedFilters, BulkBar, ApplicantSection, ApplicantToolbar,
   ExportScope,
 } from './applicantsShared';
+import { RoundClosurePanel, UndoBanner } from '../../../components/RoundClosure';
 
 /**
  * One drive's applicants, at every width.
@@ -69,6 +70,25 @@ export default function ApplicantsBody(p) {
       />
 
       <PlacementStats layout={layout} stats={p.placementStats} />
+
+      {/* Above the statistics and the drive: a round that closes in two days is
+          the only thing on this page with a deadline on it. */}
+      <RoundClosurePanel
+        variant="admin"
+        cascades={p.roundClosures}
+        busy={p.closureBusy}
+        onExtend={(c) => p.onClosureAction('extend', c)}
+        onCancel={(c) => p.onClosureAction('cancel', c)}
+        onRunNow={(c) => p.onClosureAction('run', c)}
+      />
+
+      <UndoBanner
+        variant="admin"
+        batch={p.lastBatch}
+        busy={p.closureBusy}
+        onUndo={p.onUndoBatch}
+        onDismiss={p.onDismissBatch}
+      />
 
       <DrivePanel
         drive={p.driveData}
@@ -166,6 +186,7 @@ export default function ApplicantsBody(p) {
         count={p.selectedStudents.length}
         onStatus={p.onBulkStatusUpdate}
         onNotify={p.onNotifyStudents}
+        onRevert={p.onRevert}
         onClear={p.onClearSelection}
         disabled={p.loadingStudents}
       />

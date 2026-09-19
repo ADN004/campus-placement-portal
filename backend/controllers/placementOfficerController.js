@@ -2749,9 +2749,41 @@ export const getJobApplicants = async (req, res) => {
 
     const isHost = jobResult.rows.length > 0 && jobResult.rows[0].placement_officer_id === officer.id;
 
-    // Host PO sees all colleges' applicants; non-host PO sees only their own college
-    const collegeFilter = isHost ? '' : 'AND s.college_id = $2';
-    const queryParams = isHost ? [jobId] : [jobId, collegeId];
+    /*
+     * Which colleges' applicants come back.
+     *
+     * A non-host officer gets their own college and nothing else, as before.
+     *
+     * The host used to get every college on the job, unasked. On a statewide
+     * posting that is two thousand rows, of which the twenty that are theirs to
+     * work are scattered through the middle -- and the people who should be
+     * marking the rest are the officers at those colleges, each of whom sees
+     * their own twenty on their own screen. So the host now opens on their own
+     * college too, and reaches the others deliberately: `college_ids` widens it
+     * to whichever they picked, and `all_colleges` to the lot.
+     *
+     * The widening is theirs alone. A non-host sending either parameter is
+     * ignored rather than refused, because there is no way for them to send it
+     * by accident and no reason to explain to them what they cannot have.
+     */
+    const requestedColleges = String(req.query.college_ids || '')
+      .split(',')
+      .map((v) => parseInt(v, 10))
+      .filter(Number.isInteger);
+    const wantsAll = isHost && String(req.query.all_colleges) === 'true';
+
+    let collegeFilter = 'AND s.college_id = $2';
+    let queryParams = [jobId, collegeId];
+
+    if (isHost && wantsAll) {
+      collegeFilter = '';
+      queryParams = [jobId];
+    } else if (isHost && requestedColleges.length > 0) {
+      collegeFilter = 'AND s.college_id = ANY($2::int[])';
+      // Their own college always travels with the selection: the picker is for
+      // reaching further, not for losing sight of the students they own.
+      queryParams = [jobId, [...new Set([collegeId, ...requestedColleges])]];
+    }
 
     /*
      * Every application on this job, including those from students who have
@@ -2779,6 +2811,10 @@ export const getJobApplicants = async (req, res) => {
         s.registration_status, s.is_blacklisted, s.gender, s.age,
         c.college_name,
         ja.id as application_id, ja.applied_date, ja.application_status,
+        -- Why it holds that status. 'rejected' covers an officer's decision, a
+        -- failed eligibility check and a round that closed automatically, and
+        -- the list should not make those three look like one thing.
+        ja.status_source,
         ja.created_by_officer,
         ja.placement_package, ja.joining_date, ja.placement_location,
         j.job_title, j.company_name, j.min_cgpa, j.max_backlogs, j.allowed_branches,
@@ -2834,11 +2870,46 @@ export const getJobApplicants = async (req, res) => {
         : [],
     }));
 
+    /*
+     * The colleges the host can reach, and how many applicants each holds.
+     *
+     * Deliberately every college with an applicant on this job rather than the
+     * job's target list: a college can be targeted and draw nobody, and a
+     * picker offering empty colleges is a picker people stop trusting. Counted
+     * across the whole job regardless of the filter in force, so the numbers
+     * do not move when the selection does.
+     *
+     * Only built for the host -- it is the only person who can act on it, and
+     * on a statewide job it is sixty extra rows to send to everybody else.
+     */
+    let collegeOptions = [];
+    if (isHost) {
+      const optionsResult = await query(
+        `SELECT s.college_id, c.college_name, COUNT(*)::int AS applicants,
+                COUNT(*) FILTER (WHERE ja.application_status IN ('under_review','submitted'))::int AS waiting
+           FROM job_applications ja
+           JOIN students s ON s.id = ja.student_id
+           LEFT JOIN colleges c ON c.id = s.college_id
+          WHERE ja.job_id = $1
+          GROUP BY s.college_id, c.college_name
+          ORDER BY c.college_name NULLS LAST`,
+        [jobId]
+      );
+      collegeOptions = optionsResult.rows;
+    }
+
     res.status(200).json({
       success: true,
       count: applicants.length,
       data: applicants,
       is_host: isHost,
+      own_college_id: collegeId,
+      college_options: collegeOptions,
+      // Which colleges the filter is currently showing, so the page can label
+      // itself honestly rather than inferring it from the rows that came back.
+      viewing: wantsAll
+        ? 'all'
+        : (isHost && requestedColleges.length > 0 ? 'selected' : 'own'),
       custom_fields: await jobCustomFields(jobId),
     });
   } catch (error) {

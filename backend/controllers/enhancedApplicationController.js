@@ -1019,13 +1019,21 @@ export const submitEnhancedApplication = async (req, res) => {
       }
 
       // Create basic application
+      //
+      // 'under_review' rather than 'submitted': the two were one state under two
+      // names, and an officer clicking "Mark under review" told the student
+      // nothing. status_source carries what the status alone cannot -- a row
+      // born rejected because the criteria were not met is not the same thing
+      // as one an officer rejected, and only the column can tell them apart.
       const applicationResult = await client.query(
         `INSERT INTO job_applications
-           (job_id, student_id, application_status, declared_no_backlog_history)
-         VALUES ($1, $2, $3, $4)
+           (job_id, student_id, application_status, status_source, declared_no_backlog_history)
+         VALUES ($1, $2, $3, $4, $5)
          RETURNING *`,
         [
-          jobId, student.id, meetsRequirements ? 'submitted' : 'rejected',
+          jobId, student.id,
+          meetsRequirements ? 'under_review' : 'rejected',
+          meetsRequirements ? 'student_apply' : 'eligibility_fail',
           // Recorded only where it was actually asked for, so the column reads
           // as "declared this" rather than "was never asked".
           job.requires_no_backlog_history === true,
@@ -1033,6 +1041,20 @@ export const submitEnhancedApplication = async (req, res) => {
       );
 
       const application = applicationResult.rows[0];
+
+      // The opening event, so an application's history starts where the
+      // application does rather than at whatever an officer first did to it.
+      await client.query(
+        `INSERT INTO application_status_events
+           (application_id, from_status, to_status, source, actor_user_id)
+         VALUES ($1, NULL, $2, $3, $4)`,
+        [
+          application.id,
+          application.application_status,
+          application.status_source,
+          req.user.id,
+        ]
+      );
 
       // Create Tier 2 snapshot from UPDATED profile
       const tier2Snapshot = {

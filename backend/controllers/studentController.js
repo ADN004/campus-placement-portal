@@ -372,11 +372,24 @@ export const applyForJob = async (req, res) => {
     // Placement officers will filter and report based on eligibility
 
     // Create application
+    //
+    // The status and source are named rather than left to the column defaults:
+    // this route predates the enhanced apply flow and nothing in the frontend
+    // calls it any more, but it is still mounted, and a route that quietly
+    // writes a status the rest of the system has stopped using is exactly the
+    // kind of thing that is only discovered from a support ticket.
     const applicationResult = await query(
-      `INSERT INTO job_applications (job_id, student_id)
-       VALUES ($1, $2)
+      `INSERT INTO job_applications (job_id, student_id, application_status, status_source)
+       VALUES ($1, $2, 'under_review', 'student_apply')
        RETURNING *`,
       [jobId, student.id]
+    );
+
+    await query(
+      `INSERT INTO application_status_events
+         (application_id, from_status, to_status, source, actor_user_id)
+       VALUES ($1, NULL, 'under_review', 'student_apply', $2)`,
+      [applicationResult.rows[0].id, req.user.id]
     );
 
     res.status(201).json({
@@ -415,6 +428,10 @@ export const getMyApplications = async (req, res) => {
 
     const applicationsResult = await query(
       `SELECT ja.id, ja.job_id, ja.student_id, ja.application_status as status,
+              -- Why it holds that status. 'rejected' alone covers three
+              -- unrelated situations, and only one of them is something the
+              -- student can do anything about.
+              ja.status_source,
               ja.applied_date as applied_at, ja.updated_at,
               j.job_title, j.company_name, j.application_deadline, j.application_form_url,
               j.job_description as description, j.job_location as location,

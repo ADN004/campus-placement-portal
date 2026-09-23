@@ -3,8 +3,9 @@ import {
 } from 'lucide-react';
 import {
   Panel, PageHeading, SectionLabel, EmptyState, FIELD_CLASS,
-  PrimaryButton, SecondaryButton,
+  PrimaryButton, SecondaryButton, ListPager,
 } from '../../../components/admin/AdminUI';
+import usePagedList from '../../../hooks/usePagedList';
 import { OfficerStanding } from './officersShared';
 
 /**
@@ -187,6 +188,16 @@ function OfficerList({ officers, actions }) {
 export default function OfficersBody(p) {
   const { layout } = p;
   const filtering = Boolean(p.searchQuery || p.selectedRegion);
+  /*
+   * Sixty officers today, and the register keeps every one ever appointed -- a
+   * college that has changed its officer three times has three rows here, so
+   * this only ever grows. Reset on the filters, or narrowing a list leaves you
+   * on page four of a result set that now has one page.
+   */
+  const officerPage = usePagedList(p.filteredOfficers, {
+    pageSize: 25,
+    resetKey: `${p.searchQuery}|${p.selectedRegion}`,
+  });
 
   return (
     <div>
@@ -257,9 +268,11 @@ export default function OfficersBody(p) {
       </Panel>
 
       <SectionLabel>
-        {p.filteredOfficers.length === p.officers.length
-          ? `${p.officers.length} officers`
-          : `${p.filteredOfficers.length} of ${p.officers.length} officers`}
+        {officerPage.totalPages > 1
+          ? `${officerPage.first}–${officerPage.last} of ${officerPage.total} officers`
+          : p.filteredOfficers.length === p.officers.length
+            ? `${p.officers.length} officers`
+            : `${p.filteredOfficers.length} of ${p.officers.length} officers`}
       </SectionLabel>
 
       {p.filteredOfficers.length === 0 ? (
@@ -271,9 +284,12 @@ export default function OfficersBody(p) {
           </EmptyState>
         </Panel>
       ) : (
-        layout === 'desktop'
-          ? <OfficerTable officers={p.filteredOfficers} actions={p.actions} />
-          : <OfficerList officers={p.filteredOfficers} actions={p.actions} />
+        <>
+          {layout === 'desktop'
+            ? <OfficerTable officers={officerPage.visible} actions={p.actions} />
+            : <OfficerList officers={officerPage.visible} actions={p.actions} />}
+          <ListPager page={officerPage} noun="officers" layout={layout} />
+        </>
       )}
     </div>
   );

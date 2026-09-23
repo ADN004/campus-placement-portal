@@ -188,3 +188,41 @@ export function EmptyState({ children }) {
 export function Bar({ className = '' }) {
   return <div className={`h-px bg-spc-rule-structural ${className}`} />;
 }
+
+/**
+ * Previous / Next for a client-paged list.
+ *
+ * Lifted out of the jobs page when three more Console registers needed it. They
+ * fetch and render everything they have -- fine at sixty officers, less fine at
+ * the several hundred that job requests, requirement templates and the officer
+ * register all reach by accumulating rather than by any single busy day. One
+ * definition so the four cannot drift into paging differently.
+ *
+ * Renders nothing on a single page, so a short list looks exactly as it did.
+ */
+export function ListPager({ page, noun, layout }) {
+
+  if (page.totalPages <= 1) return null;
+  return (
+    <Panel className={`mt-3 p-3 flex gap-3 ${layout === 'desktop'
+      ? 'items-center justify-between flex-wrap' : 'flex-col'}`}>
+      <p className="text-spc-xs text-spc-body tabular-nums">
+        {page.first}–{page.last} of {page.total} {noun}
+      </p>
+      <div className="flex items-center gap-2">
+        <SecondaryButton onClick={() => page.setPage(page.page - 1)} disabled={page.page === 1}>
+          Previous
+        </SecondaryButton>
+        <p className="text-spc-xs text-spc-body px-1 tabular-nums" aria-live="polite">
+          {page.page} / {page.totalPages}
+        </p>
+        <SecondaryButton
+          onClick={() => page.setPage(page.page + 1)}
+          disabled={page.page === page.totalPages}
+        >
+          Next
+        </SecondaryButton>
+      </div>
+    </Panel>
+  );
+}

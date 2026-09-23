@@ -1,8 +1,9 @@
 import { Plus, Eye, Edit, Trash2 } from 'lucide-react';
 import {
   Panel, PanelHeading, PageHeading, SectionLabel, EmptyState,
-  PrimaryButton, SecondaryButton,
+  PrimaryButton, SecondaryButton, ListPager,
 } from '../../../components/admin/AdminUI';
+import usePagedList from '../../../hooks/usePagedList';
 
 /**
  * Requirement templates — a saved set of eligibility rules an officer can drop
@@ -142,6 +143,10 @@ export default function TemplatesBody(p) {
   const columns = layout === 'desktop' ? 'lg:grid-cols-3 sm:grid-cols-2'
     : layout === 'tablet' ? 'sm:grid-cols-2' : 'grid-cols-1';
 
+  // Templates are added and rarely deleted, so this register only grows.
+  // Twenty-four a page: divisible by the two- and three-column grids.
+  const templatePage = usePagedList(p.templates, { pageSize: 24 });
+
   return (
     <div>
       <PageHeading
@@ -172,10 +177,12 @@ export default function TemplatesBody(p) {
       ) : (
         <>
           <SectionLabel>
-            {p.templates.length} {p.templates.length === 1 ? 'template' : 'templates'}
+            {templatePage.totalPages <= 1
+              ? `${templatePage.total} ${templatePage.total === 1 ? 'template' : 'templates'}`
+              : `${templatePage.first}–${templatePage.last} of ${templatePage.total} templates`}
           </SectionLabel>
           <div className={`grid grid-cols-1 ${columns} gap-3 items-start`}>
-            {p.templates.map((template) => (
+            {templatePage.visible.map((template) => (
               <TemplateCard
                 key={template.id}
                 template={template}
@@ -185,6 +192,7 @@ export default function TemplatesBody(p) {
               />
             ))}
           </div>
+          <ListPager page={templatePage} noun="templates" layout={layout} />
         </>
       )}
     </div>

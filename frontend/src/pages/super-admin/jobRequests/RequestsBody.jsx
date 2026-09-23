@@ -1,8 +1,9 @@
 import { Check, X, ExternalLink } from 'lucide-react';
 import {
   Panel, PanelHeading, PageHeading, SectionLabel, EmptyState,
-  PrimaryButton, DangerButton, formatDate,
+  PrimaryButton, DangerButton, formatDate, ListPager,
 } from '../../../components/admin/AdminUI';
+import usePagedList from '../../../hooks/usePagedList';
 import backlogRequirementText from '../../../utils/backlogRequirement';
 
 /**
@@ -159,6 +160,13 @@ function RequestCard({ layout, request, onApprove, onReject }) {
 export default function RequestsBody(p) {
   const { layout } = p;
 
+  /*
+   * Requests accumulate: nothing prunes them, so a portal three seasons in
+   * has a register that only ever grows. Twenty-five a page, matching the
+   * jobs register beside it.
+   */
+  const requestPage = usePagedList(p.requests, { pageSize: 25 });
+
   return (
     <div>
       <PageHeading
@@ -183,9 +191,13 @@ export default function RequestsBody(p) {
         </Panel>
       ) : (
         <>
-          <SectionLabel>Pending</SectionLabel>
+          <SectionLabel>
+            {requestPage.total === p.requests.length && requestPage.totalPages <= 1
+              ? 'Pending'
+              : `Pending — ${requestPage.first}–${requestPage.last} of ${requestPage.total}`}
+          </SectionLabel>
           <div className="space-y-3">
-            {p.requests.map((request) => (
+            {requestPage.visible.map((request) => (
               <RequestCard
                 key={request.id}
                 layout={layout}
@@ -195,6 +207,7 @@ export default function RequestsBody(p) {
               />
             ))}
           </div>
+          <ListPager page={requestPage} noun="requests" layout={layout} />
         </>
       )}
     </div>

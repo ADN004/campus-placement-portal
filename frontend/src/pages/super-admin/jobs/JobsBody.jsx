@@ -7,6 +7,7 @@ import {
   PrimaryButton, SecondaryButton, DangerButton,
 } from '../../../components/admin/AdminUI';
 import usePagedList from '../../../hooks/usePagedList';
+import { ListPager } from '../../../components/admin/AdminUI';
 import {
   JobStanding, formatDay, formatMoment, targetDisplay, packageOf, nameLookups,
 } from './jobsShared';
@@ -344,31 +345,6 @@ function DeletedList({ layout, jobs, onClearHistory }) {
  * because the counters on the tiles and the filtering read all of it; only the
  * slice that is drawn is bounded.
  */
-function ListPager({ page, noun, layout }) {
-  if (page.totalPages <= 1) return null;
-  return (
-    <Panel className={`mt-3 p-3 flex gap-3 ${layout === 'desktop'
-      ? 'items-center justify-between flex-wrap' : 'flex-col'}`}>
-      <p className="text-spc-xs text-spc-body tabular-nums">
-        {page.first}–{page.last} of {page.total} {noun}
-      </p>
-      <div className="flex items-center gap-2">
-        <SecondaryButton onClick={() => page.setPage(page.page - 1)} disabled={page.page === 1}>
-          Previous
-        </SecondaryButton>
-        <p className="text-spc-xs text-spc-body px-1 tabular-nums" aria-live="polite">
-          {page.page} / {page.totalPages}
-        </p>
-        <SecondaryButton
-          onClick={() => page.setPage(page.page + 1)}
-          disabled={page.page === page.totalPages}
-        >
-          Next
-        </SecondaryButton>
-      </div>
-    </Panel>
-  );
-}
 
 export default function JobsBody(p) {
   const { layout } = p;

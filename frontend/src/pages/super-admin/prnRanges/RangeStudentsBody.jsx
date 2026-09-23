@@ -3,8 +3,9 @@ import {
   ArrowLeft, FileSpreadsheet, FileText, Lock, Unlock,
 } from 'lucide-react';
 import {
-  Panel, PageHeading, SectionLabel, EmptyState, SecondaryButton, formatDate,
+  Panel, PageHeading, SectionLabel, EmptyState, SecondaryButton, formatDate, ListPager,
 } from '../../../components/admin/AdminUI';
+import usePagedList from '../../../hooks/usePagedList';
 
 /**
  * The students covered by one PRN range, at every width.
@@ -130,6 +131,13 @@ export default function RangeStudentsBody(p) {
   const { layout, rangeInfo } = p;
   const Register = layout === 'desktop' ? StudentTable : StudentList;
 
+  /*
+   * A range usually covers one branch-year at one college, so a hundred or
+   * so -- but nothing stops a range being drawn wide, and the export beside
+   * this still takes every row whatever the page shows.
+   */
+  const studentPage = usePagedList(p.students, { pageSize: 50 });
+
   return (
     <div>
       <Link
@@ -185,7 +193,11 @@ export default function RangeStudentsBody(p) {
       />
 
       <SectionLabel>
-        {p.exporting ? 'Preparing the export…' : `${p.students.length} students`}
+        {p.exporting
+          ? 'Preparing the export…'
+          : studentPage.totalPages > 1
+            ? `${studentPage.first}–${studentPage.last} of ${studentPage.total} students`
+            : `${p.students.length} students`}
       </SectionLabel>
 
       {p.students.length === 0 ? (
@@ -193,7 +205,10 @@ export default function RangeStudentsBody(p) {
           <EmptyState>No student has registered with a PRN inside this range yet.</EmptyState>
         </Panel>
       ) : (
-        <Register students={p.students} />
+        <>
+          <Register students={studentPage.visible} />
+          <ListPager page={studentPage} noun="students" layout={layout} />
+        </>
       )}
     </div>
   );

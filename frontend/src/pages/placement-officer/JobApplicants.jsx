@@ -32,7 +32,9 @@ import {
 import { barredReason } from './jobEligible/jobEligibleShared';
 import { utcToLocalInput, localInputToUtc } from '../../utils/deadline';
 import { compareStudents } from '../../utils/studentOrder';
-import { exportFilterPayload, exportFilterParams } from '../../utils/exportFilters';
+import {
+  exportFilterPayload, exportFilterParams, describeExportFilters,
+} from '../../utils/exportFilters';
 
 /*
  * A drive whose students have already been told, changed since.
@@ -836,6 +838,18 @@ export default function JobApplicants() {
 
       const loadingToast = toast.loading(`Preparing ${format === 'pdf' ? 'PDF' : 'Excel'} export...`);
 
+      /*
+       * Whatever the officer has narrowed the list to.
+       *
+       * This handler is what the dialog's Basic Excel and Basic PDF buttons
+       * call, and it sent no filters at all -- so an officer who filtered to
+       * Shortlisted and pressed Basic got every applicant on the job, while the
+       * Enhanced buttons beside it correctly returned the filtered set. Two
+       * buttons in one dialog disagreeing about what "export" means is worse
+       * than neither of them filtering.
+       */
+      const filters = exportFilterPayload(advancedFilters, enhancedFilters);
+
       // Host POs with college selection use enhanced export to support college_ids
       const useEnhanced = isHost && exportCollegeIds.length > 0;
       const response = useEnhanced
@@ -843,8 +857,12 @@ export default function JobApplicants() {
             format,
             college_ids: exportCollegeIds,
             exclude_already_placed: !includePlacedInExport,
+            ...filters,
           })
-        : await placementOfficerAPI.exportJobApplicants(selectedJob.id, format, !includePlacedInExport);
+        : await placementOfficerAPI.exportJobApplicants(
+          selectedJob.id, format, !includePlacedInExport,
+          exportFilterParams(advancedFilters, enhancedFilters),
+        );
 
       const mimeType = format === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
       const fileExt = format === 'pdf' ? 'pdf' : 'xlsx';
@@ -1400,6 +1418,10 @@ export default function JobApplicants() {
           onExportNotAppliedFields={handleNotAppliedWithFields}
           placedCount={filteredStudents.filter((s) => s.is_already_placed).length}
           barredCount={filteredStudents.filter((s) => barredReason(s)).length}
+          filterSummary={describeExportFilters(advancedFilters, enhancedFilters)}
+          shownCount={filteredStudents.length}
+          totalCount={students.length}
+          onClearFilters={() => { clearEnhancedFilters(); clearAdvancedFilters(); }}
           includePlaced={includePlacedInExport}
           onIncludePlacedChange={(e) => setIncludePlacedInExport(e.target.checked)}
           onClose={() => setShowExportModal(false)}

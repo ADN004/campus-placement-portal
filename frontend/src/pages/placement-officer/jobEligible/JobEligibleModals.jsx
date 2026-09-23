@@ -88,6 +88,9 @@ export function ExportOptionsModal({
   onExportNotApplied, onExportNotAppliedFields,
   placedCount, includePlaced, onIncludePlacedChange,
   barredCount = 0,
+  // What the list is currently narrowed to, and how many that leaves.
+  filterSummary = null, shownCount = 0, totalCount = 0,
+  onClearFilters,
   onClose,
 }) {
   return (
@@ -107,6 +110,44 @@ export function ExportOptionsModal({
             {barredCount === 1 ? ' their' : ' their'} account is blacklisted or no longer approved.
           </p>
         )}
+        {/*
+          * What is actually going to be in the file.
+          *
+          * Every export here obeys the filters set on the page, which is right
+          * but invisible: the officer chose those filters on a different part
+          * of the screen, possibly minutes ago, and nothing in this dialog
+          * admitted they applied. A file that is quietly narrower than
+          * expected is as wrong as one that is quietly wider, and this is the
+          * only place where both readings can be settled before the download.
+          *
+          * It also removes the reason to add "Shortlisted only" and "Selected
+          * only" buttons: filtering the page already does that, and saying so
+          * here costs one line instead of two more rows in a dialog that
+          * already offers seven.
+          */}
+        <div className="px-4 py-3 border-b border-spc-line">
+          <p className="text-spc-xs text-spc-ink">
+            Exporting{' '}
+            <span className="font-bold tabular-nums">{shownCount}</span>
+            {totalCount > shownCount && (
+              <span className="text-spc-body"> of {totalCount}</span>
+            )}{' '}
+            applicant{shownCount === 1 ? '' : 's'}
+            {filterSummary ? ' — ' : '.'}
+            {filterSummary && <span className="font-bold">{filterSummary}</span>}
+          </p>
+          {filterSummary && (
+            <button
+              type="button"
+              onClick={onClearFilters}
+              className="mt-1 text-xs font-bold text-spc-accent hover:underline
+                underline-offset-2 min-h-[32px]"
+            >
+              Clear filters and export everyone
+            </button>
+          )}
+        </div>
+
         {isHost && jobCollegeCount > 1 && (
           <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-spc-line">
             <p className="text-spc-xs font-bold text-spc-ink">Filter by college</p>

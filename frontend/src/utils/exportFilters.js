@@ -69,6 +69,36 @@ export function exportFilterParams(advancedFilters, enhancedFilters) {
   return params;
 }
 
+/**
+ * The filters in force, in words, for the export dialog to show.
+ *
+ * Only what a reader would recognise: the stage names first, because that is
+ * what nearly every narrowed export is actually for, then the rest counted
+ * rather than spelled out. Returns null when nothing is set, which is the
+ * caller's signal to say "everyone" instead.
+ */
+export function describeExportFilters(advancedFilters = {}, enhancedFilters = {}) {
+  const payload = exportFilterPayload(advancedFilters, enhancedFilters);
+  const keys = Object.keys(payload);
+  if (keys.length === 0) return null;
+
+  const parts = [];
+
+  if (payload.application_statuses) {
+    parts.push(payload.application_statuses
+      .map((v) => String(v).replace(/_/g, ' '))
+      .map((v) => v.charAt(0).toUpperCase() + v.slice(1))
+      .join(' or '));
+  }
+
+  const others = keys.filter((k) => k !== 'application_statuses').length;
+  if (others > 0) {
+    parts.push(`${others} other filter${others === 1 ? '' : 's'}`);
+  }
+
+  return parts.join(', ');
+}
+
 /** Does the reader currently have anything narrowed? For labelling a toast. */
 export function hasAnyExportFilter(advancedFilters, enhancedFilters) {
   return Object.keys(exportFilterPayload(advancedFilters, enhancedFilters)).length > 0;

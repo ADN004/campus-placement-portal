@@ -1471,8 +1471,6 @@ export default function JobApplicants() {
           placedCount={filteredStudents.filter((s) => s.is_already_placed).length}
           barredCount={filteredStudents.filter((s) => barredReason(s)).length}
           filterSummary={nonStageFilterSummary()}
-          shownCount={filteredStudents.length}
-          totalCount={students.length}
           onClearFilters={() => { clearEnhancedFilters(); clearAdvancedFilters(); }}
           exportStages={exportStages}
           stageCounts={stageCounts()}

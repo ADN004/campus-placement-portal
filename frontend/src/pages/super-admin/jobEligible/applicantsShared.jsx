@@ -483,7 +483,7 @@ export function ExportScope({
         */}
       {onStagesChange && (
         <div className="border-t border-spc-line">
-          <SectionLabel className="px-4 pt-3">Which students</SectionLabel>
+          <SectionLabel className="px-4 pt-3 mb-0">Which students</SectionLabel>
           <ExportStagePicker
             value={exportStages}
             counts={stageCounts}

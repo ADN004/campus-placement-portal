@@ -517,8 +517,18 @@ export const customExportStudents = async (req, res) => {
     // Filter by single branch (from page-level filter)
     if (branch && (!branches || branches.length === 0)) {
       paramCount++;
-      queryText += ` AND s.branch = $${paramCount}`;
-      params.push(branch);
+      /*
+       * Normalised, like the multi-branch filter six lines above it.
+       *
+       * These two sit in the same function and did the same job through
+       * different comparisons: pick several branches in the export dialog and
+       * students stored as "Electrical & Electronics Engineering" were found;
+       * pick the one branch on the page and they were not. Whether it appeared
+       * to work depended entirely on which spelling the officer's own college
+       * happened to use.
+       */
+      queryText += ` AND ${NORMALIZED_BRANCH_SQL('s.branch')} = $${paramCount}`;
+      params.push(normalizeBranch(branch));
     }
 
     // Search filter

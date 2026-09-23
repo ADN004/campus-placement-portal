@@ -9,6 +9,7 @@
  */
 
 import { query } from '../config/database.js';
+import { normalizeBranch } from '../utils/branchName.js';
 
 /**
  * Helper function to get student ID from user ID
@@ -846,7 +847,19 @@ async function validateStudentEligibility(student, requirements) {
 
   // Check Branch
   if (requirements.allowed_branches && requirements.allowed_branches.length > 0) {
-    if (!requirements.allowed_branches.includes(student.branch)) {
+    /*
+     * Through the shared normaliser, like every other branch comparison.
+     *
+     * This was the last raw one. Colleges list the same branch differently --
+     * seventeen of them offer "Electrical & Electronics Engineering" where the
+     * job form says "Electrical and Electronics Engineering" -- so a literal
+     * match refuses students whose branch is plainly in the list printed
+     * underneath the refusal. Nothing in the frontend calls this route today,
+     * which is the only reason it has not been noticed; the endpoint is live
+     * and would answer wrongly to anything that did.
+     */
+    const studentBranchNorm = normalizeBranch(student.branch);
+    if (!requirements.allowed_branches.some((b) => normalizeBranch(b) === studentBranchNorm)) {
       eligible = false;
       missingFields.push({
         field: 'branch',

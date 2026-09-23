@@ -3,6 +3,8 @@ import { placementOfficerAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import useSkeletonLoading from '../../hooks/useSkeletonLoading';
 import useDeviceType from '../../hooks/useDeviceType';
+import useLoadFailures from '../../hooks/useLoadFailures';
+import LoadFailureNotice from '../../components/LoadFailureNotice';
 import BranchesPage from './branches/BranchesPage';
 import EditBranchesModal from './branches/BranchModals';
 import { findSameBranch } from './branches/branchesShared';
@@ -26,7 +28,18 @@ import {
 export default function ManageCollegeBranches() {
   const [collegeData, setCollegeData] = useState(null);
   const [branchTemplates, setBranchTemplates] = useState([]);
+  /*
+   * Whether the per-branch counts arrived.
+   *
+   * Without them every branch reads as having no students and, worse, the
+   * orphan list comes back empty -- so the page reports that no student is
+   * sitting in an unconfigured branch, which is the single thing it exists to
+   * detect. Those students are unreachable by every job, and a silent failure
+   * here says they do not exist.
+   */
+  const loadFailures = useLoadFailures();
   const [studentBranches, setStudentBranches] = useState([]);
+
   const [loading, setLoading] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedBranches, setSelectedBranches] = useState([]);
@@ -67,7 +80,12 @@ export default function ManageCollegeBranches() {
       // read alike and return completely different shapes.
       const countsRes = await placementOfficerAPI.getBranches();
       setStudentBranches(Array.isArray(countsRes.data.data) ? countsRes.data.data : []);
+      loadFailures.clear('the student branch counts');
     } catch (error) {
+      // These are the per-branch student counts. Missing, every branch reads as
+      // having none, which is the number an officer would act on when deciding
+      // whether a branch is worth keeping configured.
+      loadFailures.note('the student branch counts', fetchInitialData);
       console.error('Error fetching student branch counts:', error);
     }
   };
@@ -207,6 +225,8 @@ export default function ManageCollegeBranches() {
 
   return (
     <>
+      <LoadFailureNotice names={loadFailures.names} onRetry={loadFailures.retryAll} />
+
       <BranchesPage
         layout={deviceType}
         collegeName={collegeData?.college_name}

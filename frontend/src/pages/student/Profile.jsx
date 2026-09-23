@@ -187,6 +187,10 @@ export default function StudentProfile() {
       const response = await api.get('/students/extended-profile');
       setExtendedProfile(response.data.data);
     } catch (error) {
+      // The summary renders nothing without this, and "nothing" is what a
+      // student who has not filled it in sees too -- so the two are
+      // indistinguishable unless one of them says so.
+      toast.error('Could not load your extended profile details.');
       console.error('Error fetching extended profile:', error);
     } finally {
       setExtendedProfileLoading(false);

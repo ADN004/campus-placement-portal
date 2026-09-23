@@ -159,6 +159,12 @@ const ExtendedProfile = () => {
       const response = await api.get('/students/extended-profile/completion');
       setCompletion(response.data.data);
     } catch (error) {
+      /*
+       * Deliberately quiet. This is the completion percentage beside a form the
+       * student is already looking at -- the form itself loads separately and
+       * says so when it fails. A second message about a progress figure would
+       * be noise on top of the one that matters.
+       */
       console.error('Error fetching completion:', error);
     }
   };

@@ -22,6 +22,11 @@ import {
  */
 export default function StudentResume() {
   const [loading, setLoading] = useState(true);
+  /*
+   * True when the resume could not be read. An empty form then means "not
+   * loaded", not "nothing written yet", and the two must not be saved alike.
+   */
+  const [loadFailed, setLoadFailed] = useState(false);
   const [showSkeleton, setShowSkeleton] = useState(true);
   const [saving, setSaving] = useState(false);
   const [downloading, setDownloading] = useState(false);
@@ -112,7 +117,23 @@ export default function StudentResume() {
           has_custom_content: data.has_custom_content || false
         });
       }
+      setLoadFailed(false);
     } catch (error) {
+      /*
+       * This was silent, and silence here lost people their resume.
+       *
+       * When the fetch failed, setResumeData never ran, so the form kept its
+       * empty initial state; setLoading(false) then rendered the page as though
+       * it had loaded. What the student saw was a blank resume -- which reads
+       * as one they never wrote -- and the natural response is to start filling
+       * it in. Save posts whatever is in the form, so the first save replaced a
+       * finished resume with a nearly empty one.
+       *
+       * An empty form is only trustworthy when the server actually said there
+       * is nothing. Until it does, saving is refused.
+       */
+      setLoadFailed(true);
+      toast.error('Could not load your resume. Do not edit it yet — reload the page first.');
       console.error('Error fetching resume:', error);
     } finally {
       setLoading(false);
@@ -120,6 +141,12 @@ export default function StudentResume() {
   };
 
   const handleSave = async () => {
+    // The guard that makes the one above worth having: without it the warning
+    // is only advice, and the form still posts its blanks over a real resume.
+    if (loadFailed) {
+      toast.error('Your resume could not be loaded, so saving now would overwrite it. Reload and try again.');
+      return;
+    }
     setSaving(true);
     try {
       await studentAPI.updateResume(resumeData);
@@ -337,7 +364,15 @@ export default function StudentResume() {
     fetchResume();
   };
 
-  const handleEdit = () => setEditMode(true);
+  const handleEdit = () => {
+    // Stopped at the door rather than at Save: letting someone type a resume
+    // into a form that cannot keep it is a worse way to find out.
+    if (loadFailed) {
+      toast.error('Your resume could not be loaded. Reload the page before editing it.');
+      return;
+    }
+    setEditMode(true);
+  };
 
   if (loading || showSkeleton) {
     if (deviceType === 'mobile') return <MobileResumeSkeleton />;

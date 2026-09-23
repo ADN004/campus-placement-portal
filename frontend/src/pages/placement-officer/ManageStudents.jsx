@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import useLoadFailures from '../../hooks/useLoadFailures';
+import LoadFailureNotice from '../../components/LoadFailureNotice';
 import { placementOfficerAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import useSkeletonLoading from '../../hooks/useSkeletonLoading';
@@ -88,6 +90,9 @@ const CONFIRM_COPY = {
 export default function ManageStudents() {
   const navigate = useNavigate();
   const location = useLocation();
+  // Which filters and counts could not be filled, so an empty tab does not
+  // read as an empty queue.
+  const loadFailures = useLoadFailures();
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
@@ -241,7 +246,9 @@ export default function ManageStudents() {
     try {
       const response = await placementOfficerAPI.getAvailableDistricts();
       setAvailableDistricts(response.data.districts || []);
+      loadFailures.clear('districts');
     } catch (error) {
+      loadFailures.note('districts', fetchDistricts);
       console.error('Failed to fetch districts:', error);
     }
   };
@@ -270,7 +277,9 @@ export default function ManageStudents() {
     try {
       const response = await placementOfficerAPI.getCollegeBranches();
       setCollegeBranches(response.data.data.branches || []);
+      loadFailures.clear('branches');
     } catch (error) {
+      loadFailures.note('branches', fetchCollegeBranches);
       console.error('Error fetching college branches:', error);
     }
   };
@@ -502,7 +511,14 @@ export default function ManageStudents() {
         rejected: c.rejected || 0,
         blacklisted: c.blacklisted || 0,
       });
+      loadFailures.clear('the status counts');
     } catch (error) {
+      /*
+       * These are the numbers on the tabs. Silence made "Pending (0)" the
+       * answer when forty registrations were waiting for approval -- a queue
+       * of other people's applications, reading as empty.
+       */
+      loadFailures.note('the status counts', fetchStatusCounts);
       console.error('Error fetching status counts:', error);
     }
   };
@@ -1209,6 +1225,8 @@ export default function ManageStudents() {
 
   return (
     <>
+      <LoadFailureNotice names={loadFailures.names} onRetry={loadFailures.retryAll} />
+
       {deviceType === 'mobile' ? (
         <MobileManageStudents {...presenterProps} />
       ) : deviceType === 'tablet' ? (

@@ -36,6 +36,8 @@ import {
   exportFilterPayload, exportFilterParams, describeExportFilters, EXPORT_STAGES,
 } from '../../utils/exportFilters';
 import { runExport, downloadBlob } from '../../utils/exportProgress';
+import useLoadFailures from '../../hooks/useLoadFailures';
+import LoadFailureNotice from '../../components/LoadFailureNotice';
 
 /*
  * A drive whose students have already been told, changed since.
@@ -94,6 +96,7 @@ export default function JobApplicants() {
    * click while the warning is open, so the dialog confirms a decision already
    * expressed rather than asking for it again.
    */
+  const loadFailures = useLoadFailures();
   const [roundClosures, setRoundClosures] = useState([]);
   const [outstandingColleges, setOutstandingColleges] = useState([]);
   const [graceDays, setGraceDays] = useState(5);
@@ -313,7 +316,14 @@ export default function JobApplicants() {
       setDriveData(response.data.data);
       setDriveSlots(response.data.slots || []);
       setDriveNeedsRenotify(response.data.needsRenotify === true);
+      loadFailures.clear('the drive schedule');
     } catch (error) {
+      /*
+       * The panel prints "No drive scheduled yet" when it has nothing, so
+       * silence here made it say that about a drive that exists -- and the
+       * obvious response to that sentence is to schedule one.
+       */
+      loadFailures.note('the drive schedule', fetchDriveSchedule);
       console.error('Failed to fetch drive schedule:', error);
       setDriveData(null);
       setDriveSlots([]);
@@ -325,7 +335,9 @@ export default function JobApplicants() {
     try {
       const response = await placementOfficerAPI.getJobPlacementStats(selectedJob.id);
       setPlacementStats(response.data.data);
+      loadFailures.clear('the placement statistics');
     } catch (error) {
+      loadFailures.note('the placement statistics', fetchPlacementStats);
       console.error('Failed to fetch placement stats:', error);
       setPlacementStats(null);
     }
@@ -1357,6 +1369,8 @@ export default function JobApplicants() {
 
   return (
     <>
+      <LoadFailureNotice names={loadFailures.names} onRetry={loadFailures.retryAll} />
+
       {deviceType === 'mobile' ? (
         <MobileJobEligibleStudents {...presenterProps} />
       ) : deviceType === 'tablet' ? (

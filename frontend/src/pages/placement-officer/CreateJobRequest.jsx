@@ -18,6 +18,8 @@ import {
   MobileJobRequestSkeleton,
 } from './jobRequest/JobRequestSkeleton';
 import { localInputToUtc } from '../../utils/deadline';
+import useLoadFailures from '../../hooks/useLoadFailures';
+import LoadFailureNotice from '../../components/LoadFailureNotice';
 
 /** The six extended-profile sections a request can demand. */
 const EXTENDED_SECTIONS = [
@@ -36,6 +38,8 @@ export default function CreateJobRequest() {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [regions, setRegions] = useState([]);
+  // Which of this form's pickers could not be filled.
+  const loadFailures = useLoadFailures();
   const [templates, setTemplates] = useState([]);
   const [selectedTemplate, setSelectedTemplate] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -102,7 +106,9 @@ export default function CreateJobRequest() {
     try {
       const response = await placementOfficerAPI.getRequirementTemplates();
       setTemplates(response.data.data || []);
+      loadFailures.clear('requirement templates');
     } catch (error) {
+      loadFailures.note('requirement templates', fetchTemplates);
       console.error('Failed to load templates:', error);
     }
   };
@@ -121,7 +127,11 @@ export default function CreateJobRequest() {
     try {
       const response = await commonAPI.getRegions();
       setRegions(response.data.data || []);
+      loadFailures.clear('regions');
     } catch (error) {
+      // This form asks which colleges a drive should reach. An empty picker
+      // does not read as a failure, and a request sent from it reaches nobody.
+      loadFailures.note('regions', fetchRegions);
       console.error('Failed to load regions:', error);
     }
   };
@@ -510,6 +520,8 @@ export default function CreateJobRequest() {
 
   return (
     <>
+      <LoadFailureNotice names={loadFailures.names} onRetry={loadFailures.retryAll} />
+
       {deviceType === 'mobile' ? (
         <MobileCreateJobRequest {...presenterProps} />
       ) : deviceType === 'tablet' ? (

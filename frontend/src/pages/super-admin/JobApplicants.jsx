@@ -5,7 +5,7 @@ import { superAdminAPI, commonAPI } from '../../services/api';
 import useSkeleton from '../../hooks/useSkeleton';
 import useAutoRefresh from '../../hooks/useAutoRefresh';
 import { compareStudents } from '../../utils/studentOrder';
-import { exportFilterPayload } from '../../utils/exportFilters';
+import { exportFilterPayload, describeExportFilters } from '../../utils/exportFilters';
 import useDeviceType from '../../hooks/useDeviceType';
 import StudentDetailModal from '../../components/StudentDetailModal';
 import DriveScheduleModal from '../../components/DriveScheduleModal';
@@ -906,6 +906,13 @@ export default function SuperAdminJobApplicants() {
         onClearSelection={() => setSelectedStudents([])}
         onBulkStatusUpdate={handleBulkStatusUpdate}
         onNotifyStudents={handleNotifyStudents}
+        exportFilterSummary={describeExportFilters(advancedFilters, enhancedFilters)}
+        onClearAllFilters={() => {
+          setEnhancedFilters(EMPTY_ENHANCED_FILTERS);
+          setAdvancedFilters({
+            cgpaMin: '', cgpaMax: '', maxBacklogs: '', dobFrom: '', dobTo: '', collegeId: '',
+          });
+        }}
         onRevert={() => {
           if (selectedStudents.length === 0) { toast.error('Please select students first'); return; }
           setReverting(true);

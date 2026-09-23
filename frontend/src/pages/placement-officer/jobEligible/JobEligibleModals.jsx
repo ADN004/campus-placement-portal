@@ -141,7 +141,7 @@ export function ExportOptionsModal({
               type="button"
               onClick={onClearFilters}
               className="mt-1 text-xs font-bold text-spc-accent hover:underline
-                underline-offset-2 min-h-[32px]"
+                underline-offset-2 min-h-[44px] sm:min-h-[32px] text-left"
             >
               Clear filters and export everyone
             </button>

@@ -113,6 +113,10 @@ export default function ApplicantsBody(p) {
         onToggleScope={p.onToggleExportScope}
         scopeOpen={p.showExportFilters}
         scopeCount={p.exportFilters.selectedColleges.length}
+        filterSummary={p.exportFilterSummary}
+        shownCount={p.filteredStudents.length}
+        totalCount={p.students.length}
+        onClearFilters={p.onClearAllFilters}
       />
 
       {p.showExportFilters && (

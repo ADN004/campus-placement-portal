@@ -519,9 +519,13 @@ export function ApplicantToolbar({
   onToggleFilters, filtersOpen, hasFilters, onToggleEnhanced, enhancedOpen, hasEnhanced,
   onManualAdd, onExportExcel, onExportExcelFields, onExportPdf, exporting,
   onToggleScope, scopeOpen, scopeCount,
+  // What the exports beside these buttons will actually contain.
+  filterSummary = null, shownCount = 0, totalCount = 0,
+  onClearFilters,
 }) {
   return (
-    <div className="flex items-center gap-2 flex-wrap mb-4">
+    <div className="mb-4">
+    <div className="flex items-center gap-2 flex-wrap">
       <SecondaryButton onClick={onToggleFilters}>
         <Filter size={15} aria-hidden="true" />
         {filtersOpen ? 'Hide filters' : 'Filters'}
@@ -560,6 +564,91 @@ export function ApplicantToolbar({
           PDF
         </SecondaryButton>
       </div>
+    </div>
+
+    <ExportContents
+      filterSummary={filterSummary}
+      shownCount={shownCount}
+      totalCount={totalCount}
+      scopeCount={scopeCount}
+      onClearFilters={onClearFilters}
+    />
+    </div>
+  );
+}
+
+/**
+ * What the export buttons will produce, said next to the export buttons.
+ *
+ * The officer role asks before it exports -- a dialog opens and the same
+ * sentence sits at the top of it. Here a click downloads immediately, so there
+ * is no "before" to put it in; the only honest place is beside the buttons,
+ * standing, where the decision is actually made.
+ *
+ * Worth saying at all because every export obeys the filters, which is right
+ * and completely invisible: the filters were set in a panel further up the
+ * page, possibly an hour earlier, and a file quietly narrower than expected is
+ * as wrong as one quietly wider.
+ *
+ * Two different narrowings, and the difference matters. The row filters change
+ * what is on screen, so `shownCount` reflects them. The export scope picks
+ * colleges and changes only the file -- the list does not move -- so claiming
+ * "23 applicants" while a college scope is also set would understate by an
+ * unknown amount. Each is named separately, and the sentence is only as
+ * precise as it can honestly be.
+ *
+ * Renders nothing when nothing is narrowed, which is most of the time.
+ */
+function ExportContents({
+  filterSummary, shownCount, totalCount, scopeCount, onClearFilters,
+}) {
+  const scoped = scopeCount > 0;
+  if (!filterSummary && !scoped) return null;
+
+  return (
+    <div
+      className="mt-2 flex items-start gap-2.5 flex-wrap rounded-spc-admin
+        border border-spc-line bg-spc-surface-2 px-3 py-2.5"
+    >
+      <Download size={15} aria-hidden="true" className="text-spc-body flex-shrink-0 mt-0.5" />
+
+      {/* min-w-0 so a long filter name wraps inside the row instead of forcing
+          the whole bar wider than a phone. */}
+      <p className="text-spc-xs text-spc-ink min-w-0 flex-1">
+        {filterSummary ? (
+          <>
+            Exports will contain{' '}
+            <span className="font-bold tabular-nums">{shownCount}</span>
+            {totalCount > shownCount && <span className="text-spc-body"> of {totalCount}</span>}
+            {' '}applicant{shownCount === 1 ? '' : 's'} —{' '}
+            <span className="font-bold">{filterSummary}</span>
+          </>
+        ) : (
+          <>Exports will cover the applicants shown</>
+        )}
+        {/* A count, not a fraction: the page holds every college in the state,
+            not this job's targets, so "2 of 60" would name a denominator that
+            has nothing to do with the job. */}
+        {scoped && (
+          <>
+            , from{' '}
+            <span className="font-bold tabular-nums">{scopeCount}</span>
+            {' '}selected college{scopeCount === 1 ? '' : 's'}
+          </>
+        )}
+        .
+      </p>
+
+      {filterSummary && onClearFilters && (
+        <button
+          type="button"
+          onClick={onClearFilters}
+          className="text-spc-xs font-bold text-spc-accent hover:underline underline-offset-2
+            min-h-[44px] sm:min-h-0 sm:py-1 px-1 flex-shrink-0 whitespace-nowrap"
+        >
+          Clear filters
+        </button>
+      )}
     </div>
   );
 }

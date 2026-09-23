@@ -5,7 +5,9 @@ import { superAdminAPI, commonAPI } from '../../services/api';
 import useSkeleton from '../../hooks/useSkeleton';
 import useAutoRefresh from '../../hooks/useAutoRefresh';
 import { compareStudents } from '../../utils/studentOrder';
-import { exportFilterPayload, describeExportFilters } from '../../utils/exportFilters';
+import {
+  exportFilterPayload, describeExportFilters, EXPORT_STAGES,
+} from '../../utils/exportFilters';
 import useDeviceType from '../../hooks/useDeviceType';
 import StudentDetailModal from '../../components/StudentDetailModal';
 import DriveScheduleModal from '../../components/DriveScheduleModal';
@@ -158,6 +160,12 @@ export default function SuperAdminJobApplicants() {
   // on is the current selection.
   const [reverting, setReverting] = useState(false);
   const [includePlacedInExport, setIncludePlacedInExport] = useState(false);
+  /*
+   * Which stages the next export covers, chosen in the Export scope panel.
+   * Seeded from the page's stage filter when the panel opens, and
+   * authoritative for the export from then on.
+   */
+  const [exportStages, setExportStages] = useState([]);
   // The selected job's own custom questions, which arrive with its applicants.
   const [jobCustomFields, setJobCustomFields] = useState([]);
 
@@ -174,12 +182,6 @@ export default function SuperAdminJobApplicants() {
   }, [selectedJob]);
 
   useEffect(() => {
-    if (selectedJob && students.length > 0) {
-      filterEligibleStudents();
-    }
-  }, [students, advancedFilters]);
-
-  useEffect(() => {
     if (selectedJob) {
       fetchDriveSchedule();
       fetchPlacementStats();
@@ -187,9 +189,11 @@ export default function SuperAdminJobApplicants() {
     }
   }, [selectedJob]);
 
+  // One effect, one writer. Both filter sets go through applyFilters, so they
+  // compose instead of overwriting each other.
   useEffect(() => {
-    applyEnhancedFilters();
-  }, [students, enhancedFilters]);
+    filterEligibleStudents();
+  }, [students, advancedFilters, enhancedFilters]);
 
   /*
    * The job is whichever one the URL names. It used to be whichever card was
@@ -257,15 +261,22 @@ export default function SuperAdminJobApplicants() {
   };
 
 
-  const filterEligibleStudents = () => {
-    if (!selectedJob) {
-      setFilteredStudents([]);
-      return;
-    }
+  /*
+   * Every filter in one pass.
+   *
+   * There used to be two of these -- one for the "Narrow the list" fields and
+   * one for the stage -- and each wrote filteredStudents from its own effect.
+   * Whichever ran last won, so setting a CGPA floor discarded the stage filter
+   * and setting a stage discarded the CGPA floor. The two never composed, and
+   * on screen that reads as a filter that silently stopped working.
+   *
+   * `ignoreStatus` leaves the stage out, so the export panel can count how many
+   * applicants each stage holds after the other filters have been applied.
+   */
+  const applyFilters = (list, { ignoreStatus = false } = {}) => {
+    if (!selectedJob) return [];
 
-    // Students are already filtered as applicants who meet basic job criteria
-    // Now apply additional advanced filters
-    let filtered = [...students];
+    let filtered = [...list];
 
     // Apply advanced filters
     if (advancedFilters.cgpaMin) {
@@ -299,6 +310,12 @@ export default function SuperAdminJobApplicants() {
       filtered = filtered.filter((s) => s.college_id === parseInt(advancedFilters.collegeId));
     }
 
+    if (!ignoreStatus && enhancedFilters.applicationStatuses?.length > 0) {
+      filtered = filtered.filter((s) =>
+        enhancedFilters.applicationStatuses.includes(s.application_status)
+      );
+    }
+
     /*
      * The same order the server returns, so filtering does not re-order the
      * list under the reader. Shared rather than repeated: this comparison also
@@ -307,8 +324,28 @@ export default function SuperAdminJobApplicants() {
      */
     filtered.sort((a, b) => compareStudents(a, b, { byCollege: true }));
 
-    setFilteredStudents(filtered);
+    return filtered;
   };
+
+  const filterEligibleStudents = () => setFilteredStudents(applyFilters(students));
+
+  /** The page's filters, with the stage list replaced by the panel's choice. */
+  const exportEnhancedFilters = () => ({
+    ...enhancedFilters,
+    applicationStatuses: exportStages,
+  });
+
+  /** How many applicants each stage holds, after every other filter. */
+  const stageCounts = () => {
+    const base = applyFilters(students, { ignoreStatus: true });
+    return Object.fromEntries(EXPORT_STAGES.map(([stage]) => [
+      stage,
+      base.filter((s) => (s.application_status === 'submitted' ? 'under_review' : s.application_status) === stage).length,
+    ]));
+  };
+
+  const nonStageFilterSummary = () =>
+    describeExportFilters(advancedFilters, { ...enhancedFilters, applicationStatuses: [] });
 
   const handleAdvancedFilterChange = (field, value) => {
     setAdvancedFilters((prev) => ({ ...prev, [field]: value }));
@@ -355,31 +392,6 @@ export default function SuperAdminJobApplicants() {
   const { lastRefreshed, autoRefreshEnabled, toggleAutoRefresh, manualRefresh, refreshing } =
     useAutoRefresh(silentRefresh, 300000, true); // 5 min
 
-  const applyEnhancedFilters = () => {
-    if (!students.length) {
-      setFilteredStudents([]);
-      return;
-    }
-
-    let filtered = [...students];
-
-    // Application status filter
-    if (enhancedFilters.applicationStatuses?.length > 0) {
-      filtered = filtered.filter((s) =>
-        enhancedFilters.applicationStatuses.includes(s.application_status)
-      );
-    }
-
-    /*
-     * The same order the server returns, so filtering does not re-order the
-     * list under the reader. Shared rather than repeated: this comparison also
-     * folds the two spellings of a branch together, which a plain compare on
-     * the branch text does not.
-     */
-    filtered.sort((a, b) => compareStudents(a, b, { byCollege: true }));
-
-    setFilteredStudents(filtered);
-  };
 
   const handleSelectStudent = (applicationId) => {
     setSelectedStudents((prev) =>
@@ -745,7 +757,7 @@ export default function SuperAdminJobApplicants() {
         // Whatever the reader has narrowed the list to. This export used to
         // take the college list and nothing else, so a screen filtered to
         // "Shortlisted" produced a file containing everybody.
-        ...exportFilterPayload(advancedFilters, enhancedFilters),
+        ...exportFilterPayload(advancedFilters, exportEnhancedFilters()),
       });
       const blob = new Blob([response.data], {
         type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -795,7 +807,7 @@ export default function SuperAdminJobApplicants() {
         // Every filter on screen, from the shared builder — the CGPA, backlog
         // and date-of-birth filters were missing from this list and reached no
         // export in either role.
-        ...exportFilterPayload(advancedFilters, enhancedFilters),
+        ...exportFilterPayload(advancedFilters, exportEnhancedFilters()),
         // "Selected only" is a deliberate choice of list rather than a filter,
         // so it overrides whatever stage filter happens to be set.
         ...(pdfExportType === 'selected_only' ? { application_statuses: ['selected'] } : {}),
@@ -906,7 +918,10 @@ export default function SuperAdminJobApplicants() {
         onClearSelection={() => setSelectedStudents([])}
         onBulkStatusUpdate={handleBulkStatusUpdate}
         onNotifyStudents={handleNotifyStudents}
-        exportFilterSummary={describeExportFilters(advancedFilters, enhancedFilters)}
+        exportFilterSummary={nonStageFilterSummary()}
+        exportStages={exportStages}
+        stageCounts={stageCounts()}
+        onExportStagesChange={setExportStages}
         onClearAllFilters={() => {
           setEnhancedFilters(EMPTY_ENHANCED_FILTERS);
           setAdvancedFilters({
@@ -933,7 +948,12 @@ export default function SuperAdminJobApplicants() {
         exportRegions={exportRegions}
         exportFilters={exportFilters}
         showExportFilters={showExportFilters}
-        onToggleExportScope={() => setShowExportFilters(!showExportFilters)}
+        onToggleExportScope={() => {
+          // Opening the panel seeds the stage boxes from the page, so they
+          // start out agreeing with the list behind them.
+          if (!showExportFilters) setExportStages(enhancedFilters.applicationStatuses || []);
+          setShowExportFilters(!showExportFilters);
+        }}
         onRegionSelect={handleRegionSelect}
         onToggleCollege={toggleCollegeSelection}
         onClearExportScope={() => setExportFilters({ selectedColleges: [], selectedRegion: '' })}

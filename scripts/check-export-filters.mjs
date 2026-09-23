@@ -98,18 +98,58 @@ for (const rel of PAGES) {
   });
 }
 
+/*
+ * The tick boxes have to offer every stage there is.
+ *
+ * They are a second, hand-written list of the statuses, and a fifth status
+ * added to the vocabulary would simply not appear on the export -- silently,
+ * with no error and no empty space to notice. Anyone at that stage would be
+ * unreachable by any export in either role.
+ */
+const stagesModule = await import(
+  new URL('../frontend/src/utils/exportFilters.js', import.meta.url).href
+);
+const vocabModule = await import(
+  new URL('../frontend/src/utils/applicationStatus.js', import.meta.url).href
+);
+
+const offered = stagesModule.EXPORT_STAGES.map(([stage]) => stage).sort();
+const real = [...vocabModule.APPLICATION_STATUSES].sort();
+
+if (offered.join() !== real.join()) {
+  const missing = real.filter((v) => !offered.includes(v));
+  const extra = offered.filter((v) => !real.includes(v));
+  problems.push(
+    'frontend/src/utils/exportFilters.js — EXPORT_STAGES does not match the status vocabulary'
+    + (missing.length ? `; never exportable: ${missing.join(', ')}` : '')
+    + (extra.length ? `; offered but not a real status: ${extra.join(', ')}` : '')
+  );
+}
+
+// Every stage needs a label and a description: the boxes are the only place
+// the difference between them is explained to whoever is ticking one.
+for (const entry of stagesModule.EXPORT_STAGES) {
+  const [stage, label, description] = entry;
+  if (!label || !description) {
+    problems.push(`frontend/src/utils/exportFilters.js — stage "${stage}" has no ${label ? 'description' : 'label'}`);
+  }
+}
+
 if (checked === 0) {
   console.log(`${RED}FAIL${OFF} no export call sites found — has the code moved?`);
   process.exit(1);
 }
 
 if (problems.length) {
-  console.log(`${RED}FAIL${OFF} ${problems.length} export path(s) ignore the filters on screen`);
-  console.log(`${DIM}       each one downloads the whole job while its neighbours download the filtered set${OFF}`);
+  console.log(`${RED}FAIL${OFF} ${problems.length} problem(s) with what the exports contain`);
+  console.log(`${DIM}       a wrong file here looks exactly like a right one, and goes to a company${OFF}`);
   problems.forEach((p) => console.log(`       ${p}`));
   process.exit(1);
 }
 
 console.log(
   `${GREEN} ok ${OFF} every export sends the filters on screen  ${DIM}(${checked} call sites)${OFF}`
+);
+console.log(
+  `${GREEN} ok ${OFF} every application stage can be exported  ${DIM}(${offered.length} stages, all described)${OFF}`
 );

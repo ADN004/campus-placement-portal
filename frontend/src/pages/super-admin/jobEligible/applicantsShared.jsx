@@ -3,6 +3,7 @@ import {
   Panel, PanelHeading, SectionLabel, EmptyState, FIELD_CLASS, FieldLabel,
   SecondaryButton, PrimaryButton, formatDate,
 } from '../../../components/admin/AdminUI';
+import ExportStagePicker from '../../../components/ExportStagePicker';
 
 /**
  * The parts of the super admin's job applicants page.
@@ -462,14 +463,36 @@ export function ApplicantSection({
  * is wanted when a drive belongs to one region. Choosing a region ticks its
  * colleges; individual ones can then be unticked.
  */
-export function ExportScope({ regions, colleges, filters, onRegion, onToggleCollege, onClear }) {
+export function ExportScope({
+  regions, colleges, filters, onRegion, onToggleCollege, onClear,
+  exportStages = [], stageCounts = {}, onStagesChange,
+}) {
   const chosen = filters.selectedColleges.length;
   return (
     <Panel className="mb-4">
       <PanelHeading action={<SecondaryButton onClick={onClear}>Every college</SecondaryButton>}>
         Export covers {chosen === 0 ? 'every college' : `${chosen} ${chosen === 1 ? 'college' : 'colleges'}`}
       </PanelHeading>
-      <div className="p-4">
+
+      {/*
+        * Which stages, in the panel that already governs exports and nothing
+        * else. The Console has no export dialog -- its buttons download on the
+        * click -- so this is the one place a choice can be made before the file
+        * is produced. Same component and same wording as the officer's dialog,
+        * so the two roles cannot drift into describing a stage differently.
+        */}
+      {onStagesChange && (
+        <div className="border-t border-spc-line">
+          <SectionLabel className="px-4 pt-3">Which students</SectionLabel>
+          <ExportStagePicker
+            value={exportStages}
+            counts={stageCounts}
+            onChange={onStagesChange}
+          />
+        </div>
+      )}
+
+      <div className="p-4 border-t border-spc-line">
         <div className="mb-3">
           <FieldLabel htmlFor="export-region">Region</FieldLabel>
           <select

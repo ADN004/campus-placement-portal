@@ -6,6 +6,7 @@ import {
 import { KERALA_POLYTECHNIC_BRANCHES } from '../../../constants/branches';
 import { OfficerDialogClose } from '../../../components/officer/OfficerDialog';
 import DeadlineEcho from '../../../components/DeadlineEcho';
+import ExportStagePicker from '../../../components/ExportStagePicker';
 
 /**
  * The three dialogs that belong to JobEligibleStudents itself.
@@ -91,6 +92,8 @@ export function ExportOptionsModal({
   // What the list is currently narrowed to, and how many that leaves.
   filterSummary = null, shownCount = 0, totalCount = 0,
   onClearFilters,
+  // Which stages go in the file, chosen here rather than on the page.
+  exportStages = [], stageCounts = {}, onStagesChange,
   onClose,
 }) {
   return (
@@ -125,28 +128,47 @@ export function ExportOptionsModal({
           * here costs one line instead of two more rows in a dialog that
           * already offers seven.
           */}
-        <div className="px-4 py-3 border-b border-spc-line">
-          <p className="text-spc-xs text-spc-ink">
-            Exporting{' '}
-            <span className="font-bold tabular-nums">{shownCount}</span>
-            {totalCount > shownCount && (
-              <span className="text-spc-body"> of {totalCount}</span>
-            )}{' '}
-            applicant{shownCount === 1 ? '' : 's'}
-            {filterSummary ? ' — ' : '.'}
-            {filterSummary && <span className="font-bold">{filterSummary}</span>}
-          </p>
-          {filterSummary && (
+        {/*
+          * Which stages, chosen here.
+          *
+          * This replaces the summary line that used to sit here. The line only
+          * reported what the page filter had already decided; these boxes let
+          * the decision be made at the moment of exporting, which is when
+          * anyone actually has it in mind. They open agreeing with the page
+          * filter, so nothing changes for someone who set it the old way.
+          */}
+        <GroupLabel>Which students</GroupLabel>
+        <div className="border-b border-spc-line">
+          <ExportStagePicker
+            value={exportStages}
+            counts={stageCounts}
+            onChange={onStagesChange}
+            checkboxClass={CHECKBOX_CLASS}
+          />
+        </div>
+
+        {/*
+          * Everything else the page is filtered by. Not editable here -- CGPA
+          * and dates belong in the panel that has the right inputs for them --
+          * but it has to be said, or the file is quietly narrower than the
+          * boxes above imply.
+          */}
+        {filterSummary && (
+          <div className="px-4 py-3 border-b border-spc-line bg-spc-surface-2">
+            <p className="text-spc-xs text-spc-ink">
+              Also filtered by <span className="font-bold">{filterSummary}</span>, set on
+              the page.
+            </p>
             <button
               type="button"
               onClick={onClearFilters}
               className="mt-1 text-xs font-bold text-spc-accent hover:underline
                 underline-offset-2 min-h-[44px] sm:min-h-[32px] text-left"
             >
-              Clear filters and export everyone
+              Clear those filters
             </button>
-          )}
-        </div>
+          </div>
+        )}
 
         {isHost && jobCollegeCount > 1 && (
           <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-spc-line">

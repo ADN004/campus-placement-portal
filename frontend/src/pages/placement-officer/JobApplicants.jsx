@@ -33,7 +33,7 @@ import { barredReason } from './jobEligible/jobEligibleShared';
 import { utcToLocalInput, localInputToUtc } from '../../utils/deadline';
 import { compareStudents } from '../../utils/studentOrder';
 import {
-  exportFilterPayload, exportFilterParams, describeExportFilters,
+  exportFilterPayload, exportFilterParams, describeExportFilters, EXPORT_STAGES,
 } from '../../utils/exportFilters';
 
 /*
@@ -151,6 +151,16 @@ export default function JobApplicants() {
   const [pdfExportType, setPdfExportType] = useState('basic'); // 'basic' or 'enhanced'
   const [showManualAddModal, setShowManualAddModal] = useState(false);
   const [includePlacedInExport, setIncludePlacedInExport] = useState(false);
+  /*
+   * Which stages the next export covers, chosen in the export dialog.
+   *
+   * Seeded from the page's stage filter each time the dialog opens, and
+   * authoritative for the export once it is open. One control rather than two
+   * competing ones: the question "does the page filter or the dialog win" only
+   * exists while both are separately settable, and this makes the dialog the
+   * single place the answer lives.
+   */
+  const [exportStages, setExportStages] = useState([]);
 
   // Edit Job modal state (host POs only)
   const [showEditJobModal, setShowEditJobModal] = useState(false);
@@ -318,13 +328,22 @@ export default function JobApplicants() {
 
   const showSkeleton = useSkeletonLoading(loading);
 
-  const filterEligibleStudents = () => {
+  /*
+   * One pass of every filter, so the list on screen and the per-stage counts in
+   * the export dialog can never disagree.
+   *
+   * `ignoreStatus` leaves the stage filter out. The export dialog needs to say
+   * how many students each stage holds *after* the other filters have been
+   * applied -- "Shortlisted (23)" has to mean 23 of the people who would
+   * actually be exported, not 23 of everyone who ever applied.
+   */
+  const applyFilters = (list, { ignoreStatus = false } = {}) => {
     if (jobResolved && !selectedJob) {
       setFilteredStudents([]);
       return;
     }
 
-    let filtered = [...students];
+    let filtered = [...list];
 
     // Apply legacy advanced filters
     if (advancedFilters.cgpaMin) {
@@ -355,7 +374,7 @@ export default function JobApplicants() {
     }
 
     // Apply enhanced filters
-    if (enhancedFilters.applicationStatuses.length > 0) {
+    if (!ignoreStatus && enhancedFilters.applicationStatuses.length > 0) {
       filtered = filtered.filter((s) => enhancedFilters.applicationStatuses.includes(s.application_status));
     }
 
@@ -411,8 +430,32 @@ export default function JobApplicants() {
      */
     filtered.sort((a, b) => compareStudents(a, b, { byCollege: true }));
 
-    setFilteredStudents(filtered);
+    return filtered;
   };
+
+  const filterEligibleStudents = () => setFilteredStudents(applyFilters(students));
+
+  /*
+   * What the export actually asks for: the page's filters, with the stage list
+   * replaced by whatever is ticked in the dialog.
+   */
+  const exportEnhancedFilters = () => ({
+    ...enhancedFilters,
+    applicationStatuses: exportStages,
+  });
+
+  /** How many applicants each stage holds, after every other filter. */
+  const stageCounts = () => {
+    const base = applyFilters(students, { ignoreStatus: true });
+    return Object.fromEntries(EXPORT_STAGES.map(([stage]) => [
+      stage,
+      base.filter((s) => (s.application_status === 'submitted' ? 'under_review' : s.application_status) === stage).length,
+    ]));
+  };
+
+  /** Everything the page is filtered by except the stage, said in words. */
+  const nonStageFilterSummary = () =>
+    describeExportFilters(advancedFilters, { ...enhancedFilters, applicationStatuses: [] });
 
   const handleAdvancedFilterChange = (field, value) => {
     setAdvancedFilters((prev) => ({ ...prev, [field]: value }));
@@ -848,7 +891,7 @@ export default function JobApplicants() {
        * buttons in one dialog disagreeing about what "export" means is worse
        * than neither of them filtering.
        */
-      const filters = exportFilterPayload(advancedFilters, enhancedFilters);
+      const filters = exportFilterPayload(advancedFilters, exportEnhancedFilters());
 
       // Host POs with college selection use enhanced export to support college_ids
       const useEnhanced = isHost && exportCollegeIds.length > 0;
@@ -861,7 +904,7 @@ export default function JobApplicants() {
           })
         : await placementOfficerAPI.exportJobApplicants(
           selectedJob.id, format, !includePlacedInExport,
-          exportFilterParams(advancedFilters, enhancedFilters),
+          exportFilterParams(advancedFilters, exportEnhancedFilters()),
         );
 
       const mimeType = format === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -961,7 +1004,7 @@ export default function JobApplicants() {
        * like a filtered one, and that goes to a company. The CGPA, backlog and
        * date-of-birth filters reached no export at all.
        */
-      Object.assign(exportData, exportFilterPayload(advancedFilters, enhancedFilters));
+      Object.assign(exportData, exportFilterPayload(advancedFilters, exportEnhancedFilters()));
 
       if (pdfExportType === 'selected_only') {
         // A deliberate choice of list rather than a filter, so it overrides
@@ -1208,6 +1251,15 @@ export default function JobApplicants() {
   };
 
   const handleOpenExport = () => {
+    /*
+     * The tick boxes open agreeing with the page.
+     *
+     * Seeded on every open rather than held across them: somebody who filters
+     * the list to Shortlisted and then exports means the shortlisted ones, and
+     * a dialog still remembering a choice from twenty minutes ago would quietly
+     * contradict the list they are looking at.
+     */
+    setExportStages(enhancedFilters.applicationStatuses || []);
     setShowExportModal(true);
     setShowEnhancedFilters(false);
     setShowAdvancedFilters(false);
@@ -1418,10 +1470,13 @@ export default function JobApplicants() {
           onExportNotAppliedFields={handleNotAppliedWithFields}
           placedCount={filteredStudents.filter((s) => s.is_already_placed).length}
           barredCount={filteredStudents.filter((s) => barredReason(s)).length}
-          filterSummary={describeExportFilters(advancedFilters, enhancedFilters)}
+          filterSummary={nonStageFilterSummary()}
           shownCount={filteredStudents.length}
           totalCount={students.length}
           onClearFilters={() => { clearEnhancedFilters(); clearAdvancedFilters(); }}
+          exportStages={exportStages}
+          stageCounts={stageCounts()}
+          onStagesChange={setExportStages}
           includePlaced={includePlacedInExport}
           onIncludePlacedChange={(e) => setIncludePlacedInExport(e.target.checked)}
           onClose={() => setShowExportModal(false)}

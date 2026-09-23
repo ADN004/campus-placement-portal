@@ -14,6 +14,28 @@
  * entirely rather than sent empty — the server reads a missing key as "no
  * filter", and an explicit empty one would mean the same thing less clearly.
  */
+/**
+ * The stages an export can be narrowed to, with what each one means.
+ *
+ * Offered as tick boxes on the export itself rather than only as a page filter,
+ * because "give me the shortlisted ones as a spreadsheet" is the single most
+ * common thing anyone wants from this screen, and making them find a filter
+ * panel first is a step with no purpose. The wording matters as much as the
+ * boxes: an officer deciding whether to tick "Rejected" needs to know it now
+ * includes people the system closed out automatically, not only the ones they
+ * turned down by hand.
+ */
+export const EXPORT_STAGES = [
+  ['under_review', 'Under review',
+    'Applied, and nobody has decided about them yet.'],
+  ['shortlisted', 'Shortlisted',
+    'Taken through to the next round, not yet offered a place.'],
+  ['selected', 'Selected',
+    'Offered a place at this company.'],
+  ['rejected', 'Rejected',
+    'Not going forward — turned down, or left behind when a round closed.'],
+];
+
 export function exportFilterPayload(advancedFilters = {}, enhancedFilters = {}) {
   const payload = {};
   const set = (key, value) => {

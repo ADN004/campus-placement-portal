@@ -127,6 +127,9 @@ export default function ApplicantsBody(p) {
           onRegion={p.onRegionSelect}
           onToggleCollege={p.onToggleCollege}
           onClear={p.onClearExportScope}
+          exportStages={p.exportStages}
+          stageCounts={p.stageCounts}
+          onStagesChange={p.onExportStagesChange}
         />
       )}
 

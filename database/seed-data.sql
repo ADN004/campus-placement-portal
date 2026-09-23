@@ -51,7 +51,14 @@ INSERT INTO colleges (college_name, college_code, region_id, branches) VALUES
 ('Carmel Poly Alapuzha', 'CRM_APZ', 2, '["Civil Engineering", "Mechanical Engineering", "Electronics & Electronics Engineering", "Automobile Engineering", "Computer Engineering", "Electronics Engineering"]'::jsonb),
 ('MPC (IHRD) Painavu, Idukki', 'MPC_PIN', 2, '["Biomedical Engineering", "Computer Engineering", "Cyber Forensics and Information Security", "Mechanical Engineering", "Electronics & Communication Engineering"]'::jsonb),
 ('MPC (IHRD) Mattakkara', 'MPC_MTK', 2, '["Computer Engineering", "Computer Hardware Engineering", "Electrical & Electronics Engineering", "Electronics Engineering"]'::jsonb),
-('CE (IHRD) Poojar, Kottayam', 'CE_PJR', 2, '["Computer Science and Engineering", "Computer Applications", "Electrical and Electronics Engineering", "Electronics and Communication Engineering", "Automobile Engineering"]'::jsonb);
+-- Corrected 23 Sep 2026 to what this college actually runs. It was seeded with
+-- "Computer Science and Engineering" and "Computer Applications", neither of
+-- which any Kerala polytechnic offers -- and a job form ticking a branch that
+-- exists at no college is how 1,851 computer students were locked out of a
+-- drive that had asked for them (see frontend/src/constants/branches.js).
+-- Seeding them again would put that trap back and fail
+-- scripts/check-branch-coverage.mjs on any fresh database.
+('CE (IHRD) Poojar, Kottayam', 'CE_PJR', 2, '["Civil Engineering", "Mechanical Engineering", "Electrical and Electronics Engineering", "Electronics Engineering", "Polymer Technology", "Commercial Practice"]'::jsonb);
 
 -- CENTRAL REGION (12 colleges) - region_id = 3
 INSERT INTO colleges (college_name, college_code, region_id, branches) VALUES

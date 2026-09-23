@@ -1,4 +1,30 @@
-// Kerala Polytechnic Diploma Engineering and Technology Branches
+/*
+ * The branches a job can be offered to.
+ *
+ * This is the list the job form, the job request form and the job editor all
+ * tick from. It has to stay in step with what colleges actually offer, because
+ * a name here that no college uses is not an empty option -- it is a plausible
+ * one. An officer ticks it, it matches nobody, and nothing says so.
+ *
+ * Two were removed for exactly that reason, on 23 Sep 2026:
+ *
+ *   'Computer Applications'            offered by 0 of 60 colleges, 0 students
+ *   'Computer Science and Engineering' offered by 0 of 60 colleges, 0 students
+ *
+ * The second did real damage. Kerala polytechnics call that subject "Computer
+ * Engineering"; "Computer Science and Engineering" is what it sounds like it
+ * should be called, so officers reached for it. On job 25 -- Pie Infotech,
+ * "Associate Software Developer (For CS)" -- it was ticked *instead of*
+ * Computer Engineering, and 1,851 computer students could not apply to a drive
+ * that had asked for them by name. Job 23, the same company and title two days
+ * earlier, ticked both and reached them.
+ *
+ * Their short names stay in BRANCH_SHORT_NAMES below: five published jobs still
+ * carry these strings in allowed_branches, and those jobs still have to render.
+ *
+ * scripts/check-branch-coverage.mjs compares this list against the colleges'
+ * own branches, so a name that reaches nobody cannot be added back unnoticed.
+ */
 export const KERALA_POLYTECHNIC_BRANCHES = [
   'Architecture',
   'Automobile Engineering',
@@ -8,11 +34,9 @@ export const KERALA_POLYTECHNIC_BRANCHES = [
   'Civil Engineering (Hearing Impaired)',
   'Commercial Practice',
   'Computer Application and Business Management',
-  'Computer Applications',
   'Computer Engineering',
   'Computer Engineering (Hearing Impaired)',
   'Computer Hardware Engineering',
-  'Computer Science and Engineering',
   'Cyber Forensics and Information Security',
   'Electrical and Electronics Engineering',
   'Electronics and Communication Engineering',

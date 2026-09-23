@@ -1,4 +1,5 @@
 import { ArrowLeft, ChevronDown, ChevronRight, Sparkles } from 'lucide-react';
+import useFormKeyboard from '../../../hooks/useFormKeyboard';
 import { Link } from 'react-router-dom';
 import {
   Panel, PanelHeading, PageHeading, SectionLabel, FieldLabel, FIELD_CLASS, CHECKBOX_CLASS,
@@ -28,8 +29,11 @@ export default function JobForm(p) {
   const today = new Date().toISOString().slice(0, 10);
   const twoUp = layout === 'desktop' ? 'sm:grid-cols-2' : '';
 
+  // Enter walks the fields; the last one submits.
+  const onKeyDown = useFormKeyboard({ onSubmit: p.onSubmit });
+
   return (
-    <form onSubmit={p.onSubmit}>
+    <form onSubmit={p.onSubmit} onKeyDown={onKeyDown}>
       <div className="mb-3">
         <Link
           to="/super-admin/jobs"

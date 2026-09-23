@@ -1,4 +1,5 @@
 import { Send } from 'lucide-react';
+import useFormKeyboard from '../../../hooks/useFormKeyboard';
 import { PageHeading, SectionLabel, PrimaryButton } from '../../../components/admin/AdminUI';
 import {
   ComposeFields, AudienceSummary, CollegePicker, BranchPicker, SentThisSession,
@@ -15,8 +16,11 @@ export default function NotifyBody(p) {
   const { layout } = p;
   const twoColumn = layout === 'desktop';
 
+  // Enter walks the fields; the last one submits.
+  const onKeyDown = useFormKeyboard({ onSubmit: p.onSubmit });
+
   return (
-    <form onSubmit={p.onSubmit}>
+    <form onSubmit={p.onSubmit} onKeyDown={onKeyDown}>
       <PageHeading
         eyebrow="Communication"
         title="Send Notification"

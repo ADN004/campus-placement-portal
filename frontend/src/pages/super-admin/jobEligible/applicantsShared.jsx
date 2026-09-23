@@ -427,13 +427,23 @@ export function ApplicantList({ students, selectable, selectedIds, onSelect, onV
 /** A table or a list, plus its own pager, under one heading. */
 export function ApplicantSection({
   layout, title, students, page, caption, emptyText, selectable, selectedIds,
-  onSelect, onSelectAll, allSelected, onView, Pager,
+  onSelect, onSelectAll, allSelected, onView, Pager, loading = false,
 }) {
   const Rows = layout === 'desktop' ? ApplicantTable : ApplicantList;
   return (
     <section className="mb-5">
       <SectionLabel>{title}</SectionLabel>
-      {students.length === 0 ? (
+      {/*
+        * An empty list and a list that has not arrived are not the same thing.
+        *
+        * This had no loading state at all, so opening a job with three thousand
+        * applicants showed "Applicants (0)" above "Nobody has applied to this
+        * drive yet" until the fetch returned. Both sentences were false, and
+        * the second one is the kind a Super Admin might act on.
+        */}
+      {loading ? (
+        <Panel><EmptyState>Loading applicants…</EmptyState></Panel>
+      ) : students.length === 0 ? (
         <Panel><EmptyState>{emptyText}</EmptyState></Panel>
       ) : (
         <>

@@ -65,9 +65,17 @@ export default function ApplicantsBody(p) {
       <PageHeading
         eyebrow={p.selectedJob?.company_name}
         title={p.selectedJob?.job_title || 'Applicants'}
-        subline={`${p.filteredStudents.length} of ${p.students.length} applicants shown`}
+        subline={p.loadingStudents
+          ? 'Loading applicants…'
+          : `${p.filteredStudents.length} of ${p.students.length} applicants shown`}
         size={layout === 'mobile' ? 'sm' : 'md'}
       />
+
+      {p.loadingStudents && p.loadingSlow && (
+        <p className="text-spc-xs text-spc-body mb-3">
+          Still loading — this drive has a lot of applicants.
+        </p>
+      )}
 
       <PlacementStats layout={layout} stats={p.placementStats} />
 
@@ -147,11 +155,12 @@ export default function ApplicantsBody(p) {
 
       <ApplicantSection
         layout={layout}
-        title={`Applicants (${p.currentApplicants.length})`}
+        title={p.loadingStudents ? 'Applicants' : `Applicants (${p.currentApplicants.length})`}
         students={p.currentApplicants}
         page={applicantPage}
         caption={`Applicants for ${p.selectedJob?.job_title} at ${p.selectedJob?.company_name}.`}
         emptyText="Nobody has applied to this drive yet, or the filters exclude everyone."
+        loading={p.loadingStudents}
         selectable
         selectedIds={p.selectedStudents}
         onSelect={p.onSelectStudent}

@@ -1,4 +1,5 @@
 import { User, Mail, Phone, Lock, Shield, Edit, Save, X } from 'lucide-react';
+import useFormKeyboard from '../../../hooks/useFormKeyboard';
 import {
   Panel, PanelHeading, PageHeading, SectionLabel, FieldLabel, FIELD_CLASS,
   PrimaryButton, SecondaryButton, formatDate,
@@ -45,6 +46,9 @@ export default function ProfileBody(p) {
   const { layout } = p;
   const twoColumn = layout === 'desktop';
 
+  // Enter walks the fields; the last one submits.
+  const onKeyDown = useFormKeyboard({ onSubmit: p.onSubmit });
+
   return (
     <div>
       <PageHeading
@@ -69,7 +73,7 @@ export default function ProfileBody(p) {
               Name, email and phone
             </PanelHeading>
 
-            <form onSubmit={p.onSubmit} className="p-4 space-y-4">
+            <form onSubmit={p.onSubmit} onKeyDown={onKeyDown} className="p-4 space-y-4">
               <div>
                 <FieldLabel htmlFor="profile-name">Full name *</FieldLabel>
                 {p.editMode ? (

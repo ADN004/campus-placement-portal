@@ -8,6 +8,7 @@ import { compareStudents } from '../../utils/studentOrder';
 import {
   exportFilterPayload, describeExportFilters, EXPORT_STAGES,
 } from '../../utils/exportFilters';
+import { runExport, downloadBlob } from '../../utils/exportProgress';
 import useDeviceType from '../../hooks/useDeviceType';
 import StudentDetailModal from '../../components/StudentDetailModal';
 import DriveScheduleModal from '../../components/DriveScheduleModal';
@@ -94,7 +95,12 @@ export default function SuperAdminJobApplicants() {
   const [loading, setLoading] = useState(true);
   const { showSkeleton } = useSkeleton(loading);
   const [loadingStudents, setLoadingStudents] = useState(false);
-  const [showExportDropdown, setShowExportDropdown] = useState(false);
+  /*
+   * Set once a load has been running long enough to look stuck. A statewide
+   * drive returns a few thousand applicants and can take ten seconds; silence
+   * that long is indistinguishable from a page that has failed.
+   */
+  const [loadingSlow, setLoadingSlow] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [showExportFilters, setShowExportFilters] = useState(false);
   const [exportFilters, setExportFilters] = useState({
@@ -183,6 +189,13 @@ export default function SuperAdminJobApplicants() {
 
   useEffect(() => {
     if (selectedJob) {
+      /*
+       * Cleared, not left to be overwritten. The statistics block kept showing
+       * the previous drive's figures until the new ones arrived, which on a
+       * slow drive is several seconds of confident, wrong numbers about a
+       * different company.
+       */
+      setPlacementStats(null);
       fetchDriveSchedule();
       fetchPlacementStats();
       fetchRoundClosures();
@@ -245,17 +258,25 @@ export default function SuperAdminJobApplicants() {
   };
 
   const fetchJobApplicants = async () => {
+    setLoadingStudents(true);
+    setLoadingSlow(false);
+    // Four seconds: past this, a person has started wondering.
+    const slow = window.setTimeout(() => setLoadingSlow(true), 4000);
     try {
-      setLoadingStudents(true);
       const response = await superAdminAPI.getJobApplicants(selectedJob.id);
       // These are students who have APPLIED to this job across all colleges
       setStudents(response.data.data || []);
       setJobCustomFields(response.data.custom_fields || []);
     } catch (error) {
-      toast.error('Failed to load job applicants');
+      // The server's own reason where there is one: "failed to load" is the
+      // same sentence for an expired session and a drive that was deleted.
+      const reason = error.response?.data?.message;
+      toast.error(reason || 'Could not load the applicants for this drive.');
       console.error('Failed to load applicants:', error);
       setStudents([]);
     } finally {
+      window.clearTimeout(slow);
+      setLoadingSlow(false);
       setLoadingStudents(false);
     }
   };
@@ -739,7 +760,6 @@ export default function SuperAdminJobApplicants() {
       setExporting(true);
       setShowExportDropdown(false);
       setShowExportFilters(false);
-      const loadingToast = toast.loading('Preparing Excel export...');
       /*
        * The college filter applies here exactly as it does to the PDF.
        *
@@ -749,39 +769,28 @@ export default function SuperAdminJobApplicants() {
        * but saying nothing is clearer than saying nothing-shaped.
        */
       const selectedColleges = exportFilters.selectedColleges;
-      const response = await superAdminAPI.exportJobApplicants(selectedJob.id, {
-        format: 'excel',
-        use_short_names: true,
-        exclude_already_placed: !includePlacedInExport,
-        college_ids: selectedColleges.length > 0 ? selectedColleges : undefined,
-        // Whatever the reader has narrowed the list to. This export used to
-        // take the college list and nothing else, so a screen filtered to
-        // "Shortlisted" produced a file containing everybody.
-        ...exportFilterPayload(advancedFilters, exportEnhancedFilters()),
+
+      await runExport({
+        label: selectedColleges.length > 0
+          ? `Excel from ${selectedColleges.length} college${selectedColleges.length === 1 ? '' : 's'}`
+          : 'Excel',
+        count: filteredStudents.length,
+        run: () => superAdminAPI.exportJobApplicants(selectedJob.id, {
+          format: 'excel',
+          use_short_names: true,
+          exclude_already_placed: !includePlacedInExport,
+          college_ids: selectedColleges.length > 0 ? selectedColleges : undefined,
+          // Whatever the reader has narrowed the list to. This export used to
+          // take the college list and nothing else, so a screen filtered to
+          // "Shortlisted" produced a file containing everybody.
+          ...exportFilterPayload(advancedFilters, exportEnhancedFilters()),
+        }),
+        onFile: (response) => downloadBlob(
+          response,
+          `applicants_${String(selectedJob.job_title).replace(/\s+/g, '_')}_${Date.now()}.xlsx`,
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        ),
       });
-      const blob = new Blob([response.data], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute(
-        'download',
-        `applicants_${String(selectedJob.job_title).replace(/\s+/g, '_')}_${Date.now()}.xlsx`
-      );
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-      toast.dismiss(loadingToast);
-      toast.success(
-        selectedColleges.length > 0
-          ? `Exported applicants as Excel from ${selectedColleges.length} college(s)`
-          : 'Exported applicants as Excel from every college'
-      );
-    } catch (error) {
-      console.error('Excel export error:', error);
-      toast.error('Failed to export as Excel');
     } finally {
       setExporting(false);
     }
@@ -792,7 +801,6 @@ export default function SuperAdminJobApplicants() {
     try {
       setExporting(true);
       setShowPDFFieldSelector(false);
-      const loadingToast = toast.loading(`Preparing ${asExcel ? 'Excel' : 'PDF'} export...`);
 
       const exportData = {
         format: asExcel ? 'excel' : 'pdf',
@@ -813,31 +821,20 @@ export default function SuperAdminJobApplicants() {
         ...(pdfExportType === 'selected_only' ? { application_statuses: ['selected'] } : {}),
       };
 
-      const response = await superAdminAPI.enhancedExportJobApplicants(selectedJob.id, exportData);
-
-      const blob = new Blob([response.data], {
-        type: asExcel
-          ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-          : 'application/pdf',
+      await runExport({
+        label: asExcel ? 'Excel' : 'PDF',
+        count: filteredStudents.length,
+        run: () => superAdminAPI.enhancedExportJobApplicants(selectedJob.id, exportData),
+        onFile: (response) => downloadBlob(
+          response,
+          `job_applicants_${selectedJob.job_title.replace(/\s+/g, '_')}_${
+            new Date().toISOString().split('T')[0]}.${asExcel ? 'xlsx' : 'pdf'}`,
+          asExcel
+            ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            : 'application/pdf'
+        ),
       });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      const fileName = `job_applicants_${selectedJob.job_title.replace(/\s+/g, '_')}_${
-        new Date().toISOString().split('T')[0]
-      }.${asExcel ? 'xlsx' : 'pdf'}`;
-      link.setAttribute('download', fileName);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-
-      toast.dismiss(loadingToast);
-      toast.success(`Exported ${filteredStudents.length} applicants as ${asExcel ? 'Excel' : 'PDF'}`);
       setShowExportFilters(false);
-    } catch (error) {
-      console.error('Field-selected export error:', error);
-      toast.error(`Failed to export as ${asExcel ? 'Excel' : 'PDF'}`);
     } finally {
       setExporting(false);
     }
@@ -907,6 +904,7 @@ export default function SuperAdminJobApplicants() {
         driveData={driveData}
         driveSlots={driveSlots}
         loadingStudents={loadingStudents}
+        loadingSlow={loadingSlow}
         exporting={exporting}
         selectedStudents={selectedStudents}
         onSelectStudent={handleSelectStudent}

@@ -799,8 +799,8 @@ input[type='password']::-ms-clear {
    scrolling underneath, where 60% gives 4.26 and fails. */
 .spc-admin-glass {
   background-color: rgb(var(--spc-surface) / 0.86);
-  backdrop-filter: blur(24px) saturate(190%);
-  -webkit-backdrop-filter: blur(24px) saturate(190%);
+  backdrop-filter: blur(13px);
+  -webkit-backdrop-filter: blur(13px);
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.95),
     0 8px 32px -12px rgb(15 22 33 / 0.18);
@@ -812,18 +812,51 @@ input[type='password']::-ms-clear {
   }
 }
 
+
+/* ---------------------------------------------------------------- glass cost
+
+   backdrop-filter is re-sampled by the compositor on every frame the content
+   behind it moves, which is every frame of every scroll. The Console carries
+   three of these at once over a scrolling list -- the top bar across the full
+   width, the sidebar down the full height, and the bulk bar sticky at the
+   bottom -- and on a drive with a few thousand applicants that is what makes
+   scrolling feel like it is catching rather than gliding.
+
+   Two changes, neither of which is visible at these opacities:
+
+   - The blur radius is roughly halved. Cost scales with the radius, and at 86%
+     opaque the ground behind is already mostly hidden; the difference between
+     a 24px and a 13px blur under that is not something you can see.
+   - saturate() is gone. It was a second filter pass over the same pixels for a
+     warmth that 86% of the surface colour was already providing.
+
+   Dropped entirely where the person has asked for less transparency, and on
+   coarse pointers -- phones and tablets, where the GPU is weakest, the glass
+   is smallest, and the scrolling is done with a thumb that feels every frame.
+   The background steps up to near-opaque there, which is what the no-support
+   fallback below has always done. */
+
 /* Glass, only where something genuinely floats above scrolling content.
    82–88% opaque (not 60%) so text stays legible, plus a 1px top highlight —
    the detail that reads as light catching an edge rather than a grey box. */
 .spc-glass {
   background-color: rgb(var(--spc-surface) / 0.86);
-  backdrop-filter: blur(20px) saturate(150%);
-  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.9);
 }
 
 @supports not (backdrop-filter: blur(1px)) {
   .spc-glass {
+    background-color: rgb(var(--spc-surface) / 0.98);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce), (pointer: coarse) {
+  .spc-glass,
+  .spc-admin-glass {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
     background-color: rgb(var(--spc-surface) / 0.98);
   }
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { placementOfficerAPI, commonAPI } from '../../services/api';
@@ -467,18 +467,30 @@ export default function JobApplicants() {
     applicationStatuses: exportStages,
   });
 
-  /** How many applicants each stage holds, after every other filter. */
-  const stageCounts = () => {
+  /*
+   * How many applicants each stage holds, after every other filter.
+   *
+   * Memoised because it was not, and it is the most expensive thing on the
+   * page: a copy, a filter and a full sort of every applicant. It was being
+   * called straight from the render, so a drive with a few thousand applicants
+   * re-sorted the lot on every keystroke, every tick box, every toast -- and
+   * on anything that re-rendered mid-scroll, which is what made scrolling feel
+   * like it was catching.
+   */
+  const stageCounts = useMemo(() => {
     const base = applyFilters(students, { ignoreStatus: true });
     return Object.fromEntries(EXPORT_STAGES.map(([stage]) => [
       stage,
       base.filter((s) => (s.application_status === 'submitted' ? 'under_review' : s.application_status) === stage).length,
     ]));
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [students, advancedFilters, enhancedFilters, selectedJob]);
 
   /** Everything the page is filtered by except the stage, said in words. */
-  const nonStageFilterSummary = () =>
-    describeExportFilters(advancedFilters, { ...enhancedFilters, applicationStatuses: [] });
+  const nonStageFilterSummary = useMemo(
+    () => describeExportFilters(advancedFilters, { ...enhancedFilters, applicationStatuses: [] }),
+    [advancedFilters, enhancedFilters]
+  );
 
   const handleAdvancedFilterChange = (field, value) => {
     setAdvancedFilters((prev) => ({ ...prev, [field]: value }));
@@ -1464,10 +1476,10 @@ export default function JobApplicants() {
           onExportNotAppliedFields={handleNotAppliedWithFields}
           placedCount={filteredStudents.filter((s) => s.is_already_placed).length}
           barredCount={filteredStudents.filter((s) => barredReason(s)).length}
-          filterSummary={nonStageFilterSummary()}
+          filterSummary={nonStageFilterSummary}
           onClearFilters={() => { clearEnhancedFilters(); clearAdvancedFilters(); }}
           exportStages={exportStages}
-          stageCounts={stageCounts()}
+          stageCounts={stageCounts}
           onStagesChange={setExportStages}
           includePlaced={includePlacedInExport}
           onIncludePlacedChange={(e) => setIncludePlacedInExport(e.target.checked)}

@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { UserPlus } from 'lucide-react';
 import EnhancedFilterPanel from '../../../components/EnhancedFilterPanel';
 import usePagedList from '../../../hooks/usePagedList';
@@ -35,10 +36,25 @@ export default function JobEligibleBody({ layout, ...p }) {
 
   const ApplicantView = isTable ? ApplicantTable : ApplicantList;
 
-  const currentApplicants = p.filteredStudents.filter((s) => !s.is_already_placed);
-  const placedApplicants = p.filteredStudents.filter((s) => s.is_already_placed);
-  const selectableApplicants = currentApplicants.filter((s) => !barredReason(s));
-  const barredCount = currentApplicants.length - selectableApplicants.length;
+  /*
+   * Three passes over the applicant list, memoised together.
+   *
+   * They ran on every render, and on a statewide drive that is a few thousand
+   * elements walked three times for a toast appearing or a tick box changing.
+   * Cheap individually, constant, and on the critical path of every scroll
+   * that happened to coincide with a re-render.
+   */
+  const { currentApplicants, placedApplicants, selectableApplicants, barredCount } = useMemo(() => {
+    const current = p.filteredStudents.filter((s) => !s.is_already_placed);
+    const placed = p.filteredStudents.filter((s) => s.is_already_placed);
+    const selectable = current.filter((s) => !barredReason(s));
+    return {
+      currentApplicants: current,
+      placedApplicants: placed,
+      selectableApplicants: selectable,
+      barredCount: current.length - selectable.length,
+    };
+  }, [p.filteredStudents]);
 
   /*
    * The list that actually gets big.

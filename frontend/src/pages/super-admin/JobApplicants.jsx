@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { superAdminAPI, commonAPI } from '../../services/api';
@@ -356,17 +356,29 @@ export default function SuperAdminJobApplicants() {
     applicationStatuses: exportStages,
   });
 
-  /** How many applicants each stage holds, after every other filter. */
-  const stageCounts = () => {
+  /*
+   * How many applicants each stage holds, after every other filter.
+   *
+   * Memoised because it was not, and it is the most expensive thing on the
+   * page: a copy, a filter and a full sort of every applicant. It was being
+   * called straight from the render, so a drive with a few thousand applicants
+   * re-sorted the lot on every keystroke, every tick box, every toast -- and
+   * on anything that re-rendered mid-scroll, which is what made scrolling feel
+   * like it was catching.
+   */
+  const stageCounts = useMemo(() => {
     const base = applyFilters(students, { ignoreStatus: true });
     return Object.fromEntries(EXPORT_STAGES.map(([stage]) => [
       stage,
       base.filter((s) => (s.application_status === 'submitted' ? 'under_review' : s.application_status) === stage).length,
     ]));
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [students, advancedFilters, enhancedFilters, selectedJob]);
 
-  const nonStageFilterSummary = () =>
-    describeExportFilters(advancedFilters, { ...enhancedFilters, applicationStatuses: [] });
+  const nonStageFilterSummary = useMemo(
+    () => describeExportFilters(advancedFilters, { ...enhancedFilters, applicationStatuses: [] }),
+    [advancedFilters, enhancedFilters]
+  );
 
   const handleAdvancedFilterChange = (field, value) => {
     setAdvancedFilters((prev) => ({ ...prev, [field]: value }));
@@ -880,9 +892,14 @@ export default function SuperAdminJobApplicants() {
 
   if (showSkeleton || !selectedJob) return <ApplicantsSkeleton layout={deviceType} />;
 
-  const currentApplicants = filteredStudents.filter((s) => !s.is_already_placed);
-  const placedApplicants = filteredStudents.filter((s) => s.is_already_placed);
-  const selectedSummary = filteredStudents.filter((s) => s.application_status === 'selected');
+  // Three passes over the applicant list, together and only when it changes.
+  // They ran on every render: a few thousand elements walked three times for a
+  // toast appearing, which is the sort of work that lands mid-scroll.
+  const { currentApplicants, placedApplicants, selectedSummary } = useMemo(() => ({
+    currentApplicants: filteredStudents.filter((s) => !s.is_already_placed),
+    placedApplicants: filteredStudents.filter((s) => s.is_already_placed),
+    selectedSummary: filteredStudents.filter((s) => s.application_status === 'selected'),
+  }), [filteredStudents]);
 
   const hasAdvancedFilters = Object.values(advancedFilters).some(Boolean);
   const hasEnhancedFilters = Object.entries(enhancedFilters).some(([, v]) => (
@@ -916,9 +933,9 @@ export default function SuperAdminJobApplicants() {
         onClearSelection={() => setSelectedStudents([])}
         onBulkStatusUpdate={handleBulkStatusUpdate}
         onNotifyStudents={handleNotifyStudents}
-        exportFilterSummary={nonStageFilterSummary()}
+        exportFilterSummary={nonStageFilterSummary}
         exportStages={exportStages}
-        stageCounts={stageCounts()}
+        stageCounts={stageCounts}
         onExportStagesChange={setExportStages}
         onClearAllFilters={() => {
           setEnhancedFilters(EMPTY_ENHANCED_FILTERS);

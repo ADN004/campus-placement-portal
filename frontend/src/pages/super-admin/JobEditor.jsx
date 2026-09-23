@@ -8,6 +8,8 @@ import useDeviceType from '../../hooks/useDeviceType';
 import JobForm from './jobs/JobForm';
 import JobFormSkeleton from './jobs/JobFormSkeleton';
 import { reachedCollegeIds, EMPTY_JOB_FORM } from './jobs/jobsShared';
+import useLoadFailures from '../../hooks/useLoadFailures';
+import LoadFailureNotice from '../../components/LoadFailureNotice';
 
 /**
  * Posting or editing a job — container.
@@ -26,6 +28,9 @@ export default function JobEditor() {
   const { jobId } = useParams();
   const editMode = Boolean(jobId);
 
+  // Which of this form's pickers could not be filled. An empty college list on
+  // a job form is not the same statement as "there are no colleges".
+  const loadFailures = useLoadFailures();
   const [loading, setLoading] = useState(true);
   const { showSkeleton } = useSkeleton(loading);
   const [notFound, setNotFound] = useState(false);
@@ -112,7 +117,9 @@ export default function JobEditor() {
     try {
       const response = await superAdminAPI.getRequirementTemplates();
       setTemplates(response.data.data || []);
+      loadFailures.clear('requirement templates');
     } catch (error) {
+      loadFailures.note('requirement templates', fetchTemplates);
       console.error('Failed to load templates:', error);
     }
   };
@@ -121,7 +128,9 @@ export default function JobEditor() {
     try {
       const response = await commonAPI.getRegions();
       setRegions(response.data.data || []);
+      loadFailures.clear('regions');
     } catch (error) {
+      loadFailures.note('regions', fetchRegions);
       console.error('Failed to load regions:', error);
     }
   };
@@ -134,8 +143,15 @@ export default function JobEditor() {
       const response = await commonAPI.getColleges();
       const list = response.data.data || [];
       setColleges(list);
+      loadFailures.clear('colleges');
       return list;
     } catch (error) {
+      /*
+       * This is a form for posting a job, and these are the colleges it can be
+       * posted to. An empty picker here does not read as a failure -- it reads
+       * as a portal with no colleges -- and a job saved from it reaches nobody.
+       */
+      loadFailures.note('colleges', fetchColleges);
       console.error('Failed to load colleges:', error);
       return [];
     }
@@ -517,6 +533,8 @@ export default function JobEditor() {
   }
 
   return (
+    <>
+    <LoadFailureNotice names={loadFailures.names} onRetry={loadFailures.retryAll} />
     <JobForm
       layout={deviceType}
       editMode={editMode}
@@ -591,5 +609,6 @@ export default function JobEditor() {
       onCancel={() => navigate('/super-admin/jobs')}
       onSubmit={handleSubmit}
     />
+  </>
   );
 }

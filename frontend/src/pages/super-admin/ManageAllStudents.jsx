@@ -14,6 +14,8 @@ import {
 import ExportModal, { ALL_EXPORT_FIELDS } from './students/ExportModal';
 import PhotoPurgeModal from './students/PhotoPurgeModal';
 import { CgpaUnlockDialog } from './students/CgpaControls';
+import useLoadFailures from '../../hooks/useLoadFailures';
+import LoadFailureNotice from '../../components/LoadFailureNotice';
 
 /**
  * All Students — container.
@@ -25,6 +27,9 @@ import { CgpaUnlockDialog } from './students/CgpaControls';
 export default function ManageAllStudents() {
   const deviceType = useDeviceType();
   const [searchParams] = useSearchParams();
+  // Which filters could not be filled, so an empty picker does not read as a
+  // portal with no regions.
+  const loadFailures = useLoadFailures();
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   /*
@@ -209,7 +214,9 @@ export default function ManageAllStudents() {
     try {
       const response = await superAdminAPI.getAvailableDistricts();
       setAvailableDistricts(response.data.districts || []);
+      loadFailures.clear('districts');
     } catch (error) {
+      loadFailures.note('districts', fetchDistricts);
       console.error('Failed to fetch districts:', error);
     }
   };
@@ -224,7 +231,15 @@ export default function ManageAllStudents() {
       setColleges(collegesRes.data.data || []);
       setExportRegionsData(regionsRes.data.data || []);
       setExportCollegesData(collegesRes.data.data || []);
+      loadFailures.clear('regions and colleges');
     } catch (error) {
+      /*
+       * These fill the region and college filters over ten thousand students.
+       * Empty, the filters offer nothing and the register can only be searched
+       * by name -- with no indication that the narrowing tools are missing
+       * rather than simply absent from this page.
+       */
+      loadFailures.note('regions and colleges', fetchRegionsAndColleges);
       console.error('Error fetching regions and colleges:', error);
     }
   };
@@ -233,7 +248,9 @@ export default function ManageAllStudents() {
     try {
       const response = await superAdminAPI.getCollegeBranches(collegeId);
       setBranches(response.data.data.branches || []);
+      loadFailures.clear('branches');
     } catch (error) {
+      loadFailures.note('branches', () => fetchBranches(collegeId));
       console.error('Error fetching branches:', error);
       setBranches([]);
     }
@@ -820,6 +837,8 @@ export default function ManageAllStudents() {
 
   return (
     <>
+      <LoadFailureNotice names={loadFailures.names} onRetry={loadFailures.retryAll} />
+
       <StudentsBody
         layout={deviceType}
         students={students}

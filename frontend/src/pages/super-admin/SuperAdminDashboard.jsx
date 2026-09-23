@@ -38,6 +38,7 @@ export default function SuperAdminDashboard() {
   const { showSkeleton } = useSkeleton(loading);
   const [adminNotifications, setAdminNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [notificationsFailed, setNotificationsFailed] = useState(false);
   const [regionRows, setRegionRows] = useState([]);
 
   useEffect(() => {
@@ -80,7 +81,11 @@ export default function SuperAdminDashboard() {
       ]);
       setAdminNotifications(notificationsRes.data.data || []);
       setUnreadCount(countRes.data.unread_count || 0);
+      setNotificationsFailed(false);
     } catch (error) {
+      // The panel shows nothing when there is nothing, so silence here told an
+      // admin their inbox was clear. Marked instead, and the panel says it.
+      setNotificationsFailed(true);
       console.error('Failed to fetch admin notifications:', error);
     }
   };
@@ -113,6 +118,10 @@ export default function SuperAdminDashboard() {
         prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)));
       setUnreadCount((prev) => Math.max(0, prev - 1));
     } catch (error) {
+      // A click that does nothing and says nothing gets clicked again. This is
+      // the one kind of silence there is never a case for: the person asked for
+      // something and is owed an answer either way.
+      toast.error(error.response?.data?.message || 'Could not mark that as read.');
       console.error('Failed to mark notification as read:', error);
     }
   };
@@ -258,6 +267,7 @@ export default function SuperAdminDashboard() {
       quickActions={quickActions}
       regions={regions}
       notifications={adminNotifications}
+      notificationsFailed={notificationsFailed}
       unreadCount={unreadCount}
       onMarkRead={handleMarkAsRead}
       onMarkAllRead={handleMarkAllAsRead}

@@ -205,7 +205,15 @@ export default function DashboardBody(p) {
             )}
           </PanelHeading>
 
-          {p.notifications.length === 0 ? (
+          {/* "Nothing yet" and "could not be fetched" look identical to a
+              reader and mean opposite things: one says the inbox is clear, the
+              other says it is unread. */}
+          {p.notificationsFailed ? (
+            <EmptyState>
+              These could not be loaded, so this panel is not showing whether
+              anything is waiting. Refresh to try again.
+            </EmptyState>
+          ) : p.notifications.length === 0 ? (
             <EmptyState>
               Nothing yet. Auto-approved jobs and system alerts appear here.
             </EmptyState>

@@ -7,6 +7,8 @@ import useDeviceType from '../../hooks/useDeviceType';
 import JobsBody from './jobs/JobsBody';
 import JobsSkeleton from './jobs/JobsSkeleton';
 import { DetailsDialog, DeleteDialog, ExportDialog } from './jobs/JobDialogs';
+import useLoadFailures from '../../hooks/useLoadFailures';
+import LoadFailureNotice from '../../components/LoadFailureNotice';
 
 /**
  * Jobs — the list, container.
@@ -24,6 +26,9 @@ import { DetailsDialog, DeleteDialog, ExportDialog } from './jobs/JobDialogs';
 export default function ManageJobs() {
   const deviceType = useDeviceType();
   const navigate = useNavigate();
+  // Which of this page's four fetches did not arrive, so the tabs they fill
+  // cannot silently claim to be empty.
+  const loadFailures = useLoadFailures();
   const [activeTab, setActiveTab] = useState('all'); // 'all', 'pending', 'deleted'
   const [searchQuery, setSearchQuery] = useState('');
   const [jobs, setJobs] = useState([]);
@@ -84,7 +89,12 @@ export default function ManageJobs() {
     try {
       const response = await superAdminAPI.getPendingJobRequests();
       setPendingRequests(response.data.data || []);
+      loadFailures.clear('pending requests');
     } catch (error) {
+      // Silence here told the admin the queue was empty. It is a queue of other
+      // people's work, and "nothing waiting" is the one answer it must not
+      // invent.
+      loadFailures.note('pending requests', fetchPendingRequests);
       console.error('Failed to load pending requests:', error);
     }
   };
@@ -93,7 +103,9 @@ export default function ManageJobs() {
     try {
       const response = await superAdminAPI.getDeletedJobsHistory();
       setDeletedJobs(response.data.data || []);
+      loadFailures.clear('deleted jobs');
     } catch (error) {
+      loadFailures.note('deleted jobs', fetchDeletedJobs);
       console.error('Failed to load deleted jobs:', error);
     }
   };
@@ -102,7 +114,12 @@ export default function ManageJobs() {
     try {
       const response = await commonAPI.getRegions();
       setRegions(response.data.data || []);
+      loadFailures.clear('regions');
     } catch (error) {
+      // Every job row names the colleges it targets by looking them up in
+      // these. Without them the targeting column is blank, which reads as a
+      // job posted to nobody.
+      loadFailures.note('regions', fetchRegions);
       console.error('Failed to load regions:', error);
     }
   };
@@ -111,7 +128,9 @@ export default function ManageJobs() {
     try {
       const response = await commonAPI.getColleges();
       setColleges(response.data.data || []);
+      loadFailures.clear('colleges');
     } catch (error) {
+      loadFailures.note('colleges', fetchColleges);
       console.error('Failed to load colleges:', error);
     }
   };
@@ -306,6 +325,8 @@ export default function ManageJobs() {
 
   return (
     <>
+      <LoadFailureNotice names={loadFailures.names} onRetry={loadFailures.retryAll} />
+
       <JobsBody
         layout={deviceType}
         activeTab={activeTab}

@@ -9,6 +9,8 @@ import {
   exportFilterPayload, describeExportFilters, EXPORT_STAGES,
 } from '../../utils/exportFilters';
 import { runExport, downloadBlob } from '../../utils/exportProgress';
+import useLoadFailures from '../../hooks/useLoadFailures';
+import LoadFailureNotice from '../../components/LoadFailureNotice';
 import useDeviceType from '../../hooks/useDeviceType';
 import StudentDetailModal from '../../components/StudentDetailModal';
 import DriveScheduleModal from '../../components/DriveScheduleModal';
@@ -94,6 +96,7 @@ export default function SuperAdminJobApplicants() {
   const [filteredStudents, setFilteredStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const { showSkeleton } = useSkeleton(loading);
+  const loadFailures = useLoadFailures();
   const [loadingStudents, setLoadingStudents] = useState(false);
   /*
    * Set once a load has been running long enough to look stuck. A statewide
@@ -243,7 +246,11 @@ export default function SuperAdminJobApplicants() {
     try {
       const response = await commonAPI.getColleges();
       setColleges(response.data.data || []);
+      loadFailures.clear('colleges');
     } catch (error) {
+      // These fill the export scope picker. Empty, it offers no college to
+      // scope an export to, and says nothing about why.
+      loadFailures.note('colleges', fetchColleges);
       console.error('Failed to load colleges:', error);
     }
   };
@@ -252,7 +259,9 @@ export default function SuperAdminJobApplicants() {
     try {
       const response = await commonAPI.getRegions();
       setExportRegions(response.data.data || []);
+      loadFailures.clear('regions');
     } catch (error) {
+      loadFailures.note('regions', fetchExportRegions);
       console.error('Failed to load regions:', error);
     }
   };
@@ -392,7 +401,15 @@ export default function SuperAdminJobApplicants() {
       setDriveData(response.data.data);
       setDriveSlots(response.data.slots || []);
       setDriveNeedsRenotify(response.data.needsRenotify === true);
+      loadFailures.clear('the drive schedule');
     } catch (error) {
+      /*
+       * The panel says "No drive scheduled yet" when it has nothing. Failing
+       * silently made it say that about a drive that exists -- and the obvious
+       * response to "no drive scheduled" is to schedule one, which is how a
+       * company gets told about two.
+       */
+      loadFailures.note('the drive schedule', fetchDriveSchedule);
       console.error('Error fetching drive schedule:', error);
     }
   };
@@ -402,7 +419,11 @@ export default function SuperAdminJobApplicants() {
     try {
       const response = await superAdminAPI.getJobPlacementStats(selectedJob.id);
       setPlacementStats(response.data.data);
+      loadFailures.clear('the placement statistics');
     } catch (error) {
+      // The block is hidden when these are missing, so a failure here looks
+      // like a drive nobody has recorded any outcome for.
+      loadFailures.note('the placement statistics', fetchPlacementStats);
       console.error('Error fetching placement stats:', error);
     }
   };
@@ -908,6 +929,8 @@ export default function SuperAdminJobApplicants() {
 
   return (
     <>
+      <LoadFailureNotice names={loadFailures.names} onRetry={loadFailures.retryAll} />
+
       <ApplicantsBody
         layout={deviceType}
         selectedJob={selectedJob}

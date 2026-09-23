@@ -35,6 +35,7 @@ import { compareStudents } from '../../utils/studentOrder';
 import {
   exportFilterPayload, exportFilterParams, describeExportFilters, EXPORT_STAGES,
 } from '../../utils/exportFilters';
+import { runExport, downloadBlob } from '../../utils/exportProgress';
 
 /*
  * A drive whose students have already been told, changed since.
@@ -72,6 +73,13 @@ export default function JobApplicants() {
   const [filteredStudents, setFilteredStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingStudents, setLoadingStudents] = useState(false);
+  /*
+   * Set once a load has been running long enough to look stuck. A statewide job
+   * returns a few thousand applicants and can take the better part of ten
+   * seconds; with nothing said, that is indistinguishable from a page that has
+   * failed, and the reasonable response is to reload and start it again.
+   */
+  const [loadingSlow, setLoadingSlow] = useState(false);
   const [isHost, setIsHost] = useState(false);
   // The selected job's own custom questions, which arrive with its applicants.
   const [jobCustomFields, setJobCustomFields] = useState([]);
@@ -210,7 +218,14 @@ export default function JobApplicants() {
 
   useEffect(() => {
     if (selectedJob) {
+      /*
+       * Cleared, not left to be overwritten. The statistics block kept showing
+       * the previous job's figures until the new ones arrived, which on a slow
+       * job is several seconds of confident, wrong numbers about a different
+       * company.
+       */
       setStudents([]);
+      setPlacementStats(null);
       fetchJobApplicants();
       fetchDriveSchedule();
       fetchPlacementStats();
@@ -269,17 +284,25 @@ export default function JobApplicants() {
   };
 
   const fetchJobApplicants = async () => {
+    setLoadingStudents(true);
+    setLoadingSlow(false);
+    // Four seconds: past this, a person has started wondering.
+    const slow = window.setTimeout(() => setLoadingSlow(true), 4000);
     try {
-      setLoadingStudents(true);
       const response = await placementOfficerAPI.getJobApplicants(
         selectedJob.id, applicantScopeParams()
       );
       absorbApplicants(response.data);
     } catch (error) {
-      toast.error('Failed to load job applicants');
+      // The server's own reason where there is one: "failed to load" is the
+      // same sentence for an expired session and a job that was deleted.
+      const reason = error.response?.data?.message;
+      toast.error(reason || 'Could not load the applicants for this job.');
       console.error('Failed to load applicants:', error);
       setStudents([]);
     } finally {
+      window.clearTimeout(slow);
+      setLoadingSlow(false);
       setLoadingStudents(false);
     }
   };
@@ -879,8 +902,6 @@ export default function JobApplicants() {
       setExporting(true);
       setShowExportModal(false);
 
-      const loadingToast = toast.loading(`Preparing ${format === 'pdf' ? 'PDF' : 'Excel'} export...`);
-
       /*
        * Whatever the officer has narrowed the list to.
        *
@@ -895,39 +916,31 @@ export default function JobApplicants() {
 
       // Host POs with college selection use enhanced export to support college_ids
       const useEnhanced = isHost && exportCollegeIds.length > 0;
-      const response = useEnhanced
-        ? await placementOfficerAPI.enhancedExportJobApplicants(selectedJob.id, {
+      const label = format === 'pdf' ? 'PDF' : 'Excel';
+      const mimeType = format === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      const fileExt = format === 'pdf' ? 'pdf' : 'xlsx';
+
+      await runExport({
+        label,
+        count: filteredStudents.length,
+        run: () => (useEnhanced
+          ? placementOfficerAPI.enhancedExportJobApplicants(selectedJob.id, {
             format,
             college_ids: exportCollegeIds,
             exclude_already_placed: !includePlacedInExport,
             ...filters,
           })
-        : await placementOfficerAPI.exportJobApplicants(
-          selectedJob.id, format, !includePlacedInExport,
-          exportFilterParams(advancedFilters, exportEnhancedFilters()),
-        );
-
-      const mimeType = format === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-      const fileExt = format === 'pdf' ? 'pdf' : 'xlsx';
-
-      const blob = new Blob([response.data], { type: mimeType });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      const fileName = `job_applicants_${selectedJob.job_title.replace(/\s+/g, '_')}_${
-        new Date().toISOString().split('T')[0]
-      }.${fileExt}`;
-      link.setAttribute('download', fileName);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-
-      toast.dismiss(loadingToast);
-      toast.success(`Exported ${filteredStudents.length} applicants as ${format === 'pdf' ? 'PDF' : 'Excel'}`);
-    } catch (error) {
-      console.error('Export error:', error);
-      toast.error(`Failed to export as ${format === 'pdf' ? 'PDF' : 'Excel'}`);
+          : placementOfficerAPI.exportJobApplicants(
+            selectedJob.id, format, !includePlacedInExport,
+            exportFilterParams(advancedFilters, exportEnhancedFilters()),
+          )),
+        onFile: (response) => downloadBlob(
+          response,
+          `job_applicants_${selectedJob.job_title.replace(/\s+/g, '_')}_${
+            new Date().toISOString().split('T')[0]}.${fileExt}`,
+          mimeType
+        ),
+      });
     } finally {
       setExporting(false);
     }
@@ -981,7 +994,6 @@ export default function JobApplicants() {
     try {
       setExporting(true);
       setShowPDFFieldSelector(false);
-      const loadingToast = toast.loading(`Preparing ${asExcel ? 'Excel' : 'PDF'} export...`);
 
       const exportData = {
         format: asExcel ? 'excel' : 'pdf',
@@ -1012,35 +1024,24 @@ export default function JobApplicants() {
         Object.assign(exportData, { application_statuses: ['selected'] });
       }
 
-      const response = (pdfExportType === 'enhanced' || pdfExportType === 'selected_only')
-        ? await placementOfficerAPI.enhancedExportJobApplicants(selectedJob.id, exportData)
-        : await placementOfficerAPI.exportJobApplicants(
-          selectedJob.id, asExcel ? 'excel' : 'pdf', !includePlacedInExport,
-          exportFilterParams(advancedFilters, enhancedFilters),
-        );
-
-      const blob = new Blob([response.data], {
-        type: asExcel
-          ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-          : 'application/pdf',
+      await runExport({
+        label: asExcel ? 'Excel' : 'PDF',
+        count: filteredStudents.length,
+        run: () => ((pdfExportType === 'enhanced' || pdfExportType === 'selected_only')
+          ? placementOfficerAPI.enhancedExportJobApplicants(selectedJob.id, exportData)
+          : placementOfficerAPI.exportJobApplicants(
+            selectedJob.id, asExcel ? 'excel' : 'pdf', !includePlacedInExport,
+            exportFilterParams(advancedFilters, exportEnhancedFilters()),
+          )),
+        onFile: (response) => downloadBlob(
+          response,
+          `job_applicants_${pdfExportType}_${selectedJob.job_title.replace(/\s+/g, '_')}_${
+            new Date().toISOString().split('T')[0]}.${asExcel ? 'xlsx' : 'pdf'}`,
+          asExcel
+            ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            : 'application/pdf'
+        ),
       });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      const fileName = `job_applicants_${pdfExportType}_${selectedJob.job_title.replace(/\s+/g, '_')}_${
-        new Date().toISOString().split('T')[0]
-      }.${asExcel ? 'xlsx' : 'pdf'}`;
-      link.setAttribute('download', fileName);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-
-      toast.dismiss(loadingToast);
-      toast.success(`Exported ${filteredStudents.length} applicants as ${asExcel ? 'Excel' : 'PDF'}`);
-    } catch (error) {
-      console.error('Field-selected export error:', error);
-      toast.error(`Failed to export as ${asExcel ? 'Excel' : 'PDF'}`);
     } finally {
       setExporting(false);
     }
@@ -1055,32 +1056,24 @@ export default function JobApplicants() {
       setExporting(true);
       setShowExportModal(false);
       const isExcel = format === 'excel';
-      const loadingToast = toast.loading(
-        `Preparing ${isExcel ? 'Excel' : 'PDF'} export of not-applied students...`
-      );
-      const response = await placementOfficerAPI.exportEligibleNotApplied(selectedJob.id, format, fields);
-      const blob = new Blob([response.data], {
-        type: isExcel
-          ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-          : 'application/pdf',
+      /*
+       * The count is not known ahead of this one -- the list is built server
+       * side from who did *not* apply -- so the toast names the list rather
+       * than a number it would have to invent.
+       */
+      await runExport({
+        label: `${isExcel ? 'Excel' : 'PDF'} of students who have not applied`,
+        count: 0,
+        run: () => placementOfficerAPI.exportEligibleNotApplied(selectedJob.id, format, fields),
+        onFile: (response) => downloadBlob(
+          response,
+          `eligible_not_applied_${selectedJob.job_title.replace(/\s+/g, '_')}_${
+            new Date().toISOString().split('T')[0]}.${isExcel ? 'xlsx' : 'pdf'}`,
+          isExcel
+            ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            : 'application/pdf'
+        ),
       });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `eligible_not_applied_${selectedJob.job_title.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.${isExcel ? 'xlsx' : 'pdf'}`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-      toast.dismiss(loadingToast);
-      toast.success('Exported eligible-not-applied students');
-    } catch (error) {
-      console.error('Eligible-not-applied export error:', error);
-      if (error.response?.status === 404) {
-        toast.error('No eligible students who have not applied yet');
-      } else {
-        toast.error('Failed to export eligible-not-applied students');
-      }
     } finally {
       setExporting(false);
     }
@@ -1303,6 +1296,7 @@ export default function JobApplicants() {
     filteredStudents,
     selectedSummary,
     loadingStudents,
+    loadingSlow,
     selectedStudents,
     allSelectedAreSelected,
     onBulkStatusUpdate: handleBulkStatusUpdate,

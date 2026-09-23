@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
+import useFormKeyboard from '../hooks/useFormKeyboard';
 
 /**
  * Accessible modal/dialog primitive (M-1).
@@ -42,7 +43,14 @@ import useBodyScrollLock from '../hooks/useBodyScrollLock';
  *                     so a form isn't lost to a stray click). Pass true only
  *                     for modals that intentionally dismiss on backdrop.
  *   closeOnEscape   — close on Escape (default true).
- *   initialFocusRef — optional ref to focus on open (else the first focusable).
+ *   initialFocusRef — optional ref to focus on open (else the first field, and
+ *                     failing that the first focusable).
+ *   enterAdvances   — Enter moves to the next field rather than submitting from
+ *                     wherever focus happens to be (default true). Textareas,
+ *                     buttons, checkboxes and radios are left alone.
+ *   onEnterSubmit   — called when Enter is pressed on the LAST field. Omit it
+ *                     and the last field keeps its native behaviour, which for
+ *                     a dialog built on <form> is to submit.
  */
 
 const FOCUSABLE_SELECTOR = [
@@ -65,6 +73,8 @@ export default function Modal({
   closeOnBackdrop = false,
   closeOnEscape = true,
   initialFocusRef,
+  enterAdvances = true,
+  onEnterSubmit,
 }) {
   const panelRef = useRef(null);
   const previouslyFocused = useRef(null);
@@ -81,14 +91,37 @@ export default function Modal({
     );
   }, []);
 
+  /*
+   * Where focus lands on open.
+   *
+   * The first focusable in a dialog is almost always the header's ✕, because
+   * the header comes first in the DOM. That meant opening any dialog in the
+   * app put focus on Close: typing did nothing, and Enter -- the most natural
+   * key to press next -- dismissed the dialog the person had just opened.
+   *
+   * So a dialog that asks for something focuses the first thing it asks for.
+   * A dialog that only confirms has no field, falls through to the first
+   * focusable, and behaves exactly as it did.
+   */
+  const getInitialTarget = useCallback(() => {
+    if (initialFocusRef && initialFocusRef.current) return initialFocusRef.current;
+
+    const panel = panelRef.current;
+    if (panel) {
+      const field = Array.from(
+        panel.querySelectorAll('input:not([disabled]), select:not([disabled]), textarea:not([disabled])')
+      ).find((el) => el.getClientRects().length > 0 && el.type !== 'hidden');
+      if (field) return field;
+    }
+
+    return getFocusable()[0] || panelRef.current;
+  }, [initialFocusRef, getFocusable]);
+
   // On open: remember the trigger and move focus into the panel.
   // On close/unmount: restore focus to the trigger.
   useEffect(() => {
     previouslyFocused.current = document.activeElement;
-    const target =
-      (initialFocusRef && initialFocusRef.current) ||
-      getFocusable()[0] ||
-      panelRef.current;
+    const target = getInitialTarget();
     // Defer a tick so the panel is laid out before we focus into it.
     const id = window.setTimeout(() => target && target.focus && target.focus(), 0);
     return () => {
@@ -100,8 +133,25 @@ export default function Modal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /*
+   * Enter moves to the next field instead of doing nothing.
+   *
+   * Officers fill these dialogs in back to back, and the web's default gives
+   * them a choice between Tab and the mouse. Enter is what the hand reaches
+   * for, so Enter advances and Shift+Enter goes back.
+   *
+   * On the last field it calls onEnterSubmit where a dialog provides one, and
+   * otherwise does not intervene at all -- so a dialog built on a real <form>
+   * keeps submitting natively from its final field, and a dialog with no
+   * submit does what it always did. Confirmation dialogs are untouched: focus
+   * sits on a button there, and the hook ignores buttons.
+   */
+  const advance = useFormKeyboard({ onSubmit: onEnterSubmit, enabled: enterAdvances });
+
   const handleKeyDown = useCallback(
     (e) => {
+      if (e.key === 'Enter') advance(e);
+
       if (e.key === 'Escape' && closeOnEscape) {
         e.stopPropagation();
         if (onClose) onClose();
@@ -127,7 +177,7 @@ export default function Modal({
         first.focus();
       }
     },
-    [onClose, closeOnEscape, getFocusable]
+    [onClose, closeOnEscape, getFocusable, advance]
   );
 
   // Close only when the backdrop itself is the mousedown target — so a text

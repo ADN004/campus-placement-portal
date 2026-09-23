@@ -261,9 +261,13 @@ export function ExportMenu({ open, onToggle, onPick, disabled, align = 'right' }
       {open && (
         <>
           {/* Click-away layer, below the menu but above the page. */}
-          <div className="fixed inset-0 z-10" onClick={onToggle} />
+          <div className="fixed inset-0 z-10" onClick={onToggle} aria-hidden="true" />
           <div
             role="menu"
+            /* Escape is what clicking away is, for a keyboard. Without it the
+               only way out of an open menu was to pick something or reach for
+               the mouse. */
+            onKeyDown={(e) => { if (e.key === 'Escape') onToggle(); }}
             className={`absolute ${align === 'right' ? 'right-0' : 'left-0'} mt-2 w-64 z-20
               bg-spc-surface border border-spc-line-strong rounded-spc-panel overflow-hidden`}
           >

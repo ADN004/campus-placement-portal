@@ -263,7 +263,7 @@ export function DrivePanel({
  */
 export function JobSummary({
   job, isHost, onEditJob, onExport, exporting, exportDisabled,
-  applicantCount = 0, onDeleteJob, onUnpublishJob,
+  applicantCount = 0, onDeleteJob, onUnpublishJob, countsReady = true,
 }) {
   /*
    * A job that reached other colleges went through the Super Admin's approval
@@ -295,7 +295,22 @@ export function JobSummary({
             </p>
           )}
           {canManage && <SecondaryButton onClick={onEditJob}>Edit job</SecondaryButton>}
-          {canManage && (applicantCount === 0 ? (
+          {/*
+            * Nothing until the applicants are counted.
+            *
+            * This chose between Delete and Unpublish on applicantCount, which
+            * is 0 for as long as the list is still loading -- so a job with
+            * three thousand applicants offered "Delete job" for the first few
+            * seconds after opening, to an officer with no way of knowing the
+            * count behind it was not real yet. Waiting costs a moment; the
+            * alternative is a destructive button shown on a false premise.
+            */}
+          {canManage && !countsReady && (
+            <SecondaryButton disabled>
+              <span className="text-spc-muted">Counting applicants…</span>
+            </SecondaryButton>
+          )}
+          {canManage && countsReady && (applicantCount === 0 ? (
             <DangerButton onClick={onDeleteJob}>
               <Trash2 size={15} aria-hidden="true" />
               <span>Delete job</span>

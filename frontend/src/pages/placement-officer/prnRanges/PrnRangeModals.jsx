@@ -1,4 +1,5 @@
 import Modal from '../../../components/Modal';
+import useFormKeyboard from '../../../hooks/useFormKeyboard';
 import { Download } from 'lucide-react';
 import { OfficerDialogClose } from '../../../components/officer/OfficerDialog';
 import { getPassoutYearOptions } from '../../../utils/passoutYears';
@@ -61,6 +62,9 @@ function Footer({ children }) {
 
 /** Add or edit a span of PRNs. */
 export function RangeFormModal({ editing, formData, onChange, onSubmit, onClose }) {
+  // Enter walks the fields and submits from the last one, rather than
+  // submitting from whichever field happens to have focus.
+  const onKeyDown = useFormKeyboard({ onSubmit });
   const set = (key, value) => onChange({ ...formData, [key]: value });
   return (
     <Dialog
@@ -69,7 +73,7 @@ export function RangeFormModal({ editing, formData, onChange, onSubmit, onClose 
       subtitle="Students whose PRN falls inside an enabled range may register."
       onClose={onClose}
     >
-      <form onSubmit={onSubmit}>
+      <form onSubmit={onSubmit} onKeyDown={onKeyDown}>
         <div className="px-5 py-4 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -115,6 +119,7 @@ export function RangeFormModal({ editing, formData, onChange, onSubmit, onClose 
 
 /** Add or edit one specific PRN. */
 export function SinglePrnModal({ editing, formData, onChange, onSubmit, onClose }) {
+  const onKeyDown = useFormKeyboard({ onSubmit });
   const set = (key, value) => onChange({ ...formData, [key]: value });
   return (
     <Dialog
@@ -123,7 +128,7 @@ export function SinglePrnModal({ editing, formData, onChange, onSubmit, onClose 
       subtitle="For one student who falls outside every range."
       onClose={onClose}
     >
-      <form onSubmit={onSubmit}>
+      <form onSubmit={onSubmit} onKeyDown={onKeyDown}>
         <div className="px-5 py-4 space-y-4">
           <div>
             <FieldLabel htmlFor="prn-single">PRN</FieldLabel>
@@ -199,9 +204,15 @@ export function RangeStudentsModal({
           </SecondaryButton>
           {showExportMenu && (
             <>
-              <div className="fixed inset-0 z-10" onClick={onToggleExportMenu} />
-              <div role="menu" className="absolute right-0 mt-2 w-48 z-20 bg-spc-surface
-                border border-spc-line-strong rounded-spc-panel overflow-hidden">
+              <div className="fixed inset-0 z-10" onClick={onToggleExportMenu} aria-hidden="true" />
+              {/* Escape is what clicking away is, for a keyboard: without it the
+                  only way out of an open menu was to pick something. */}
+              <div
+                role="menu"
+                onKeyDown={(e) => { if (e.key === 'Escape') onToggleExportMenu(); }}
+                className="absolute right-0 mt-2 w-48 z-20 bg-spc-surface
+                border border-spc-line-strong rounded-spc-panel overflow-hidden"
+              >
                 {/* "columns" is not a format — it opens the chooser rather
                     than exporting, so the menu reads as one list of things
                     you can ask for. */}

@@ -1,4 +1,5 @@
 import { ChevronDown, ChevronRight, MapPin } from 'lucide-react';
+import useFormKeyboard from '../../../hooks/useFormKeyboard';
 import {
   Panel, FieldLabel, FIELD_CLASS, CHECKBOX_CLASS, SecondaryButton, CheckRow,
 } from '../../../components/officer/OfficerUI';
@@ -47,8 +48,12 @@ export default function JobRequestForm({
   const pairCols = layout === 'mobile' ? 1 : 2;
   const set = (key, value) => onFieldChange({ ...formData, [key]: value });
 
+  // Enter walks the fields; the last one submits. A job request is twenty-odd
+  // fields and was entirely Tab-or-mouse before.
+  const onKeyDown = useFormKeyboard({ onSubmit });
+
   return (
-    <form onSubmit={onSubmit} className="px-5 py-4">
+    <form onSubmit={onSubmit} onKeyDown={onKeyDown} className="px-5 py-4">
       {templates.length > 0 && (
         <FormSection title="Quick start" hint="Apply a saved requirement template, then adjust.">
           <select

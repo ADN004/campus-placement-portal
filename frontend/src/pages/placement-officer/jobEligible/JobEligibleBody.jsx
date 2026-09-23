@@ -96,6 +96,7 @@ export default function JobEligibleBody({ layout, ...p }) {
               exporting={p.exporting}
               exportDisabled={p.filteredStudents.length === 0}
               applicantCount={p.applicantCount}
+              countsReady={!p.loadingStudents}
               onDeleteJob={p.onDeleteJob}
               onUnpublishJob={p.onUnpublishJob}
             />
@@ -207,9 +208,21 @@ export default function JobEligibleBody({ layout, ...p }) {
 
           <section className="mb-5">
             <Panel>
+              {/*
+                * While the applicants are loading the heading says "Applicants"
+                * and no number. It used to say "Applicants (0)" -- a figure
+                * computed from an empty array that had not been filled yet, and
+                * indistinguishable from a job nobody applied to.
+                */}
               <PanelHeading action={p.refreshControl}>
-                Applicants ({currentApplicants.length})
+                Applicants {p.loadingStudents ? '' : `(${currentApplicants.length})`}
               </PanelHeading>
+              {/* A long wait with nothing said reads as a broken page. */}
+              {p.loadingStudents && p.loadingSlow && (
+                <p className="px-4 pt-3 text-xs text-spc-body">
+                  Still loading — this job has a lot of applicants.
+                </p>
+              )}
               {/* Says why some rows cannot be ticked, before the officer tries. */}
               {barredCount > 0 && (
                 <p className="px-4 pt-3 text-xs text-spc-body">

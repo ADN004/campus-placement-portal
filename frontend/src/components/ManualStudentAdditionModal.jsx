@@ -250,6 +250,9 @@ const ManualStudentAdditionModal = ({
         labelledBy="manual-add-title"
         overlayClassName={ui.overlay}
         panelClassName={ui.panel('lg', { scroll: true })}
+        // Submits from the last field: this dialog has no <form> behind it, so
+        // without this Enter would simply stop at the bottom of the fields.
+        onEnterSubmit={handleSubmit}
       >
         <ui.Header
           onClose={onClose}

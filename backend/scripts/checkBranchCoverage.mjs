@@ -22,17 +22,15 @@
  *   - offered by a college, not in the constant -> those students cannot be
  *     targeted by any job at all
  *
- * Needs a database, so it is not part of the ordinary build. Run it against
- * production after any change to the branch constant or a college's branches:
+ * Needs a database, which is why it lives here rather than in the repo's
+ * scripts/ directory with the static checkers. Only backend/ and database/ are
+ * copied into the image, so a checker at the repo root cannot be run against
+ * production at all -- which is exactly where this one has to run.
  *
- *   node scripts/check-branch-coverage.mjs
- *   DB_NAME=... DB_HOST=... node scripts/check-branch-coverage.mjs
+ *   docker compose -f docker-compose.hub.yml exec backend  *     node scripts/checkBranchCoverage.mjs
+ *
+ * Or locally:  node backend/scripts/checkBranchCoverage.mjs
  */
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const HERE = path.dirname(fileURLToPath(import.meta.url));
-const ROOT = path.resolve(HERE, '..');
 
 const RED = '\x1b[31m';
 const YELLOW = '\x1b[33m';
@@ -40,16 +38,9 @@ const GREEN = '\x1b[32m';
 const DIM = '\x1b[2m';
 const OFF = '\x1b[0m';
 
-process.chdir(path.join(ROOT, 'backend'));
-const { query, closePool } = await import(
-  new URL('../backend/config/database.js', import.meta.url).href
-);
-const { KERALA_POLYTECHNIC_BRANCHES } = await import(
-  new URL('../backend/constants/branches.js', import.meta.url).href
-);
-const { normalizeBranch } = await import(
-  new URL('../backend/utils/branchName.js', import.meta.url).href
-);
+import { query, closePool } from '../config/database.js';
+import { KERALA_POLYTECHNIC_BRANCHES } from '../constants/branches.js';
+import { normalizeBranch } from '../utils/branchName.js';
 
 let problems = 0;
 

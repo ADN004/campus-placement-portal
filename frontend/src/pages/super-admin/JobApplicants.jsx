@@ -911,16 +911,22 @@ export default function SuperAdminJobApplicants() {
     return exportFilters.selectedColleges.length > 0 || !!exportFilters.selectedRegion;
   };
 
-  if (showSkeleton || !selectedJob) return <ApplicantsSkeleton layout={deviceType} />;
-
   // Three passes over the applicant list, together and only when it changes.
   // They ran on every render: a few thousand elements walked three times for a
   // toast appearing, which is the sort of work that lands mid-scroll.
+  //
+  // It has to sit above the guard below, not under it. This is a hook, and
+  // the first render bails out at the guard while selectedJob is still null.
+  // The render after the job arrives reaches the hook, so the hook count
+  // changes between renders and React tears the tree down: #310, a blank
+  // page and nothing rendered at all.
   const { currentApplicants, placedApplicants, selectedSummary } = useMemo(() => ({
     currentApplicants: filteredStudents.filter((s) => !s.is_already_placed),
     placedApplicants: filteredStudents.filter((s) => s.is_already_placed),
     selectedSummary: filteredStudents.filter((s) => s.application_status === 'selected'),
   }), [filteredStudents]);
+
+  if (showSkeleton || !selectedJob) return <ApplicantsSkeleton layout={deviceType} />;
 
   const hasAdvancedFilters = Object.values(advancedFilters).some(Boolean);
   const hasEnhancedFilters = Object.entries(enhancedFilters).some(([, v]) => (

@@ -1,0 +1,82 @@
+name: Checks
+
+# Runs alongside the image build, never in front of it.
+#
+# This is a SEPARATE workflow from docker-hub.yml on purpose. GitHub runs the
+# two independently, so a failure here shows a red X on the commit and does not
+# stop an image from being built or a deploy from going out. That is deliberate
+# for now: these checks are new, and a check nobody trusts yet must not be able
+# to hold up a fix to production at 11pm.
+#
+# Once it has run green for a while and you trust it, make it blocking by
+# adding "Checks" as a required status check on main and develop in the repo's
+# branch protection settings. Nothing in this file needs to change for that.
+#
+# WHAT IS CHECKED, AND WHAT IS NOT
+#
+# The three scripts under scripts/ are the ones that need no database. There is
+# a fourth, backend/scripts/checkBranchCoverage.mjs, which compares the branch
+# constant against what colleges actually offer -- it needs a live database and
+# is run on the server after a deploy, never here.
+#
+# The frontend build is not repeated here. docker-hub.yml already runs it
+# inside the image build, and a second copy would double CI time to re-prove
+# the same thing.
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    # Lint plus three file scans. A healthy run is under a minute; this only
+    # exists so a hung runner cannot sit against the 360-minute default.
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Node 20 rather than the 18 in frontend/Dockerfile: the image builds on
+      # 18 and that is checked by building the image. ESLint 9 needs >=18.18,
+      # so both work -- 20 is what the project is developed on.
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # npm install, not npm ci, and no dependency cache -- both for the same
+      # reason. frontend/.gitignore line 12 ignores package-lock.json, so there
+      # is no lockfile in the repo for `npm ci` to read or for the cache to key
+      # on, and both would fail on the first run. frontend/Dockerfile installs
+      # the same way, so this matches how the image is actually built.
+      #
+      # If the frontend lockfile is ever committed, this can become `npm ci`
+      # with `cache: npm`. Until then it must not.
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm install --no-audit --progress=false
+
+      # Fails on errors only. react-hooks/rules-of-hooks is the single rule set
+      # to error, because breaking it renders a blank page rather than being a
+      # style disagreement -- see the note at the top of frontend/eslint.config.js.
+      # exhaustive-deps is a warning and does not fail the run: there were 33 of
+      # them the day this was added, all pre-existing.
+      - name: Lint the frontend
+        working-directory: frontend
+        run: npm run lint
+
+      # Each of these was written after a bug reached production, and each
+      # exits non-zero when it finds the shape of that bug again. They need no
+      # database and no build.
+      - name: Every export sends the filters that are on screen
+        run: node scripts/check-export-filters.mjs
+
+      - name: Every branch comparison goes through the normaliser
+        run: node scripts/check-branch-matching.mjs
+
+      - name: No request drops its error on the floor
+        run: node scripts/check-silent-failures.mjs

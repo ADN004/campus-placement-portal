@@ -1,16 +1,29 @@
 import { useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Users, Briefcase, Building2, Shield } from 'lucide-react';
+import { Home, Users, Briefcase, Bell } from 'lucide-react';
 import useDeviceType from '../../hooks/useDeviceType';
 
 /**
  * AdminBottomNav — thumb-reachable tab bar for the super-admin area.
  *
  * Only rendered for role === 'super_admin', and only below `lg`, where the
- * sidebar is a drawer rather than a permanent panel. The five destinations are
+ * sidebar is a drawer rather than a permanent panel. The four destinations are
  * a subset of the sidebar's twenty — the sidebar stays the complete list, this
  * is the shortcut to the screens opened constantly. Nothing here is a new
  * destination, and every path exists in the sidebar too.
+ *
+ * Colleges and Admins were here and are not any more. Neither is a screen you
+ * return to through the day: a college is set up once and edited when something
+ * changes, and the admin list less often than that. Both are still one tap away
+ * in the drawer, under Colleges and Administration, which is where the twenty
+ * destinations that were never on this bar already live.
+ *
+ * Notify took the free slot because it is the opposite kind of screen, and
+ * because the officer bar has carried the same tab in the same place since it
+ * was built. It is labelled "Notify" rather than "Notifications" for that
+ * symmetry and because the bar divides the full width between its tabs -- on a
+ * 320px phone each one gets about 70px, and the longer word does not fit on one
+ * line at 11px.
  *
  * A floating pane rather than a bar welded to the edge: it sits on a gutter with
  * the page visible around and behind it, which is the whole point of the
@@ -34,8 +47,7 @@ const TABS = [
   { name: 'Home', path: '/super-admin/dashboard', icon: Home },
   { name: 'Students', path: '/super-admin/students', icon: Users },
   { name: 'Jobs', path: '/super-admin/jobs', icon: Briefcase },
-  { name: 'Colleges', path: '/super-admin/colleges', icon: Building2 },
-  { name: 'Admins', path: '/super-admin/admins', icon: Shield },
+  { name: 'Notify', path: '/super-admin/send-notification', icon: Bell },
 ];
 
 export default function AdminBottomNav() {

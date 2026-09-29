@@ -50,3 +50,20 @@ export const ACTIVE_STUDENT_ACCOUNT_SQL = `EXISTS (
 export const NOTIFIABLE_STUDENT_SQL = `s.registration_status = 'approved'
   AND s.is_blacklisted = FALSE
   AND ${ACTIVE_STUDENT_ACCOUNT_SQL}`;
+
+/**
+ * The same rule for placement officers.
+ *
+ * Two flags, not one. An officer row is deactivated when somebody is replaced
+ * in the post, and the user account is deactivated separately — a person can
+ * have one without the other, and either on its own means they should not be
+ * written to. Assumes the officers table is aliased `po`.
+ *
+ * Call sites — again, the count and the send must agree:
+ *   superAdminController.getCollegesForNotifications (count, per college)
+ *   superAdminController.sendNotification            (send)
+ */
+export const NOTIFIABLE_OFFICER_SQL = `po.is_active = TRUE AND EXISTS (
+  SELECT 1 FROM users u_off
+  WHERE u_off.id = po.user_id AND u_off.is_active = TRUE
+)`;

@@ -1,8 +1,14 @@
-import { Building2, GraduationCap, Users } from 'lucide-react';
+import {
+  Building2, GraduationCap, Users, UserCog, Send, AlertTriangle, ArrowLeftRight,
+} from 'lucide-react';
+import Modal from '../../../components/Modal';
 import {
   Panel, PanelHeading, SectionLabel, FieldLabel, FIELD_CLASS, CHECKBOX_CLASS,
-  SecondaryButton, EmptyState,
+  SecondaryButton, PrimaryButton, EmptyState,
 } from '../../../components/admin/AdminUI';
+import {
+  adminPanel, ADMIN_OVERLAY, AdminDialogHeader, AdminDialogBody, AdminDialogFooter,
+} from '../../../components/admin/AdminDialog';
 
 /**
  * The parts of the Send Notification page.
@@ -12,6 +18,90 @@ import {
  * your head, so the count is never more than a glance away and it says how it
  * was arrived at.
  */
+
+/* ---------------------------------------------------------------- recipients */
+
+/**
+ * Who the message is addressed to.
+ *
+ * Students first and students by default, in the array and in the form. It is
+ * the audience for nearly every message and the one where being wrong is
+ * largest, so it is never the thing somebody has to remember to set.
+ *
+ * Officers are here because they have had an inbox since joint jobs needed
+ * announcing, and until now nothing could write to it by hand -- the only
+ * sender was the joint-job notice.
+ */
+export const RECIPIENTS = [
+  {
+    value: 'students',
+    label: 'Students',
+    one: 'student',
+    many: 'students',
+    hint: 'Approved, active students at the colleges chosen',
+  },
+  {
+    value: 'officers',
+    label: 'Placement Officers',
+    one: 'placement officer',
+    many: 'placement officers',
+    hint: 'The placement officer accounts at those colleges',
+  },
+];
+
+export const recipientOf = (value) => (
+  RECIPIENTS.find((r) => r.value === value) || RECIPIENTS[0]
+);
+
+/** "10450 students" / "1 placement officer". */
+export const describeAudience = (count, recipient) => {
+  const meta = recipientOf(recipient);
+  return `${count} ${count === 1 ? meta.one : meta.many}`;
+};
+
+export function RecipientChoice({ value, onChange, disabled, counts }) {
+  return (
+    <fieldset>
+      <legend className="block text-spc-label font-bold uppercase text-spc-body mb-1.5">
+        Send to
+      </legend>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {RECIPIENTS.map((option) => {
+          const selected = value === option.value;
+          const Icon = option.value === 'officers' ? UserCog : Users;
+          return (
+            <label
+              key={option.value}
+              className={`flex flex-col gap-0.5 p-3 rounded-spc-admin-sm border cursor-pointer
+                transition-colors
+                ${selected
+                  ? 'bg-spc-selected border-spc-accent'
+                  : 'bg-spc-surface border-spc-control hover:bg-spc-surface-2'}`}
+            >
+              <span className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="recipient_type"
+                  value={option.value}
+                  checked={selected}
+                  onChange={(e) => onChange(e.target.value)}
+                  disabled={disabled}
+                  className={CHECKBOX_CLASS}
+                />
+                <Icon size={15} aria-hidden="true" className="text-spc-body flex-shrink-0" />
+                <span className="text-spc-sm font-bold text-spc-ink">{option.label}</span>
+                <span className="ml-auto text-spc-xs font-bold text-spc-body tabular-nums">
+                  {counts?.[option.value] ?? 0}
+                </span>
+              </span>
+              <span className="text-spc-xs text-spc-body pl-7">{option.hint}</span>
+            </label>
+          );
+        })}
+      </div>
+    </fieldset>
+  );
+}
 
 /* ------------------------------------------------------------------ priority */
 
@@ -27,14 +117,32 @@ export const PRIORITIES = [
   { value: 'urgent', label: 'Urgent', hint: 'Popup, and an email as well' },
 ];
 
-export function PriorityChoice({ value, onChange, disabled }) {
+/**
+ * The same three levels, described truthfully for an officer.
+ *
+ * The popup is PriorityNotificationPopup, a student component mounted on the
+ * student dashboard and nowhere else. Officers have no equivalent, so High and
+ * Urgent reach them in the inbox and not on top of it. Leaving the student
+ * wording in place would have promised a popup that cannot happen.
+ */
+const OFFICER_PRIORITIES = [
+  { value: 'normal', label: 'Normal', hint: 'Appears in their inbox' },
+  { value: 'high', label: 'High', hint: 'Marked high in their inbox' },
+  { value: 'urgent', label: 'Urgent', hint: 'Inbox, and an email as well' },
+];
+
+export const prioritiesFor = (recipient) => (
+  recipient === 'officers' ? OFFICER_PRIORITIES : PRIORITIES
+);
+
+export function PriorityChoice({ value, onChange, disabled, recipient }) {
   return (
     <fieldset>
       <legend className="block text-spc-label font-bold uppercase text-spc-body mb-1.5">
         Priority
       </legend>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-        {PRIORITIES.map((option) => {
+        {prioritiesFor(recipient).map((option) => {
           const selected = value === option.value;
           return (
             <label
@@ -99,28 +207,140 @@ export function ComposeFields({ formData, onChange, disabled }) {
         value={formData.priority}
         onChange={(priority) => onChange({ priority })}
         disabled={disabled}
+        recipient={formData.recipient_type}
       />
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------- confirm */
+
+/**
+ * The last look before it goes.
+ *
+ * It is here for one failure in particular: switch the audience to placement
+ * officers, send, and do not switch back. The next message -- written for ten
+ * thousand students -- goes to sixty officers instead, and nothing on the way
+ * out says so. The audience is the one thing on this page that is invisible
+ * once it is set, so the dialog leads with it rather than with "are you sure".
+ *
+ * And it offers the other audience as a button, because somebody who spots the
+ * mistake here should not have to close the dialog, find the toggle and hope
+ * that what they typed survived. It does survive: switching changes the
+ * audience and nothing else, and the dialog stays open with the new numbers.
+ */
+export function ConfirmSend({
+  recipient, count, otherCount, colleges, branches, priority, sending,
+  onConfirm, onSwitch, onClose,
+}) {
+  const meta = recipientOf(recipient);
+  const other = RECIPIENTS.find((r) => r.value !== recipient);
+  const Icon = recipient === 'officers' ? UserCog : Users;
+  const scope = colleges === 0
+    ? 'every college'
+    : `${colleges} ${colleges === 1 ? 'college' : 'colleges'}`;
+  const narrowed = recipient !== 'officers' && branches > 0
+    ? `, narrowed to ${branches} ${branches === 1 ? 'branch' : 'branches'}`
+    : '';
+
+  return (
+    <Modal
+      onClose={sending ? () => {} : onClose}
+      labelledBy="notify-confirm-title"
+      panelClassName={adminPanel('md')}
+      overlayClassName={ADMIN_OVERLAY}
+      closeOnEscape={!sending}
+    >
+      <AdminDialogHeader
+        id="notify-confirm-title"
+        title="Check who this reaches"
+        subtitle="Nothing has been sent yet"
+        onClose={sending ? () => {} : onClose}
+      />
+
+      <AdminDialogBody className="space-y-4">
+        <div className="p-4 rounded-spc-admin bg-spc-selected border border-spc-accent">
+          <p className="text-spc-label font-bold uppercase tracking-[0.1em] text-spc-body">
+            This will be delivered to
+          </p>
+          <p className="flex items-baseline gap-2 flex-wrap mt-1">
+            <Icon size={18} aria-hidden="true" className="text-spc-accent self-center" />
+            <span className="text-spc-metric font-bold text-spc-ink tabular-nums">{count}</span>
+            <span className="text-spc-sm font-bold text-spc-ink">
+              {count === 1 ? meta.one : meta.many}
+            </span>
+          </p>
+          <p className="text-spc-xs text-spc-body mt-1">
+            {scope}
+            {narrowed}
+          </p>
+        </div>
+
+        {priority === 'urgent' && (
+          <p className="flex items-start gap-2 text-spc-xs text-spc-body">
+            <AlertTriangle
+              size={15}
+              aria-hidden="true"
+              className="text-spc-accent flex-shrink-0 mt-0.5"
+            />
+            <span>
+              Urgent also emails every one of them. That part leaves the portal
+              and cannot be called back.
+            </span>
+          </p>
+        )}
+
+        <div className="pt-4 border-t border-spc-line">
+          <p className="text-spc-sm font-semibold text-spc-ink">Not who you meant?</p>
+          <SecondaryButton
+            type="button"
+            onClick={onSwitch}
+            disabled={sending}
+            className="w-full justify-center mt-2"
+          >
+            <ArrowLeftRight size={15} aria-hidden="true" />
+            Switch to {other.label} ({otherCount})
+          </SecondaryButton>
+          <p className="text-spc-xs text-spc-body mt-2">
+            Your title, message, priority and colleges are all kept.
+          </p>
+        </div>
+      </AdminDialogBody>
+
+      <AdminDialogFooter>
+        <SecondaryButton type="button" onClick={onClose} disabled={sending}>
+          Cancel
+        </SecondaryButton>
+        <PrimaryButton type="button" onClick={onConfirm} disabled={sending}>
+          <Send size={15} aria-hidden="true" />
+          {sending ? 'Sending…' : `Send to ${describeAudience(count, recipient)}`}
+        </PrimaryButton>
+      </AdminDialogFooter>
+    </Modal>
   );
 }
 
 /* ------------------------------------------------------------------ audience */
 
 /** Who it reaches, and how that number was arrived at. */
-export function AudienceSummary({ count, colleges, branches }) {
+export function AudienceSummary({ count, colleges, branches, recipient }) {
+  const meta = recipientOf(recipient);
+  const Icon = recipient === 'officers' ? UserCog : Users;
   const scope = colleges === 0
     ? 'every college'
     : `${colleges} ${colleges === 1 ? 'college' : 'colleges'}`;
-  const narrowed = branches > 0
+  // Branches narrow students and mean nothing to an officer, so the line only
+  // claims a narrowing that was actually applied.
+  const narrowed = recipient !== 'officers' && branches > 0
     ? `, narrowed to ${branches} ${branches === 1 ? 'branch' : 'branches'}`
     : '';
   return (
     <div className="p-4 rounded-spc-admin bg-spc-surface border border-spc-line-strong">
-      <p className="flex items-baseline gap-2">
-        <Users size={17} aria-hidden="true" className="text-spc-accent self-center" />
+      <p className="flex items-baseline gap-2 flex-wrap">
+        <Icon size={17} aria-hidden="true" className="text-spc-accent self-center" />
         <span className="text-spc-metric font-bold text-spc-ink tabular-nums">{count}</span>
         <span className="text-spc-sm text-spc-body">
-          {count === 1 ? 'student' : 'students'}
+          {count === 1 ? meta.one : meta.many}
         </span>
       </p>
       <p className="text-spc-xs text-spc-body mt-1">
@@ -131,8 +351,8 @@ export function AudienceSummary({ count, colleges, branches }) {
   );
 }
 
-/** One college, with its student count and a tick. */
-function CollegeRow({ college, checked, onToggle, disabled }) {
+/** One college, with a tick and the count of whoever is being written to. */
+function CollegeRow({ college, checked, onToggle, disabled, recipient }) {
   return (
     <label className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors
       ${checked ? 'bg-spc-selected' : 'hover:bg-spc-surface-2'}`}>
@@ -147,13 +367,13 @@ function CollegeRow({ college, checked, onToggle, disabled }) {
         <span className="block text-spc-sm text-spc-ink break-words">{college.college_name}</span>
       </span>
       <span className="text-spc-xs text-spc-body tabular-nums flex-shrink-0">
-        {college.total_students || 0}
+        {(recipient === 'officers' ? college.total_officers : college.total_students) || 0}
       </span>
     </label>
   );
 }
 
-export function CollegePicker({ colleges, selected, onToggle, onSelectAll, disabled }) {
+export function CollegePicker({ colleges, selected, onToggle, onSelectAll, disabled, recipient }) {
   const allSelected = colleges.length > 0 && selected.length === colleges.length;
   return (
     <Panel className="overflow-hidden">
@@ -180,6 +400,7 @@ export function CollegePicker({ colleges, selected, onToggle, onSelectAll, disab
             checked={selected.includes(college.id)}
             onToggle={onToggle}
             disabled={disabled}
+            recipient={recipient}
           />
         ))}
       </div>
@@ -287,6 +508,9 @@ export function SentThisSession({ items }) {
               </div>
               <p className="text-spc-xs text-spc-body mt-0.5 break-words">{item.message}</p>
               <p className="text-spc-xs text-spc-body mt-1">
+                {/* Audience first: with two of them, which one a message went
+                    to is the fact you come back to this list to check. */}
+                {item.audience ? `${item.audience} · ` : ''}
                 {item.target_colleges} · {item.priority}
               </p>
             </li>

@@ -9,7 +9,8 @@ import logActivity from '../middleware/activityLogger.js';
 import { generateStudentPDF } from '../utils/pdfGenerator.js';
 import { deleteImage, deleteFolderOnly, extractFolderPath } from '../config/cloudinary.js';
 import { TOTAL_BACKLOGS_SQL, parseMaxBacklogs } from '../utils/backlogPolicy.js';
-import { ACTIVE_STUDENT_ACCOUNT_SQL } from '../utils/notificationAudience.js';
+import { ACTIVE_STUDENT_ACCOUNT_SQL, NOTIFIABLE_OFFICER_SQL } from '../utils/notificationAudience.js';
+import { deliverToOfficers } from '../utils/officerInbox.js';
 import { studentOrderSql } from '../utils/studentOrder.js';
 import { notifyParticipatingOfficers, notifyCollegesAdded } from '../utils/jointJobNotice.js';
 import { collegesReachedBy, collegesLosingAccess, branchesLosingAccess, eligibilityTightened } from '../utils/jobAudience.js';
@@ -3648,15 +3649,31 @@ export const deleteSuperAdmin = async (req, res) => {
 export const getCollegesForNotifications = async (req, res) => {
   try {
     const collegesResult = await query(
+      /*
+       * Both counts in one pass. The two LEFT JOINs multiply each other -- a
+       * college with 300 students and 2 officers produces 600 rows -- which is
+       * why every count here is DISTINCT and has to stay that way.
+       *
+       * Officers count by user_id rather than by row, to match the send, which
+       * collapses posts to accounts before it writes anything. The one case the
+       * two still differ on is an account holding a post at two colleges: this
+       * is per college, and the composer adds the columns up, so such an
+       * account would be counted once per college and written to once. A
+       * college has a single active officer by unique index, so this needs one
+       * person appointed twice over.
+       */
       `SELECT c.id, c.college_name, c.college_code, r.region_name,
               COUNT(DISTINCT s.id) as total_students,
-              COUNT(DISTINCT s.branch) as branch_count
+              COUNT(DISTINCT s.branch) as branch_count,
+              COUNT(DISTINCT po.user_id) as total_officers
        FROM colleges c
        JOIN regions r ON c.region_id = r.id
        LEFT JOIN students s ON c.id = s.college_id
          AND s.registration_status = 'approved'
          AND s.is_blacklisted = FALSE
          AND ${ACTIVE_STUDENT_ACCOUNT_SQL}
+       LEFT JOIN placement_officers po ON po.college_id = c.id
+         AND ${NOTIFIABLE_OFFICER_SQL}
        WHERE c.is_active = TRUE
        GROUP BY c.id, c.college_name, c.college_code, r.region_name
        ORDER BY c.college_name ASC`
@@ -3723,6 +3740,192 @@ export const getBranchesForColleges = async (req, res) => {
 // @desc    Send notification to students (with college and branch filtering)
 // @route   POST /api/super-admin/send-notification
 // @access  Private (Super Admin)
+/**
+ * The same broadcast, addressed to placement officers instead of students.
+ *
+ * Officers have had an inbox since joint jobs needed announcing, and
+ * deliverToOfficers already writes one notification with one recipient row per
+ * account. This is that helper given an audience chosen by college rather than
+ * by job, so nothing about delivery is new here.
+ *
+ * Branches do not apply and are ignored rather than rejected: an officer has no
+ * branch, and a Super Admin who narrowed the branches and then switched
+ * audience should not be handed an error about a field the form no longer
+ * shows.
+ *
+ * Two active flags, both required -- see NOTIFIABLE_OFFICER_SQL. An empty
+ * college list means every active college, matching the student path.
+ */
+const sendNotificationToOfficers = async (req, res, { title, message, priority, target_colleges }) => {
+  const params = [];
+  let collegeFilter = '';
+  if (target_colleges.length > 0) {
+    params.push(target_colleges);
+    collegeFilter = ' AND c.id = ANY($1::int[])';
+  }
+
+  const officersResult = await query(
+    `SELECT po.user_id, po.officer_name, u.email, c.id AS college_id, c.college_name
+       FROM placement_officers po
+       JOIN colleges c ON c.id = po.college_id AND c.is_active = TRUE
+       JOIN users u ON u.id = po.user_id
+      WHERE ${NOTIFIABLE_OFFICER_SQL}${collegeFilter}`,
+    params
+  );
+  /*
+   * One row per account, not per post.
+   *
+   * placement_officers is unique on (college_id) among active rows, so a
+   * college has one officer -- but nothing says a person holds only one post,
+   * and two selected colleges could name the same account. Left as is that
+   * account would be counted twice, emailed twice, and collide with the
+   * UNIQUE(notification_id, user_id) on notification_recipients.
+   *
+   * The colleges are read off the full result before collapsing it, so a
+   * second post still registers as a college this went to.
+   */
+  const collegesWithOfficers = [...new Set(officersResult.rows.map((r) => r.college_id))];
+  const officers = [...new Map(officersResult.rows.map((r) => [r.user_id, r])).values()];
+
+  if (officers.length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'No active placement officers found for the selected colleges',
+    });
+  }
+
+  let notificationId;
+  await transaction(async (client) => {
+    notificationId = await deliverToOfficers(
+      {
+        userIds: officers.map((o) => o.user_id),
+        title: title.trim(),
+        message: message.trim(),
+        createdBy: req.user.id,
+        /*
+         * 'general', not a new kind. notifications.notification_type carries a
+         * CHECK constraint -- general, job_posted, application_deadline,
+         * approval, rejection and the two joint_* kinds -- so a new value needs
+         * a migration, and nothing would read it: the officer inbox selects the
+         * column and never branches on it. A hand-written broadcast is what
+         * 'general' means, and the two joint_* kinds are the structured ones.
+         */
+        type: 'general',
+        priority,
+      },
+      client
+    );
+
+    // Which colleges this was aimed at, recorded the way the student path
+    // records it. Derived from the officers actually written to when no college
+    // was chosen, so "all colleges" never lists one that has no officer.
+    const targetCollegeIds = target_colleges.length > 0
+      ? target_colleges
+      : collegesWithOfficers;
+
+    for (const collegeId of targetCollegeIds) {
+      await client.query(
+        `INSERT INTO notification_targets (notification_id, target_entity_type, target_entity_id)
+         VALUES ($1, 'college', $2)`,
+        [notificationId, collegeId]
+      );
+    }
+  });
+
+  // Urgent sends mail, as it does for students. Sixty-odd mailboxes rather than
+  // ten thousand, but batched on the same terms so the two paths cannot drift.
+  if (priority === 'urgent') {
+    const { sendNotificationEmail } = await import('../config/emailService.js');
+
+    setImmediate(async () => {
+      try {
+        console.log(`[SUPER ADMIN] Sending urgent notification emails to ${officers.length} officer(s)...`);
+        const emailBatchSize = 50;
+        let successCount = 0;
+        let failCount = 0;
+
+        for (let i = 0; i < officers.length; i += emailBatchSize) {
+          const batch = officers.slice(i, i + emailBatchSize);
+
+          const emailPromises = batch.map(async (officer) => {
+            try {
+              if (!officer.email) return;
+              const emailSubject = `[URGENT] ${title} - State Placement Cell`;
+              const emailContent = `
+                <h2>Hello ${officer.officer_name},</h2>
+                <div style="background-color: #fee2e2; border-left: 4px solid #dc2626; padding: 16px; margin: 20px 0; border-radius: 4px;">
+                  <p style="margin: 0; color: #991b1b; font-weight: 600;">
+                    URGENT NOTIFICATION FROM STATE PLACEMENT CELL
+                  </p>
+                </div>
+                <h3 style="color: #1f2937;">${title}</h3>
+                <p style="color: #4b5563; line-height: 1.6; white-space: pre-wrap;">${message}</p>
+                <div style="background-color: #f3f4f6; padding: 12px; margin-top: 20px; border-radius: 4px;">
+                  <p style="margin: 0; font-size: 14px; color: #6b7280;">
+                    <strong>To:</strong> Placement Officer, ${officer.college_name}
+                  </p>
+                </div>
+                <p style="margin-top: 20px; font-size: 14px; color: #6b7280;">
+                  Please check your placement officer portal for more details.
+                </p>
+              `;
+              await sendNotificationEmail(officer.email, emailSubject, emailContent);
+              successCount++;
+            } catch (emailError) {
+              console.error(`Failed to send email to ${officer.email}:`, emailError.message);
+              failCount++;
+            }
+          });
+
+          await Promise.allSettled(emailPromises);
+
+          if (i + emailBatchSize < officers.length) {
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+          }
+        }
+
+        console.log(`[SUPER ADMIN] Officer email sending completed: ${successCount} successful, ${failCount} failed`);
+      } catch (error) {
+        console.error('[SUPER ADMIN] Error in async officer email sending:', error);
+      }
+    });
+  }
+
+  const collegeInfo = target_colleges.length > 0
+    ? `${target_colleges.length} college(s)`
+    : 'all colleges';
+
+  await logActivity(
+    req.user.id,
+    'SEND_NOTIFICATION_SUPER_ADMIN',
+    `Sent ${priority} notification to ${officers.length} placement officer(s) (${collegeInfo}): ${title}`,
+    'notification',
+    notificationId,
+    {
+      title,
+      priority,
+      recipient_type: 'officers',
+      target_colleges,
+      recipient_count: officers.length,
+      email_sent: priority === 'urgent',
+    },
+    req
+  );
+
+  return res.status(201).json({
+    success: true,
+    message: `Notification sent successfully to ${officers.length} placement officer(s)${priority === 'urgent' ? '. Urgent emails are being sent in the background.' : ''}`,
+    data: {
+      notification_id: notificationId,
+      recipient_count: officers.length,
+      recipient_type: 'officers',
+      priority,
+      email_notification_sent: priority === 'urgent',
+      target_colleges: target_colleges.length > 0 ? target_colleges : 'All colleges',
+    },
+  });
+};
+
 export const sendNotification = async (req, res) => {
   try {
     const {
@@ -3730,7 +3933,8 @@ export const sendNotification = async (req, res) => {
       message,
       priority = 'normal',
       target_colleges = [], // Empty means all colleges
-      target_branches = {} // { college_id: [branches] } - Empty object means all branches
+      target_branches = {}, // { college_id: [branches] } - Empty object means all branches
+      recipient_type = 'students' // 'students' | 'officers'. Absent means students.
     } = req.body;
 
     // Validation
@@ -3745,6 +3949,25 @@ export const sendNotification = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Title and message cannot be empty',
+      });
+    }
+
+    if (!['students', 'officers'].includes(recipient_type)) {
+      return res.status(400).json({
+        success: false,
+        message: "recipient_type must be 'students' or 'officers'",
+      });
+    }
+
+    /*
+     * Everything past this fork is the student path, unchanged. The officer
+     * audience shares only the composer -- not the query, the delivery or the
+     * email -- so it branches here rather than threading conditionals through a
+     * hundred lines that all assume a student row.
+     */
+    if (recipient_type === 'officers') {
+      return await sendNotificationToOfficers(req, res, {
+        title, message, priority, target_colleges,
       });
     }
 

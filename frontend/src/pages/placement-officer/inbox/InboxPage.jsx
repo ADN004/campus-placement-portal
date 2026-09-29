@@ -1,4 +1,5 @@
-import { Inbox, Check, CheckCheck } from 'lucide-react';
+import { useState } from 'react';
+import { Inbox, Check, CheckCheck, ChevronDown, ChevronUp } from 'lucide-react';
 import {
   PageHeading, Panel, SecondaryButton, EmptyState,
 } from '../../../components/officer/OfficerUI';
@@ -15,6 +16,15 @@ import {
  * who deleted one would have no way to find out what they had been told. Unread
  * items are marked in the margin rather than by colouring the whole row, so a
  * long list still reads as one list.
+ *
+ * Long messages open in place rather than in a dialog. Everything that used to
+ * arrive here was written by jointJobNotice -- one sentence, a known length, so
+ * printing it whole was safe. A Super Admin can now type into a textarea and
+ * send it here, and an unclamped textarea in a list row is a wall of text that
+ * pushes the next forty notices off the screen. The student list solves the same
+ * problem with a detail view; this one does not, because a dialog for a
+ * two-sentence notice is friction for the common case, and expanding in place
+ * keeps the officer's position in the list.
  */
 
 /** How long ago, in the words a person would use. */
@@ -32,8 +42,25 @@ function relativeTime(value) {
   return then.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+/*
+ * Long enough to be worth hiding.
+ *
+ * A character count and a line count, because either alone misses: a wall of
+ * prose has no newlines, and a short list of bulleted lines has few characters.
+ * Measuring the rendered height would be exact, but it costs a ref, a layout
+ * read and a resize listener per row, and being wrong here means a message a
+ * little under the line shows in full -- which is what it would have done
+ * anyway.
+ */
+const isLongMessage = (message) => {
+  const text = message || '';
+  return text.length > 180 || text.split('\n').length > 3;
+};
+
 function Row({ notification, onMarkRead, compact }) {
   const unread = !notification.is_read;
+  const [expanded, setExpanded] = useState(false);
+  const long = isLongMessage(notification.message);
   return (
     <li
       className={`px-4 py-3 border-b border-spc-line last:border-b-0 flex gap-3 items-start
@@ -53,9 +80,30 @@ function Row({ notification, onMarkRead, compact }) {
         <p className={`text-spc-sm break-words ${unread ? 'font-bold text-spc-ink' : 'font-semibold text-spc-body'}`}>
           {notification.title}
         </p>
-        <p className="text-spc-xs text-spc-body mt-1 leading-relaxed break-words">
+        {/*
+          whitespace-pre-wrap because these are typed by hand now. The blank
+          line somebody put between two paragraphs is part of what they wrote,
+          and collapsing it turns a formatted notice into one run-on block.
+        */}
+        <p
+          className={`text-spc-xs text-spc-body mt-1 leading-relaxed break-words
+            whitespace-pre-wrap ${long && !expanded ? 'line-clamp-3' : ''}`}
+        >
           {notification.message}
         </p>
+
+        {long && (
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            aria-expanded={expanded}
+            className="mt-1 inline-flex items-center gap-1 text-xs font-bold
+              text-spc-accent hover:underline"
+          >
+            {expanded ? <ChevronUp size={13} aria-hidden="true" /> : <ChevronDown size={13} aria-hidden="true" />}
+            {expanded ? 'Show less' : 'Show more'}
+          </button>
+        )}
         <p className="text-xs text-spc-muted mt-1.5 tabular-nums">
           {relativeTime(notification.created_at)}
           {unread ? '' : ' · read'}

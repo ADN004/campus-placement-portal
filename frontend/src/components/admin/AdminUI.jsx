@@ -54,8 +54,11 @@ export function Panel({ children, className = '' }) {
 export function PanelHeading({ children, action }) {
   return (
     <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-spc-line">
-      <h2 className="text-spc-sm font-bold text-spc-ink">{children}</h2>
-      {action}
+      {/* The heading absorbs the squeeze, not the button. Without these two,
+          flex shrinks both, and "Mark all read" came apart into three stacked
+          words on a narrow phone while the heading beside it sat on one line. */}
+      <h2 className="text-spc-sm font-bold text-spc-ink min-w-0">{children}</h2>
+      {action && <div className="flex-shrink-0">{action}</div>}
     </div>
   );
 }

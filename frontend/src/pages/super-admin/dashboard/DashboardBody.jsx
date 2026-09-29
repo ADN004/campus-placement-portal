@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, Bell, Zap, CheckCircle, Eye } from 'lucide-react';
+import { ArrowRight, Bell, Zap, CheckCircle } from 'lucide-react';
 import {
   Panel, PanelHeading, PageHeading, SectionLabel, EmptyState, SecondaryButton,
 } from '../../../components/admin/AdminUI';
@@ -102,8 +102,61 @@ function RegionTile({ name, colleges }) {
 
 /* ----------------------------------------------------------- notifications */
 
-function NotificationRow({ notification, onMarkRead, timeAgo }) {
+/**
+ * One notification.
+ *
+ * The content block is the link to the job. It used to be a separate eye icon
+ * beside the text, and on a phone that arrangement cost most of the row: two
+ * 44px buttons pinned right took 92px of a 286px screen, and the 102px left
+ * over broke "Ramco Cement" across three lines. The student list has opened
+ * from the whole card since it was built, with only the one destructive action
+ * lifted out of it -- same shape, and the reason is the same.
+ *
+ * Mark-as-read stays a button of its own, outside the link, so opening a job
+ * and dismissing it are never the same tap.
+ *
+ * Both strings are clamped, because they are written for a desktop list and
+ * they repeat each other. The title is "New Job Posted: {company} - {role}";
+ * the message is "{college} has posted a new job for their college students.
+ * Company: {company}, Position: {role}"; and the college is printed a third
+ * time on the line below. One real job title -- Pie Infotech's "Associate
+ * Software Developer(For CS)/Associate Automation Engineer(For EEE,EC)/Design
+ * Engineer(For ME/CE)" -- is 108 characters, which at this width was fifteen
+ * lines and a screen and a half for a single notification. Clamped rather than
+ * hidden: the repetition is true of the one type that exists today, and a
+ * later type with something real to say should not lose it. The full text is
+ * in the tooltip and on the job itself.
+ */
+function NotificationRow({ notification, onMarkRead, timeAgo, layout }) {
   const unread = !notification.is_read;
+  const clamp = layout === 'mobile' ? 'line-clamp-2' : 'line-clamp-3';
+  const jobHref = notification.related_entity_type === 'job' && notification.related_entity_id
+    ? `/super-admin/jobs?highlight=${notification.related_entity_id}`
+    : null;
+
+  const body = (
+    <>
+      <p
+        className={`text-spc-sm text-spc-ink break-words line-clamp-2
+          ${unread ? 'font-bold' : 'font-semibold'}`}
+      >
+        {notification.title}
+      </p>
+      <p className={`text-spc-xs text-spc-body mt-0.5 break-words ${clamp}`}>
+        {notification.message}
+      </p>
+      <p className="flex flex-wrap items-center gap-x-1.5 text-spc-xs text-spc-body mt-1 tabular-nums">
+        {notification.college_name && (
+          <>
+            <span className="font-semibold">{notification.college_name}</span>
+            <span aria-hidden="true">·</span>
+          </>
+        )}
+        <span>{timeAgo(notification.created_at)}</span>
+      </p>
+    </>
+  );
+
   return (
     <div className={`flex items-start gap-3 px-4 py-3 ${unread ? 'bg-spc-selected' : ''}`}>
       <span className="w-9 h-9 rounded-spc-admin-sm bg-spc-surface-2
@@ -113,44 +166,31 @@ function NotificationRow({ notification, onMarkRead, timeAgo }) {
           : <Bell size={17} className="text-spc-ink" aria-hidden="true" />}
       </span>
 
-      <div className="flex-1 min-w-0">
-        <p className={`text-spc-sm text-spc-ink ${unread ? 'font-bold' : 'font-semibold'}`}>
-          {notification.title}
-        </p>
-        <p className="text-spc-xs text-spc-body mt-0.5 break-words">{notification.message}</p>
-        <p className="text-spc-xs text-spc-body mt-1 tabular-nums">
-          {notification.college_name && (
-            <span className="font-semibold">{notification.college_name} · </span>
-          )}
-          {timeAgo(notification.created_at)}
-        </p>
-      </div>
+      {jobHref ? (
+        <Link
+          to={jobHref}
+          title={notification.title}
+          aria-label={`View the job this is about: ${notification.title}`}
+          className="flex-1 min-w-0 rounded-spc-admin-sm hover:opacity-75 transition-opacity"
+        >
+          {body}
+        </Link>
+      ) : (
+        <div className="flex-1 min-w-0">{body}</div>
+      )}
 
-      <div className="flex items-center gap-1 flex-shrink-0">
-        {notification.related_entity_type === 'job' && notification.related_entity_id && (
-          <Link
-            to={`/super-admin/jobs?highlight=${notification.related_entity_id}`}
-            aria-label={`View the job this is about: ${notification.title}`}
-            title="View job"
-            className="inline-flex items-center justify-center w-11 h-11 rounded-spc-admin-sm
-              text-spc-body hover:bg-spc-surface-2 hover:text-spc-ink transition-colors"
-          >
-            <Eye size={17} aria-hidden="true" />
-          </Link>
-        )}
-        {unread && (
-          <button
-            type="button"
-            onClick={() => onMarkRead(notification.id)}
-            aria-label={`Mark as read: ${notification.title}`}
-            title="Mark as read"
-            className="inline-flex items-center justify-center w-11 h-11 rounded-spc-admin-sm
-              text-spc-body hover:bg-spc-surface-2 hover:text-spc-ink transition-colors"
-          >
-            <CheckCircle size={17} aria-hidden="true" />
-          </button>
-        )}
-      </div>
+      {unread && (
+        <button
+          type="button"
+          onClick={() => onMarkRead(notification.id)}
+          aria-label={`Mark as read: ${notification.title}`}
+          title="Mark as read"
+          className="inline-flex items-center justify-center w-11 h-11 rounded-spc-admin-sm
+            text-spc-body hover:bg-spc-surface-2 hover:text-spc-ink transition-colors flex-shrink-0"
+        >
+          <CheckCircle size={17} aria-hidden="true" />
+        </button>
+      )}
     </div>
   );
 }
@@ -225,6 +265,7 @@ export default function DashboardBody(p) {
                   notification={notification}
                   onMarkRead={p.onMarkRead}
                   timeAgo={p.timeAgo}
+                  layout={layout}
                 />
               ))}
             </div>

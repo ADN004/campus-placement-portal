@@ -17,6 +17,7 @@ that a red run means something.
 | `scripts/check-export-filters.mjs` | An export that ignores the filters on screen |
 | `scripts/check-branch-matching.mjs` | A branch compared as a raw string instead of through the normaliser |
 | `scripts/check-silent-failures.mjs` | A request whose error is dropped on the floor |
+| `scripts/check-decimal-comparisons.mjs` | A DECIMAL column ordered as a string — see below |
 
 Each of the three scripts was written after the bug it looks for had already
 shipped. They read files only — no database, no build, no network — so they run
@@ -100,6 +101,50 @@ If the frontend lockfile is ever committed, CI can switch to `npm ci` with
 `npm run build` is Vite alone and no lint plugin is registered in
 `vite.config.js`. Lint runs in your editor and in CI, never in the build, so a
 lint failure cannot stop a deploy.
+
+## DECIMAL is a string, INTEGER is a number
+
+node-postgres returns `DECIMAL` and `NUMERIC` as **strings**, and `INTEGER` as a
+number. It is right to: a Postgres `NUMERIC` can hold values no JavaScript
+number represents exactly, so the driver will not guess.
+
+The difference is invisible at the call site. `student.programme_cgpa` and
+`student.backlogs_sem1` look alike and behave differently, and comparing two
+strings with `<` or `>` compares them by code unit:
+
+```js
+"10.00" < "9.00"   // true — it stops at "1" vs "9"
+"9.50"  < "10.00"  // false — same reason, the other way round
+```
+
+`studentCgpa < requirements.min_cgpa` shipped in three places and was wrong in
+both directions at once: every student holding a perfect **10.00 was refused by
+every job asking for 2.00 to 9.99**, and a student on 9.50 was **admitted to a
+job demanding 10.00**. The refusal screen printed "YOURS 10.00, REQUIRED 9.00"
+underneath, because the display read the same two values and never compared
+them.
+
+It only breaks when **both** sides are strings. A string against a number
+coerces to numeric and is accidentally right — which is why the backlog checks
+sitting beside it (`INTEGER`, so numbers) never showed the fault, and why it
+survived in three places.
+
+**Compare through `belowMinimum()` or `asNumber()` from
+`backend/utils/jobEligibility.js`**, never with a bare `<`.
+
+Which columns are which, as of the schema today:
+
+- **DECIMAL (strings):** `programme_cgpa`, `cgpa_sem1..6`, `jobs.min_cgpa`,
+  `weight_kg`, `min_weight`, `max_weight`
+- **INTEGER (numbers):** `backlogs_sem1..6`, `max_backlogs`, `height_cm`,
+  `min_height`, `max_height`
+
+SQL comparisons are unaffected — Postgres orders a `DECIMAL` column numerically
+whatever the driver does with the result afterwards. The checker skips lines
+carrying a bound parameter or a SQL keyword for that reason.
+
+If a new DECIMAL column is added, add it to `DECIMAL_FIELDS` in
+`scripts/check-decimal-comparisons.mjs`.
 
 ## Checks that are not in CI
 

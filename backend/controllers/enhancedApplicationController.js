@@ -9,7 +9,7 @@
  */
 
 import { query, transaction } from '../config/database.js';
-import { dobCutoffFailure, genderFailure } from '../utils/jobEligibility.js';
+import { dobCutoffFailure, genderFailure, belowMinimum } from '../utils/jobEligibility.js';
 
 import { normalizeBranch } from '../utils/branchName.js';
 
@@ -255,7 +255,7 @@ export const checkApplicationReadiness = async (req, res) => {
 
     // Validate Tier 1 requirements using programme_cgpa instead of cgpa
     const studentCgpa = student.programme_cgpa || student.cgpa;
-    if (requirements.min_cgpa && studentCgpa < requirements.min_cgpa) {
+    if (belowMinimum(studentCgpa, requirements.min_cgpa)) {
       missingFields.push({
         field: 'programme_cgpa',
         section: 'core',
@@ -851,7 +851,7 @@ export const submitEnhancedApplication = async (req, res) => {
       if (requirements) {
         // Validate requirements using programme_cgpa
         const studentCgpa = student.programme_cgpa || student.cgpa;
-        if (requirements.min_cgpa && studentCgpa < requirements.min_cgpa) {
+        if (belowMinimum(studentCgpa, requirements.min_cgpa)) {
           meetsRequirements = false;
           validationErrors.push(`CGPA below minimum: ${requirements.min_cgpa}`);
         }

@@ -80,3 +80,6 @@ jobs:
 
       - name: No request drops its error on the floor
         run: node scripts/check-silent-failures.mjs
+
+      - name: Every DECIMAL is compared as a number, not as a string
+        run: node scripts/check-decimal-comparisons.mjs

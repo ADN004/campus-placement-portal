@@ -10,6 +10,7 @@
 
 import { query } from '../config/database.js';
 import { normalizeBranch } from '../utils/branchName.js';
+import { belowMinimum } from '../utils/jobEligibility.js';
 
 /**
  * Helper function to get student ID from user ID
@@ -824,7 +825,7 @@ async function validateStudentEligibility(student, requirements) {
   let eligible = true;
 
   // Check CGPA
-  if (requirements.min_cgpa && student.programme_cgpa < requirements.min_cgpa) {
+  if (belowMinimum(student.programme_cgpa, requirements.min_cgpa)) {
     eligible = false;
     missingFields.push({
       field: 'programme_cgpa',

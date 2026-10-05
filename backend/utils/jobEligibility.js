@@ -218,3 +218,52 @@ export const normalizeDobWindow = (body) => {
   }
   return { before: before.value, after: after.value };
 };
+
+/* ------------------------------------------------------------------ numbers */
+
+/**
+ * A number from whatever the driver handed back.
+ *
+ * node-postgres returns DECIMAL and NUMERIC as strings, deliberately: a
+ * Postgres NUMERIC can hold values no JavaScript number can represent exactly,
+ * so the driver refuses to guess. INTEGER comes back as a number. The schema
+ * mixes the two freely -- programme_cgpa, cgpa_sem1..6, jobs.min_cgpa,
+ * weight_kg, min_weight and max_weight are DECIMAL and therefore strings;
+ * backlogs_sem1..6, max_backlogs, height_cm, min_height and max_height are
+ * INTEGER and therefore numbers.
+ *
+ * Returns null for anything unusable, so callers can tell "no value" from
+ * "zero" -- which matters when zero is a legitimate CGPA and a legitimate
+ * backlog count.
+ */
+export const asNumber = (value) => {
+  if (value === null || value === undefined || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+};
+
+/**
+ * Is the student under the bar?
+ *
+ * This exists because `studentCgpa < requirements.min_cgpa` compared two
+ * strings. JavaScript compares strings by code unit, so "10.00" < "9.00" is
+ * true -- the comparison stops at "1" against "9" and never reaches the rest.
+ * A student with a perfect 10 was refused by every job asking for 9 or more,
+ * and the refusal screen printed "YOURS 10.00, REQUIRED 9.00" underneath,
+ * because the display read the same two values and did not compare them.
+ *
+ * It only breaks when BOTH sides are strings. Mixing a string and a number
+ * coerces to numeric and happens to be right, which is why the backlog checks
+ * next to it -- INTEGER columns, so numbers -- never showed the fault, and why
+ * this survived in three places for as long as it did.
+ *
+ * No bar set means nothing to fail. A bar set with no value to measure fails,
+ * which is what the longhand did: null < "9.00" coerced null to 0.
+ */
+export const belowMinimum = (studentValue, minimum) => {
+  const bar = asNumber(minimum);
+  if (bar === null) return false;
+  const have = asNumber(studentValue);
+  if (have === null) return true;
+  return have < bar;
+};

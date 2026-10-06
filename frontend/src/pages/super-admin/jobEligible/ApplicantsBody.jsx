@@ -177,6 +177,7 @@ export default function ApplicantsBody(p) {
           students={p.placedApplicants}
           page={placedPage}
           caption="Applicants who are already placed at another company."
+          showPlacedAt
           emptyText="None."
           selectedIds={[]}
           onView={p.onViewStudent}

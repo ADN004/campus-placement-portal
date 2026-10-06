@@ -4,6 +4,7 @@ import {
   SecondaryButton, PrimaryButton, formatDate,
 } from '../../../components/admin/AdminUI';
 import ExportStagePicker from '../../../components/ExportStagePicker';
+import { PlacementsCell, placementsOf } from '../../../components/PlacementsModal';
 
 /**
  * The parts of the super admin's job applicants page.
@@ -288,8 +289,16 @@ export function BulkBar({ count, onStatus, onNotify, onRevert, onClear, disabled
 
 const COLUMNS = ['PRN', 'Name', 'Email', 'Mobile', 'College', 'Branch', 'CGPA', 'Backlogs', 'DOB', 'Status'];
 
+/*
+ * Only the already-placed section asks for this one, so it is appended
+ * rather than living in COLUMNS: every other list would carry a column that
+ * is empty by definition, on a table already wide enough to scroll.
+ */
+const PLACED_COLUMN = 'Placed at';
+
 export function ApplicantTable({
   students, caption, selectable, selectedIds, onSelect, onSelectAll, allSelected, onView,
+  showPlacedAt = false,
 }) {
   return (
     <Panel className="overflow-hidden">
@@ -309,7 +318,7 @@ export function ApplicantTable({
                   />
                 </th>
               )}
-              {COLUMNS.map((heading) => (
+              {(showPlacedAt ? [...COLUMNS, PLACED_COLUMN] : COLUMNS).map((heading) => (
                 <th
                   key={heading}
                   scope="col"
@@ -354,6 +363,11 @@ export function ApplicantTable({
                   {formatDate(student.date_of_birth)}
                 </td>
                 <td className="px-4 py-3"><ApplicationStatus status={student.application_status} /></td>
+                {showPlacedAt && (
+                  <td className="px-4 py-3 text-spc-xs">
+                    <PlacementsCell student={student} variant="admin" />
+                  </td>
+                )}
                 <td className="px-4 py-3 text-right">
                   <button
                     type="button"
@@ -375,7 +389,7 @@ export function ApplicantTable({
   );
 }
 
-export function ApplicantList({ students, selectable, selectedIds, onSelect, onView }) {
+export function ApplicantList({ students, selectable, selectedIds, onSelect, onView, showPlacedAt = false }) {
   return (
     <Panel className="overflow-hidden">
       <ul className="divide-y divide-spc-line">
@@ -403,6 +417,14 @@ export function ApplicantList({ students, selectable, selectedIds, onSelect, onV
                 <p className="text-spc-xs text-spc-body mt-0.5 tabular-nums">
                   CGPA {student.cgpa ?? '—'} · {student.backlog_count ?? 0} backlogs
                 </p>
+                {/* A div, not a p -- see the officer twin: the cell renders
+                    a dialog beside the trigger, and a div inside a p is closed
+                    early by the browser. */}
+                {showPlacedAt && placementsOf(student).length > 0 && (
+                  <div className="text-spc-xs text-spc-body mt-1">
+                    Placed at <PlacementsCell student={student} variant="admin" />
+                  </div>
+                )}
               </div>
               <div className="flex flex-col items-end gap-1 flex-shrink-0">
                 <ApplicationStatus status={student.application_status} />
@@ -428,6 +450,7 @@ export function ApplicantList({ students, selectable, selectedIds, onSelect, onV
 export function ApplicantSection({
   layout, title, students, page, caption, emptyText, selectable, selectedIds,
   onSelect, onSelectAll, allSelected, onView, Pager, loading = false,
+  showPlacedAt = false,
 }) {
   const Rows = layout === 'desktop' ? ApplicantTable : ApplicantList;
   return (
@@ -456,6 +479,7 @@ export function ApplicantSection({
             onSelectAll={onSelectAll}
             allSelected={allSelected}
             onView={onView}
+            showPlacedAt={showPlacedAt}
           />
           {Pager}
         </>

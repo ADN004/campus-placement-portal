@@ -6,6 +6,7 @@ import {
 } from '../../../components/officer/OfficerUI';
 import RowActions from '../../../components/officer/RowActions';
 import backlogRequirementText from '../../../utils/backlogRequirement';
+import { PlacementsCell, placementsOf } from '../../../components/PlacementsModal';
 
 /**
  * Pieces shared by the three JobEligibleStudents presenters.
@@ -580,7 +581,11 @@ export function ApplicantTable({
                   <BacklogFigure count={student.backlog_count} />
                 </Td>
                 <Td><StatusBadge status={student.application_status} variant="officer" /></Td>
-                {showPlacedAt && <Td muted>{student.placed_company || '–'}</Td>}
+                {showPlacedAt && (
+                  <td className="px-3 py-2 text-spc-xs">
+                    <PlacementsCell student={student} variant="officer" />
+                  </td>
+                )}
                 <td
                   className={`sticky right-0 z-10 px-3 py-2 border-l border-spc-line-strong
                     ${checked ? 'bg-spc-selected' : 'bg-spc-surface group-hover:bg-spc-surface-2'}`}
@@ -665,11 +670,15 @@ export function ApplicantList({
                   <BacklogFigure count={student.backlog_count} /> backlogs
                 </p>
 
-                {showPlacedAt && student.placed_company && (
-                  <p className="text-xs text-spc-muted mt-1 break-words">
+                {/* A div, not a p: PlacementsCell renders its dialog as a
+                    sibling of the trigger, and a div inside a p makes the
+                    browser close the paragraph early -- which only shows in the
+                    rendered page, never in the source. */}
+                {showPlacedAt && placementsOf(student).length > 0 && (
+                  <div className="text-xs text-spc-muted mt-1">
                     Already placed at{' '}
-                    <span className="font-bold text-spc-ink">{student.placed_company}</span>
-                  </p>
+                    <PlacementsCell student={student} variant="officer" />
+                  </div>
                 )}
               </div>
             </div>
